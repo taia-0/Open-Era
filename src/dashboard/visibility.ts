@@ -241,8 +241,10 @@ export function eventPayloadVisible(
     return world.conversationThreads[threadId]?.participantIds.includes(commander.id) ?? false;
   }
 
-  if (event.actorId === commander.id || event.targetId === commander.id) return true;
+  // The commander's own actions are entirely theirs.
+  if (event.actorId === commander.id) return true;
 
+  // Orders are knowable within the chain of command that issued them.
   if (event.type.startsWith("standing-order-")) {
     const orderId = asString(asRecord(event.data)?.orderId);
     const recipient = event.targetId ? world.characters[event.targetId] : undefined;
@@ -252,17 +254,21 @@ export function eventPayloadVisible(
     if (order?.issuerId === commander.id) return true;
   }
 
-  const ownFactionId = commander.factionId;
-  if (ownFactionId !== null) {
-    const actor = event.actorId ? world.characters[event.actorId] : undefined;
-    if (actor?.factionId === ownFactionId) return true;
-    const target = event.targetId ? world.characters[event.targetId] : undefined;
-    if (target?.factionId === ownFactionId) return true;
-    const settlement = event.settlementId ? world.settlements[event.settlementId] : undefined;
-    if (settlement?.factionId === ownFactionId) return true;
-  }
+  // Anything else attributed to a character belongs to that character. Motives,
+  // beliefs, and logistics stay private even for faction peers, because the
+  // character projection withholds the same fields and a feed that revealed them
+  // would be a back door around it.
+  //
+  // Note what this deliberately does not depend on: where the event happened.
+  // Owning the ground a decision was taken on grants no insight into the decision
+  // itself. Keying on location instead let a player gain omniscience over every
+  // visitor to a port simply by capturing it.
+  if (event.actorId !== undefined) return false;
 
-  return false;
+  // Unattributed events are settlement or world events, where control of the
+  // ground legitimately decides what the commander's administration is told.
+  if (commander.factionId === null || event.settlementId === undefined) return false;
+  return world.settlements[event.settlementId]?.factionId === commander.factionId;
 }
 
 /**

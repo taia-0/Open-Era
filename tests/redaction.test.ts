@@ -347,3 +347,98 @@ test("projecting the dashboard state does not mutate the world", () => {
     "redaction must be a read-only projection, not a change to authoritative state",
   );
 });
+
+test("owning the ground a decision was taken on grants no insight into the decision", () => {
+  const { world, commander } = fixture();
+  const ownedSettlement = Object.values(world.settlements).find(
+    (settlement) => settlement.factionId === commander.factionId,
+  );
+  assert.ok(ownedSettlement, "the scenario must contain a settlement the commander's faction owns");
+
+  const visitor = rival(world, commander);
+  visitor.locationId = ownedSettlement.id;
+  visitor.travel = null;
+
+  // Control of the ground makes their condition observable...
+  assert.equal(characterVisibilityTier(world, commander, visitor), "co-located");
+
+  // ...but the decision they take there is still theirs, not the commander's.
+  const decision: SimEvent = {
+    sequence: 1,
+    tick: 0,
+    type: "decision-made",
+    actorId: visitor.id,
+    settlementId: ownedSettlement.id,
+    data: {
+      activeLongTermGoalId: "character-29:material-security",
+      planIntent: "reinforce the target before the commander arrives",
+      chosen: { action: "travel", score: 66.12, reason: "supports plan" },
+      candidates: [{ action: "raid", score: 61.4 }],
+    },
+  };
+
+  assert.equal(
+    eventPayloadVisible(world, commander, decision),
+    false,
+    "capturing a port must not reveal the private motives of everyone standing in it",
+  );
+  const projected = projectEvent(world, commander, decision, "rich summary");
+  assert.equal(projected.data, null);
+  assert.equal(projected.payloadWithheld, true);
+  assert.ok(
+    !String(projected.summary).includes("reinforce"),
+    "the neutralised summary must not carry the withheld intent",
+  );
+});
+
+test("a faction peer's decision payload is withheld just as their plan field is", () => {
+  const { world, commander } = fixture();
+  const factionPeer = peer(world, commander);
+  makeUnobserved(factionPeer);
+
+  // The character projection withholds a peer's motive...
+  assert.equal(project(world, commander, factionPeer).plan, null);
+
+  // ...so the event feed must not hand the same information back.
+  const decision: SimEvent = {
+    sequence: 1,
+    tick: 0,
+    type: "decision-made",
+    actorId: factionPeer.id,
+    data: { planIntent: "quietly reposition", activeLongTermGoalId: "goal-secret" },
+  };
+  assert.equal(
+    eventPayloadVisible(world, commander, decision),
+    false,
+    "the feed must never be more permissive than the character projection",
+  );
+});
+
+test("unattributed settlement events still follow control of the ground", () => {
+  const { world, commander } = fixture();
+  const owned = Object.values(world.settlements).find(
+    (settlement) => settlement.factionId === commander.factionId,
+  );
+  const foreign = Object.values(world.settlements).find(
+    (settlement) => settlement.factionId !== commander.factionId,
+  );
+  assert.ok(owned, "expected an owned settlement");
+  assert.ok(foreign, "expected a foreign settlement");
+
+  const production: SimEvent = {
+    sequence: 1,
+    tick: 0,
+    type: "settlement-produced",
+    settlementId: owned.id,
+    data: { focus: "provisions", stocks: { provisions: 12 } },
+  };
+  assert.equal(
+    eventPayloadVisible(world, commander, production),
+    true,
+    "the commander's own settlement administration is theirs to read",
+  );
+  assert.deepEqual(projectEvent(world, commander, production, "rich").data, production.data);
+
+  const foreignProduction: SimEvent = { ...production, sequence: 2, settlementId: foreign.id };
+  assert.equal(eventPayloadVisible(world, commander, foreignProduction), false);
+});
