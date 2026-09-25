@@ -30,10 +30,9 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Branch in flight:** `feature/phase-0-baseline`, off `main` at `1b020c5`.
-- **Pull request:** [#1](https://github.com/taia-0/Open-Era/pull/1), open against `main`, checks passing.
-- **Last verified commit:** `82c9bfc`. 68 tests pass, typecheck is clean, and the milestone gate passes locally on Node 24. An independent adaptive session at this commit completed the campaign objective with no foreign state reachable.
-- **Gate status:** passing locally and on GitHub Actions. Golden hashes lock pre-redaction behavior, still pass unchanged, and reproduce on the runner as well as locally, so the flagged ICU sensitivity did not materialize on the CI runtime.
+- **Baseline:** `main` carries the Phase 0 baseline as merge commit `1386e00`, from [pull request 1](https://github.com/taia-0/Open-Era/pull/1), approved by the owner and merged 2026-09-25.
+- **Last verified commit:** `1386e00`. 68 tests pass, typecheck is clean, and the gate passes locally and on GitHub Actions for `main` itself.
+- **Gate status:** passing. Golden hashes lock pre-redaction behavior, still pass unchanged, and reproduce on the runner as well as locally, so the flagged ICU sensitivity has not materialized on the CI runtime.
 - **Headline risk:** the event feed retains only the most recent 100 events with no pagination, so a player cannot audit its own history mid-campaign. Two sessions independently reported no legitimate way to estimate rival strength before committing.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. Node 24 is installed keg-only at `/opt/homebrew/opt/node@24/bin`; the global `node` remains 22.
 
@@ -52,7 +51,8 @@ Git remains the complete history. This file exists for three things git does not
 | One `issue-order` can produce two standing orders | Defect | Unassigned | Open, needs a decided intended identity |
 | `captureRisk` reads `low` through won battles, then capture arrives by claiming | Wording | Unassigned | Open |
 | `character.id.slice(-2)` parses a numeric cadence, which breaks past two-digit ids | Latent defect | Unassigned | Confirmed at `src/sim/engine.ts:972`; harmless below 100 characters |
-| `localeCompare` sorts precede RNG draws, so ICU changes between Node builds could alter history | Latent risk | Unassigned | Dormant; identical hashes on Node 22.23.2, Node 24.21.0, and GitHub's `ubuntu-latest` runner, so it did not materialize on CI. Still a risk across future ICU upgrades |
+| `localeCompare` sorts precede RNG draws, so ICU changes between Node builds could alter history | Latent risk | Unassigned | Dormant; identical hashes on Node 22.23.2, Node 24.21.0, and GitHub's `ubuntu-latest` runner. Recheck after 2026-10-19, when `ubuntu-latest` migrates to Ubuntu 26 and its ICU may change |
+| Pinned GitHub Actions target Node 20 and are forced onto Node 24, with a deprecation warning on every run | Hygiene | Unassigned | Open; bump to the current action majors when convenient |
 | `engine.ts` decomposition, scenario data-loading, per-tick indexing | Refactor | Unassigned | Deferred until golden hashes and CI existed; both now do |
 | Deeper personality branching, faction offices, settlement management, debt enforcement, rescue, inheritance, multiplayer auth | Deferred scope | ChatGPT partner | Tracked in [README](README.md#current-boundary) |
 
@@ -105,6 +105,15 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
 - Persistent captivity, guaranteed-but-dangerous escape, bounded release terms, gradual troop return, and accelerated time that pauses at captivity transitions.
 
 ## Entries
+
+### 2026-09-25 — Phase 0 baseline merged into main
+- **Agent:** Cursor | **Branch:** `main` | **Commits:** `1386e00`
+- **Type:** Release
+- **Changed:** [Pull request 1](https://github.com/taia-0/Open-Era/pull/1) merged into `main` as a merge commit, keeping the eight milestone commits intact rather than squashing them. `main` now carries tiered redaction, golden hashes, the first typecheck, the Node 24 pin, the CI gate, and this log.
+- **Why:** The branch's hypothesis was validated by an independent session, the gate passed on a clean checkout at the exact candidate, and the owner explicitly approved that candidate.
+- **Verified:** Before merging, the pull request head matched both the local commit and the CI-validated SHA, merge state was clean, the diff carried no generated state, and the 22 changed files were source, tests, and documentation only. After merging, 68 tests and a clean typecheck pass on `main`, and the gate passes on the runner for `main` itself.
+- **Left open:** Two runner annotations: the pinned actions target Node 20 and are forced onto Node 24, and `ubuntu-latest` migrates to Ubuntu 26 from 2026-10-19, which could shift ICU and therefore the golden hashes.
+- **Links:** [pull request 1](https://github.com/taia-0/Open-Era/pull/1), [playtest 002](docs/playtests/hidden-state-visibility-002.md)
 
 ### 2026-09-25 — Redaction fix independently validated
 - **Agent:** Cursor | **Branch:** `feature/phase-0-baseline` | **Commits:** none (verification only)
