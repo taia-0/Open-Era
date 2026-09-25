@@ -405,6 +405,12 @@
         battleId: battleId
       });
     }
+    function escapeCaptivity() {
+      mutate("/api/commands", {
+        playerId: world.player.id,
+        type: "escape-captivity"
+      });
+    }
     function issueOrder() {
       var recipient = byId("order-recipient").value;
       var directive = byId("order-directive").value;
@@ -644,6 +650,13 @@
     }
     function commandPanel() {
       var c = commander();
+      var captivity = world.captivity && world.captivity.active;
+      if (captivity) {
+        return '<h3>Captivity</h3><div class="combat-card battle-live"><div class="combat-head"><strong>' + esc(captivity.settlementName) + '</strong><span>' + esc(captivity.captorName) + '</span></div>' +
+          '<div class="subtle">Held ' + fmt(captivity.heldDays) + ' days · mandatory bounded release terms in ' + fmt(captivity.daysUntilMandatoryRelease) + ' days · ' + captivity.scatteredTroops.count + ' surviving troops scattered</div>' +
+          '<div class="combat-factor">Escape always succeeds, but causes a serious wound and carries a small risk of a permanent physical scar. Messaging remains available while captive.</div>' +
+          '<div class="actions"><button class="action danger" type="button" data-escape-captivity="true">Escape captivity</button></div></div>';
+      }
       var battle = world.combat && world.combat.active;
       if (battle) {
         var phase = battle.lastPhase;
@@ -684,10 +697,13 @@
       byId("inspector").querySelectorAll("[data-retreat-battle]").forEach(function (button) {
         button.addEventListener("click", function () { retreatBattle(button.dataset.retreatBattle); });
       });
+      byId("inspector").querySelectorAll("[data-escape-captivity]").forEach(function (button) {
+        button.addEventListener("click", escapeCaptivity);
+      });
       byId("inspector").querySelectorAll("[data-continue-battle]").forEach(function (button) {
         button.addEventListener("click", function () { mutate("/api/advance", { ticks: 1 }); });
       });
-      if (world.combat && world.combat.active) return;
+      if ((world.combat && world.combat.active) || (world.captivity && world.captivity.active)) return;
       byId("order-directive").addEventListener("change", updateOrderTargets);
       byId("issue-order").addEventListener("click", issueOrder);
       updateOrderTargets();
@@ -716,7 +732,7 @@
       byId("condition").innerHTML =
         meter("Health", c.health, c.health < 45) +
         meter("Morale", c.morale, c.morale < 40) +
-        '<div><span class="subtle">Travel</span><strong>' + esc(c.travel ? c.travel.remainingTicks + " ticks" : "Ready") + "</strong></div>";
+        '<div><span class="subtle">Status</span><strong>' + esc(c.captivity ? "Captive" : c.travel ? c.travel.remainingTicks + " travel ticks" : c.troopRecovery ? c.troopRecovery.remaining + " troops returning" : "Ready") + "</strong></div>";
       byId("pending").textContent = world.pendingCommands.length
         ? world.pendingCommands.length + " command(s) queued"
         : "No commands waiting";
@@ -743,6 +759,8 @@
             ? '<button class="brief-action" type="button" data-brief-claim="true">Review surrender</button>'
             : item.action === "review-battle"
               ? '<button class="brief-action" type="button" data-brief-battle="' + esc(item.settlementId) + '">Review battle</button>'
+              : item.action === "review-captivity"
+                ? '<button class="brief-action" type="button" data-brief-captivity="true">Review captivity</button>'
               : "";
         var acknowledge = item.acknowledgeable
           ? '<button class="brief-action" type="button" data-brief-ack="' + esc(item.id) + '" data-brief-through="' + esc(item.throughSequence == null ? "" : item.throughSequence) + '">Acknowledge</button>'
@@ -760,6 +778,9 @@
       });
       byId("events").querySelectorAll("[data-brief-battle]").forEach(function (button) {
         button.addEventListener("click", function () { selectSettlement(button.dataset.briefBattle); });
+      });
+      byId("events").querySelectorAll("[data-brief-captivity]").forEach(function (button) {
+        button.addEventListener("click", function () { selectCharacter(world.commanderId); });
       });
       byId("events").querySelectorAll("[data-brief-ack]").forEach(function (button) {
         button.addEventListener("click", function () {

@@ -46,6 +46,16 @@ function eventSummary(world: WorldState, event: SimEvent): string {
       return `${actor} completed phase ${event.data.phase} at ${settlement}`;
     case "battle-retreated":
       return `${actor} retreated from ${settlement} toward ${world.settlements[String(event.data.retreatDestinationId)]?.name ?? "open waters"}`;
+    case "post-defeat-withdrawal-started":
+      return `${actor} escaped defeat at ${settlement} and withdrew toward ${target ?? "open waters"}`;
+    case "character-captured":
+      return `${actor} was captured at ${settlement} after ${String(event.data.cause).replaceAll("-", " ")}`;
+    case "captivity-escaped":
+      return `${actor} escaped captivity at ${settlement} and suffered ${event.data.injury} health damage`;
+    case "captivity-released":
+      return `${actor} was released from ${settlement} under bounded terms`;
+    case "scattered-troops-returned":
+      return `${event.data.returning} scattered troops returned to ${actor}`;
     case "settlement-claimed":
       return `${actor} accepted ${settlement}'s surrender and established a claim`;
     case "arrived":
@@ -111,6 +121,23 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     });
   }
 
+  if (commander.captivity) {
+    const daysRemaining = Math.max(
+      0,
+      (commander.captivity.mandatoryReleaseTick - world.tick) / world.ticksPerDay,
+    );
+    addItem({
+      id: `captivity:${commander.captivity.capturedTick}`,
+      severity: "action",
+      actionRequired: true,
+      title: "Character held captive",
+      summary: `Held at ${world.settlements[commander.captivity.settlementId]?.name ?? commander.captivity.settlementId}. Escape is guaranteed but dangerous; bounded release terms become mandatory in ${round(daysRemaining, 1)} days.`,
+      day: round(world.tick / world.ticksPerDay, 2),
+      settlementId: commander.captivity.settlementId,
+      action: "review-captivity",
+    });
+  }
+
   for (const character of Object.values(world.characters)) {
     for (const order of character.standingOrders) {
       if (order.issuerId !== commanderId || order.status !== "awaiting-confirmation") continue;
@@ -172,6 +199,10 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     "standing-order-completed",
     "standing-order-expired",
     "battle-resolved",
+    "character-captured",
+    "captivity-escaped",
+    "captivity-released",
+    "scattered-troops-returned",
     "settlement-shortage",
     "settlement-claimed",
   ]);
@@ -259,6 +290,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
   const player = Object.values(world.players)[0];
   const commander = world.characters[player.characterId];
   const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === commander.id) ?? null;
+  const captivity = commander.captivity;
   return {
     tick: world.tick,
     day: round(world.tick / world.ticksPerDay, 2),
@@ -274,6 +306,18 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
           ? world.settlements[activeBattle.retreatDestinationId]?.name ?? "Open waters"
           : "Open waters",
         canRetreat: activeBattle.phase > 0 && activeBattle.phase < activeBattle.totalPhases,
+      } : null,
+    },
+    captivity: {
+      active: captivity ? {
+        ...captivity,
+        settlementName: world.settlements[captivity.settlementId]?.name ?? captivity.settlementId,
+        captorName: captivity.captorFactionId
+          ? world.factions[captivity.captorFactionId]?.name ?? captivity.captorFactionId
+          : "Unknown captor",
+        heldDays: round((world.tick - captivity.capturedTick) / world.ticksPerDay, 2),
+        daysUntilMandatoryRelease: round(Math.max(0, captivity.mandatoryReleaseTick - world.tick) / world.ticksPerDay, 2),
+        canEscape: true,
       } : null,
     },
     briefing: checkInBriefing(world, commander.id, events),
@@ -360,6 +404,10 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
         morale: round(character.morale, 1),
         sailors: character.sailors,
         troops: character.troops,
+        captivity: character.captivity,
+        troopRecovery: character.troopRecovery,
+        scars: character.scars,
+        debts: character.debts,
         attributes: character.attributes,
         skills: character.skills,
         personality: character.personality,

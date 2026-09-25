@@ -146,7 +146,14 @@ function conversationTraces(world: WorldState, events: SimEvent[]): string {
 
 function combatTraces(world: WorldState, events: SimEvent[]): string {
   return events
-    .filter((event) => event.type.startsWith("battle-") || event.type === "settlement-claimed")
+    .filter((event) =>
+      event.type.startsWith("battle-") ||
+      event.type.startsWith("captivity-") ||
+      event.type === "character-captured" ||
+      event.type === "scattered-troops-returned" ||
+      event.type === "post-defeat-withdrawal-started" ||
+      event.type === "settlement-claimed"
+    )
     .map((event) => JSON.stringify({
       sequence: event.sequence,
       tick: event.tick,
@@ -203,6 +210,20 @@ function eventStory(world: WorldState, event: SimEvent): string | null {
       : "open waters";
     return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** retreated from **${settlement}** toward **${destination}** during phase ${event.data.phase}, losing ${event.data.pursuitLosses} troops in withdrawal.`;
   }
+  if (event.type === "character-captured") {
+    return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** was captured at **${settlement}** after ${String(event.data.cause).replaceAll("-", " ")}; their surviving troops scattered.`;
+  }
+  if (event.type === "captivity-escaped") {
+    const scar = event.data.scar as { attribute: string; penalty: number } | null;
+    return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** escaped captivity at **${settlement}**, suffering ${event.data.injury} health damage${scar ? ` and a permanent -${scar.penalty} ${scar.attribute} scar` : ""}.`;
+  }
+  if (event.type === "captivity-released") {
+    const terms = event.data.terms as { moneyPaid: number; debtValue: number };
+    return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** was released from **${settlement}** under mandatory terms: ${terms.moneyPaid} paid and ${terms.debtValue} recorded as debt.`;
+  }
+  if (event.type === "scattered-troops-returned") {
+    return `- Day ${round(event.tick / world.ticksPerDay, 1)}: ${event.data.returning} scattered troops returned to **${actor}**${event.data.completed ? ", completing the recovery" : ""}.`;
+  }
   if (event.type === "settlement-claimed") {
     const previousFaction = event.data.previousFactionId
       ? world.factions[event.data.previousFactionId as string]?.name ?? event.data.previousFactionId
@@ -258,6 +279,11 @@ function summaryMarkdown(world: WorldState, events: SimEvent[], snapshotCount: n
     "battle-started",
     "battle-retreated",
     "battle-resolved",
+    "character-captured",
+    "captivity-escaped",
+    "captivity-released",
+    "scattered-troops-returned",
+    "post-defeat-withdrawal-started",
     "settlement-claimed",
     "goal-evolved",
     "relationship-changed",
@@ -287,6 +313,9 @@ function summaryMarkdown(world: WorldState, events: SimEvent[], snapshotCount: n
     .join("\n");
   const battles = events.filter((event) => event.type === "battle-resolved").length;
   const retreats = events.filter((event) => event.type === "battle-retreated").length;
+  const captures = events.filter((event) => event.type === "character-captured").length;
+  const escapes = events.filter((event) => event.type === "captivity-escaped").length;
+  const releases = events.filter((event) => event.type === "captivity-released").length;
   const journeys = events.filter((event) => event.type === "travel-started").length;
   const trades = events.filter((event) => event.type === "market-trade").length;
   const planReviews = events.filter((event) => event.type === "plan-reconsidered");
@@ -334,7 +363,8 @@ The **${world.scenario}** scenario reached tick ${world.tick} (day ${round(world
 
 - ${autonomousCharacters} autonomous characters and ${humanCharacters} human-controlled character
 - ${events.length} persisted events across ${snapshotCount} snapshots
-- ${journeys} journeys, ${trades} market trades, ${battles} completed battles, and ${retreats} retreats
+- ${journeys} journeys, ${trades} market trades, ${battles} completed battles, and ${retreats} successful retreats
+- ${captures} captures, ${escapes} dangerous escapes, and ${releases} mandatory releases
 - ${Object.keys(world.activeBattles).length} major battles currently active
 - ${acceptedCommands} player commands accepted and ${resolvedCommands} resolved
 - ${sentMessages} player messages, ${autonomousReplies} autonomous replies, and ${pendingReplies} replies pending

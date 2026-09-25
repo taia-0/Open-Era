@@ -16,6 +16,7 @@ This branch contains the first **headless world prototype**. It is intentionally
 - Physical travel between islands and merchant arbitrage
 - Character-plus-troop combat against settlement garrisons, with quick skirmishes and persistent three-phase major battles
 - Strategy-scaled combat forecasts covering outcome, losses, force balance, withdrawal, and capture exposure
+- Persistent captivity after failed withdrawals or major defeats, with dangerous guaranteed escape, bounded fourteen-day release terms, and gradual troop return
 - Player retreat decisions at major-battle phase boundaries; accelerated time pauses for each decision
 - Surrender thresholds, deliberate settlement claims, and personal conqueror ownership
 - Persistent personality-rooted goals and structured multi-tick plans
@@ -55,7 +56,7 @@ The default run advances twelve in-world days and writes:
 - `simulation-output/latest/decision-traces.jsonl` — scored alternatives behind every decision
 - `simulation-output/latest/agency-traces.jsonl` — plan reviews, beliefs, evolving goals, and relationships
 - `simulation-output/latest/conversation-traces.jsonl` — threads, messages, reply schedules, response tags, and discarded action proposals
-- `simulation-output/latest/combat-traces.jsonl` — starting forecasts, phase results, retreats, and final battle outcomes
+- `simulation-output/latest/combat-traces.jsonl` — forecasts, battle phases, retreats, captures, releases, escapes, and troop recovery
 - `simulation-output/latest/metrics.csv` — faction power, treasury, and resource trends
 - `simulation-output/latest/final-state.json` — complete inspectable world state
 - `.open-era/world.sqlite` — durable event log and snapshots
@@ -129,4 +130,4 @@ The simulation files are intended to survive into the production server. The CLI
 
 ## Current boundary
 
-This is a behavioral probe, not a complete game. The dialogue adapter currently uses deterministic prototype replies rather than a paid LLM. Deeper personality branching, faction offices, settlement management, debt, captivity, lost technology, inner strength, inheritance, multiplayer authentication, and production networking are still deferred. The current dashboard is deliberately local and the player begins as a World Government commander so command acceptance, refusal, and asynchronous communication can be exercised immediately.
+This is a behavioral probe, not a complete game. The dialogue adapter currently uses deterministic prototype replies rather than a paid LLM. Deeper personality branching, faction offices, settlement management, full debt enforcement and negotiation, rescue missions, lost technology, inner strength, inheritance, multiplayer authentication, and production networking are still deferred. The current dashboard is deliberately local and the player begins as a World Government commander so command acceptance, refusal, asynchronous communication, and defeat recovery can be exercised immediately.
