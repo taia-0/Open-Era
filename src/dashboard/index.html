@@ -611,6 +611,7 @@
           : "";
       var forecastHtml = forecast
         ? '<h3>Combat forecast</h3><div class="combat-card"><div class="combat-head"><strong>' + esc(forecast.outlook.replaceAll("-", " ")) + '</strong><span class="subtle">strategy ' + forecast.strategy + ' · ' + esc(forecast.detailLevel) + '</span></div>' +
+          '<div class="subtle">Projection from ' + (here ? "direct observation of this island" : intel ? esc(intel.source) + " intelligence, " + intel.ageTicks + " ticks old, " + fmt(intel.confidence * 100) + "% confidence" : "no reliable report") + ".</div>" +
           '<div class="combat-grid">' +
             '<div class="stat"><span>Win chance</span><strong>' + rangeText(forecast.winChance, "%") + '</strong></div>' +
             '<div class="stat"><span>Battle format</span><strong>' + (forecast.majorBattle ? forecast.phases + " phases" : "Immediate") + '</strong></div>' +
@@ -640,8 +641,9 @@
           return '<button class="party-row" type="button" data-party="' + esc(party.id) + '"><span><strong>' + esc(party.name) + "</strong><br><span class=\"subtle\">" + esc(party.archetype) + '</span></span><span>' + (party.partyPower == null ? '<span class="subtle">strength unknown</span>' : fmt(party.partyPower)) + "</span></button>";
         }).join("") : '<div class="empty">' + (intel && intel.exact ? "No named parties are currently here." : "Foreign party positions are not available in this report.") + "</div>") + battleNotice + forecastHtml +
         "<h3>Direct command</h3><div class=\"actions\">" +
-          (travelAllowed ? '<button class="action" type="button" data-action="travel" data-target="' + esc(item.id) + '">Sail here</button>' : "") +
+          (travelAllowed ? '<button class="action" type="button" data-action="travel" data-target="' + esc(item.id) + '">Sail here' + (item.travelTicks == null ? "" : " — " + item.travelTicks + " ticks (" + fmt(item.travelDays, 1) + " days)") + "</button>" : "") +
           (here && item.surrenderOffered ? '<button class="action danger" type="button" data-action="claim-settlement">Accept surrender &amp; claim</button>' : "") +
+          (here && item.surrenderOffered ? '<button class="action" type="button" data-action="decline-surrender">Decline and keep fighting</button>' : "") +
           (here && item.factionId && item.factionId !== c.factionId && !item.surrenderOffered && !item.battleInProgress && !(world.combat && world.combat.commandedBattle) ? '<button class="action danger" type="button" data-action="raid">Commit attack</button>' : "") +
           '<button class="action" type="button" data-action="trade-local">Trade locally</button>' +
           '<button class="action" type="button" data-action="buy-provisions">Buy provisions</button>' +
@@ -804,8 +806,9 @@
       byId("events").innerHTML = briefing.items.map(function (item) {
         var decision = item.action === "confirm-order"
           ? '<button class="brief-action" type="button" data-brief-confirm="' + esc(item.orderId) + '" data-brief-character="' + esc(item.characterId) + '">Confirm completion</button>'
-          : item.action === "claim-settlement"
-            ? '<button class="brief-action" type="button" data-brief-claim="true">Review surrender</button>'
+          : item.action === "review-surrender"
+            ? '<button class="brief-action" type="button" data-brief-claim="true">Accept surrender &amp; claim</button>' +
+              '<button class="brief-action" type="button" data-brief-decline="true">Decline and keep fighting</button>'
             : item.action === "review-battle"
               ? '<button class="brief-action" type="button" data-brief-battle="' + esc(item.settlementId) + '">Review battle</button>'
               : item.action === "review-captivity"
@@ -820,10 +823,10 @@
         button.addEventListener("click", function () { confirmOrder(button.dataset.briefCharacter, button.dataset.briefConfirm); });
       });
       byId("events").querySelectorAll("[data-brief-claim]").forEach(function (button) {
-        button.addEventListener("click", function () {
-          var item = briefing.items.find(function (entry) { return entry.action === "claim-settlement"; });
-          if (item) selectSettlement(item.settlementId);
-        });
+        button.addEventListener("click", function () { sendAction("claim-settlement"); });
+      });
+      byId("events").querySelectorAll("[data-brief-decline]").forEach(function (button) {
+        button.addEventListener("click", function () { sendAction("decline-surrender"); });
       });
       byId("events").querySelectorAll("[data-brief-battle]").forEach(function (button) {
         button.addEventListener("click", function () { selectSettlement(button.dataset.briefBattle); });

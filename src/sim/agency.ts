@@ -81,7 +81,9 @@ export function believedGarrison(
   const confidence = freshness(world, belief);
   return {
     estimate: Math.max(1, round(belief.garrisonEstimate * confidence + 100 * (1 - confidence), 1)),
-    confidence: round(confidence),
+    // Two decimals, because this is a player-facing confidence and every surface
+    // is expected to display exactly this number.
+    confidence: round(confidence, 2),
     observedTick: belief.observedTick,
   };
 }

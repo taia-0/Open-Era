@@ -90,14 +90,22 @@ function expectedLosses(
   };
 }
 
-export function combatForecast(world: WorldState, attackerId: string, settlementId: string): CombatForecast {
+export function combatForecast(
+  world: WorldState,
+  attackerId: string,
+  settlementId: string,
+  options: { observedLocally?: boolean } = {},
+): CombatForecast {
   const attacker = world.characters[attackerId];
   const settlement = world.settlements[settlementId];
   if (!attacker || !settlement) throw new Error("Combat forecast requires a known attacker and settlement");
 
   const belief = believedGarrison(world, attacker, settlementId);
   const storedKnowledge = attacker.knowledge[settlementId];
-  const locallyObserved = attacker.locationId === settlementId;
+  // An active battle counts as direct observation: the attacker is on the ground
+  // by definition, even if a position field disagrees for a tick. Callers that
+  // know this pass it explicitly rather than leaving it to inference.
+  const locallyObserved = options.observedLocally ?? attacker.locationId === settlementId;
   const strategy = clamp(attacker.skills.strategy, 0, 100);
   const skill = strategy / 100;
   const ageTicks = locallyObserved ? 0 : storedKnowledge ? Math.max(0, world.tick - storedKnowledge.observedTick) : null;
@@ -106,15 +114,38 @@ export function combatForecast(world: WorldState, attackerId: string, settlement
   const attackerWidth = clamp(0.4 - skill * 0.27, 0.1, 0.42);
   const defenderWidth = clamp(0.3 - skill * 0.16 + intelligencePenalty, 0.12, 0.72);
 
-  const fortificationEstimate = 1 + (settlement.fortification - 1) * (0.35 + skill * 0.65);
-  const populationDefenseEstimate = settlement.population * 0.002 * (0.25 + skill * 0.75);
+  // Fortification and population are ground truth only while the commander is
+  // actually present. Deliberately binary, not scaled by confidence: nothing
+  // stored describes the ground of a settlement the commander has not stood on,
+  // so any confidence-scaled contribution of the true value would be a
+  // proportional disclosure of it. A player who knows this formula could read
+  // true fortification straight out of the result. Ignorance is expressed
+  // through the range widths below instead, which widen as confidence falls and
+  // reports age.
+  const groundTruthWeight = locallyObserved ? 1 : 0;
+  const knownFortification = 1 + (settlement.fortification - 1) * groundTruthWeight;
+  const knownPopulation = settlement.population * groundTruthWeight;
+  const fortificationEstimate = 1 + (knownFortification - 1) * (0.35 + skill * 0.65);
+  const populationDefenseEstimate = knownPopulation * 0.002 * (0.25 + skill * 0.75);
   const attackerCenter = partyPower(attacker);
   const defenderCenter = belief.estimate * fortificationEstimate + populationDefenseEstimate;
   const attackerPower = range(attackerCenter, attackerWidth, 1);
   const defenderPower = range(defenderCenter, defenderWidth, 1);
   const winChance = chanceRange(attackerPower.low, attackerPower.high, defenderPower.low, defenderPower.high);
   const winMidpoint = (winChance.low + winChance.high) / 2;
-  const majorBattle = isMajorBattle(attacker, settlement);
+  // A commander deciding whether to commit should read the bad case, not the good
+  // one. Locally the range is narrow and the midpoint represents it. Remotely the
+  // range is wide and the midpoint drifts *upward* as it widens, because the
+  // attacker's upper power and the defender's lower power both move in the
+  // favourable direction. Reading the midpoint there made the headline grow more
+  // confident the less the commander knew. A fresh-context playtest caught it.
+  const headlineChance = locallyObserved ? winMidpoint : winChance.low;
+  // The battle format follows the same rule: locally from the real order of
+  // battle, remotely from what the report supports. Reading the true garrison
+  // and defenses here would leak both through `phases`.
+  const majorBattle = locallyObserved
+    ? isMajorBattle(attacker, settlement)
+    : attacker.troops.count + belief.estimate >= 120 || partyPower(attacker) + defenderCenter >= 275;
   const expected = expectedLosses(attacker, defenderCenter, attackerCenter, majorBattle);
   const casualtyWidth = clamp(0.48 - skill * 0.28 + intelligencePenalty * 0.35, 0.16, 0.68);
   const attackerCasualties = range(expected.attacker, casualtyWidth);
@@ -142,7 +173,13 @@ export function combatForecast(world: WorldState, attackerId: string, settlement
     `${Math.round(belief.confidence * 100)}% confidence in the garrison estimate`,
     `${Math.round(attacker.troops.discipline * 100)}% troop discipline`,
   ];
-  if (strategy >= 70) {
+  if (!locallyObserved) {
+    // Nothing stored describes the ground itself, so any label here would either
+    // be invented or read off the true fortification. The second is exactly the
+    // leak this whole projection exists to prevent, so the honest answer is that
+    // the ground is unknown.
+    revealedFactors.push("defensive ground remains poorly understood");
+  } else if (strategy >= 70) {
     revealedFactors.push(`defensive ground estimated near ${round(fortificationEstimate, 2)}×`);
     revealedFactors.push(`battle variance constrained by strategy ${strategy}`);
   } else if (strategy >= 40) {
@@ -154,7 +191,7 @@ export function combatForecast(world: WorldState, attackerId: string, settlement
   return {
     settlementId,
     generatedTick: world.tick,
-    outlook: outlook(winMidpoint),
+    outlook: outlook(headlineChance),
     detailLevel: strategy >= 70 ? "command" : strategy >= 40 ? "tactical" : "basic",
     strategy,
     intelligence: {
@@ -177,7 +214,8 @@ export function combatForecast(world: WorldState, attackerId: string, settlement
 }
 
 export function battleRisk(world: WorldState, battle: ActiveBattle): { retreatRisk: CombatRisk; captureRisk: CombatRisk } {
-  const forecast = combatForecast(world, battle.attackerId, battle.settlementId);
+  // An active battle is fought on the ground, so its risks use exact inputs.
+  const forecast = combatForecast(world, battle.attackerId, battle.settlementId, { observedLocally: true });
   return { retreatRisk: forecast.retreatRisk, captureRisk: forecast.captureRisk };
 }
 

@@ -489,6 +489,10 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.surrender = event.data.surrender as Settlement["surrender"];
       if (typeof event.data.battleId === "string") delete world.activeBattles[event.data.battleId];
       break;
+    case "settlement-surrender-declined":
+      if (!actor || !settlement) throw new Error("Settlement surrender decline event is missing an entity");
+      settlement.surrender = null;
+      break;
     case "settlement-claimed":
       if (!actor || !settlement) throw new Error("Settlement claim event is missing an entity");
       settlement.ownerId = event.data.ownerId as string;

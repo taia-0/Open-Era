@@ -107,13 +107,13 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
       if (request.method === "GET" && url.pathname === "/api/state") {
         const beforeSequence = parseEventCursor(url);
         if (beforeSequence === "invalid") {
-          json(response, 400, { ok: false, error: "beforeSequence must be a non-negative integer" });
+          json(response, 400, { ok: false, code: "invalid-cursor", error: "beforeSequence must be a non-negative integer" });
           return;
         }
         const limitParam = url.searchParams.get("limit");
         const limit = limitParam === null ? EVENT_FEED_PAGE_DEFAULT : Number(limitParam);
         if (!Number.isInteger(limit) || limit < 1 || limit > EVENT_FEED_PAGE_LIMIT) {
-          json(response, 400, { ok: false, error: `limit must be an integer between 1 and ${EVENT_FEED_PAGE_LIMIT}` });
+          json(response, 400, { ok: false, code: "invalid-limit", error: `limit must be an integer between 1 and ${EVENT_FEED_PAGE_LIMIT}` });
           return;
         }
         // Roughly one busy in-world week is scanned for exceptional events, while
@@ -124,6 +124,8 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           hasMore: feedEvents.length > 0 && store.countEventsBefore(feedEvents[0].sequence) > 0,
           limit,
           total: store.eventCount(),
+          limitMax: EVENT_FEED_PAGE_LIMIT,
+          limitDefault: EVENT_FEED_PAGE_DEFAULT,
         }));
         return;
       }
@@ -135,12 +137,12 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         const body = await requestBody(request) as { ticks?: number };
         const ticks = body.ticks ?? 1;
         if (!Number.isInteger(ticks) || ticks < 1 || ticks > 144) {
-          json(response, 400, { ok: false, error: "ticks must be an integer between 1 and 144" });
+          json(response, 400, { ok: false, code: "invalid-ticks", error: "ticks must be an integer between 1 and 144" });
           return;
         }
         const playerCharacterId = Object.values(world.players)[0]?.characterId;
         if (!playerCharacterId) {
-          json(response, 400, { ok: false, error: "The world has no player session" });
+          json(response, 400, { ok: false, code: "unknown-player", error: "The world has no player session" });
           return;
         }
         let ticksAdvanced = 0;
@@ -235,9 +237,9 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         json(response, 202, { ok: true, message: result.value.message, replies: result.value.replies });
         return;
       }
-      json(response, 404, { ok: false, error: "Not found" });
+      json(response, 404, { ok: false, code: "not-found", error: "Not found" });
     }).catch((error: unknown) => {
-      if (!response.headersSent) json(response, 500, { ok: false, error: error instanceof Error ? error.message : "Unknown error" });
+      if (!response.headersSent) json(response, 500, { ok: false, code: "internal-error", error: error instanceof Error ? error.message : "Unknown error" });
       else response.end();
     });
   });

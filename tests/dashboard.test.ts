@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { combatForecast } from "../src/sim/combat.ts";
+import { submitCommand } from "../src/sim/commands.ts";
+import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { createDashboardApp } from "../src/dashboard/server.ts";
 
 /**
@@ -592,4 +594,121 @@ test("the published command capabilities match what the boundary accepts", async
     await app.close();
     rmSync(directory, { recursive: true, force: true });
   }
+});
+test("a projected settlement has the same keys whether or not the commander owns it", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "open-era-schema-"));
+  const app = createDashboardApp({ databasePath: join(directory, "dashboard.sqlite"), seed: 1847 });
+  try {
+    await new Promise<void>((resolve) => app.server.listen(0, "127.0.0.1", resolve));
+    const address = app.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port");
+    const base = `http://127.0.0.1:${address.port}`;
+    const state = await (await fetch(`${base}/api/state`)).json() as {
+      commanderId: string;
+      settlements: Array<Record<string, unknown> & { id: string; intelligence: { exact: boolean } }>;
+      characters: Array<{ id: string; factionId: string | null }>;
+    };
+    const factionId = state.characters.find((character) => character.id === state.commanderId)!.factionId;
+    const owned = state.settlements.find((settlement) => settlement.intelligence.exact)!;
+    // A foreign settlement the commander has only an intelligence report for. Its
+    // projection is a hand-built literal, which is how `surrender` came to be
+    // present on one branch and absent on the other. A playtest client crashed on
+    // the missing key.
+    const foreign = state.settlements.find((settlement) => !settlement.intelligence.exact)!;
+
+    assert.ok(owned, "the commander must own at least one settlement for this comparison");
+    assert.ok(foreign, "the scenario must expose at least one foreign settlement");
+    assert.deepEqual(
+      Object.keys(foreign).sort(),
+      Object.keys(owned).sort(),
+      "both projection branches must agree on the settlement schema",
+    );
+    assert.ok("surrender" in foreign, "the foreign projection must carry the surrender key");
+    assert.equal(foreign.surrender, null, "a foreign settlement has no surrender state the player can read");
+    assert.notEqual(factionId, null);
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("every rejection carries a machine-readable code, not just prose", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "open-era-envelope-"));
+  const app = createDashboardApp({ databasePath: join(directory, "dashboard.sqlite"), seed: 1847 });
+  try {
+    await new Promise<void>((resolve) => app.server.listen(0, "127.0.0.1", resolve));
+    const address = app.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port");
+    const base = `http://127.0.0.1:${address.port}`;
+    const rejects = async (path: string, init?: RequestInit) => {
+      const response = await fetch(`${base}${path}`, init);
+      const body = await response.json() as { ok: boolean; code?: string; error?: string };
+      assert.ok(response.status >= 400, `${path} must be rejected`);
+      assert.equal(body.ok, false);
+      assert.equal(typeof body.code, "string", `${path} must report a stable code, not only prose`);
+      assert.ok(body.error, `${path} must still explain itself in prose`);
+      return body.code;
+    };
+
+    assert.equal(await rejects("/api/state?limit=0"), "invalid-limit");
+    assert.equal(await rejects("/api/state?beforeSequence=-1"), "invalid-cursor");
+    assert.equal(
+      await rejects("/api/advance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ticks: 0 }) }),
+      "invalid-ticks",
+    );
+    assert.equal(await rejects("/api/does-not-exist"), "not-found");
+    // A malformed command must be rejected by the validator with its own code,
+    // and before that by nothing else.
+    assert.equal(
+      await rejects("/api/commands", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ playerId: "prototype-player", type: "definitely-not-a-command" }),
+      }),
+      "unknown-type",
+    );
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a rejected command names the precondition it failed", () => {
+  const world = createPrototypeWorld(1847);
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  commander.locationId = Object.values(world.settlements)[0].id;
+  commander.travel = null;
+  commander.captivity = null;
+  commander.money = 0;
+
+  // "money and arms" left a player unable to tell which was missing.
+  const broke = submitCommand(world, {
+    playerId: "prototype-player",
+    type: "character-action",
+    action: "recruit",
+  });
+  assert.equal(broke.ok, false);
+  if (broke.ok) throw new Error("unreachable");
+  assert.equal(broke.code, "insufficient-money");
+  assert.match(broke.error, /money/);
+
+  commander.money = 1_000;
+  const settlement = world.settlements[commander.locationId];
+  settlement.stocks.arms = 0;
+  const unarmed = submitCommand(world, {
+    playerId: "prototype-player",
+    type: "character-action",
+    action: "recruit",
+  });
+  assert.equal(unarmed.ok, false);
+  if (unarmed.ok) throw new Error("unreachable");
+  assert.equal(unarmed.code, "no-arms");
+  assert.match(unarmed.error, /arms/);
+
+  // An unsupported command type must not be reported as an unknown recipient.
+  const wrongType = submitCommand(world, { playerId: "prototype-player", type: "not-a-type" } as never);
+  assert.equal(wrongType.ok, false);
+  if (wrongType.ok) throw new Error("unreachable");
+  assert.equal(wrongType.code, "unknown-type");
+  assert.match(wrongType.error, /character-action/);
 });
