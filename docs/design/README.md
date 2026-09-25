@@ -11,6 +11,8 @@ These documents capture the decisions made during the initial design conversatio
 - [Playtest template](../playtests/TEMPLATE.md) — evidence record for assistant and human sessions
 - [Human commander playtest 001](../playtests/human-commander-001.md) — first adaptive player run and the design gaps it exposed
 - [Promotion baseline playtest 001](../playtests/promotion-baseline-001.md) — public-interface conquest, stabilization, recovery, and promotion recommendation
+- [Hidden state visibility 001](../playtests/hidden-state-visibility-001.md) — an adaptive session that found the player API leaking foreign motives, and the redaction work it tested
+- [Hidden state visibility 002](../playtests/hidden-state-visibility-002.md) — the same objective with the leak closed, confirming no foreign state is reachable
 
 ## Decision status
 

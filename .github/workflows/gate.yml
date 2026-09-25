@@ -1,0 +1,49 @@
+name: Gate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Typecheck, tests, and milestone evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The evaluation script runs the test suite itself and then exercises the
+      # seed matrix and the split recovery comparison, so the documented gate and
+      # the executed gate cannot drift apart. Do not re-list its steps here.
+      - name: Milestone evaluation
+        run: bash scripts/evaluate-milestone.sh "ci-${GITHUB_SHA::7}"
+
+      - name: Upload evaluation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone-evaluation-${{ github.sha }}
+          path: simulation-output/evaluations/
+          if-no-files-found: warn
+          retention-days: 14

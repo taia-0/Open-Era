@@ -20,9 +20,10 @@ Keep commits intact when they explain meaningful milestones. Cherry-pick self-co
 4. **Inspect evidence.** Review the chronicle, final state, metrics, map, decision traces, agency traces, and conversation traces. Look for both correctness failures and uninteresting behavior.
 5. **Play adaptively.** Codex takes a plausible player ambition, observes only player-visible information, and issues actions through the same public interface a player uses. Its next action responds to what actually happened rather than following a prewritten command list.
 6. **Write the playtest record.** Capture the build, seed, objective, observations, decisions, results, defects, design insights, and recommendation using the template in `docs/playtests/TEMPLATE.md`.
-7. **Decide deliberately.** Mark the milestone `promote`, `revise`, or `abandon`. Interesting output alone is not sufficient evidence to promote it.
-8. **Assemble a promotion branch.** Bring in only accepted work, rerun the complete gate on the assembled history, and summarize its difference from `main`.
-9. **Pause for approval.** Push the promotion branch for review. Update `main` only after the project owner explicitly approves that exact candidate.
+7. **Update the progress log.** Record the change, its verification, what was left open, and which agent did the work in `progress.md`, so the branch can be handed to another agent or the owner without reconstruction.
+8. **Decide deliberately.** Mark the milestone `promote`, `revise`, or `abandon`. Interesting output alone is not sufficient evidence to promote it.
+9. **Assemble a promotion branch.** Bring in only accepted work, rerun the complete gate on the assembled history, and summarize its difference from `main`.
+10. **Pause for approval.** Push the promotion branch for review. Update `main` only after the project owner explicitly approves that exact candidate.
 
 ## Automated milestone gate
 
@@ -37,7 +38,7 @@ The gate performs:
 - the complete Node test suite;
 - 72-tick simulations with seeds `1847`, `2718`, and `4096`;
 - a 72-tick uninterrupted recovery reference;
-- an equivalent 48-tick run followed by a recovered 24-tick run;
+- an equivalent 47-tick run followed by a recovered 25-tick run, with the split placed between snapshot boundaries so recovery must replay events rather than merely restore a snapshot;
 - a final-state-hash comparison between uninterrupted and recovered worlds.
 
 Outputs are written beneath `simulation-output/evaluations/<label>/`; SQLite databases are isolated beneath `.open-era/evaluations/<label>/`. These generated artifacts stay outside Git. The playtest record, selected evidence, and conclusions belong in Git.

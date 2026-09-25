@@ -4,6 +4,8 @@ Open Era is a persistent maritime political sandbox in which human players and a
 
 The accumulated product decisions and visual concepts are preserved in the [design record](docs/design/README.md) and [generated mockup catalog](docs/assets/mockups/README.md). Behavioral findings are recorded in the [human commander playtests](docs/playtests/), and future candidates follow the [branch, evaluation, and adaptive-playtest pipeline](docs/development-pipeline.md).
 
+Work in progress, fixes, and which agent made them are tracked in the [progress log](progress.md). Read its current-state and open-items sections before starting work.
+
 This branch contains the first **headless world prototype**. It is intentionally focused on simulation behavior rather than presentation: we can accelerate days of world activity, inspect why characters made decisions, stop and restart the process, and compare outcomes before committing to the mobile UI or networking stack.
 
 ## What the prototype exercises
