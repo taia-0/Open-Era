@@ -31,8 +31,9 @@ Git remains the complete history. This file exists for three things git does not
 ## Current state
 
 - **Branch in flight:** `feature/phase-0-baseline`, off `main` at `1b020c5`.
+- **Pull request:** [#1](https://github.com/taia-0/Open-Era/pull/1), open against `main`, checks passing.
 - **Last verified commit:** `82c9bfc`. 68 tests pass, typecheck is clean, and the milestone gate passes locally on Node 24. An independent adaptive session at this commit completed the campaign objective with no foreign state reachable.
-- **Gate status:** passing. Golden hashes lock pre-redaction behavior and still pass unchanged.
+- **Gate status:** passing locally and on GitHub Actions. Golden hashes lock pre-redaction behavior, still pass unchanged, and reproduce on the runner as well as locally, so the flagged ICU sensitivity did not materialize on the CI runtime.
 - **Headline risk:** the event feed retains only the most recent 100 events with no pagination, so a player cannot audit its own history mid-campaign. Two sessions independently reported no legitimate way to estimate rival strength before committing.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. Node 24 is installed keg-only at `/opt/homebrew/opt/node@24/bin`; the global `node` remains 22.
 
@@ -51,7 +52,7 @@ Git remains the complete history. This file exists for three things git does not
 | One `issue-order` can produce two standing orders | Defect | Unassigned | Open, needs a decided intended identity |
 | `captureRisk` reads `low` through won battles, then capture arrives by claiming | Wording | Unassigned | Open |
 | `character.id.slice(-2)` parses a numeric cadence, which breaks past two-digit ids | Latent defect | Unassigned | Confirmed at `src/sim/engine.ts:972`; harmless below 100 characters |
-| `localeCompare` sorts precede RNG draws, so ICU changes between Node builds could alter history | Latent risk | Unassigned | Dormant; identical hashes on Node 22.23.2 and 24.21.0 because both ship ICU 78.3 |
+| `localeCompare` sorts precede RNG draws, so ICU changes between Node builds could alter history | Latent risk | Unassigned | Dormant; identical hashes on Node 22.23.2, Node 24.21.0, and GitHub's `ubuntu-latest` runner, so it did not materialize on CI. Still a risk across future ICU upgrades |
 | `engine.ts` decomposition, scenario data-loading, per-tick indexing | Refactor | Unassigned | Deferred until golden hashes and CI existed; both now do |
 | Deeper personality branching, faction offices, settlement management, debt enforcement, rescue, inheritance, multiplayer auth | Deferred scope | ChatGPT partner | Tracked in [README](README.md#current-boundary) |
 
@@ -137,9 +138,9 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
 - **Type:** Change
 - **Changed:** `.github/workflows/gate.yml` installs with `npm ci` against `.node-version`, runs the typecheck, then calls `scripts/evaluate-milestone.sh` rather than re-listing its steps, and uploads artifacts even on failure.
 - **Why:** The repository had no continuous integration, so the milestone gate was a manual step and nothing enforced the suite on a change. Calling the script instead of duplicating it prevents the documented gate and the executed gate from drifting apart.
-- **Verified:** Gate passes locally on Node 24; `npm ci` installs cleanly with no lockfile drift.
+- **Verified:** Gate passes locally on Node 24 and on GitHub Actions, golden hashes included, which is the first time the gate has run anywhere but a developer machine. `npm ci` installs cleanly with no lockfile drift.
 - **Left open:** None observed.
-- **Links:** [development-pipeline.md](docs/development-pipeline.md)
+- **Links:** [development-pipeline.md](docs/development-pipeline.md), [pull request 1](https://github.com/taia-0/Open-Era/pull/1)
 
 ### 2026-09-25 — Typecheck added; declared runtime reconciled
 - **Agent:** Cursor | **Branch:** `feature/phase-0-baseline` | **Commits:** `991db5e`
