@@ -445,7 +445,7 @@ test("schema-3 saves without lifecycle fields recover with pending legacy orders
 
     const reopened = new WorldStore(path);
     const recovered = reopened.recover().state;
-    assert.equal(recovered.version, 4);
+    assert.equal(recovered.version, 5);
     assert.deepEqual(recovered.activeBattles, {});
     const orders = Object.values(recovered.characters).flatMap((character) => character.standingOrders);
     assert.ok(orders.length > 0);
@@ -458,6 +458,12 @@ test("schema-3 saves without lifecycle fields recover with pending legacy orders
     ));
     assert.deepEqual(recovered.players["prototype-player"].briefingAcknowledgements, {});
     assert.equal(recovered.players["prototype-player"].routineBriefingThroughSequence, 0);
+    assert.ok(Object.values(recovered.characters).every((character) =>
+      character.captivity === null &&
+      character.troopRecovery === null &&
+      character.scars.length === 0 &&
+      character.debts.length === 0
+    ));
     assert.equal(recovered.players["prototype-player"].reportingOfficerId, null);
     reopened.close();
   } finally {
