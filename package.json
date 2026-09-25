@@ -11,6 +11,8 @@
     "simulate": "node --experimental-strip-types src/cli/run-simulation.ts",
     "dashboard": "node --experimental-strip-types src/cli/run-dashboard.ts",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "check": "node --experimental-strip-types --test tests/*.test.ts"
+    "check": "node --experimental-strip-types --test tests/*.test.ts",
+    "golden:update": "node --experimental-strip-types scripts/update-golden-hashes.ts",
+    "golden:check": "node --experimental-strip-types --test tests/golden.test.ts"
   }
 }

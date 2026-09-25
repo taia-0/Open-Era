@@ -42,8 +42,11 @@ node --experimental-strip-types src/cli/run-simulation.ts \
   2>&1 | tee "${evaluation_output}/recovery-continuous.log"
 
 echo "Running first half of split recovery check"
+# The split deliberately lands between snapshot boundaries. Snapshotting happens
+# when tick % ticksPerDay == 0, so splitting on a multiple would leave nothing to
+# replay and the check would only prove snapshot restore, never event replay.
 node --experimental-strip-types src/cli/run-simulation.ts \
-  --ticks 48 \
+  --ticks 47 \
   --seed 1847 \
   --database "${split_database}" \
   --output "${evaluation_output}/recovery-split" \
@@ -52,7 +55,7 @@ node --experimental-strip-types src/cli/run-simulation.ts \
 
 echo "Resuming split recovery check"
 node --experimental-strip-types src/cli/run-simulation.ts \
-  --ticks 24 \
+  --ticks 25 \
   --seed 1847 \
   --database "${split_database}" \
   --output "${evaluation_output}/recovery-split" \
