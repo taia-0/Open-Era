@@ -227,7 +227,7 @@
     .chat-compose { display: grid; grid-template-columns: 1fr auto; gap: 7px; align-items: end; }
     footer {
       display: grid;
-      grid-template-columns: 1.25fr 1fr 1.2fr;
+      grid-template-columns: 1.15fr 1fr 1.2fr 1.2fr;
       gap: 12px;
       padding: 10px 14px;
       background: var(--paper-strong);
@@ -239,6 +239,12 @@
     .advance-row { display: flex; gap: 7px; }
     .advance { padding: 7px 9px; font-size: 11px; }
     .event-feed { max-height: 86px; overflow: auto; }
+    .chronicle { max-height: 86px; overflow: auto; }
+    .feed-row { display: flex; gap: 7px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid #eceade; font-size: 11px; }
+    .feed-row:last-child { border-bottom: 0; }
+    .feed-row time { color: var(--muted); white-space: nowrap; }
+    .feed-withheld { color: var(--muted); font-style: italic; }
+    .feed-more { margin-top: 5px; border: 1px solid var(--blue); border-radius: 8px; padding: 4px 7px; color: var(--blue); background: white; font-size: 10px; }
     .event-row { align-items: flex-start; padding: 5px 0; }
     .event-row time { color: var(--muted); white-space: nowrap; }
     .brief-row { padding: 7px 0; border-bottom: 1px solid #e2dfd4; font-size: 11px; }
@@ -317,6 +323,11 @@
         <div class="footer-title" id="brief-title">Exception-first check-in</div>
         <div class="event-feed" id="events"></div>
       </div>
+      <div class="footer-card">
+        <div class="footer-title" id="chronicle-title">Chronicle</div>
+        <div class="chronicle" id="chronicle"></div>
+        <button class="feed-more" id="chronicle-more" type="button" hidden>Load older</button>
+      </div>
     </footer>
   </div>
   <section class="chat-drawer" id="chat-drawer" aria-label="Messages">
@@ -339,6 +350,11 @@
     var selected = { kind: "settlement", id: "crown-harbor" };
     var selectedThreadId = null;
     var busy = false;
+    // The chronicle keeps a cursor so older history can be paged in without
+    // re-reading the whole log, and so nothing is silently dropped.
+    var chronicle = [];
+    var chronicleCursor = null;
+    var chronicleHasMore = false;
 
     function esc(value) {
       return String(value == null ? "" : value)
@@ -369,7 +385,26 @@
     }
     async function refresh() {
       world = await api("/api/state");
+      // A fresh read always restarts the chronicle at the newest page.
+      chronicle = (world.events || []).slice();
+      chronicleCursor = world.eventFeed ? world.eventFeed.cursor : null;
+      chronicleHasMore = Boolean(world.eventFeed && world.eventFeed.hasMore);
       render();
+    }
+    async function loadOlderChronicle() {
+      if (busy || !chronicleHasMore || chronicleCursor == null) return;
+      busy = true;
+      try {
+        var page = await api("/api/state?beforeSequence=" + encodeURIComponent(chronicleCursor) + "&limit=100");
+        chronicle = chronicle.concat(page.events || []);
+        chronicleCursor = page.eventFeed ? page.eventFeed.cursor : null;
+        chronicleHasMore = Boolean(page.eventFeed && page.eventFeed.hasMore);
+        renderChronicle();
+      } catch (error) {
+        toast(error.message, true);
+      } finally {
+        busy = false;
+      }
     }
     async function mutate(path, body) {
       if (busy) return;
@@ -566,9 +601,14 @@
       var intel = item.intelligence;
       var intelLabel = intel && intel.exact ? "Exact owned records" : intel ? esc(intel.source) + " · " + fmt(intel.confidence * 100) + "% confidence · " + intel.ageTicks + " ticks old" : "No current report";
       var forecast = item.combatForecast;
-      var battleNotice = item.battleInProgress
-        ? '<div class="combat-card"><strong>Battle underway</strong><div class="subtle">Another force is already engaged here. New attacks cannot begin until it resolves.</div></div>'
-        : "";
+      // Distinguish "I am fighting" from "someone else is fighting here". The
+      // settlement flag alone cannot tell a player which of those is true.
+      var observed = ((world.combat && world.combat.observedBattles) || []).filter(function (entry) { return entry.settlementId === item.id; });
+      var battleNotice = observed.length
+        ? '<div class="combat-card"><strong>Battle underway</strong><div class="subtle">' + esc(observed[0].attackerName) + " is already engaged here at phase " + observed[0].phase + " of " + observed[0].totalPhases + '. New attacks cannot begin until it resolves.</div></div>'
+        : item.battleInProgress
+          ? '<div class="combat-card"><strong>Battle underway</strong><div class="subtle">Another force is already engaged here. New attacks cannot begin until it resolves.</div></div>'
+          : "";
       var forecastHtml = forecast
         ? '<h3>Combat forecast</h3><div class="combat-card"><div class="combat-head"><strong>' + esc(forecast.outlook.replaceAll("-", " ")) + '</strong><span class="subtle">strategy ' + forecast.strategy + ' · ' + esc(forecast.detailLevel) + '</span></div>' +
           '<div class="combat-grid">' +
@@ -602,7 +642,7 @@
         "<h3>Direct command</h3><div class=\"actions\">" +
           (travelAllowed ? '<button class="action" type="button" data-action="travel" data-target="' + esc(item.id) + '">Sail here</button>' : "") +
           (here && item.surrenderOffered ? '<button class="action danger" type="button" data-action="claim-settlement">Accept surrender &amp; claim</button>' : "") +
-          (here && item.factionId && item.factionId !== c.factionId && !item.surrenderOffered && !item.battleInProgress && !(world.combat && world.combat.active) ? '<button class="action danger" type="button" data-action="raid">Commit attack</button>' : "") +
+          (here && item.factionId && item.factionId !== c.factionId && !item.surrenderOffered && !item.battleInProgress && !(world.combat && world.combat.commandedBattle) ? '<button class="action danger" type="button" data-action="raid">Commit attack</button>' : "") +
           '<button class="action" type="button" data-action="trade-local">Trade locally</button>' +
           '<button class="action" type="button" data-action="buy-provisions">Buy provisions</button>' +
         "</div>";
@@ -666,7 +706,7 @@
           '<div class="combat-factor">Escape always succeeds, but causes a serious wound and carries a small risk of a permanent physical scar. Messaging remains available while captive.</div>' +
           '<div class="actions"><button class="action danger" type="button" data-escape-captivity="true">Escape captivity</button></div></div>';
       }
-      var battle = world.combat && world.combat.active;
+      var battle = world.combat && world.combat.commandedBattle;
       if (battle) {
         var phase = battle.lastPhase;
         return '<h3>Major battle in progress</h3><div class="combat-card battle-live"><div class="combat-head"><strong>' + esc(battle.settlementName) + '</strong><span>Phase ' + battle.phase + '/' + battle.totalPhases + '</span></div>' +
@@ -712,7 +752,7 @@
       byId("inspector").querySelectorAll("[data-continue-battle]").forEach(function (button) {
         button.addEventListener("click", function () { mutate("/api/advance", { ticks: 1 }); });
       });
-      if ((world.combat && world.combat.active) || (world.captivity && world.captivity.active)) return;
+      if ((world.combat && world.combat.commandedBattle) || (world.captivity && world.captivity.active)) return;
       byId("order-directive").addEventListener("change", updateOrderTargets);
       byId("issue-order").addEventListener("click", issueOrder);
       updateOrderTargets();
@@ -745,7 +785,7 @@
       byId("pending").textContent = world.pendingCommands.length
         ? world.pendingCommands.length + " command(s) queued"
         : "No commands waiting";
-      var battle = world.combat && world.combat.active;
+      var battle = world.combat && world.combat.commandedBattle;
       document.querySelectorAll("[data-ticks]").forEach(function (button) {
         var oneTick = button.dataset.ticks === "1";
         button.hidden = Boolean(battle) && !oneTick;
@@ -825,18 +865,33 @@
       }).join("") || '<div class="empty">Select a thread or create a new one.</div>';
       byId("message-log").scrollTop = byId("message-log").scrollHeight;
     }
+    function renderChronicle() {
+      var rows = (chronicle || []).map(function (event) {
+        var body = event.payloadWithheld
+          ? '<span class="feed-withheld">' + esc(event.summary) + "</span>"
+          : esc(event.summary);
+        return '<div class="feed-row"><time>D' + fmt(event.day, 1) + "</time><span>" + body + "</span></div>";
+      }).join("") || '<div class="empty">No history yet.</div>';
+      byId("chronicle").innerHTML = rows;
+      byId("chronicle-more").hidden = !chronicleHasMore;
+      byId("chronicle-title").textContent = world.eventFeed
+        ? "Chronicle · " + chronicle.length + " of " + world.eventFeed.total + " events"
+        : "Chronicle";
+    }
     function render() {
       if (!world) return;
       renderHeader();
       renderMap();
       renderInspector();
       renderFooter();
+      renderChronicle();
       renderChat();
     }
     document.querySelectorAll("[data-ticks]").forEach(function (button) {
       button.addEventListener("click", function () { mutate("/api/advance", { ticks: Number(button.dataset.ticks) }); });
     });
     byId("chat-toggle").addEventListener("click", function () { byId("chat-drawer").classList.add("open"); });
+    byId("chronicle-more").addEventListener("click", loadOlderChronicle);
     byId("chat-close").addEventListener("click", function () { byId("chat-drawer").classList.remove("open"); });
     byId("chat-create").addEventListener("click", createThread);
     byId("message-send").addEventListener("click", sendMessage);

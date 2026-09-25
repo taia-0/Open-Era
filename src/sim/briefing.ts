@@ -9,7 +9,10 @@ export interface BriefingAcknowledgementRequest {
 
 export interface ReportingOfficerRequest {
   playerId: string;
-  characterId: string | null;
+  /** The officer to appoint, or `null` to clear the appointment. */
+  characterId?: string | null;
+  /** Accepted alias for `characterId`, because the natural field name is not obvious. */
+  officerId?: string | null;
 }
 
 export type BriefingMutationResult =
@@ -70,9 +73,17 @@ export function assignReportingOfficer(
   const player = world.players[request.playerId];
   if (!player) return reject("unknown-player", "The player session is unknown");
   const commander = world.characters[player.characterId];
-  if (request.characterId !== null) {
-    const officer = world.characters[request.characterId];
-    if (!officer) return reject("unknown-character", "The reporting officer is unknown");
+  const hasCharacterId = Object.hasOwn(request, "characterId");
+  const hasOfficerId = Object.hasOwn(request, "officerId");
+  if (!hasCharacterId && !hasOfficerId) {
+    return reject("missing-officer", "Provide characterId (officerId is accepted as an alias), or null to clear the reporting officer");
+  }
+  const requestedId = (hasCharacterId ? request.characterId : request.officerId) ?? null;
+  if (requestedId !== null) {
+    const officer = world.characters[requestedId];
+    if (!officer) {
+      return reject("unknown-character", `No character has the id ${requestedId}; characterId or its officerId alias must name a character the player knows`);
+    }
     if (!player.knownCharacterIds.includes(officer.id)) {
       return reject("identity-unknown", "The player has not learned this character's identity");
     }
@@ -83,7 +94,7 @@ export function assignReportingOfficer(
   return emit(world, {
     type: "reporting-officer-assigned",
     actorId: player.characterId,
-    targetId: request.characterId ?? undefined,
-    data: { playerId: player.id, characterId: request.characterId },
+    targetId: requestedId ?? undefined,
+    data: { playerId: player.id, characterId: requestedId },
   });
 }

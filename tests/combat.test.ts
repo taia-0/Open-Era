@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { dashboardState } from "../src/dashboard/view-model.ts";
+import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
 import { combatForecast, selectRetreatDestination } from "../src/sim/combat.ts";
 import { submitCommand } from "../src/sim/commands.ts";
 import { runTick } from "../src/sim/engine.ts";
@@ -65,7 +65,7 @@ test("a major player attack resolves one phase and refreshes local intelligence"
   assert.equal(commander.knowledge[settlement.id].observedTick, 0);
   assert.equal(commander.knowledge[settlement.id].garrisonEstimate, settlement.garrison);
   assert.ok(!result.events.some((event) => event.type === "battle-resolved"));
-  const view = dashboardState(world, result.events) as {
+  const view = dashboardState(world, result.events, fullEventFeed(result.events)) as {
     settlements: Array<{ id: string; battleInProgress: boolean; combatForecast: unknown }>;
   };
   const target = view.settlements.find((candidate) => candidate.id === settlement.id);

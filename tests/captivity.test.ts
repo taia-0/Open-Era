@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { dashboardState } from "../src/dashboard/view-model.ts";
+import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
 import { captureChanceForRisk } from "../src/sim/combat.ts";
 import { submitCommand } from "../src/sim/commands.ts";
 import { createConversationThread, sendConversationMessage } from "../src/sim/conversations.ts";
@@ -144,7 +144,7 @@ test("captivity is visible through the public dashboard and survives recovery", 
   try {
     const world = forceRetreatCapture(4096);
     const commander = world.characters[world.players["prototype-player"].characterId];
-    const view = dashboardState(world, []) as {
+    const view = dashboardState(world, [], fullEventFeed([])) as {
       captivity: { active: { settlementId: string; canEscape: boolean } | null };
     };
     assert.equal(view.captivity.active?.settlementId, commander.captivity?.settlementId);

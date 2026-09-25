@@ -1,6 +1,7 @@
 import { combatForecast } from "../sim/combat.ts";
+import { commandCapabilities } from "../sim/commands.ts";
 import { marketPrice, round, settlementClaimAvailableTo } from "../sim/state.ts";
-import { RESOURCE_KEYS, type SimEvent, type WorldState } from "../sim/types.ts";
+import { RESOURCE_KEYS, type ActiveBattle, type SimEvent, type WorldState } from "../sim/types.ts";
 import { projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
 
 function eventSummary(world: WorldState, event: SimEvent): string {
@@ -289,10 +290,69 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
   };
 }
 
-export function dashboardState(world: WorldState, events: SimEvent[]): Record<string, unknown> {
+/**
+ * One page of the event feed. The caller supplies the page so the feed can be
+ * paged without widening how much a single request may read, while the briefing
+ * still scans a much larger window for exceptional events.
+ */
+export interface EventFeedPage {
+  events: SimEvent[];
+  /** True when events older than this page exist. */
+  hasMore: boolean;
+  /** The page size the caller requested. */
+  limit: number;
+  /** Total events retained in the store. */
+  total: number;
+}
+
+/**
+ * Projects events for one commander through the single visibility path.
+ *
+ * Both the feed and the advance diff must go through this function. A second,
+ * more permissive path would silently undo the redaction work: a feed that is
+ * more permissive than the character projection defeats the projection entirely.
+ */
+export function projectEventFeed(
+  world: WorldState,
+  commanderId: string,
+  events: SimEvent[],
+): Record<string, unknown>[] {
+  const commander = world.characters[commanderId];
+  return events.map((event) => projectEvent(world, commander, event, eventSummary(world, event)));
+}
+
+/** Builds a feed page holding every supplied event. Convenient when the caller already holds a full set. */
+export function fullEventFeed(events: SimEvent[]): EventFeedPage {
+  return { events, hasMore: false, limit: events.length, total: events.length };
+}
+
+function projectCommandedBattle(world: WorldState, battle: ActiveBattle): Record<string, unknown> {
+  return {
+    ...battle,
+    settlementName: world.settlements[battle.settlementId].name,
+    retreatDestinationName: battle.retreatDestinationId
+      ? world.settlements[battle.retreatDestinationId]?.name ?? "Open waters"
+      : "Open waters",
+    canRetreat: battle.phase > 0 && battle.phase < battle.totalPhases,
+  };
+}
+
+export function dashboardState(
+  world: WorldState,
+  briefingEvents: SimEvent[],
+  feed: EventFeedPage,
+): Record<string, unknown> {
   const player = Object.values(world.players)[0];
   const commander = world.characters[player.characterId];
-  const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === commander.id) ?? null;
+  const commandedBattle = Object.values(world.activeBattles)
+    .find((battle) => battle.attackerId === commander.id) ?? null;
+  // A battle the commander is not leading, but which they can actually observe.
+  // Distant battles stay hidden, matching the character projection.
+  const observedBattles = commander.locationId === null
+    ? []
+    : Object.values(world.activeBattles)
+      .filter((battle) => battle.attackerId !== commander.id && battle.settlementId === commander.locationId)
+      .sort((left, right) => left.id.localeCompare(right.id));
   const captivity = commander.captivity;
   return {
     tick: world.tick,
@@ -301,15 +361,22 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
     player,
     commanderId: commander.id,
     pendingCommands: world.pendingCommands,
+    capabilities: commandCapabilities(),
     combat: {
-      active: activeBattle ? {
-        ...activeBattle,
-        settlementName: world.settlements[activeBattle.settlementId].name,
-        retreatDestinationName: activeBattle.retreatDestinationId
-          ? world.settlements[activeBattle.retreatDestinationId]?.name ?? "Open waters"
-          : "Open waters",
-        canRetreat: activeBattle.phase > 0 && activeBattle.phase < activeBattle.totalPhases,
-      } : null,
+      /** The battle this commander is personally leading. */
+      commandedBattle: commandedBattle ? projectCommandedBattle(world, commandedBattle) : null,
+      /** Battles at the commander's location led by someone else. */
+      observedBattles: observedBattles.map((battle) => ({
+        id: battle.id,
+        settlementId: battle.settlementId,
+        settlementName: world.settlements[battle.settlementId].name,
+        attackerId: battle.attackerId,
+        attackerName: world.characters[battle.attackerId]?.name ?? battle.attackerId,
+        phase: battle.phase,
+        totalPhases: battle.totalPhases,
+      })),
+      /** Compatibility alias for `commandedBattle`. Prefer the explicit name. */
+      active: commandedBattle ? projectCommandedBattle(world, commandedBattle) : null,
     },
     captivity: {
       active: captivity ? {
@@ -323,7 +390,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
         canEscape: true,
       } : null,
     },
-    briefing: checkInBriefing(world, commander.id, events),
+    briefing: checkInBriefing(world, commander.id, briefingEvents),
     factions: projectFactions(world, commander),
     settlements: Object.values(world.settlements).map((settlement) => {
       const exact = settlement.factionId === commander.factionId;
@@ -339,7 +406,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
         commander.troops.count >= 25 &&
         !surrenderOffered &&
         !settlementBattle &&
-        !activeBattle;
+        !commandedBattle;
       const forecast = forecastAvailable ? combatForecast(world, commander.id, settlement.id) : null;
       if (!exact) {
         return {
@@ -384,10 +451,17 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
     characters: Object.values(world.characters)
       .sort((left, right) => left.id.localeCompare(right.id))
       .map((character) => projectCharacter(world, commander, character)),
-    events: events
-      .slice(-100)
-      .map((event) => projectEvent(world, commander, event, eventSummary(world, event)))
-      .reverse(),
+    events: projectEventFeed(world, commander.id, feed.events).reverse(),
+    eventFeed: {
+      count: feed.events.length,
+      limit: feed.limit,
+      total: feed.total,
+      hasMore: feed.hasMore,
+      oldestSequence: feed.events[0]?.sequence ?? null,
+      newestSequence: feed.events.at(-1)?.sequence ?? null,
+      /** Pass as `beforeSequence` to read the next older page. */
+      cursor: feed.events[0]?.sequence ?? null,
+    },
     conversations: {
       threads: Object.values(world.conversationThreads)
         .filter((thread) => thread.participantIds.includes(commander.id))
