@@ -557,6 +557,9 @@
       var intel = item.intelligence;
       var intelLabel = intel && intel.exact ? "Exact owned records" : intel ? esc(intel.source) + " · " + fmt(intel.confidence * 100) + "% confidence · " + intel.ageTicks + " ticks old" : "No current report";
       var forecast = item.combatForecast;
+      var battleNotice = item.battleInProgress
+        ? '<div class="combat-card"><strong>Battle underway</strong><div class="subtle">Another force is already engaged here. New attacks cannot begin until it resolves.</div></div>'
+        : "";
       var forecastHtml = forecast
         ? '<h3>Combat forecast</h3><div class="combat-card"><div class="combat-head"><strong>' + esc(forecast.outlook.replaceAll("-", " ")) + '</strong><span class="subtle">strategy ' + forecast.strategy + ' · ' + esc(forecast.detailLevel) + '</span></div>' +
           '<div class="combat-grid">' +
@@ -586,11 +589,11 @@
         "<h3>Parties present</h3>" +
         (parties.length ? parties.map(function (party) {
           return '<button class="party-row" type="button" data-party="' + esc(party.id) + '"><span><strong>' + esc(party.name) + "</strong><br><span class=\"subtle\">" + esc(party.archetype) + "</span></span><span>" + fmt(party.partyPower) + "</span></button>";
-        }).join("") : '<div class="empty">' + (intel && intel.exact ? "No named parties are currently here." : "Foreign party positions are not available in this report.") + "</div>") + forecastHtml +
+        }).join("") : '<div class="empty">' + (intel && intel.exact ? "No named parties are currently here." : "Foreign party positions are not available in this report.") + "</div>") + battleNotice + forecastHtml +
         "<h3>Direct command</h3><div class=\"actions\">" +
           (travelAllowed ? '<button class="action" type="button" data-action="travel" data-target="' + esc(item.id) + '">Sail here</button>' : "") +
           (here && item.surrenderOffered ? '<button class="action danger" type="button" data-action="claim-settlement">Accept surrender &amp; claim</button>' : "") +
-          (here && item.factionId && item.factionId !== c.factionId && !item.surrenderOffered && !(world.combat && world.combat.active) ? '<button class="action danger" type="button" data-action="raid">Commit attack</button>' : "") +
+          (here && item.factionId && item.factionId !== c.factionId && !item.surrenderOffered && !item.battleInProgress && !(world.combat && world.combat.active) ? '<button class="action danger" type="button" data-action="raid">Commit attack</button>' : "") +
           '<button class="action" type="button" data-action="trade-local">Trade locally</button>' +
           '<button class="action" type="button" data-action="buy-provisions">Buy provisions</button>' +
         "</div>";

@@ -281,6 +281,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
     settlements: Object.values(world.settlements).map((settlement) => {
       const exact = settlement.factionId === commander.factionId;
       const knowledge = commander.knowledge[settlement.id];
+      const settlementBattle = Object.values(world.activeBattles).find((battle) => battle.settlementId === settlement.id) ?? null;
       const surrenderOffered = commander.locationId === settlement.id &&
         settlement.factionId !== null &&
         settlement.factionId !== commander.factionId &&
@@ -290,6 +291,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
         settlement.factionId !== commander.factionId &&
         commander.troops.count >= 25 &&
         !surrenderOffered &&
+        !settlementBattle &&
         !activeBattle;
       const forecast = forecastAvailable ? combatForecast(world, commander.id, settlement.id) : null;
       if (!exact) {
@@ -310,6 +312,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
           stability: null,
           prices: knowledge?.priceEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
           partyCount: null,
+          battleInProgress: Boolean(settlementBattle),
           surrenderOffered,
           combatForecast: forecast,
           intelligence: knowledge ? {
@@ -325,6 +328,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
         ...settlement,
         prices: Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, marketPrice(world, settlement.id, resource)])),
         partyCount: Object.values(world.characters).filter((character) => character.locationId === settlement.id).length,
+        battleInProgress: Boolean(settlementBattle),
         surrenderOffered,
         combatForecast: forecast,
         intelligence: { exact: true, source: "owned", confidence: 1, observedTick: world.tick, ageTicks: 0 },

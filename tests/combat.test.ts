@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { dashboardState } from "../src/dashboard/view-model.ts";
 import { combatForecast } from "../src/sim/combat.ts";
 import { submitCommand } from "../src/sim/commands.ts";
 import { runTick } from "../src/sim/engine.ts";
@@ -58,6 +59,12 @@ test("a major player attack resolves one phase and refreshes local intelligence"
   assert.equal(commander.knowledge[settlement.id].observedTick, 0);
   assert.equal(commander.knowledge[settlement.id].garrisonEstimate, settlement.garrison);
   assert.ok(!result.events.some((event) => event.type === "battle-resolved"));
+  const view = dashboardState(world, result.events) as {
+    settlements: Array<{ id: string; battleInProgress: boolean; combatForecast: unknown }>;
+  };
+  const target = view.settlements.find((candidate) => candidate.id === settlement.id);
+  assert.equal(target?.battleInProgress, true);
+  assert.equal(target?.combatForecast, null);
 });
 
 test("retreat is the only player command during a battle and ends it with lighter consequences", () => {
