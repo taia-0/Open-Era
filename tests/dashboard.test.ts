@@ -227,6 +227,7 @@ test("accelerated time pauses at a player battle phase", async () => {
       day: 1 / world.ticksPerDay,
       ticksAdvanced: 1,
       combatUpdated: true,
+      attentionUpdated: false,
       pausedForBattle: true,
     });
 
@@ -237,6 +238,58 @@ test("accelerated time pauses at a player battle phase", async () => {
     assert.equal(state.combat.active?.phase, 1);
     assert.equal(state.combat.active?.canRetreat, true);
     assert.ok(state.briefing.items.some((item) => item.action === "review-battle"));
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("accelerated time pauses when mandatory captivity release changes player state", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "open-era-dashboard-captivity-"));
+  const app = createDashboardApp({ databasePath: join(directory, "dashboard.sqlite"), seed: 1847 });
+  try {
+    const world = app.getWorld();
+    const commander = world.characters[world.players["prototype-player"].characterId];
+    commander.locationId = "cinder-key";
+    commander.troops.count = 0;
+    commander.money = 20;
+    commander.captivity = {
+      captorFactionId: "free-tide",
+      settlementId: "cinder-key",
+      capturedTick: -14 * world.ticksPerDay,
+      mandatoryReleaseTick: 0,
+      cause: "major-defeat",
+      displayedRisk: "high",
+      scatteredTroops: { count: 30, experience: 0.5, discipline: 0.6 },
+      releaseDestinationId: "glassport",
+    };
+
+    await new Promise<void>((resolve) => app.server.listen(0, "127.0.0.1", resolve));
+    const address = app.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port");
+    const base = `http://127.0.0.1:${address.port}`;
+    const advance = await fetch(`${base}/api/advance`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ticks: 24 }),
+    });
+    assert.deepEqual(await advance.json(), {
+      ok: true,
+      tick: 1,
+      day: 1 / world.ticksPerDay,
+      ticksAdvanced: 1,
+      combatUpdated: false,
+      attentionUpdated: true,
+      pausedForBattle: false,
+    });
+    const state = await (await fetch(`${base}/api/state`)).json() as {
+      captivity: { active: unknown };
+      briefing: { items: Array<{ title: string; summary: string }> };
+    };
+    assert.equal(state.captivity.active, null);
+    assert.ok(state.briefing.items.some((item) =>
+      item.title === "captivity released" && item.summary.includes("recorded as debt")
+    ));
   } finally {
     await app.close();
     rmSync(directory, { recursive: true, force: true });

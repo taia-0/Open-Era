@@ -52,8 +52,10 @@ function eventSummary(world: WorldState, event: SimEvent): string {
       return `${actor} was captured at ${settlement} after ${String(event.data.cause).replaceAll("-", " ")}`;
     case "captivity-escaped":
       return `${actor} escaped captivity at ${settlement} and suffered ${event.data.injury} health damage`;
-    case "captivity-released":
-      return `${actor} was released from ${settlement} under bounded terms`;
+    case "captivity-released": {
+      const terms = event.data.terms as { moneyPaid: number; debtValue: number };
+      return `${actor} was released from ${settlement}: ${terms.moneyPaid} paid and ${terms.debtValue} recorded as debt`;
+    }
     case "scattered-troops-returned":
       return `${event.data.returning} scattered troops returned to ${actor}`;
     case "settlement-claimed":
@@ -219,7 +221,8 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     }
     const warning = event.type === "player-command-failed" || event.type === "standing-order-refused" ||
       event.type === "standing-order-deviated" || event.type === "standing-order-expired" ||
-      event.type === "settlement-shortage" ||
+      event.type === "settlement-shortage" || event.type === "character-captured" ||
+      event.type === "captivity-released" ||
       (event.type === "battle-resolved" && event.data.outcome !== "attacker-victory");
     if (reportingOfficer && routineTypes.has(event.type)) {
       if (event.sequence > player.routineBriefingThroughSequence) routineEvents.push(event);

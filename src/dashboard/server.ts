@@ -114,6 +114,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         }
         let ticksAdvanced = 0;
         let combatUpdated = false;
+        let attentionUpdated = false;
         const playerCharacterId = Object.values(world.players)[0]?.characterId;
         for (let index = 0; index < ticks; index += 1) {
           const result = runTick(world);
@@ -124,7 +125,11 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
             event.actorId === playerCharacterId &&
             (event.type === "battle-phase-resolved" || event.type === "battle-retreated" || event.type === "battle-resolved")
           );
-          if (combatUpdated) break;
+          attentionUpdated = result.events.some((event) =>
+            event.actorId === playerCharacterId &&
+            (event.type === "character-captured" || event.type === "captivity-escaped" || event.type === "captivity-released")
+          );
+          if (combatUpdated || attentionUpdated) break;
         }
         const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === playerCharacterId);
         json(response, 200, {
@@ -133,6 +138,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           day: world.tick / world.ticksPerDay,
           ticksAdvanced,
           combatUpdated,
+          attentionUpdated,
           pausedForBattle: Boolean(activeBattle),
         });
         return;
