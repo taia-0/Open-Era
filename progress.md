@@ -30,18 +30,23 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Branch in flight:** `feature/phase-0-baseline` (unpushed), off `main` at `1b020c5`.
-- **Last verified commit:** `82c9bfc`. 68 tests pass, typecheck is clean, and the milestone gate passes locally on Node 24.
+- **Branch in flight:** `feature/phase-0-baseline`, off `main` at `1b020c5`.
+- **Last verified commit:** `82c9bfc`. 68 tests pass, typecheck is clean, and the milestone gate passes locally on Node 24. An independent adaptive session at this commit completed the campaign objective with no foreign state reachable.
 - **Gate status:** passing. Golden hashes lock pre-redaction behavior and still pass unchanged.
-- **Headline risk:** the event-feed redaction was defeated once before by an unforeseen path, and the fix has not yet been validated by an independent session.
+- **Headline risk:** the event feed retains only the most recent 100 events with no pagination, so a player cannot audit its own history mid-campaign. Two sessions independently reported no legitimate way to estimate rival strength before committing.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. Node 24 is installed keg-only at `/opt/homebrew/opt/node@24/bin`; the global `node` remains 22.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
-| Event feed leaked foreign character payloads; capturing ground widened it | Defect | Cursor | Fixed in `82c9bfc`, awaiting independent session-002 validation |
-| No legitimate channel exists for learning a rival's strength, so "estimates learned through investigation" has no machinery | Design gap | ChatGPT partner | Open |
+| Event feed leaked foreign character payloads; capturing ground widened it | Defect | Cursor | Fixed in `82c9bfc`; validated by an independent session with 0 foreign payloads visible |
+| Event feed is a rolling 100-event window with no pagination, so a player cannot audit its own history | Defect | Unassigned | Open; raised independently by session 002 |
+| `combat.active` is `null` while `settlement.battleInProgress` is true, with no stated authority | Defect | Unassigned | Open; raised by session 002 |
+| No legitimate channel exists for learning a rival's strength, so "estimates learned through investigation" has no machinery | Design gap | ChatGPT partner | Open; raised independently by both sessions |
+| Combat forecasts and travel ETAs are unavailable at the moment the commitment decision is made | Design gap | Unassigned | Open; raised by session 002 |
+| `POST /api/advance` returns no diff or event stream, so every step is advance-then-refetch | Ergonomic | Unassigned | Open; named the largest cost of playing |
+| Undocumented targeting and parameter rules: a pressure order needs a faction target, `briefing/officer` needs `characterId` | Wording | Unassigned | Open; raised by session 002 |
 | Surrender has no explicit command; it resolves implicitly through `claim-settlement` | Design gap | ChatGPT partner | Open |
 | One `issue-order` can produce two standing orders | Defect | Unassigned | Open, needs a decided intended identity |
 | `captureRisk` reads `low` through won battles, then capture arrives by claiming | Wording | Unassigned | Open |
@@ -100,14 +105,23 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
 
 ## Entries
 
+### 2026-09-25 — Redaction fix independently validated
+- **Agent:** Cursor | **Branch:** `feature/phase-0-baseline` | **Commits:** none (verification only)
+- **Type:** Verification
+- **Changed:** Nothing functional. A second adaptive session at `82c9bfc`, with no repository knowledge, repeated the Cinder Key ambition against the fixed build.
+- **Why:** The first session defeated the previous redaction rule, and the submitter's own tests had passed while that leak was live. Independent verification was the only credible evidence available.
+- **Verified:** Checked directly against that world at tick 25 rather than taken on trust. 97 of 100 payloads withheld, **0** visible with a foreign actor, and no foreign motive field name present in any visible payload. All three visible payloads were standing-order events for orders the commander had issued. Session 001 recorded 47 withheld with 24 foreign payloads exposed. The objective was completed at tick 14 and held to tick 25 without any leaked information.
+- **Left open:** One allowance, unattributed settlement events for owned territory, is still covered by unit tests only and has not been observed in a live session.
+- **Links:** [playtest 002](docs/playtests/hidden-state-visibility-002.md)
+
 ### 2026-09-25 — Event feed redaction defeated by ground ownership, then fixed
 - **Agent:** Cursor | **Branch:** `feature/phase-0-baseline` | **Commits:** `82c9bfc`
 - **Type:** Fix
 - **Changed:** `eventPayloadVisible` in [visibility.ts](src/dashboard/visibility.ts) now denies any character-attributed event unless the actor is the commander. Control of the ground is consulted only for unattributed settlement events. Regression tests cover owned ground, faction peers, and unattributed settlement events.
 - **Why:** The previous rule granted payload visibility when the commander's faction owned the settlement an event occurred in. Since characters stand *at* settlements, this exposed the private decisions of every visitor to captured territory. Capturing a settlement granted omniscience over it.
 - **Verified:** An adaptive session found the leak (`hidden-state-visibility-001`). Measured on the unfixed build against that world at tick 25: 47 of 100 payloads withheld, with 24 payloads visible from actors outside the commander and their faction, including 12 `decision-made` events carrying goal ids, plan intent, scored alternatives, and private target beliefs. The same world under the fix reports 100 of 100 withheld. 68 tests pass, up from 65. Typecheck clean.
-- **Left open:** The fix has not been validated by an independent session. The submitter's own tests passed while the leak was live, which is the reason independent validation is required rather than optional.
-- **Links:** [playtest](docs/playtests/hidden-state-visibility-001.md), [development-pipeline.md](docs/development-pipeline.md)
+- **Left open:** Closed by `hidden-state-visibility-002`, which found no foreign payload reachable.
+- **Links:** [playtest 001](docs/playtests/hidden-state-visibility-001.md), [playtest 002](docs/playtests/hidden-state-visibility-002.md), [development-pipeline.md](docs/development-pipeline.md)
 
 ### 2026-09-25 — Tiered redaction of foreign state from the player API
 - **Agent:** Cursor | **Branch:** `feature/phase-0-baseline` | **Commits:** `95fcba8`
