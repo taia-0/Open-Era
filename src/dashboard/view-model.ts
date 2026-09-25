@@ -497,6 +497,9 @@ export function dashboardState(
           stability: null,
           prices: knowledge?.priceEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
           partyCount: null,
+          // Present in the owned branch as well, so the settlement object has the
+          // same keys either way. Its absence here crashed a playtest client.
+          surrender: null,
           battleInProgress: battleVisible,
           surrenderOffered,
           combatForecast: forecast,

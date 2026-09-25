@@ -263,7 +263,7 @@ function validateCharacterAction(
   }
   if (request.action === "claim-settlement") {
     if (!settlement.factionId || settlement.factionId === character.factionId) {
-      return reject("not-hostile", "The current settlement is not a hostile surrender target");
+      return reject("not-hostile", "Only a settlement held by another faction can offer surrender; this one is not");
     }
     if (!settlementClaimAvailableTo(settlement, character.id)) {
       return reject("not-surrendering", "The settlement is not offering surrender to this character");
@@ -271,17 +271,21 @@ function validateCharacterAction(
   }
   if (request.action === "decline-surrender") {
     if (!settlement.factionId || settlement.factionId === character.factionId) {
-      return reject("not-hostile", "The current settlement is not a hostile surrender target");
+      return reject("not-hostile", "Only a settlement held by another faction can offer surrender; this one is not");
     }
     if (!settlementClaimAvailableTo(settlement, character.id)) {
       return reject("not-surrendering", "The settlement is not offering surrender to this character");
     }
   }
-  if (request.action === "recruit" && (character.money < 30 || settlement.stocks.arms < 2)) {
-    return reject("cannot-recruit", "Recruitment requires money and locally available arms");
+  if (request.action === "recruit") {
+    // Named separately, because "money and arms" left a player unable to tell
+    // which of the two it was missing.
+    if (character.money < 30) return reject("insufficient-money", `Recruitment costs 30 money; the character holds ${character.money}`);
+    if (settlement.stocks.arms < 2) return reject("no-arms", `Recruitment needs 2 arms here; the settlement holds ${settlement.stocks.arms}`);
   }
-  if (request.action === "buy-provisions" && (character.money < 2 || settlement.stocks.provisions < 1)) {
-    return reject("cannot-buy", "Provisions are unavailable or unaffordable");
+  if (request.action === "buy-provisions") {
+    if (character.money < 2) return reject("insufficient-money", `Buying provisions costs 2 money; the character holds ${character.money}`);
+    if (settlement.stocks.provisions < 1) return reject("no-provisions", "This settlement has no provisions left to sell");
   }
 
   const command: PlayerCommand = {
@@ -536,5 +540,12 @@ export function submitCommand(world: WorldState, request: CommandRequest): Comma
   if (request.type === "issue-order") return validateStandingOrder(world, request);
   if (request.type === "confirm-order") return validateOrderConfirmation(world, request);
   if (request.type === "amend-order") return validateOrderAmendment(world, request);
-  return validateOrderCancellation(world, request);
+  if (request.type === "cancel-order") return validateOrderCancellation(world, request);
+  // Without this, an unrecognised `type` fell through to order cancellation and
+  // was reported as "The order recipient is unknown", because the request also
+  // carried no `characterId`. A playtest lost time to exactly that.
+  return reject(
+    "unknown-type",
+    `That command type is not supported. Supported types are ${COMMAND_TYPES.join(", ")}.`,
+  );
 }
