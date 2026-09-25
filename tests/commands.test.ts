@@ -37,6 +37,32 @@ test("a validated direct action is queued, executed once, and removed", () => {
   assert.equal(result.events.filter((event) => event.type === "player-command-resolved").length, 1);
 });
 
+test("arrival immediately refreshes the player's local intelligence", () => {
+  const world = createPrototypeWorld(1847);
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  const destination = world.settlements["cinder-key"];
+  const submission = submitCommand(world, {
+    playerId: "prototype-player",
+    type: "character-action",
+    action: "travel",
+    targetId: destination.id,
+  });
+  assert.equal(submission.ok, true);
+
+  let arrivalEvents = runTick(world).events;
+  while (commander.travel) arrivalEvents = runTick(world).events;
+
+  assert.equal(commander.locationId, destination.id);
+  assert.equal(commander.knowledge[destination.id].source, "direct");
+  assert.equal(commander.knowledge[destination.id].observedTick, world.tick - 1);
+  const observation = arrivalEvents.find((event) => event.type === "knowledge-updated" && event.actorId === commander.id);
+  assert.ok(observation);
+  assert.equal(
+    commander.knowledge[destination.id].garrisonEstimate,
+    (observation.data.knowledge as { garrisonEstimate: number }).garrisonEstimate,
+  );
+});
+
 test("a surrendering settlement can be claimed by the conquering character", () => {
   const world = createPrototypeWorld(1847);
   const commander = world.characters[world.players["prototype-player"].characterId];

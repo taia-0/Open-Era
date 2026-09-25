@@ -1322,6 +1322,19 @@ function progressTravel(world: WorldState, character: Character, events: SimEven
       settlementId: travel.toId,
       data: { locationId: travel.toId, fromId: travel.fromId },
     });
+    const knowledge = directObservation(world, character);
+    if (knowledge) {
+      emit(world, events, {
+        type: "knowledge-updated",
+        actorId: character.id,
+        settlementId: knowledge.settlementId,
+        data: {
+          settlementId: knowledge.settlementId,
+          knowledge,
+          reason: "arrival observation",
+        },
+      });
+    }
   }
 }
 
