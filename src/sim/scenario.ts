@@ -264,7 +264,11 @@ function orderFor(character: Character): StandingOrder | null {
   };
 }
 
-export function createPrototypeWorld(seed = 1847): WorldState {
+export interface PrototypeWorldOptions {
+  playerCharacterId?: string;
+}
+
+export function createPrototypeWorld(seed = 1847, options: PrototypeWorldOptions = {}): WorldState {
   const rng = new DeterministicRng(seed);
   const factions: Record<string, Faction> = {
     "world-government": {
@@ -365,7 +369,10 @@ export function createPrototypeWorld(seed = 1847): WorldState {
     }
   }
 
-  characters["character-01"].controller = { kind: "human", playerId: "prototype-player" };
+  const playerCharacterId = options.playerCharacterId ?? "character-01";
+  const playerCharacter = characters[playerCharacterId];
+  if (!playerCharacter) throw new Error(`Unknown prototype player character: ${playerCharacterId}`);
+  playerCharacter.controller = { kind: "human", playerId: "prototype-player" };
 
   // Give co-located characters a small social history independent of hierarchy.
   for (const character of Object.values(characters)) {
@@ -378,7 +385,11 @@ export function createPrototypeWorld(seed = 1847): WorldState {
   }
 
   const initialReportingOfficerId = Object.values(characters)
-    .filter((character) => character.controller.kind === "autonomous" && character.factionId === "world-government")
+    .filter((character) =>
+      character.controller.kind === "autonomous" &&
+      character.factionId !== null &&
+      character.factionId === playerCharacter.factionId
+    )
     .sort((left, right) =>
       (right.skills.leadership + right.personality.loyalty * 50) -
         (left.skills.leadership + left.personality.loyalty * 50) ||
@@ -404,7 +415,7 @@ export function createPrototypeWorld(seed = 1847): WorldState {
       "prototype-player": {
         id: "prototype-player",
         displayName: "Prototype Commander",
-        characterId: "character-01",
+        characterId: playerCharacterId,
         knownCharacterIds: Object.keys(characters),
         conversationTagScores: {},
         briefingAcknowledgements: {},

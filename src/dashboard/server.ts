@@ -31,6 +31,7 @@ export interface DashboardOptions {
   databasePath: string;
   reset?: boolean;
   seed?: number;
+  playerCharacterId?: string;
   dialogueProvider?: DialogueProvider;
 }
 
@@ -76,7 +77,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
   let world: WorldState;
   if (store.hasWorld()) world = store.recover().state;
   else {
-    world = createPrototypeWorld(options.seed ?? 1847);
+    world = createPrototypeWorld(options.seed ?? 1847, { playerCharacterId: options.playerCharacterId });
     store.initialize(world);
   }
 

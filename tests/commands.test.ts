@@ -18,6 +18,18 @@ test("the human-controlled character never receives autonomous decisions", () =>
   assert.equal(result.events.filter((event) => event.type === "plan-reconsidered").length, 29);
 });
 
+test("a prototype session may assign the human controller to another named character", () => {
+  const world = createPrototypeWorld(1847, { playerCharacterId: "character-14" });
+  const player = world.players["prototype-player"];
+  const commander = world.characters[player.characterId];
+
+  assert.equal(player.characterId, "character-14");
+  assert.deepEqual(commander.controller, { kind: "human", playerId: "prototype-player" });
+  assert.equal(world.characters["character-01"].controller.kind, "autonomous");
+  assert.equal(commander.factionId, "free-tide");
+  assert.equal(world.characters[player.reportingOfficerId!].factionId, commander.factionId);
+});
+
 test("a validated direct action is queued, executed once, and removed", () => {
   const world = createPrototypeWorld(1847);
   const submission = submitCommand(world, {

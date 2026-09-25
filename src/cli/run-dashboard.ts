@@ -8,6 +8,7 @@ const { values } = parseArgs({
     port: { type: "string", short: "p", default: "4317" },
     database: { type: "string", short: "d", default: ".open-era/dashboard.sqlite" },
     seed: { type: "string", short: "s", default: "1847" },
+    "player-character": { type: "string" },
     reset: { type: "boolean", default: false },
   },
 });
@@ -21,6 +22,7 @@ const app = createDashboardApp({
   databasePath: resolve(values.database!),
   reset: values.reset,
   seed,
+  playerCharacterId: values["player-character"],
 });
 
 app.server.listen(port, values.host!, () => {

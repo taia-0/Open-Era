@@ -95,6 +95,7 @@ Useful options:
 --seed, -s        deterministic seed for a new world
 --database, -d    SQLite world path
 --output, -o      report directory
+--player-character  named character to control in a new dashboard world
 --reset           replace the selected local simulation database
 ```
 
