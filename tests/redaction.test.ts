@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dashboardState } from "../src/dashboard/view-model.ts";
+import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
 import {
   characterVisibilityTier,
   eventPayloadVisible,
@@ -340,7 +340,7 @@ test("conversation payloads require thread participation", () => {
 test("projecting the dashboard state does not mutate the world", () => {
   const { world } = fixture();
   const before = stateHash(world);
-  dashboardState(world, []);
+  dashboardState(world, [], fullEventFeed([]));
   assert.equal(
     stateHash(world),
     before,

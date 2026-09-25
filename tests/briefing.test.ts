@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dashboardState } from "../src/dashboard/view-model.ts";
+import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
 import { acknowledgeBriefingItem, assignReportingOfficer } from "../src/sim/briefing.ts";
 import { runTick } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
@@ -18,7 +18,7 @@ interface BriefingView {
 }
 
 function briefing(world: ReturnType<typeof createPrototypeWorld>, events: ReturnType<typeof runTick>["events"]): BriefingView {
-  return (dashboardState(world, events) as { briefing: BriefingView }).briefing;
+  return (dashboardState(world, events, fullEventFeed(events)) as { briefing: BriefingView }).briefing;
 }
 
 test("a reporting officer bundles routine updates without absorbing decisions", () => {

@@ -19,10 +19,10 @@ import {
   type SendMessageRequest,
 } from "../sim/conversations.ts";
 import { runTick } from "../sim/engine.ts";
-import { WorldStore } from "../sim/persistence.ts";
+import { WorldStore, EVENT_FEED_PAGE_DEFAULT, EVENT_FEED_PAGE_LIMIT } from "../sim/persistence.ts";
 import { createPrototypeWorld } from "../sim/scenario.ts";
-import type { WorldState } from "../sim/types.ts";
-import { dashboardState } from "./view-model.ts";
+import type { SimEvent, WorldState } from "../sim/types.ts";
+import { dashboardState, projectEventFeed } from "./view-model.ts";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const page = readFileSync(resolve(moduleDirectory, "index.html"), "utf8");
@@ -48,6 +48,15 @@ function json(response: ServerResponse, status: number, body: unknown): void {
     "x-content-type-options": "nosniff",
   });
   response.end(JSON.stringify(body));
+}
+
+/** Reads the event-feed cursor from a request. Returns "invalid" when unusable. */
+function parseEventCursor(url: URL): number | null | "invalid" {
+  const raw = url.searchParams.get("beforeSequence");
+  if (raw === null) return null;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) return "invalid";
+  return parsed;
 }
 
 async function requestBody(request: IncomingMessage): Promise<unknown> {
@@ -96,9 +105,26 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/state") {
-        // Roughly one busy in-world week is scanned for exceptional events;
-        // the view model still returns only a compact recent-event feed.
-        json(response, 200, dashboardState(world, store.recentEvents(5_000)));
+        const beforeSequence = parseEventCursor(url);
+        if (beforeSequence === "invalid") {
+          json(response, 400, { ok: false, error: "beforeSequence must be a non-negative integer" });
+          return;
+        }
+        const limitParam = url.searchParams.get("limit");
+        const limit = limitParam === null ? EVENT_FEED_PAGE_DEFAULT : Number(limitParam);
+        if (!Number.isInteger(limit) || limit < 1 || limit > EVENT_FEED_PAGE_LIMIT) {
+          json(response, 400, { ok: false, error: `limit must be an integer between 1 and ${EVENT_FEED_PAGE_LIMIT}` });
+          return;
+        }
+        // Roughly one busy in-world week is scanned for exceptional events, while
+        // the feed itself is returned one explicit page at a time.
+        const feedEvents = store.eventsPage(beforeSequence, limit);
+        json(response, 200, dashboardState(world, store.recentEvents(5_000), {
+          events: feedEvents,
+          hasMore: feedEvents.length > 0 && store.countEventsBefore(feedEvents[0].sequence) > 0,
+          limit,
+          total: store.eventCount(),
+        }));
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/health") {
@@ -112,14 +138,21 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           json(response, 400, { ok: false, error: "ticks must be an integer between 1 and 144" });
           return;
         }
+        const playerCharacterId = Object.values(world.players)[0]?.characterId;
+        if (!playerCharacterId) {
+          json(response, 400, { ok: false, error: "The world has no player session" });
+          return;
+        }
         let ticksAdvanced = 0;
         let combatUpdated = false;
         let attentionUpdated = false;
-        const playerCharacterId = Object.values(world.players)[0]?.characterId;
+        const produced: SimEvent[] = [];
         for (let index = 0; index < ticks; index += 1) {
           const result = runTick(world);
           const conversationEvents = await resolveDueReplies(world, dialogueProvider);
-          store.appendTick([...result.events, ...conversationEvents], world);
+          const tickEvents = [...result.events, ...conversationEvents];
+          store.appendTick(tickEvents, world);
+          produced.push(...tickEvents);
           ticksAdvanced += 1;
           combatUpdated = result.events.some((event) =>
             event.actorId === playerCharacterId &&
@@ -131,7 +164,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           );
           if (combatUpdated || attentionUpdated) break;
         }
-        const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === playerCharacterId);
+        const commandedBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === playerCharacterId);
         json(response, 200, {
           ok: true,
           tick: world.tick,
@@ -139,7 +172,11 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           ticksAdvanced,
           combatUpdated,
           attentionUpdated,
-          pausedForBattle: Boolean(activeBattle),
+          pausedForBattle: Boolean(commandedBattle),
+          // The events this request produced, projected through the same
+          // visibility path as the feed, so a step needs no follow-up read.
+          eventSequence: world.nextEventSequence - 1,
+          events: projectEventFeed(world, playerCharacterId, produced).reverse(),
         });
         return;
       }

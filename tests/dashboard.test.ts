@@ -3,7 +3,32 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { combatForecast } from "../src/sim/combat.ts";
 import { createDashboardApp } from "../src/dashboard/server.ts";
+
+/**
+ * The stable part of an `/api/advance` response. The response also carries the
+ * projected event diff, which is asserted separately.
+ */
+function advanceShape(body: {
+  ok: boolean;
+  tick: number;
+  day: number;
+  ticksAdvanced: number;
+  combatUpdated: boolean;
+  attentionUpdated: boolean;
+  pausedForBattle: boolean;
+}): Record<string, unknown> {
+  return {
+    ok: body.ok,
+    tick: body.tick,
+    day: body.day,
+    ticksAdvanced: body.ticksAdvanced,
+    combatUpdated: body.combatUpdated,
+    attentionUpdated: body.attentionUpdated,
+    pausedForBattle: body.pausedForBattle,
+  };
+}
 
 test("the local dashboard serves state and executes its command API", async () => {
   const directory = mkdtempSync(join(tmpdir(), "open-era-dashboard-"));
@@ -151,6 +176,27 @@ test("the local dashboard serves state and executes its command API", async () =
     };
     assert.equal(afterOfficer.briefing.reportingOfficer?.id, "character-10");
 
+    // The officer field accepts its natural alias, and a body naming no officer
+    // is rejected with a message that says what to send.
+    const aliasResponse = await fetch(`${base}/api/briefing/officer`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerId: "prototype-player", officerId: "character-05" }),
+    });
+    assert.equal(aliasResponse.status, 200);
+    const afterAlias = await (await fetch(`${base}/api/state`)).json() as {
+      briefing: { reportingOfficer: { id: string } | null };
+    };
+    assert.equal(afterAlias.briefing.reportingOfficer?.id, "character-05");
+
+    const noOfficer = await fetch(`${base}/api/briefing/officer`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerId: "prototype-player" }),
+    });
+    assert.equal(noOfficer.status, 400);
+    assert.match((await noOfficer.json() as { error: string }).error, /characterId/);
+
     const amendmentResponse = await fetch(`${base}/api/commands`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -268,7 +314,18 @@ test("accelerated time pauses at a player battle phase", async () => {
       body: JSON.stringify({ ticks: 24 }),
     });
     assert.equal(advance.status, 200);
-    assert.deepEqual(await advance.json(), {
+    const advanceBody = await advance.json() as {
+      ok: boolean;
+      tick: number;
+      day: number;
+      ticksAdvanced: number;
+      combatUpdated: boolean;
+      attentionUpdated: boolean;
+      pausedForBattle: boolean;
+      eventSequence: number;
+      events: Array<{ type: string; payloadWithheld: boolean; data: unknown }>;
+    };
+    assert.deepEqual(advanceShape(advanceBody), {
       ok: true,
       tick: 1,
       day: 1 / world.ticksPerDay,
@@ -277,6 +334,13 @@ test("accelerated time pauses at a player battle phase", async () => {
       attentionUpdated: false,
       pausedForBattle: true,
     });
+    // A step reports what it produced rather than forcing a follow-up read, and
+    // everything it reports must already be redacted.
+    assert.ok(advanceBody.events.length > 0, "advance must report the events that occurred");
+    assert.ok(advanceBody.eventSequence > 0, "advance must report the sequence it reached");
+    for (const event of advanceBody.events) {
+      if (event.payloadWithheld) assert.equal(event.data, null, `${event.type} withheld its payload but still shipped data`);
+    }
 
     const state = await (await fetch(`${base}/api/state`)).json() as {
       combat: { active: { phase: number; canRetreat: boolean } | null };
@@ -320,7 +384,18 @@ test("accelerated time pauses when mandatory captivity release changes player st
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ticks: 24 }),
     });
-    assert.deepEqual(await advance.json(), {
+    const advanceBody = await advance.json() as {
+      ok: boolean;
+      tick: number;
+      day: number;
+      ticksAdvanced: number;
+      combatUpdated: boolean;
+      attentionUpdated: boolean;
+      pausedForBattle: boolean;
+      eventSequence: number;
+      events: unknown[];
+    };
+    assert.deepEqual(advanceShape(advanceBody), {
       ok: true,
       tick: 1,
       day: 1 / world.ticksPerDay,
@@ -329,6 +404,7 @@ test("accelerated time pauses when mandatory captivity release changes player st
       attentionUpdated: true,
       pausedForBattle: false,
     });
+    assert.ok(advanceBody.events.length > 0, "advance must report the events that occurred");
     const state = await (await fetch(`${base}/api/state`)).json() as {
       captivity: { active: unknown };
       briefing: { items: Array<{ title: string; summary: string }> };
@@ -337,6 +413,181 @@ test("accelerated time pauses when mandatory captivity release changes player st
     assert.ok(state.briefing.items.some((item) =>
       item.title === "captivity released" && item.summary.includes("recorded as debt")
     ));
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("the event feed is paged by cursor and cannot be read past the page", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "open-era-feed-"));
+  const app = createDashboardApp({ databasePath: join(directory, "dashboard.sqlite"), seed: 1847 });
+  try {
+    await new Promise<void>((resolve) => app.server.listen(0, "127.0.0.1", resolve));
+    const address = app.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port");
+    const base = `http://127.0.0.1:${address.port}`;
+    await fetch(`${base}/api/advance`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ticks: 1 }),
+    });
+
+    type Feed = {
+      events: Array<{ sequence: number; type: string; data: unknown; payloadWithheld: boolean }>;
+      eventFeed: { count: number; limit: number; total: number; hasMore: boolean; oldestSequence: number; newestSequence: number; cursor: number };
+    };
+
+    const first = await (await fetch(`${base}/api/state?limit=50`)).json() as Feed;
+    assert.equal(first.eventFeed.count, 50, "the page must honour the requested size");
+    assert.equal(first.eventFeed.limit, 50);
+    assert.ok(first.eventFeed.total > 50, "the world must have enough history to page");
+    assert.equal(first.eventFeed.hasMore, true);
+    assert.ok(first.eventFeed.newestSequence > first.eventFeed.oldestSequence);
+
+    const second = await (await fetch(`${base}/api/state?beforeSequence=${first.eventFeed.cursor}&limit=50`)).json() as Feed;
+    assert.equal(second.eventFeed.count, 50);
+    const firstSequences = new Set(first.events.map((event) => event.sequence));
+    for (const event of second.events) {
+      assert.ok(event.sequence < first.eventFeed.cursor, `${event.sequence} must be older than the cursor`);
+      assert.ok(!firstSequences.has(event.sequence), `${event.sequence} must not repeat across pages`);
+    }
+
+    // A page is projected exactly like the feed, so a withheld payload stays withheld.
+    for (const event of [...first.events, ...second.events]) {
+      if (event.payloadWithheld) assert.equal(event.data, null, `${event.type} withheld its payload but still shipped data`);
+    }
+
+    // Reading past the beginning of history returns an empty page, not an error.
+    const beyond = await (await fetch(`${base}/api/state?beforeSequence=1&limit=50`)).json() as Feed;
+    assert.equal(beyond.events.length, 0);
+    assert.equal(beyond.eventFeed.hasMore, false);
+
+    for (const path of ["/api/state?limit=0", "/api/state?limit=201", "/api/state?limit=abc", "/api/state?beforeSequence=-1"]) {
+      const invalid = await fetch(`${base}${path}`);
+      assert.equal(invalid.status, 400, `${path} must be rejected`);
+    }
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("battle authority separates a commanded battle from an observed one", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "open-era-authority-"));
+  const app = createDashboardApp({ databasePath: join(directory, "dashboard.sqlite"), seed: 1847 });
+  try {
+    const world = app.getWorld();
+    const commander = world.characters[world.players["prototype-player"].characterId];
+    commander.locationId = "cinder-key";
+    commander.travel = null;
+    commander.captivity = null;
+    // A rival leads a battle where the commander is standing.
+    const rival = Object.values(world.characters).find((character) => character.id !== commander.id && character.factionId !== null)!;
+    rival.locationId = "cinder-key";
+    rival.travel = null;
+    for (const settlementId of ["cinder-key", "glassport"]) {
+      const id = `battle-authority-${settlementId}`;
+      world.activeBattles[id] = {
+        id,
+        attackerId: rival.id,
+        settlementId,
+        defenderFactionId: world.settlements[settlementId].factionId,
+        startedTick: 0,
+        phase: 1,
+        totalPhases: 3,
+        attackerInitialPower: 100,
+        defenderInitialPower: 100,
+        attackerInitialTroops: Math.max(10, rival.troops.count),
+        defenderInitialGarrison: 100,
+        attackerPhaseWins: 0,
+        defenderPhaseWins: 0,
+        retreatDestinationId: null,
+        lastPhase: null,
+        startingForecast: combatForecast(world, rival.id, settlementId),
+      };
+    }
+
+    await new Promise<void>((resolve) => app.server.listen(0, "127.0.0.1", resolve));
+    const address = app.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port");
+    const base = `http://127.0.0.1:${address.port}`;
+
+    const state = await (await fetch(`${base}/api/state`)).json() as {
+      combat: {
+        commandedBattle: unknown;
+        observedBattles: Array<{ attackerName: string; settlementId: string; phase: number }>;
+        active: unknown;
+      };
+      settlements: Array<{ id: string; battleInProgress: boolean }>;
+    };
+
+    // The reported defect: `active` was null while battleInProgress was true,
+    // with nothing saying why. The reason is now explicit and the two agree.
+    assert.equal(state.combat.commandedBattle, null, "the commander is not leading this battle");
+    assert.equal(state.combat.active, null, "the compatibility alias must agree with the explicit name");
+    assert.equal(state.settlements.find((entry) => entry.id === "cinder-key")?.battleInProgress, true);
+
+    assert.equal(state.combat.observedBattles.length, 1, "only the co-located battle is observable");
+    assert.equal(state.combat.observedBattles[0].settlementId, "cinder-key");
+    assert.equal(state.combat.observedBattles[0].phase, 1);
+    assert.ok(state.combat.observedBattles[0].attackerName, "an observed battle must name its attacker");
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("the published command capabilities match what the boundary accepts", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "open-era-capabilities-"));
+  const app = createDashboardApp({ databasePath: join(directory, "dashboard.sqlite"), seed: 1847 });
+  try {
+    await new Promise<void>((resolve) => app.server.listen(0, "127.0.0.1", resolve));
+    const address = app.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port");
+    const base = `http://127.0.0.1:${address.port}`;
+
+    const state = await (await fetch(`${base}/api/state`)).json() as {
+      capabilities: {
+        limits: { orderPriority: { min: number; max: number; default: number }; orderDurationTicks: { min: number; max: number }; advancedTicksPerRequest: { min: number; max: number } };
+        actions: Array<{ action: string; target: string; requires: string[] }>;
+        directives: Array<{ directive: string; target: string }>;
+        actionPreconditions: string[];
+        orderPreconditions: string[];
+      };
+    };
+
+    assert.deepEqual(state.capabilities.limits.orderPriority, { min: 0.1, max: 1, default: 0.78 });
+    const actions = state.capabilities.actions.map((entry) => entry.action);
+    for (const action of ["travel", "buy-provisions", "trade-local", "work", "recruit", "raid", "claim-settlement", "rest"]) {
+      assert.ok(actions.includes(action), `${action} must be documented`);
+    }
+    const directives = state.capabilities.directives.map((entry) => entry.directive);
+    assert.deepEqual(directives.sort(), ["explore", "pressure", "protect", "trade-supplies"]);
+    // The documented target kinds must match the validator, not a wish.
+    assert.equal(state.capabilities.directives.find((entry) => entry.directive === "pressure")?.target, "faction");
+    assert.equal(state.capabilities.directives.find((entry) => entry.directive === "protect")?.target, "settlement");
+    assert.ok(state.capabilities.actionPreconditions.length > 0);
+    assert.ok(state.capabilities.orderPreconditions.length > 0);
+
+    // A rejection now names the supported values instead of only refusing.
+    const rejected = await fetch(`${base}/api/commands`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerId: "prototype-player", type: "character-action", action: "teleport" }),
+    });
+    assert.equal(rejected.status, 400);
+    const rejection = await rejected.json() as { error: string };
+    assert.match(rejection.error, /travel/, "the error must name what is accepted");
+
+    // The pressure-order rejection names the expected target kind.
+    const pressure = await fetch(`${base}/api/commands`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerId: "prototype-player", type: "issue-order", characterId: "character-04", directive: "pressure", targetId: "glassport" }),
+    });
+    assert.equal(pressure.status, 400);
+    assert.match((await pressure.json() as { error: string }).error, /faction/i);
   } finally {
     await app.close();
     rmSync(directory, { recursive: true, force: true });

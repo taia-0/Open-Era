@@ -4,6 +4,11 @@ import { DatabaseSync } from "node:sqlite";
 import { applyEvent, normalizeWorldState, stateHash } from "./state.ts";
 import type { SimEvent, WorldState } from "./types.ts";
 
+/** Largest event-feed page a player may request in one read. */
+export const EVENT_FEED_PAGE_LIMIT = 200;
+/** Page size used when a request does not ask for one. */
+export const EVENT_FEED_PAGE_DEFAULT = 100;
+
 export interface RecoveryResult {
   state: WorldState;
   snapshotSequence: number;
@@ -174,6 +179,32 @@ export class WorldStore {
       .prepare("SELECT * FROM events ORDER BY sequence DESC LIMIT ?")
       .all(safeLimit) as unknown as EventRow[];
     return rows.reverse().map((row) => this.rowToEvent(row));
+  }
+
+  /**
+   * Reads one page of event history, oldest-first within the page.
+   *
+   * With no cursor this returns the newest page. Pass the previous page's
+   * `oldestSequence` as the cursor to walk further back: the query is strictly
+   * `sequence < cursor`, so pages never overlap and a client can reconstruct
+   * the whole feed without gaps.
+   */
+  eventsPage(beforeSequence: number | null, limit: number): SimEvent[] {
+    const safeLimit = Math.max(1, Math.min(EVENT_FEED_PAGE_LIMIT, Math.floor(limit)));
+    const rows = (beforeSequence === null
+      ? this.database.prepare("SELECT * FROM events ORDER BY sequence DESC LIMIT ?").all(safeLimit)
+      : this.database
+        .prepare("SELECT * FROM events WHERE sequence < ? ORDER BY sequence DESC LIMIT ?")
+        .all(beforeSequence, safeLimit)) as unknown as EventRow[];
+    return rows.reverse().map((row) => this.rowToEvent(row));
+  }
+
+  /** Counts events strictly older than the cursor, which is how a page reports `hasMore`. */
+  countEventsBefore(beforeSequence: number | null): number {
+    const row = (beforeSequence === null
+      ? this.database.prepare("SELECT COUNT(*) AS count FROM events").get()
+      : this.database.prepare("SELECT COUNT(*) AS count FROM events WHERE sequence < ?").get(beforeSequence)) as { count: number };
+    return row.count;
   }
 
   snapshotCount(): number {

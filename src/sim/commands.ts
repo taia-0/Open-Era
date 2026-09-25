@@ -59,23 +59,96 @@ export type CommandSubmission =
   | { ok: true; command: PlayerCommand; event: SimEvent }
   | { ok: false; code: string; error: string };
 
-const actions = new Set<PlayerAction>([
-  "travel",
-  "buy-provisions",
-  "trade-local",
-  "work",
-  "recruit",
-  "raid",
-  "claim-settlement",
-  "rest",
-]);
+/**
+ * Numeric and structural limits enforced by the command boundary. Published to
+ * players so a rejection is never the first time a constraint is visible.
+ */
+export const COMMAND_LIMITS = {
+  /** At most this many direct character actions may be queued at once. */
+  directActionsQueued: 1,
+  orderPriority: { min: 0.1, max: 1, default: 0.78 },
+  orderDurationTicks: { min: 1, max: 720, default: null },
+  advancedTicksPerRequest: { min: 1, max: 144 },
+} as const;
 
-const directives = new Set<OrderDirective>([
-  "protect",
-  "pressure",
-  "trade-supplies",
-  "explore",
-]);
+export type CapabilityTarget = "settlement" | "faction" | "current-settlement" | "none";
+
+export interface ActionCapability {
+  action: PlayerAction;
+  target: CapabilityTarget;
+  requires: string[];
+}
+
+export interface DirectiveCapability {
+  directive: OrderDirective;
+  target: CapabilityTarget;
+  requires: string[];
+}
+
+/** Applies to every character action, before the action-specific requirements. */
+export const ACTION_PRECONDITIONS: readonly string[] = [
+  "the player controls this character",
+  "the character is at a settlement and not travelling",
+  "no other direct character action is already queued",
+  "the character is not captive and not committed to a battle",
+];
+
+export const ACTION_CAPABILITIES: readonly ActionCapability[] = [
+  { action: "travel", target: "settlement", requires: ["the destination is a known settlement", "the destination is not the current settlement"] },
+  { action: "buy-provisions", target: "none", requires: ["at least 2 money", "at least 1 provision in local stock"] },
+  { action: "trade-local", target: "none", requires: [] },
+  { action: "work", target: "none", requires: [] },
+  { action: "recruit", target: "none", requires: ["at least 30 money", "at least 2 arms in local stock"] },
+  { action: "raid", target: "current-settlement", requires: ["the current settlement belongs to a hostile faction", "at least 25 troops", "no other major battle underway at this settlement"] },
+  { action: "claim-settlement", target: "current-settlement", requires: ["the current settlement is offering surrender to this character"] },
+  { action: "rest", target: "none", requires: [] },
+];
+
+export const ORDER_PRECONDITIONS: readonly string[] = [
+  "the recipient's identity is known to the player",
+  "the recipient is an autonomous character in the commander's faction",
+  "the commander may only confirm, amend, or cancel orders they issued themselves",
+];
+
+export const DIRECTIVE_CAPABILITIES: readonly DirectiveCapability[] = [
+  { directive: "protect", target: "settlement", requires: ["a settlement target"] },
+  { directive: "pressure", target: "faction", requires: ["a faction target"] },
+  { directive: "trade-supplies", target: "settlement", requires: [] },
+  { directive: "explore", target: "settlement", requires: [] },
+];
+
+export const COMMAND_TYPES: readonly string[] = [
+  "character-action",
+  "issue-order",
+  "confirm-order",
+  "amend-order",
+  "cancel-order",
+  "retreat-battle",
+  "escape-captivity",
+];
+
+/**
+ * The machine-readable description of what a player may ask for. Builds the
+ * validator's own accepted sets below, so a declared capability and an accepted
+ * command cannot drift apart.
+ */
+export function commandCapabilities(): Record<string, unknown> {
+  return {
+    limits: COMMAND_LIMITS,
+    actionPreconditions: ACTION_PRECONDITIONS,
+    actions: ACTION_CAPABILITIES,
+    orderPreconditions: ORDER_PRECONDITIONS,
+    directives: DIRECTIVE_CAPABILITIES,
+    commandTypes: COMMAND_TYPES,
+  };
+}
+
+const actions = new Set<PlayerAction>(ACTION_CAPABILITIES.map((capability) => capability.action));
+
+const directives = new Set<OrderDirective>(DIRECTIVE_CAPABILITIES.map((capability) => capability.directive));
+
+const supportedActions = ACTION_CAPABILITIES.map((capability) => capability.action).join(", ");
+const supportedDirectives = DIRECTIVE_CAPABILITIES.map((capability) => capability.directive).join(", ");
 
 function reject(code: string, error: string): CommandSubmission {
   return { ok: false, code, error };
@@ -111,7 +184,7 @@ function validateCharacterAction(
 ): CommandSubmission {
   const player = world.players[request.playerId];
   const character = world.characters[player.characterId];
-  if (!actions.has(request.action)) return reject("unknown-action", "That character action is not supported");
+  if (!actions.has(request.action)) return reject("unknown-action", `That character action is not supported. Supported actions are ${supportedActions}.`);
   if (character.controller.kind !== "human" || character.controller.playerId !== player.id) {
     return reject("not-controller", "The player does not control this character");
   }
@@ -229,12 +302,12 @@ function validateStandingOrder(
   if (!issuer.factionId || recipient.factionId !== issuer.factionId) {
     return reject("outside-authority", "The recipient is outside the commander's faction authority");
   }
-  if (!directives.has(request.directive)) return reject("unknown-directive", "That standing-order directive is not supported");
+  if (!directives.has(request.directive)) return reject("unknown-directive", `That standing-order directive is not supported. Supported directives are ${supportedDirectives}.`);
   if (request.directive === "protect" && (!request.targetId || !world.settlements[request.targetId])) {
-    return reject("invalid-target", "A protection order requires a settlement target");
+    return reject("invalid-target", "A protection order requires a settlement target: pass the settlement id as targetId.");
   }
   if (request.directive === "pressure" && (!request.targetId || !world.factions[request.targetId])) {
-    return reject("invalid-target", "A pressure order requires a faction target");
+    return reject("invalid-target", "A pressure order requires a faction target: pass the faction id as targetId, not a settlement or character id.");
   }
   if (
     (request.directive === "trade-supplies" || request.directive === "explore") &&
@@ -268,10 +341,10 @@ function validateStandingOrder(
 
 function validOrderTarget(world: WorldState, directive: OrderDirective, targetId: string | undefined): string | null {
   if (directive === "protect" && (!targetId || !world.settlements[targetId])) {
-    return "A protection order requires a settlement target";
+    return "A protection order requires a settlement target: pass the settlement id as targetId.";
   }
   if (directive === "pressure" && (!targetId || !world.factions[targetId])) {
-    return "A pressure order requires a faction target";
+    return "A pressure order requires a faction target: pass the faction id as targetId, not a settlement or character id.";
   }
   if ((directive === "trade-supplies" || directive === "explore") && targetId && !world.settlements[targetId]) {
     return "That order target is not a known settlement";
@@ -332,7 +405,7 @@ function validateOrderAmendment(
     return reject("order-not-amendable", "Only pending or active orders may be amended");
   }
   const directive = request.directive ?? order.directive;
-  if (!directives.has(directive)) return reject("unknown-directive", "That standing-order directive is not supported");
+  if (!directives.has(directive)) return reject("unknown-directive", `That standing-order directive is not supported. Supported directives are ${supportedDirectives}.`);
   const targetId = request.targetId === null ? undefined : request.targetId ?? order.targetId;
   const targetError = validOrderTarget(world, directive, targetId);
   if (targetError) return reject("invalid-target", targetError);
