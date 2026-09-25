@@ -1,9 +1,25 @@
+import { believedGarrison } from "../sim/agency.ts";
 import { combatForecast } from "../sim/combat.ts";
 import { commandCapabilities } from "../sim/commands.ts";
 import { travelDuration } from "../sim/engine.ts";
 import { marketPrice, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { RESOURCE_KEYS, type ActiveBattle, type Character, type SimEvent, type WorldState } from "../sim/types.ts";
 import { projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
+
+/**
+ * Whether a battle at this settlement is one the commander could actually know
+ * about. One rule, applied to `battleInProgress`, `observedBattles` and the
+ * forecast gate: a commander sees a battle only where they are standing.
+ *
+ * These three previously disagreed. The per-settlement flag was set for any
+ * battle anywhere, while the observable list correctly hid distant ones, so a
+ * battle on the far side of the map announced itself both by setting the flag and
+ * by silently removing the forecast from a foreign island the commander was
+ * still considering attacking.
+ */
+export function battleIsVisible(commander: Character, settlementId: string): boolean {
+  return commander.locationId === settlementId;
+}
 
 function eventSummary(world: WorldState, event: SimEvent): string {
   const actor = event.actorId ? world.characters[event.actorId]?.name ?? event.actorId : "World";
@@ -307,6 +323,13 @@ export interface EventFeedPage {
   limit: number;
   /** Total events retained in the store. */
   total: number;
+  /**
+   * Largest page a client may request. Carried on the page because the
+   * capability block publishes it, and a hardcoded copy there would drift.
+   */
+  limitMax: number;
+  /** Page size applied when the client does not request one. */
+  limitDefault: number;
 }
 
 /**
@@ -326,8 +349,15 @@ export function projectEventFeed(
 }
 
 /** Builds a feed page holding every supplied event. Convenient when the caller already holds a full set. */
-export function fullEventFeed(events: SimEvent[]): EventFeedPage {
-  return { events, hasMore: false, limit: events.length, total: events.length };
+export function fullEventFeed(events: SimEvent[], bounds: { limitMax?: number; limitDefault?: number } = {}): EventFeedPage {
+  return {
+    events,
+    hasMore: false,
+    limit: events.length,
+    total: events.length,
+    limitMax: bounds.limitMax ?? events.length,
+    limitDefault: bounds.limitDefault ?? events.length,
+  };
 }
 
 /**
@@ -370,13 +400,12 @@ export function dashboardState(
   const commander = world.characters[player.characterId];
   const commandedBattle = Object.values(world.activeBattles)
     .find((battle) => battle.attackerId === commander.id) ?? null;
-  // A battle the commander is not leading, but which they can actually observe.
+  // A battle the commander is not leading, but which they can actually observe:
+  // either they are on the ground, or it is happening in their own territory.
   // Distant battles stay hidden, matching the character projection.
-  const observedBattles = commander.locationId === null
-    ? []
-    : Object.values(world.activeBattles)
-      .filter((battle) => battle.attackerId !== commander.id && battle.settlementId === commander.locationId)
-      .sort((left, right) => left.id.localeCompare(right.id));
+  const observedBattles = Object.values(world.activeBattles)
+    .filter((battle) => battle.attackerId !== commander.id && battleIsVisible(commander, battle.settlementId))
+    .sort((left, right) => left.id.localeCompare(right.id));
   const captivity = commander.captivity;
   return {
     tick: world.tick,
@@ -385,7 +414,9 @@ export function dashboardState(
     player,
     commanderId: commander.id,
     pendingCommands: world.pendingCommands,
-    capabilities: commandCapabilities(),
+    capabilities: commandCapabilities({
+      eventFeed: { limitMax: feed.limitMax, limitDefault: feed.limitDefault },
+    }),
     combat: {
       /** The battle this commander is personally leading. */
       commandedBattle: commandedBattle ? projectCommandedBattle(world, commandedBattle) : null,
@@ -420,6 +451,10 @@ export function dashboardState(
       const exact = settlement.factionId === commander.factionId;
       const knowledge = commander.knowledge[settlement.id];
       const settlementBattle = Object.values(world.activeBattles).find((battle) => battle.settlementId === settlement.id) ?? null;
+      // Distant battles are not disclosed. `forecastAvailable` uses the same
+      // visibility test so a hidden battle cannot announce itself by making the
+      // forecast silently vanish.
+      const battleVisible = settlementBattle !== null && battleIsVisible(commander, settlement.id);
       const surrenderOffered = commander.locationId === settlement.id &&
         settlement.factionId !== null &&
         settlement.factionId !== commander.factionId &&
@@ -432,11 +467,18 @@ export function dashboardState(
       const forecastAvailable = hostile &&
         commander.troops.count >= 25 &&
         !surrenderOffered &&
-        !settlementBattle &&
+        !battleVisible &&
         !commandedBattle &&
         (commander.locationId === settlement.id || knowledge !== undefined);
       const forecast = forecastAvailable ? combatForecast(world, commander.id, settlement.id) : null;
       const voyage = travelEstimate(world, commander, settlement.id);
+      // Standing in a settlement is direct perception of the ground. Reporting a
+      // wall estimate in the forecast's own factor list while the panel showed
+      // "fortification unknown" for the same island was a contradiction a
+      // playtest caught: the commander could read the ground in one place and not
+      // in the other. Perception is present-tense here, because nothing persisted
+      // records the ground of a place the commander has left.
+      const coLocated = commander.locationId === settlement.id;
       if (!exact) {
         return {
           id: settlement.id,
@@ -444,18 +486,18 @@ export function dashboardState(
           position: settlement.position,
           factionId: knowledge?.factionId ?? null,
           ownerId: null,
-          population: null,
+          population: coLocated ? settlement.population : null,
           workers: null,
           focus: null,
           production: null,
           stocks: knowledge?.stocksEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
           targetStocks: null,
-          garrison: knowledge?.garrisonEstimate ?? null,
-          fortification: null,
+          garrison: coLocated ? settlement.garrison : knowledge?.garrisonEstimate ?? null,
+          fortification: coLocated ? settlement.fortification : null,
           stability: null,
           prices: knowledge?.priceEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
           partyCount: null,
-          battleInProgress: Boolean(settlementBattle),
+          battleInProgress: battleVisible,
           surrenderOffered,
           combatForecast: forecast,
           travelTicks: voyage.travelTicks,
@@ -463,7 +505,10 @@ export function dashboardState(
           intelligence: knowledge ? {
             exact: false,
             source: knowledge.source,
-            confidence: round(knowledge.confidence, 2),
+            // Read through the same belief function the forecast uses. Decaying
+            // the stored confidence independently here is how the panel and the
+            // forecast came to show different numbers for one report.
+            confidence: believedGarrison(world, commander, settlement.id).confidence,
             observedTick: knowledge.observedTick,
             ageTicks: world.tick - knowledge.observedTick,
           } : null,
@@ -473,7 +518,7 @@ export function dashboardState(
         ...settlement,
         prices: Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, marketPrice(world, settlement.id, resource)])),
         partyCount: Object.values(world.characters).filter((character) => character.locationId === settlement.id).length,
-        battleInProgress: Boolean(settlementBattle),
+        battleInProgress: battleVisible,
         surrenderOffered,
         combatForecast: forecast,
         travelTicks: voyage.travelTicks,

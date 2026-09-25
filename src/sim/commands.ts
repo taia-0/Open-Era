@@ -133,7 +133,54 @@ export const COMMAND_TYPES: readonly string[] = [
  * validator's own accepted sets below, so a declared capability and an accepted
  * command cannot drift apart.
  */
-export function commandCapabilities(): Record<string, unknown> {
+/**
+ * The shape of each HTTP request that reaches this boundary, so a client can be
+ * written against the contract instead of discovered by trial and error. Two
+ * fresh-context playtests both had to guess the body field names.
+ */
+export interface CommandTransport {
+  eventFeed: {
+    /** Largest `limit` accepted by `/api/state`. */
+    limitMax: number;
+    /** `limit` applied by `/api/state` when the client omits one. */
+    limitDefault: number;
+  };
+}
+
+function requestContract(transport: CommandTransport): Record<string, unknown> {
+  return {
+    headers: { "content-type": "application/json" },
+    commands: {
+      path: "POST /api/commands",
+      body: {
+        playerId: "required; the id from state.player.id",
+        type: `required; one of ${COMMAND_TYPES.join(", ")}`,
+        action: "required for character-action; one of the documented actions",
+        targetId: "optional settlement id or faction id, per the action's targetKinds",
+        characterId: "required for issue-order; the receiving character (officerId is accepted as an alias)",
+        directive: "required for issue-order; one of the documented directives",
+        priority: `optional for issue-order; ${COMMAND_LIMITS.orderPriority.min}..${COMMAND_LIMITS.orderPriority.max}, defaults to ${COMMAND_LIMITS.orderPriority.default}`,
+        expiresInTicks: `optional for issue-order; ${COMMAND_LIMITS.orderDurationTicks.min}..${COMMAND_LIMITS.orderDurationTicks.max}, omitted means the order runs until it is finished`,
+        orderId: "required for confirm-order, amend-order and cancel-order",
+        battleId: "required for retreat-battle",
+      },
+      failure: "any 4xx body is { ok: false, code, error }; `code` is stable, `error` is human prose",
+    },
+    state: {
+      path: "GET /api/state",
+      query: {
+        beforeSequence: "optional event cursor; pass eventFeed.cursor to read the next older page",
+        limit: `optional 1..${transport.eventFeed.limitMax}, defaults to ${transport.eventFeed.limitDefault}`,
+      },
+    },
+    advance: {
+      path: "POST /api/advance",
+      body: { ticks: `optional ${COMMAND_LIMITS.advancedTicksPerRequest.min}..${COMMAND_LIMITS.advancedTicksPerRequest.max}, defaults to 1` },
+    },
+  };
+}
+
+export function commandCapabilities(transport?: CommandTransport): Record<string, unknown> {
   return {
     limits: COMMAND_LIMITS,
     actionPreconditions: ACTION_PRECONDITIONS,
@@ -141,6 +188,7 @@ export function commandCapabilities(): Record<string, unknown> {
     orderPreconditions: ORDER_PRECONDITIONS,
     directives: DIRECTIVE_CAPABILITIES,
     commandTypes: COMMAND_TYPES,
+    ...(transport ? { requests: requestContract(transport) } : {}),
   };
 }
 

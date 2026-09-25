@@ -124,6 +124,8 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           hasMore: feedEvents.length > 0 && store.countEventsBefore(feedEvents[0].sequence) > 0,
           limit,
           total: store.eventCount(),
+          limitMax: EVENT_FEED_PAGE_LIMIT,
+          limitDefault: EVENT_FEED_PAGE_DEFAULT,
         }));
         return;
       }

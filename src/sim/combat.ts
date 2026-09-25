@@ -133,6 +133,13 @@ export function combatForecast(
   const defenderPower = range(defenderCenter, defenderWidth, 1);
   const winChance = chanceRange(attackerPower.low, attackerPower.high, defenderPower.low, defenderPower.high);
   const winMidpoint = (winChance.low + winChance.high) / 2;
+  // A commander deciding whether to commit should read the bad case, not the good
+  // one. Locally the range is narrow and the midpoint represents it. Remotely the
+  // range is wide and the midpoint drifts *upward* as it widens, because the
+  // attacker's upper power and the defender's lower power both move in the
+  // favourable direction. Reading the midpoint there made the headline grow more
+  // confident the less the commander knew. A fresh-context playtest caught it.
+  const headlineChance = locallyObserved ? winMidpoint : winChance.low;
   // The battle format follows the same rule: locally from the real order of
   // battle, remotely from what the report supports. Reading the true garrison
   // and defenses here would leak both through `phases`.
@@ -184,7 +191,7 @@ export function combatForecast(
   return {
     settlementId,
     generatedTick: world.tick,
-    outlook: outlook(winMidpoint),
+    outlook: outlook(headlineChance),
     detailLevel: strategy >= 70 ? "command" : strategy >= 40 ? "tactical" : "basic",
     strategy,
     intelligence: {
