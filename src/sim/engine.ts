@@ -722,7 +722,9 @@ function retreatFromBattle(
 ): void {
   const character = world.characters[battle.attackerId];
   const settlement = world.settlements[battle.settlementId];
-  const risks = battleRisk(world, battle);
+  const risks = battle.lastPhase
+    ? { retreatRisk: battle.lastPhase.retreatRisk, captureRisk: battle.lastPhase.captureRisk }
+    : battleRisk(world, battle);
   const riskRate = risks.retreatRisk === "severe" ? 0.1 : risks.retreatRisk === "high" ? 0.07 : risks.retreatRisk === "moderate" ? 0.045 : 0.025;
   const pursuitLosses = Math.min(character.troops.count, Math.max(0, Math.round(character.troops.count * riskRate * rng.between(0.75, 1.25))));
   const attackerHealth = round(clamp(character.health - (2 + pursuitLosses * 0.12), 1, 100));

@@ -98,6 +98,8 @@ test("retreat is the only player command during a battle and ends it with lighte
   const result = runTick(world);
   const retreat = result.events.find((event) => event.type === "battle-retreated");
   assert.ok(retreat);
+  assert.equal(retreat.data.retreatRisk, battle.lastPhase?.retreatRisk);
+  assert.equal(retreat.data.captureRisk, battle.lastPhase?.captureRisk);
   assert.equal(Object.keys(world.activeBattles).length, 0);
   assert.equal(commander.defeats, defeatsBeforeRetreat);
   assert.ok(commander.health <= healthBeforeRetreat);
