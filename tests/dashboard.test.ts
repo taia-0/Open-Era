@@ -28,17 +28,55 @@ test("the local dashboard serves state and executes its command API", async () =
     const initial = await initialResponse.json() as {
       tick: number;
       commanderId: string;
-      characters: Array<{ id: string; controller: { kind: string }; knowledge: Record<string, { stocksEstimate: Record<string, number> }> }>;
+      characters: Array<{
+        id: string;
+        controller: { kind: string };
+        knowledge: Record<string, { stocksEstimate: Record<string, number> }> | null;
+        plan: unknown;
+        activeGoal: unknown;
+        skills: unknown;
+        personality: unknown;
+        intelligence: { tier: string; conditionExact: boolean; capabilityExact: boolean };
+      }>;
+      factions: Array<{ id: string; power: number | null; intelligence: { exact: boolean } }>;
       settlements: Array<{ id: string; stocks: Record<string, number>; fortification: number | null; stability: number | null; intelligence: { exact: boolean } }>;
     };
     assert.equal(initial.tick, 0);
     assert.equal(initial.characters.find((character) => character.id === initial.commanderId)?.controller.kind, "human");
     const commander = initial.characters.find((character) => character.id === initial.commanderId)!;
+    const commanderKnowledge = commander.knowledge;
+    assert.ok(commanderKnowledge, "the commander must retain their own knowledge");
     const foreign = initial.settlements.find((settlement) => settlement.id === "cinder-key")!;
-    assert.deepEqual(foreign.stocks, commander.knowledge["cinder-key"].stocksEstimate);
+    assert.deepEqual(foreign.stocks, commanderKnowledge["cinder-key"].stocksEstimate);
     assert.equal(foreign.intelligence.exact, false);
     assert.equal(foreign.fortification, null);
     assert.equal(foreign.stability, null);
+
+    // The commander's own mind is exact.
+    assert.equal(commander.intelligence.tier, "self");
+    assert.equal(commander.intelligence.capabilityExact, true);
+    assert.notEqual(commander.personality, null, "the commander's own personality remains visible");
+
+    // A character the commander cannot observe must not leak motive or capability.
+    const distant = initial.characters.find((character) => character.intelligence.tier === "distant");
+    assert.ok(distant, "the scenario must contain a character outside the commander's observation");
+    assert.equal(distant.plan, null, "foreign plans must not cross the player boundary");
+    assert.equal(distant.knowledge, null, "foreign beliefs must not cross the player boundary");
+    assert.equal(distant.activeGoal, null);
+    assert.equal(distant.skills, null);
+    assert.equal(distant.personality, null);
+    assert.notEqual(distant.skills, 0, "unknown capability must not be reported as zero");
+
+    // Faction strength is exact only for the commander's own faction.
+    const ownFaction = initial.factions.find((faction) =>
+      initial.characters.find((character) => character.id === initial.commanderId)?.intelligence.tier === "self" &&
+      faction.intelligence.exact,
+    );
+    assert.ok(ownFaction, "the commander's own faction power must remain exact");
+    assert.equal(typeof ownFaction.power, "number");
+    for (const faction of initial.factions.filter((entry) => !entry.intelligence.exact)) {
+      assert.equal(faction.power, null, `${faction.id} power must be withheld`);
+    }
 
     const commandResponse = await fetch(`${base}/api/commands`, {
       method: "POST",
@@ -71,9 +109,18 @@ test("the local dashboard serves state and executes its command API", async () =
         items: Array<{ id: string; action?: string; characterId?: string; orderId?: string; routed?: boolean; throughSequence?: number }>;
       };
       characters: Array<{ id: string; standingOrders: Array<{ id: string; status: string; revision: number }> }>;
+      events: Array<{ type: string; data: unknown; payloadWithheld: boolean }>;
     };
     assert.equal(final.tick, 1);
     assert.equal(final.pendingCommands.length, 0);
+    assert.ok(final.events.length > 0, "the feed must report the events that occurred");
+
+    // No event may ship a payload the commander did not earn.
+    for (const event of final.events) {
+      if (event.payloadWithheld) {
+        assert.equal(event.data, null, `${event.type} withheld its payload but still shipped data`);
+      }
+    }
     assert.ok(final.characters.find((character) => character.id === "character-04")?.standingOrders.some((order) => order.id === "command-00001:standing-order"));
     assert.equal(final.briefing.reportingOfficer?.id, "character-05");
     const digest = final.briefing.items.find((item) => item.routed);

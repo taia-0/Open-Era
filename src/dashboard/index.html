@@ -553,6 +553,9 @@
     function meter(label, value, danger) {
       return '<div><span class="subtle">' + esc(label) + " " + fmt(value) + '%</span><div class="meter' + (danger ? " danger" : "") + '"><i style="width:' + Math.max(0, Math.min(100, value)) + '%"></i></div></div>';
     }
+    function stat(label, value, digits) {
+      return '<div class="stat"><span>' + esc(label) + "</span><strong>" + (value == null ? "Unknown" : fmt(value, digits)) + "</strong></div>";
+    }
     function settlementInspector(item) {
       var owningFaction = faction(item.factionId);
       var owner = character(item.ownerId);
@@ -594,7 +597,7 @@
         }).join("") +
         "<h3>Parties present</h3>" +
         (parties.length ? parties.map(function (party) {
-          return '<button class="party-row" type="button" data-party="' + esc(party.id) + '"><span><strong>' + esc(party.name) + "</strong><br><span class=\"subtle\">" + esc(party.archetype) + "</span></span><span>" + fmt(party.partyPower) + "</span></button>";
+          return '<button class="party-row" type="button" data-party="' + esc(party.id) + '"><span><strong>' + esc(party.name) + "</strong><br><span class=\"subtle\">" + esc(party.archetype) + '</span></span><span>' + (party.partyPower == null ? '<span class="subtle">strength unknown</span>' : fmt(party.partyPower)) + "</span></button>";
         }).join("") : '<div class="empty">' + (intel && intel.exact ? "No named parties are currently here." : "Foreign party positions are not available in this report.") + "</div>") + battleNotice + forecastHtml +
         "<h3>Direct command</h3><div class=\"actions\">" +
           (travelAllowed ? '<button class="action" type="button" data-action="travel" data-target="' + esc(item.id) + '">Sail here</button>' : "") +
@@ -628,13 +631,19 @@
       return '<div class="eyebrow">' + (item.controller.kind === "human" ? "Human-controlled character" : "Autonomous character") + '</div><h2>' + esc(item.name) + "</h2>" +
         '<div class="subtle">' + esc(item.archetype) + " · " + esc(f ? f.name : "Unaffiliated") + " · " + esc(place) + "</div>" +
         '<div class="stat-grid">' +
-          '<div class="stat"><span>Party power</span><strong>' + fmt(item.partyPower) + "</strong></div>" +
-          '<div class="stat"><span>Troops</span><strong>' + item.troops.count + "</strong></div>" +
-          '<div class="stat"><span>Strategy</span><strong>' + item.skills.strategy + "</strong></div>" +
-          '<div class="stat"><span>Leadership</span><strong>' + item.skills.leadership + "</strong></div>" +
+          stat("Party power", item.partyPower) +
+          stat("Troops", item.troops ? item.troops.count : null) +
+          stat("Strategy", item.skills ? item.skills.strategy : null) +
+          stat("Leadership", item.skills ? item.skills.leadership : null) +
         "</div>" +
-        "<h3>Condition</h3>" + meter("Health", item.health, item.health < 45) + meter("Morale", item.morale, item.morale < 40) +
-        "<h3>Current ambition</h3><div class=\"stat\"><strong>" + esc(item.activeGoal ? item.activeGoal.label : "Player-defined") + "</strong><div class=\"subtle\">" + esc(item.plan ? item.plan.reason : "No autonomous plan") + "</div></div>" +
+        "<h3>Condition</h3>" +
+        (item.health == null || item.morale == null
+          ? '<div class="empty">Condition is not observable from here.</div>'
+          : meter("Health", item.health, item.health < 45) + meter("Morale", item.morale, item.morale < 40)) +
+        "<h3>Current ambition</h3>" +
+        (item.activeGoal || item.plan
+          ? '<div class="stat"><strong>' + esc(item.activeGoal ? item.activeGoal.label : "Player-defined") + "</strong><div class=\"subtle\">" + esc(item.plan ? item.plan.reason : "No autonomous plan") + "</div></div>"
+          : '<div class="empty">Motive is not known. Messages, behaviour, and investigation may reveal it.</div>') +
         (order && liveOrder ? "<h3>Order response</h3><div class=\"stat\"><strong>" + esc(liveOrder.status === "pending" ? "Awaiting response" : liveOrder.adherence === "deviating" ? "Active · temporarily diverted" : "Active · following") + "</strong><div class=\"subtle\">" + fmt(order.obedience * 100) + "% willingness against " + fmt(order.threshold * 100) + "% initial threshold</div></div>" : "") +
         "<h3>Relationship to commander</h3>" +
         (item.relationship ? '<div class="resource-row"><span>Trust</span><strong>' + fmt(item.relationship.trust * 100) + '%</strong></div><div class="resource-row"><span>Respect</span><strong>' + fmt(item.relationship.respect * 100) + '%</strong></div><div class="resource-row"><span>Grievance</span><strong>' + fmt(item.relationship.grievance * 100) + "%</strong></div>" : '<div class="empty">No meaningful relationship is recorded.</div>') +

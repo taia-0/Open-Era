@@ -1,7 +1,7 @@
-import { assessStandingOrder } from "../sim/agency.ts";
 import { combatForecast } from "../sim/combat.ts";
-import { factionPower, marketPrice, partyPower, round, settlementClaimAvailableTo } from "../sim/state.ts";
+import { marketPrice, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { RESOURCE_KEYS, type SimEvent, type WorldState } from "../sim/types.ts";
+import { projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
 
 function eventSummary(world: WorldState, event: SimEvent): string {
   const actor = event.actorId ? world.characters[event.actorId]?.name ?? event.actorId : "World";
@@ -324,10 +324,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
       } : null,
     },
     briefing: checkInBriefing(world, commander.id, events),
-    factions: Object.values(world.factions).map((faction) => ({
-      ...faction,
-      power: factionPower(world, faction.id),
-    })),
+    factions: projectFactions(world, commander),
     settlements: Object.values(world.settlements).map((settlement) => {
       const exact = settlement.factionId === commander.factionId;
       const knowledge = commander.knowledge[settlement.id];
@@ -384,58 +381,13 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
         intelligence: { exact: true, source: "owned", confidence: 1, observedTick: world.tick, ageTicks: 0 },
       };
     }),
-    characters: Object.values(world.characters).map((character) => {
-      const activeGoal = character.goals.find((goal) => goal.id === character.activeGoalId) ?? null;
-      const relationship = commander.relationships[character.id] ?? null;
-      const activeOrder = character.standingOrders
-        .filter((order) =>
-          (order.status === "pending" || order.status === "active") &&
-          (order.expiresTick === null || order.expiresTick > world.tick)
-        )
-        .sort((left, right) => right.priority - left.priority)[0] ?? null;
-      return {
-        id: character.id,
-        name: character.name,
-        archetype: character.archetype,
-        controller: character.controller,
-        factionId: character.factionId,
-        locationId: character.locationId,
-        travel: character.travel,
-        money: round(character.money, 2),
-        cargo: character.cargo,
-        health: round(character.health, 1),
-        morale: round(character.morale, 1),
-        sailors: character.sailors,
-        troops: character.troops,
-        captivity: character.captivity,
-        troopRecovery: character.troopRecovery,
-        scars: character.scars,
-        debts: character.debts,
-        attributes: character.attributes,
-        skills: character.skills,
-        personality: character.personality,
-        partyPower: partyPower(character),
-        activeGoal,
-        plan: character.plan,
-        relationship,
-        standingOrders: character.standingOrders,
-        activeOrderAssessment: activeOrder ? assessStandingOrder(character, activeOrder) : null,
-        knowledge: character.knowledge,
-        victories: character.victories,
-        defeats: character.defeats,
-      };
-    }),
-    events: events.slice(-100).map((event) => ({
-      sequence: event.sequence,
-      tick: event.tick,
-      day: round(event.tick / world.ticksPerDay, 2),
-      type: event.type,
-      actorId: event.actorId,
-      targetId: event.targetId,
-      settlementId: event.settlementId,
-      summary: eventSummary(world, event),
-      data: event.data,
-    })).reverse(),
+    characters: Object.values(world.characters)
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .map((character) => projectCharacter(world, commander, character)),
+    events: events
+      .slice(-100)
+      .map((event) => projectEvent(world, commander, event, eventSummary(world, event)))
+      .reverse(),
     conversations: {
       threads: Object.values(world.conversationThreads)
         .filter((thread) => thread.participantIds.includes(commander.id))
