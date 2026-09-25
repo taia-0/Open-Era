@@ -29,6 +29,8 @@ Every playtest below is evidence for a capability the project claims. Several ar
 | [Captivity release 001](../playtests/captivity-release-001.md) | Refusing escape cannot soft-lock the player; bounded mandatory release |
 | [Hidden state visibility 001](../playtests/hidden-state-visibility-001.md) | An adaptive session that found the player API leaking foreign motives |
 | [Hidden state visibility 002](../playtests/hidden-state-visibility-002.md) | The same objective with the leak closed, confirming no foreign state is reachable |
+| [Paged history 001](../playtests/paged-history-001.md) | Full-history auditability: 20,457 events with no gaps or duplicates, and 93.4% withheld with no payload leaked |
+| [Informed commitment 001](../playtests/informed-commitment-001.md) | Deciding before travel from earned knowledge, and four failed attempts to invert the forecast into ground truth |
 
 ## Decision status
 
