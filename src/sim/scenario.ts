@@ -386,7 +386,7 @@ export function createPrototypeWorld(seed = 1847): WorldState {
     )[0]?.id ?? null;
 
   return {
-    version: 3,
+    version: 4,
     scenario: "four-island-pressure-test",
     seed,
     rngState: rng.state,
@@ -413,6 +413,7 @@ export function createPrototypeWorld(seed = 1847): WorldState {
       },
     },
     pendingCommands: [],
+    activeBattles: {},
     conversationThreads: {},
     conversationMessages: [],
     scheduledReplies: [],

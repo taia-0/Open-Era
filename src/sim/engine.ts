@@ -1,5 +1,13 @@
 import { DeterministicRng } from "./rng.ts";
 import {
+  autonomousShouldRetreat,
+  battleRisk,
+  combatForecast,
+  isMajorBattle,
+  projectedBattleRisk,
+  settlementDefensePower,
+} from "./combat.ts";
+import {
   activeStandingOrder,
   assessOrderAction,
   believedGarrison,
@@ -26,6 +34,8 @@ import {
 } from "./state.ts";
 import {
   RESOURCE_KEYS,
+  type ActiveBattle,
+  type BattlePhaseReport,
   type Character,
   type DecisionCandidate,
   type EventDraft,
@@ -54,6 +64,7 @@ function emit(world: WorldState, events: SimEvent[], draft: EventDraft): SimEven
 
 function produceSettlements(world: WorldState, events: SimEvent[]): void {
   for (const settlement of Object.values(world.settlements).sort((a, b) => a.id.localeCompare(b.id))) {
+    if (Object.values(world.activeBattles).some((battle) => battle.settlementId === settlement.id)) continue;
     const stocks = cloneResources(settlement.stocks);
     for (const resource of RESOURCE_KEYS) {
       const focusMultiplier = settlement.focus === resource ? 1.25 : 1;
@@ -259,7 +270,8 @@ function buildCandidates(
     character.factionId !== null &&
     character.troops.count >= 25 &&
     settlement.garrison >= 15 &&
-    world.tick - character.lastBattleTick >= 18
+    world.tick - character.lastBattleTick >= 18 &&
+    !Object.values(world.activeBattles).some((battle) => battle.settlementId === settlement.id)
   ) {
     const defenseBelief = believedGarrison(world, character, settlement.id);
     const perceivedDefense = defenseBelief.estimate * settlement.fortification;
@@ -363,70 +375,13 @@ function resolveTrade(
   });
 }
 
-function resolveBattle(
+function recordBattleConsequences(
   world: WorldState,
   character: Character,
+  settlement: WorldState["settlements"][string],
   events: SimEvent[],
-  rng: DeterministicRng,
+  attackerWon: boolean,
 ): void {
-  const settlement = world.settlements[character.locationId!];
-  const attackerBase = partyPower(character);
-  const defenderBase = settlement.garrison * settlement.fortification + settlement.population * 0.002;
-  const uncertainty = 0.38 * (1 - character.skills.strategy / 125);
-  const attackerRoll = 1 + rng.between(-uncertainty, uncertainty);
-  const defenderRoll = 1 + rng.between(-0.22, 0.22);
-  const attackerScore = attackerBase * attackerRoll;
-  const defenderScore = defenderBase * defenderRoll;
-  const attackerWon = attackerScore > defenderScore;
-  const ratio = Math.min(3, Math.max(0.2, attackerScore / Math.max(1, defenderScore)));
-  const attackerLossRate = attackerWon ? 0.05 + 0.11 / ratio : 0.16 + 0.2 / ratio;
-  const defenderLossRate = attackerWon ? 0.28 + 0.12 * ratio : 0.07 + 0.08 * ratio;
-  const attackerLosses = Math.min(character.troops.count, Math.max(1, Math.round(character.troops.count * attackerLossRate)));
-  const defenderLosses = Math.min(settlement.garrison, Math.max(1, Math.round(settlement.garrison * defenderLossRate)));
-  const settlementStocks = cloneResources(settlement.stocks);
-  const lootArms = attackerWon ? round(Math.min(settlementStocks.arms, 8 + character.troops.count * 0.08)) : 0;
-  settlementStocks.arms = round(settlementStocks.arms - lootArms);
-  const defenderGarrison = settlement.garrison - defenderLosses;
-  const settlementStability = round(clamp(settlement.stability - (attackerWon ? 12 : 3), 0, 100));
-  const surrender = attackerWon &&
-      defenderGarrison <= SURRENDER_GARRISON_THRESHOLD &&
-      settlementStability <= SURRENDER_STABILITY_THRESHOLD &&
-      settlement.factionId !== null
-    ? {
-        offeredToId: character.id,
-        offeredTick: world.tick,
-        previousFactionId: settlement.factionId,
-      }
-    : settlement.surrender;
-
-  emit(world, events, {
-    type: "battle-resolved",
-    actorId: character.id,
-    targetId: settlement.factionId ?? undefined,
-    settlementId: settlement.id,
-    data: {
-      outcome: attackerWon ? "attacker-victory" : "defender-victory",
-      attackerBase,
-      defenderBase: round(defenderBase),
-      attackerScore: round(attackerScore),
-      defenderScore: round(defenderScore),
-      strategyUncertainty: round(uncertainty),
-      attackerLosses,
-      defenderLosses,
-      lootArms,
-      attackerHealth: round(clamp(character.health - (attackerWon ? 6 : 18), 1, 100)),
-      attackerMorale: round(clamp(character.morale + (attackerWon ? 10 : -18), 0, 100)),
-      attackerTroops: character.troops.count - attackerLosses,
-      attackerMoney: round(character.money + (attackerWon ? 35 + lootArms * 2 : 0), 2),
-      victories: character.victories + (attackerWon ? 1 : 0),
-      defeats: character.defeats + (attackerWon ? 0 : 1),
-      defenderGarrison,
-      settlementStability,
-      settlementStocks,
-      surrender,
-    },
-  });
-
   const goalKind = attackerWon ? "expand-influence" : "recover-strength";
   const goalId = `${character.id}:${goalKind}`;
   const existingGoal = character.goals.find((goal) => goal.id === goalId);
@@ -483,6 +438,329 @@ function resolveBattle(
       },
     });
   }
+}
+
+function emitCombatObservation(
+  world: WorldState,
+  character: Character,
+  settlementId: string,
+  events: SimEvent[],
+  reason: string,
+): void {
+  const knowledge = directObservation(world, character);
+  if (!knowledge || knowledge.settlementId !== settlementId) return;
+  emit(world, events, {
+    type: "knowledge-updated",
+    actorId: character.id,
+    settlementId,
+    data: { settlementId, knowledge, reason },
+  });
+}
+
+function resolveImmediateBattle(
+  world: WorldState,
+  character: Character,
+  events: SimEvent[],
+  rng: DeterministicRng,
+): void {
+  const settlement = world.settlements[character.locationId!];
+  const attackerBase = partyPower(character);
+  const defenderBase = settlementDefensePower(settlement);
+  const uncertainty = 0.38 * (1 - character.skills.strategy / 125);
+  const attackerRoll = 1 + rng.between(-uncertainty, uncertainty);
+  const defenderRoll = 1 + rng.between(-0.22, 0.22);
+  const attackerScore = attackerBase * attackerRoll;
+  const defenderScore = defenderBase * defenderRoll;
+  const attackerWon = attackerScore > defenderScore;
+  const ratio = Math.min(3, Math.max(0.2, attackerScore / Math.max(1, defenderScore)));
+  const attackerLossRate = attackerWon ? 0.05 + 0.11 / ratio : 0.16 + 0.2 / ratio;
+  const defenderLossRate = attackerWon ? 0.28 + 0.12 * ratio : 0.07 + 0.08 * ratio;
+  const attackerLosses = Math.min(character.troops.count, Math.max(1, Math.round(character.troops.count * attackerLossRate)));
+  const defenderLosses = Math.min(settlement.garrison, Math.max(1, Math.round(settlement.garrison * defenderLossRate)));
+  const settlementStocks = cloneResources(settlement.stocks);
+  const lootArms = attackerWon ? round(Math.min(settlementStocks.arms, 8 + character.troops.count * 0.08)) : 0;
+  settlementStocks.arms = round(settlementStocks.arms - lootArms);
+  const defenderGarrison = settlement.garrison - defenderLosses;
+  const settlementStability = round(clamp(settlement.stability - (attackerWon ? 12 : 3), 0, 100));
+  const surrender = attackerWon &&
+      defenderGarrison <= SURRENDER_GARRISON_THRESHOLD &&
+      settlementStability <= SURRENDER_STABILITY_THRESHOLD &&
+      settlement.factionId !== null
+    ? {
+        offeredToId: character.id,
+        offeredTick: world.tick,
+        previousFactionId: settlement.factionId,
+      }
+    : settlement.surrender;
+
+  emit(world, events, {
+    type: "battle-resolved",
+    actorId: character.id,
+    targetId: settlement.factionId ?? undefined,
+    settlementId: settlement.id,
+    data: {
+      outcome: attackerWon ? "attacker-victory" : "defender-victory",
+      attackerBase,
+      defenderBase: round(defenderBase),
+      attackerScore: round(attackerScore),
+      defenderScore: round(defenderScore),
+      strategyUncertainty: round(uncertainty),
+      attackerLosses,
+      defenderLosses,
+      lootArms,
+      attackerHealth: round(clamp(character.health - (attackerWon ? 6 : 18), 1, 100)),
+      attackerMorale: round(clamp(character.morale + (attackerWon ? 10 : -18), 0, 100)),
+      attackerTroops: character.troops.count - attackerLosses,
+      attackerMoney: round(character.money + (attackerWon ? 35 + lootArms * 2 : 0), 2),
+      victories: character.victories + (attackerWon ? 1 : 0),
+      defeats: character.defeats + (attackerWon ? 0 : 1),
+      defenderGarrison,
+      settlementStability,
+      settlementStocks,
+      surrender,
+      phases: 1,
+    },
+  });
+  emitCombatObservation(world, character, settlement.id, events, "immediate post-battle assessment");
+  recordBattleConsequences(world, character, settlement, events, attackerWon);
+}
+
+function completeMajorBattle(
+  world: WorldState,
+  battle: ActiveBattle,
+  events: SimEvent[],
+  attackerWon: boolean,
+  attackerScore: number,
+  defenderScore: number,
+): void {
+  const character = world.characters[battle.attackerId];
+  const settlement = world.settlements[battle.settlementId];
+  const settlementStocks = cloneResources(settlement.stocks);
+  const lootArms = attackerWon ? round(Math.min(settlementStocks.arms, 8 + character.troops.count * 0.08)) : 0;
+  settlementStocks.arms = round(settlementStocks.arms - lootArms);
+  const surrender = attackerWon &&
+      settlement.garrison <= SURRENDER_GARRISON_THRESHOLD &&
+      settlement.stability <= SURRENDER_STABILITY_THRESHOLD &&
+      settlement.factionId !== null
+    ? {
+        offeredToId: character.id,
+        offeredTick: world.tick,
+        previousFactionId: settlement.factionId,
+      }
+    : settlement.surrender;
+
+  emit(world, events, {
+    type: "battle-resolved",
+    actorId: character.id,
+    targetId: settlement.factionId ?? undefined,
+    settlementId: settlement.id,
+    data: {
+      battleId: battle.id,
+      outcome: attackerWon ? "attacker-victory" : "defender-victory",
+      attackerBase: battle.attackerInitialPower,
+      defenderBase: battle.defenderInitialPower,
+      attackerScore: round(attackerScore),
+      defenderScore: round(defenderScore),
+      strategyUncertainty: round(0.38 * (1 - character.skills.strategy / 125)),
+      attackerLosses: battle.attackerInitialTroops - character.troops.count,
+      defenderLosses: battle.defenderInitialGarrison - settlement.garrison,
+      lootArms,
+      attackerHealth: character.health,
+      attackerMorale: character.morale,
+      attackerTroops: character.troops.count,
+      attackerMoney: round(character.money + (attackerWon ? 35 + lootArms * 2 : 0), 2),
+      victories: character.victories + (attackerWon ? 1 : 0),
+      defeats: character.defeats + (attackerWon ? 0 : 1),
+      defenderGarrison: settlement.garrison,
+      settlementStability: settlement.stability,
+      settlementStocks,
+      surrender,
+      phases: battle.phase,
+    },
+  });
+  recordBattleConsequences(world, character, settlement, events, attackerWon);
+}
+
+function resolveBattlePhase(
+  world: WorldState,
+  battleId: string,
+  events: SimEvent[],
+  rng: DeterministicRng,
+): void {
+  const battle = world.activeBattles[battleId];
+  if (!battle) return;
+  const character = world.characters[battle.attackerId];
+  const settlement = world.settlements[battle.settlementId];
+  const phase = battle.phase + 1;
+  const attackerBase = partyPower(character);
+  const defenderBase = settlementDefensePower(settlement);
+  const uncertainty = 0.38 * (1 - character.skills.strategy / 125);
+  const attackerScore = attackerBase * (1 + rng.between(-uncertainty, uncertainty));
+  const defenderScore = defenderBase * (1 + rng.between(-0.22, 0.22));
+  const attackerAdvantage = attackerScore > defenderScore;
+  const ratio = clamp(attackerScore / Math.max(1, defenderScore), 0.2, 3);
+  const intensity = [0.34, 0.42, 0.5][Math.min(2, phase - 1)];
+  const attackerLossRate = (attackerAdvantage ? 0.05 + 0.11 / ratio : 0.16 + 0.2 / ratio) * intensity;
+  const defenderLossRate = (attackerAdvantage ? 0.28 + 0.12 * ratio : 0.07 + 0.08 * ratio) * intensity;
+  const attackerLosses = Math.min(character.troops.count, Math.max(1, Math.round(character.troops.count * attackerLossRate)));
+  const defenderLosses = Math.min(settlement.garrison, Math.max(1, Math.round(settlement.garrison * defenderLossRate)));
+  const attackerHealth = round(clamp(character.health - (attackerAdvantage ? 2 : 6), 1, 100));
+  const attackerMorale = round(clamp(character.morale + (attackerAdvantage ? 3 : -7), 0, 100));
+  const attackerTroops = character.troops.count - attackerLosses;
+  const defenderGarrison = settlement.garrison - defenderLosses;
+  const settlementStability = round(clamp(settlement.stability - (attackerAdvantage ? 4 : 1), 0, 100));
+  const risks = projectedBattleRisk(world, battle, {
+    attackerHealth,
+    attackerMorale,
+    attackerTroops,
+    defenderGarrison,
+  });
+  const lastPhase: BattlePhaseReport = {
+    phase,
+    outcome: attackerAdvantage ? "attacker-advantage" : "defender-advantage",
+    attackerLosses,
+    defenderLosses,
+    attackerHealth,
+    attackerMorale,
+    attackerTroops,
+    defenderGarrison,
+    ...risks,
+  };
+  const updatedBattle: ActiveBattle = {
+    ...battle,
+    phase,
+    attackerPhaseWins: battle.attackerPhaseWins + (attackerAdvantage ? 1 : 0),
+    defenderPhaseWins: battle.defenderPhaseWins + (attackerAdvantage ? 0 : 1),
+    lastPhase,
+  };
+  emit(world, events, {
+    type: "battle-phase-resolved",
+    actorId: character.id,
+    targetId: settlement.factionId ?? undefined,
+    settlementId: settlement.id,
+    data: {
+      battle: updatedBattle,
+      phase,
+      outcome: lastPhase.outcome,
+      attackerScore: round(attackerScore),
+      defenderScore: round(defenderScore),
+      attackerLosses,
+      defenderLosses,
+      attackerHealth,
+      attackerMorale,
+      attackerTroops,
+      defenderGarrison,
+      settlementStability,
+      retreatRisk: risks.retreatRisk,
+      captureRisk: risks.captureRisk,
+    },
+  });
+  emitCombatObservation(world, character, settlement.id, events, `post-battle phase ${phase} assessment`);
+
+  const battleEnded = phase >= updatedBattle.totalPhases || attackerTroops < 8 || defenderGarrison === 0 ||
+    attackerHealth <= 15 || attackerMorale <= 12;
+  if (!battleEnded) return;
+  const attackerWon = defenderGarrison === 0 ||
+    (attackerTroops >= 8 && attackerHealth > 15 && attackerMorale > 12 &&
+      (updatedBattle.attackerPhaseWins > updatedBattle.defenderPhaseWins ||
+        (updatedBattle.attackerPhaseWins === updatedBattle.defenderPhaseWins && attackerScore > defenderScore)));
+  completeMajorBattle(world, updatedBattle, events, attackerWon, attackerScore, defenderScore);
+}
+
+function startMajorBattle(
+  world: WorldState,
+  character: Character,
+  events: SimEvent[],
+  rng: DeterministicRng,
+): void {
+  const settlement = world.settlements[character.locationId!];
+  const id = `battle-${String(world.nextEventSequence).padStart(6, "0")}`;
+  const battle: ActiveBattle = {
+    id,
+    attackerId: character.id,
+    settlementId: settlement.id,
+    defenderFactionId: settlement.factionId,
+    startedTick: world.tick,
+    phase: 0,
+    totalPhases: 3,
+    attackerInitialPower: partyPower(character),
+    defenderInitialPower: settlementDefensePower(settlement),
+    attackerInitialTroops: character.troops.count,
+    defenderInitialGarrison: settlement.garrison,
+    attackerPhaseWins: 0,
+    defenderPhaseWins: 0,
+    lastPhase: null,
+    startingForecast: combatForecast(world, character.id, settlement.id),
+  };
+  emit(world, events, {
+    type: "battle-started",
+    actorId: character.id,
+    targetId: settlement.factionId ?? undefined,
+    settlementId: settlement.id,
+    data: { battle },
+  });
+  resolveBattlePhase(world, id, events, rng);
+}
+
+function resolveBattle(
+  world: WorldState,
+  character: Character,
+  events: SimEvent[],
+  rng: DeterministicRng,
+): void {
+  const settlement = world.settlements[character.locationId!];
+  if (isMajorBattle(character, settlement)) startMajorBattle(world, character, events, rng);
+  else resolveImmediateBattle(world, character, events, rng);
+}
+
+function retreatFromBattle(
+  world: WorldState,
+  battle: ActiveBattle,
+  events: SimEvent[],
+  rng: DeterministicRng,
+  commandId?: string,
+): void {
+  const character = world.characters[battle.attackerId];
+  const settlement = world.settlements[battle.settlementId];
+  const risks = battleRisk(world, battle);
+  const riskRate = risks.retreatRisk === "severe" ? 0.1 : risks.retreatRisk === "high" ? 0.07 : risks.retreatRisk === "moderate" ? 0.045 : 0.025;
+  const pursuitLosses = Math.min(character.troops.count, Math.max(0, Math.round(character.troops.count * riskRate * rng.between(0.75, 1.25))));
+  const attackerHealth = round(clamp(character.health - (2 + pursuitLosses * 0.12), 1, 100));
+  const attackerMorale = round(clamp(character.morale - (6 + pursuitLosses * 0.2), 0, 100));
+  emit(world, events, {
+    type: "battle-retreated",
+    actorId: character.id,
+    targetId: settlement.factionId ?? undefined,
+    settlementId: settlement.id,
+    data: {
+      battleId: battle.id,
+      commandId,
+      phase: battle.phase,
+      pursuitLosses,
+      attackerHealth,
+      attackerMorale,
+      attackerTroops: character.troops.count - pursuitLosses,
+      retreatRisk: risks.retreatRisk,
+      captureRisk: risks.captureRisk,
+      outcome: pursuitLosses > 0 ? "contested-retreat" : "clean-retreat",
+    },
+  });
+  emitCombatObservation(world, character, settlement.id, events, "post-retreat assessment");
+}
+
+function progressActiveBattles(world: WorldState, events: SimEvent[], rng: DeterministicRng): Set<string> {
+  const participants = new Set<string>();
+  for (const battle of Object.values(world.activeBattles).sort((left, right) => left.id.localeCompare(right.id))) {
+    if (battle.startedTick >= world.tick) continue;
+    participants.add(battle.attackerId);
+    const attacker = world.characters[battle.attackerId];
+    if (attacker.controller.kind === "autonomous" && autonomousShouldRetreat(world, battle)) {
+      retreatFromBattle(world, battle, events, rng);
+    } else {
+      resolveBattlePhase(world, battle.id, events, rng);
+    }
+  }
+  return participants;
 }
 
 function resolveSettlementClaim(
@@ -589,6 +867,32 @@ function processPlayerCommands(
       emit(world, events, {
         type: "player-command-failed",
         data: { commandId: command.id, reason: "player or controlled character no longer exists" },
+      });
+      continue;
+    }
+
+    if (command.type === "retreat-battle") {
+      const battle = world.activeBattles[command.battleId];
+      if (!battle || battle.attackerId !== commander.id || battle.phase < 1 || battle.phase >= battle.totalPhases) {
+        emit(world, events, {
+          type: "player-command-failed",
+          actorId: commander.id,
+          data: { commandId: command.id, reason: "the retreat window is no longer available" },
+        });
+        continue;
+      }
+      emit(world, events, {
+        type: "player-action-executed",
+        actorId: commander.id,
+        settlementId: battle.settlementId,
+        data: { commandId: command.id, action: "retreat", battleId: battle.id },
+      });
+      retreatFromBattle(world, battle, events, rng, command.id);
+      emit(world, events, {
+        type: "player-command-resolved",
+        actorId: commander.id,
+        settlementId: battle.settlementId,
+        data: { commandId: command.id, outcome: "battle-retreated", battleId: battle.id },
       });
       continue;
     }
@@ -1048,9 +1352,12 @@ export function runTick(world: WorldState): TickResult {
 
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
+  const battleParticipants = progressActiveBattles(world, events, rng);
   expireStandingOrders(world, events);
 
   for (const character of Object.values(world.characters).sort((a, b) => a.id.localeCompare(b.id))) {
+    const inActiveBattle = Object.values(world.activeBattles).some((battle) => battle.attackerId === character.id);
+    if (battleParticipants.has(character.id) || inActiveBattle) continue;
     upkeepCharacter(world, character, events, Boolean(character.travel));
     if (needsObservation(world, character)) {
       const knowledge = directObservation(world, character);

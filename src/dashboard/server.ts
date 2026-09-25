@@ -111,12 +111,29 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           json(response, 400, { ok: false, error: "ticks must be an integer between 1 and 144" });
           return;
         }
+        let ticksAdvanced = 0;
+        let combatUpdated = false;
+        const playerCharacterId = Object.values(world.players)[0]?.characterId;
         for (let index = 0; index < ticks; index += 1) {
           const result = runTick(world);
           const conversationEvents = await resolveDueReplies(world, dialogueProvider);
           store.appendTick([...result.events, ...conversationEvents], world);
+          ticksAdvanced += 1;
+          combatUpdated = result.events.some((event) =>
+            event.actorId === playerCharacterId &&
+            (event.type === "battle-phase-resolved" || event.type === "battle-retreated" || event.type === "battle-resolved")
+          );
+          if (combatUpdated) break;
         }
-        json(response, 200, { ok: true, tick: world.tick, day: world.tick / world.ticksPerDay });
+        const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === playerCharacterId);
+        json(response, 200, {
+          ok: true,
+          tick: world.tick,
+          day: world.tick / world.ticksPerDay,
+          ticksAdvanced,
+          combatUpdated,
+          pausedForBattle: Boolean(activeBattle),
+        });
         return;
       }
       if (request.method === "POST" && url.pathname === "/api/commands") {

@@ -72,7 +72,7 @@ test("urgent survival needs can override an aggressive character's established a
 });
 
 test("battle experiences reshape goals and may change hierarchical relationships", () => {
-  const result = runTicks(createPrototypeWorld(1847), 60);
+  const result = runTicks(createPrototypeWorld(1847), 90);
   const evolved = result.events.filter((event) => event.type === "goal-evolved");
   const relationships = result.events.filter((event) => event.type === "relationship-changed");
 

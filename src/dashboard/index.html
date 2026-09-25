@@ -150,6 +150,13 @@
     }
     .stat span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; }
     .stat strong { font-size: 15px; }
+    .combat-card { padding: 12px; border: 1px solid #d6b36a; border-radius: 14px; background: #fff6df; }
+    .combat-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 9px; }
+    .combat-head strong { text-transform: capitalize; }
+    .combat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    .combat-grid .stat { background: rgba(255,255,255,.7); }
+    .combat-factor { margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .battle-live { border-color: var(--danger); background: #fff0ea; }
     .resource-row, .party-row, .event-row, .order-row {
       display: flex;
       justify-content: space-between;
@@ -346,6 +353,7 @@
     function settlement(id) { return world.settlements.find(function (item) { return item.id === id; }); }
     function character(id) { return world.characters.find(function (item) { return item.id === id; }); }
     function fmt(value, digits) { return value == null ? "—" : Number(value).toFixed(digits == null ? 0 : digits); }
+    function rangeText(value, suffix) { return value ? fmt(value.low) + "–" + fmt(value.high) + (suffix || "") : "—"; }
     function toast(message, error) {
       var element = byId("toast");
       element.textContent = message;
@@ -388,6 +396,13 @@
         type: "character-action",
         action: action,
         targetId: targetId || undefined
+      });
+    }
+    function retreatBattle(battleId) {
+      mutate("/api/commands", {
+        playerId: world.player.id,
+        type: "retreat-battle",
+        battleId: battleId
       });
     }
     function issueOrder() {
@@ -541,6 +556,20 @@
       var here = c.locationId === item.id;
       var intel = item.intelligence;
       var intelLabel = intel && intel.exact ? "Exact owned records" : intel ? esc(intel.source) + " · " + fmt(intel.confidence * 100) + "% confidence · " + intel.ageTicks + " ticks old" : "No current report";
+      var forecast = item.combatForecast;
+      var forecastHtml = forecast
+        ? '<h3>Combat forecast</h3><div class="combat-card"><div class="combat-head"><strong>' + esc(forecast.outlook.replaceAll("-", " ")) + '</strong><span class="subtle">strategy ' + forecast.strategy + ' · ' + esc(forecast.detailLevel) + '</span></div>' +
+          '<div class="combat-grid">' +
+            '<div class="stat"><span>Win chance</span><strong>' + rangeText(forecast.winChance, "%") + '</strong></div>' +
+            '<div class="stat"><span>Battle format</span><strong>' + (forecast.majorBattle ? forecast.phases + " phases" : "Immediate") + '</strong></div>' +
+            '<div class="stat"><span>Your strength</span><strong>' + rangeText(forecast.attackerPower) + '</strong></div>' +
+            '<div class="stat"><span>Defense strength</span><strong>' + rangeText(forecast.defenderPower) + '</strong></div>' +
+            '<div class="stat"><span>Your casualties</span><strong>' + rangeText(forecast.attackerCasualties) + '</strong></div>' +
+            '<div class="stat"><span>Defender casualties</span><strong>' + rangeText(forecast.defenderCasualties) + '</strong></div>' +
+            '<div class="stat"><span>Retreat success</span><strong>' + rangeText(forecast.retreatSuccess, "%") + '</strong></div>' +
+            '<div class="stat"><span>Capture exposure</span><strong>' + esc(forecast.captureRisk) + '</strong></div>' +
+          '</div><div class="combat-factor">' + forecast.revealedFactors.map(esc).join(" · ") + '</div></div>'
+        : "";
       return '<div class="eyebrow">Island intelligence</div><h2>' + esc(item.name) + '</h2>' +
         '<div class="subtle">' + esc(owningFaction ? owningFaction.name : "Independent") + (owner ? " · Owned by " + esc(owner.name) : "") + " · Population " + (item.population == null ? "unknown" : item.population.toLocaleString()) + "</div>" +
         '<div class="subtle">' + intelLabel + "</div>" +
@@ -557,11 +586,11 @@
         "<h3>Parties present</h3>" +
         (parties.length ? parties.map(function (party) {
           return '<button class="party-row" type="button" data-party="' + esc(party.id) + '"><span><strong>' + esc(party.name) + "</strong><br><span class=\"subtle\">" + esc(party.archetype) + "</span></span><span>" + fmt(party.partyPower) + "</span></button>";
-        }).join("") : '<div class="empty">' + (intel && intel.exact ? "No named parties are currently here." : "Foreign party positions are not available in this report.") + "</div>") +
+        }).join("") : '<div class="empty">' + (intel && intel.exact ? "No named parties are currently here." : "Foreign party positions are not available in this report.") + "</div>") + forecastHtml +
         "<h3>Direct command</h3><div class=\"actions\">" +
           (travelAllowed ? '<button class="action" type="button" data-action="travel" data-target="' + esc(item.id) + '">Sail here</button>' : "") +
           (here && item.surrenderOffered ? '<button class="action danger" type="button" data-action="claim-settlement">Accept surrender &amp; claim</button>' : "") +
-          (here && item.factionId && item.factionId !== c.factionId && !item.surrenderOffered ? '<button class="action danger" type="button" data-action="raid">Raid defenses</button>' : "") +
+          (here && item.factionId && item.factionId !== c.factionId && !item.surrenderOffered && !(world.combat && world.combat.active) ? '<button class="action danger" type="button" data-action="raid">Commit attack</button>' : "") +
           '<button class="action" type="button" data-action="trade-local">Trade locally</button>' +
           '<button class="action" type="button" data-action="buy-provisions">Buy provisions</button>' +
         "</div>";
@@ -612,6 +641,14 @@
     }
     function commandPanel() {
       var c = commander();
+      var battle = world.combat && world.combat.active;
+      if (battle) {
+        var phase = battle.lastPhase;
+        return '<h3>Major battle in progress</h3><div class="combat-card battle-live"><div class="combat-head"><strong>' + esc(battle.settlementName) + '</strong><span>Phase ' + battle.phase + '/' + battle.totalPhases + '</span></div>' +
+          (phase ? '<div class="subtle">' + esc(phase.outcome.replaceAll("-", " ")) + ' · lost ' + phase.attackerLosses + ' troops · defender lost ' + phase.defenderLosses + ' · retreat ' + esc(phase.retreatRisk) + ' · capture exposure ' + esc(phase.captureRisk) + '</div>' : '') +
+          '<div class="actions"><button class="primary" type="button" data-continue-battle="true">Continue battle</button>' +
+          (battle.canRetreat ? '<button class="action danger" type="button" data-retreat-battle="' + esc(battle.id) + '">Retreat now</button>' : '') + '</div></div>';
+      }
       var recipients = world.characters.filter(function (item) {
         return item.controller.kind === "autonomous" && item.factionId && item.factionId === c.factionId;
       });
@@ -641,6 +678,13 @@
       byId("inspector").querySelectorAll("[data-confirm-order]").forEach(function (button) {
         button.addEventListener("click", function () { confirmOrder(button.dataset.confirmCharacter, button.dataset.confirmOrder); });
       });
+      byId("inspector").querySelectorAll("[data-retreat-battle]").forEach(function (button) {
+        button.addEventListener("click", function () { retreatBattle(button.dataset.retreatBattle); });
+      });
+      byId("inspector").querySelectorAll("[data-continue-battle]").forEach(function (button) {
+        button.addEventListener("click", function () { mutate("/api/advance", { ticks: 1 }); });
+      });
+      if (world.combat && world.combat.active) return;
       byId("order-directive").addEventListener("change", updateOrderTargets);
       byId("issue-order").addEventListener("click", issueOrder);
       updateOrderTargets();
@@ -673,6 +717,12 @@
       byId("pending").textContent = world.pendingCommands.length
         ? world.pendingCommands.length + " command(s) queued"
         : "No commands waiting";
+      var battle = world.combat && world.combat.active;
+      document.querySelectorAll("[data-ticks]").forEach(function (button) {
+        var oneTick = button.dataset.ticks === "1";
+        button.hidden = Boolean(battle) && !oneTick;
+        if (oneTick) button.textContent = battle ? "Continue phase" : "+4 hours";
+      });
       var briefing = world.briefing || { attentionCount: 0, items: [] };
       byId("brief-title").textContent = briefing.attentionCount
         ? "Check-in · " + briefing.attentionCount + " need attention"
@@ -688,7 +738,9 @@
           ? '<button class="brief-action" type="button" data-brief-confirm="' + esc(item.orderId) + '" data-brief-character="' + esc(item.characterId) + '">Confirm completion</button>'
           : item.action === "claim-settlement"
             ? '<button class="brief-action" type="button" data-brief-claim="true">Review surrender</button>'
-            : "";
+            : item.action === "review-battle"
+              ? '<button class="brief-action" type="button" data-brief-battle="' + esc(item.settlementId) + '">Review battle</button>'
+              : "";
         var acknowledge = item.acknowledgeable
           ? '<button class="brief-action" type="button" data-brief-ack="' + esc(item.id) + '" data-brief-through="' + esc(item.throughSequence == null ? "" : item.throughSequence) + '">Acknowledge</button>'
           : "";
@@ -702,6 +754,9 @@
           var item = briefing.items.find(function (entry) { return entry.action === "claim-settlement"; });
           if (item) selectSettlement(item.settlementId);
         });
+      });
+      byId("events").querySelectorAll("[data-brief-battle]").forEach(function (button) {
+        button.addEventListener("click", function () { selectSettlement(button.dataset.briefBattle); });
       });
       byId("events").querySelectorAll("[data-brief-ack]").forEach(function (button) {
         button.addEventListener("click", function () {

@@ -97,6 +97,10 @@ export class WorldStore {
       INSERT OR REPLACE INTO snapshots(sequence, tick, state_json, state_hash)
       VALUES (?, ?, ?, ?)
     `);
+    const updateSchemaVersion = this.database.prepare(`
+      INSERT INTO metadata(key, value) VALUES ('schema-version', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `);
     const latestSnapshot = this.database
       .prepare("SELECT sequence FROM snapshots ORDER BY sequence DESC LIMIT 1")
       .get() as { sequence: number };
@@ -117,6 +121,7 @@ export class WorldStore {
           JSON.stringify(event.data),
         );
       }
+      updateSchemaVersion.run(String(world.version));
       if (shouldSnapshot) {
         insertSnapshot.run(lastSequence, world.tick, JSON.stringify(world), stateHash(world));
       }
@@ -134,8 +139,9 @@ export class WorldStore {
     if (!snapshot) throw new Error("World store has no snapshot");
 
     const state = JSON.parse(snapshot.state_json) as WorldState;
-    if (state.version !== 3) {
-      throw new Error(`World schema ${state.version} is incompatible with schema 3; start this milestone with --reset`);
+    const storedVersion = (state as unknown as { version: number }).version;
+    if (storedVersion !== 3 && storedVersion !== 4) {
+      throw new Error(`World schema ${storedVersion} is incompatible with schema 4; start this milestone with --reset`);
     }
     const actualHash = stateHash(state);
     if (actualHash !== snapshot.state_hash) {

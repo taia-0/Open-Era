@@ -102,6 +102,8 @@ There are no elemental or ability-matchup counters in the core design. Terrain a
 
 Randomness depends heavily on commander strategy and troop discipline. Strategy improves the accuracy of pre-battle strength and casualty estimates and reduces disastrous variance. External events do not enter once a multi-phase battle begins.
 
+The current prototype makes that commitment visible through one compact forecast: outcome likelihood, expected losses, character-and-troop power, retreat prospects, and capture exposure. Strategy narrows estimate ranges and progressively reveals defensive-ground factors; intelligence quality still limits what even a skilled commander can know. Small attacks resolve immediately. Major attacks persist across three phases, refresh direct battlefield intelligence after each phase, and pause accelerated player time at every retreat window. Continuing requires advancing time again; retreat ends the battle with pursuit losses but avoids a formal defeat. Captivity itself remains a later system, so capture exposure is currently an advisory risk rather than a resolved capture outcome.
+
 ## Character progression and powers
 
 ### Raw strength

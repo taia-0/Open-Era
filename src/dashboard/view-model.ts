@@ -1,4 +1,5 @@
 import { assessStandingOrder } from "../sim/agency.ts";
+import { combatForecast } from "../sim/combat.ts";
 import { factionPower, marketPrice, partyPower, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { RESOURCE_KEYS, type SimEvent, type WorldState } from "../sim/types.ts";
 
@@ -39,6 +40,12 @@ function eventSummary(world: WorldState, event: SimEvent): string {
       return `${actor} reconsidered their plan: ${event.data.reason}`;
     case "battle-resolved":
       return `${actor} ${event.data.outcome === "attacker-victory" ? "won" : "lost"} at ${settlement}`;
+    case "battle-started":
+      return `${actor} committed to a major battle at ${settlement}`;
+    case "battle-phase-resolved":
+      return `${actor} completed phase ${event.data.phase} at ${settlement}`;
+    case "battle-retreated":
+      return `${actor} retreated from ${settlement}`;
     case "settlement-claimed":
       return `${actor} accepted ${settlement}'s surrender and established a claim`;
     case "arrived":
@@ -88,6 +95,21 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     const orderId = typeof event.data.orderId === "string" ? event.data.orderId : null;
     return recipient?.standingOrders.find((order) => order.id === orderId && order.issuerId === commanderId) ?? null;
   };
+
+  const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === commanderId);
+  if (activeBattle?.lastPhase) {
+    addItem({
+      id: `battle:${activeBattle.id}:${activeBattle.phase}`,
+      severity: "action",
+      actionRequired: true,
+      title: `Battle phase ${activeBattle.phase} complete`,
+      summary: `${activeBattle.lastPhase.outcome.replaceAll("-", " ")}; retreat risk is ${activeBattle.lastPhase.retreatRisk}. Continue time or order retreat.`,
+      day: round(world.tick / world.ticksPerDay, 2),
+      settlementId: activeBattle.settlementId,
+      battleId: activeBattle.id,
+      action: "review-battle",
+    });
+  }
 
   for (const character of Object.values(world.characters)) {
     for (const order of character.standingOrders) {
@@ -236,6 +258,7 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
 export function dashboardState(world: WorldState, events: SimEvent[]): Record<string, unknown> {
   const player = Object.values(world.players)[0];
   const commander = world.characters[player.characterId];
+  const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === commander.id) ?? null;
   return {
     tick: world.tick,
     day: round(world.tick / world.ticksPerDay, 2),
@@ -243,6 +266,13 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
     player,
     commanderId: commander.id,
     pendingCommands: world.pendingCommands,
+    combat: {
+      active: activeBattle ? {
+        ...activeBattle,
+        settlementName: world.settlements[activeBattle.settlementId].name,
+        canRetreat: activeBattle.phase > 0 && activeBattle.phase < activeBattle.totalPhases,
+      } : null,
+    },
     briefing: checkInBriefing(world, commander.id, events),
     factions: Object.values(world.factions).map((faction) => ({
       ...faction,
@@ -255,6 +285,13 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
         settlement.factionId !== null &&
         settlement.factionId !== commander.factionId &&
         settlementClaimAvailableTo(settlement, commander.id);
+      const forecastAvailable = commander.locationId === settlement.id &&
+        settlement.factionId !== null &&
+        settlement.factionId !== commander.factionId &&
+        commander.troops.count >= 25 &&
+        !surrenderOffered &&
+        !activeBattle;
+      const forecast = forecastAvailable ? combatForecast(world, commander.id, settlement.id) : null;
       if (!exact) {
         return {
           id: settlement.id,
@@ -274,6 +311,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
           prices: knowledge?.priceEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
           partyCount: null,
           surrenderOffered,
+          combatForecast: forecast,
           intelligence: knowledge ? {
             exact: false,
             source: knowledge.source,
@@ -288,6 +326,7 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
         prices: Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, marketPrice(world, settlement.id, resource)])),
         partyCount: Object.values(world.characters).filter((character) => character.locationId === settlement.id).length,
         surrenderOffered,
+        combatForecast: forecast,
         intelligence: { exact: true, source: "owned", confidence: 1, observedTick: world.tick, ageTicks: 0 },
       };
     }),

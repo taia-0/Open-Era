@@ -14,7 +14,9 @@ This branch contains the first **headless world prototype**. It is intentionally
 - Local production, consumption, shortages, supply-and-demand prices, and territorial taxes
 - Party provisions, sailors, troop recruitment, morale, and attrition
 - Physical travel between islands and merchant arbitrage
-- Character-plus-troop combat against settlement garrisons
+- Character-plus-troop combat against settlement garrisons, with quick skirmishes and persistent three-phase major battles
+- Strategy-scaled combat forecasts covering outcome, losses, force balance, withdrawal, and capture exposure
+- Player retreat decisions at major-battle phase boundaries; accelerated time pauses for each decision
 - Surrender thresholds, deliberate settlement claims, and personal conqueror ownership
 - Persistent personality-rooted goals and structured multi-tick plans
 - Imperfect island knowledge that becomes stale and refreshes through direct observation
@@ -53,6 +55,7 @@ The default run advances twelve in-world days and writes:
 - `simulation-output/latest/decision-traces.jsonl` — scored alternatives behind every decision
 - `simulation-output/latest/agency-traces.jsonl` — plan reviews, beliefs, evolving goals, and relationships
 - `simulation-output/latest/conversation-traces.jsonl` — threads, messages, reply schedules, response tags, and discarded action proposals
+- `simulation-output/latest/combat-traces.jsonl` — starting forecasts, phase results, retreats, and final battle outcomes
 - `simulation-output/latest/metrics.csv` — faction power, treasury, and resource trends
 - `simulation-output/latest/final-state.json` — complete inspectable world state
 - `.open-era/world.sqlite` — durable event log and snapshots
@@ -81,6 +84,7 @@ Open `http://127.0.0.1:4317`. The dashboard provides:
 - An exception-first check-in briefing with completion confirmations, deviations, failures, shortages, battles, and stale intelligence
 - Persistent briefing acknowledgements and subordinate officers who bundle routine reports without gaining command authority
 - Accelerated time controls and a live world-event feed
+- Compact pre-battle forecasts and phase-by-phase retreat windows for major battles
 
 Player actions are validated by the simulation server and persisted before execution. The dashboard binds to loopback by default and intentionally has no production authentication; it is a local development observer, not a deployable multiplayer server.
 
@@ -110,7 +114,8 @@ src/sim/agency.ts        goals, plans, beliefs, relationships, orders
 src/sim/commands.ts      validated and durable human command boundary
 src/sim/briefing.ts      persisted acknowledgements and reporting-officer assignment
 src/sim/conversations.ts persistent threads, timing, tags, safeguards, dialogue adapter
-src/sim/engine.ts        decisions, economy, travel, and combat
+src/sim/combat.ts        strategy-scaled forecasts and combat risk assessment
+src/sim/engine.ts        decisions, economy, travel, and combat resolution
 src/sim/state.ts         event reducer, derived values, state hashing
 src/sim/persistence.ts   SQLite event log, atomic ticks, snapshots
 src/sim/reports.ts       human- and machine-readable evaluation output

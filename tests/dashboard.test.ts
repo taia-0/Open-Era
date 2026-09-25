@@ -21,6 +21,8 @@ test("the local dashboard serves state and executes its command API", async () =
     assert.match(pageHtml, /Accept surrender &amp; claim/);
     assert.match(pageHtml, /Exception-first check-in/);
     assert.match(pageHtml, /Queue amendment/);
+    assert.match(pageHtml, /Combat forecast/);
+    assert.match(pageHtml, /Retreat now/);
 
     const initialResponse = await fetch(`${base}/api/state`);
     const initial = await initialResponse.json() as {
@@ -181,6 +183,60 @@ test("the local dashboard serves state and executes its command API", async () =
     const withReply = await (await fetch(`${base}/api/state`)).json() as { conversations: { messages: Array<{ source: string }> } };
     assert.equal(withReply.conversations.messages.length, 2);
     assert.equal(withReply.conversations.messages.at(-1)?.source, "autonomous");
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("accelerated time pauses at a player battle phase", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "open-era-dashboard-combat-"));
+  const app = createDashboardApp({ databasePath: join(directory, "dashboard.sqlite"), seed: 2718 });
+  try {
+    const world = app.getWorld();
+    const commander = world.characters[world.players["prototype-player"].characterId];
+    const settlement = world.settlements["cinder-key"];
+    commander.locationId = settlement.id;
+    commander.travel = null;
+    commander.troops.count = 90;
+    settlement.garrison = 120;
+    settlement.stability = 72;
+    settlement.surrender = null;
+
+    await new Promise<void>((resolve) => app.server.listen(0, "127.0.0.1", resolve));
+    const address = app.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port");
+    const base = `http://127.0.0.1:${address.port}`;
+
+    const command = await fetch(`${base}/api/commands`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerId: "prototype-player", type: "character-action", action: "raid" }),
+    });
+    assert.equal(command.status, 202);
+
+    const advance = await fetch(`${base}/api/advance`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ticks: 24 }),
+    });
+    assert.equal(advance.status, 200);
+    assert.deepEqual(await advance.json(), {
+      ok: true,
+      tick: 1,
+      day: 1 / world.ticksPerDay,
+      ticksAdvanced: 1,
+      combatUpdated: true,
+      pausedForBattle: true,
+    });
+
+    const state = await (await fetch(`${base}/api/state`)).json() as {
+      combat: { active: { phase: number; canRetreat: boolean } | null };
+      briefing: { items: Array<{ action?: string }> };
+    };
+    assert.equal(state.combat.active?.phase, 1);
+    assert.equal(state.combat.active?.canRetreat, true);
+    assert.ok(state.briefing.items.some((item) => item.action === "review-battle"));
   } finally {
     await app.close();
     rmSync(directory, { recursive: true, force: true });

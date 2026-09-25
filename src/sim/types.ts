@@ -66,6 +66,68 @@ export interface TroopGroup {
   discipline: number;
 }
 
+export interface NumericRange {
+  low: number;
+  high: number;
+}
+
+export type CombatRisk = "low" | "moderate" | "high" | "severe";
+
+export interface CombatForecast {
+  settlementId: string;
+  generatedTick: number;
+  outlook: "decisive-advantage" | "favored" | "contested" | "underdog" | "grave-danger";
+  detailLevel: "basic" | "tactical" | "command";
+  strategy: number;
+  intelligence: {
+    source: SettlementKnowledge["source"] | "none";
+    confidence: number;
+    ageTicks: number | null;
+  };
+  attackerPower: NumericRange;
+  defenderPower: NumericRange;
+  winChance: NumericRange;
+  attackerCasualties: NumericRange;
+  defenderCasualties: NumericRange;
+  retreatSuccess: NumericRange;
+  retreatRisk: CombatRisk;
+  captureRisk: CombatRisk;
+  majorBattle: boolean;
+  phases: number;
+  revealedFactors: string[];
+}
+
+export interface BattlePhaseReport {
+  phase: number;
+  outcome: "attacker-advantage" | "defender-advantage";
+  attackerLosses: number;
+  defenderLosses: number;
+  attackerHealth: number;
+  attackerMorale: number;
+  attackerTroops: number;
+  defenderGarrison: number;
+  retreatRisk: CombatRisk;
+  captureRisk: CombatRisk;
+}
+
+export interface ActiveBattle {
+  id: string;
+  attackerId: string;
+  settlementId: string;
+  defenderFactionId: string | null;
+  startedTick: number;
+  phase: number;
+  totalPhases: number;
+  attackerInitialPower: number;
+  defenderInitialPower: number;
+  attackerInitialTroops: number;
+  defenderInitialGarrison: number;
+  attackerPhaseWins: number;
+  defenderPhaseWins: number;
+  lastPhase: BattlePhaseReport | null;
+  startingForecast: CombatForecast;
+}
+
 export interface TravelState {
   fromId: string;
   toId: string;
@@ -282,6 +344,13 @@ export type PlayerCommand =
       type: "cancel-order";
       characterId: string;
       orderId: string;
+    }
+  | {
+      id: string;
+      playerId: string;
+      issuedTick: number;
+      type: "retreat-battle";
+      battleId: string;
     };
 
 export interface Character {
@@ -316,7 +385,7 @@ export interface Character {
 }
 
 export interface WorldState {
-  version: 3;
+  version: 4;
   scenario: string;
   seed: number;
   rngState: number;
@@ -332,6 +401,7 @@ export interface WorldState {
   characters: Record<string, Character>;
   players: Record<string, Player>;
   pendingCommands: PlayerCommand[];
+  activeBattles: Record<string, ActiveBattle>;
   conversationThreads: Record<string, ConversationThread>;
   conversationMessages: ConversationMessage[];
   scheduledReplies: ScheduledReply[];

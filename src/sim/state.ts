@@ -26,6 +26,8 @@ export function normalizeStandingOrder(order: StandingOrder): StandingOrder {
 }
 
 export function normalizeWorldState(world: WorldState): WorldState {
+  world.version = 4;
+  world.activeBattles ??= {};
   for (const character of Object.values(world.characters)) {
     character.standingOrders = character.standingOrders.map(normalizeStandingOrder);
   }
@@ -382,6 +384,30 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       actor.troops.count = event.data.troopCount as number;
       settlement.stocks = resourcesFrom(event.data, "settlementStocks");
       break;
+    case "battle-started": {
+      const battle = event.data.battle as WorldState["activeBattles"][string];
+      world.activeBattles[battle.id] = battle;
+      break;
+    }
+    case "battle-phase-resolved": {
+      if (!actor || !settlement) throw new Error("Battle phase event is missing an entity");
+      const battle = event.data.battle as WorldState["activeBattles"][string];
+      actor.health = event.data.attackerHealth as number;
+      actor.morale = event.data.attackerMorale as number;
+      actor.troops.count = event.data.attackerTroops as number;
+      settlement.garrison = event.data.defenderGarrison as number;
+      settlement.stability = event.data.settlementStability as number;
+      world.activeBattles[battle.id] = battle;
+      break;
+    }
+    case "battle-retreated":
+      if (!actor || !settlement) throw new Error("Battle retreat event is missing an entity");
+      actor.health = event.data.attackerHealth as number;
+      actor.morale = event.data.attackerMorale as number;
+      actor.troops.count = event.data.attackerTroops as number;
+      actor.lastBattleTick = world.tick;
+      delete world.activeBattles[event.data.battleId as string];
+      break;
     case "rested":
       if (!actor) throw new Error("Rest event has no actor");
       actor.health = event.data.health as number;
@@ -401,6 +427,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.stability = event.data.settlementStability as number;
       settlement.stocks = resourcesFrom(event.data, "settlementStocks");
       settlement.surrender = event.data.surrender as Settlement["surrender"];
+      if (typeof event.data.battleId === "string") delete world.activeBattles[event.data.battleId];
       break;
     case "settlement-claimed":
       if (!actor || !settlement) throw new Error("Settlement claim event is missing an entity");

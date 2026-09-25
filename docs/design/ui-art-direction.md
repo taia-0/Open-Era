@@ -50,6 +50,10 @@ Owned assets show exact values. Foreign assets show the source, age, confidence,
 
 Selecting a ship or party emphasizes condition, crew, troop groups, supplies, destination, and active orders.
 
+Before a hostile action, the island panel shows one compact combat forecast rather than a wall of raw statistics. It combines likely outcome and casualties, character-versus-troop power balance, and retreat/capture exposure. Estimate ranges and disclosed factors reflect the commander's strategy and current intelligence.
+
+During a major battle, the normal action panel becomes a phase report. It shows losses, remaining forces, health, morale, and updated retreat/capture risk. Accelerated time stops at the report; the player may continue by advancing one phase or retreat immediately. No other tactical controls appear after commitment.
+
 ## Character art
 
 Named characters should consistently use a chibi-anime design viewed from a three-quarter top-down angle. The same construction applies in party cards, messages, inspection panels, and battle summaries. Full-size conventional portraits in early concepts are retained only as iteration history.
@@ -89,6 +93,8 @@ Character appearance in message threads still follows the chibi three-quarter to
 | Island selected | Context actions and travel | Current direction |
 | Ship selected | Condition, cargo, crew, orders | Current direction |
 | Island inspection | Resource, colonization, and defense intelligence | Current direction |
+| Combat forecast | Pre-commitment risk and expected losses | Prototype direction |
+| Battle phase report | Continue-or-retreat decision window | Prototype direction |
 | Party overview | Named crew, sailors, troops | Chibi variant is current |
 | Troop training | Promotion and branch choices | Current direction |
 | Message inbox | Persistent communication overview | Current direction |

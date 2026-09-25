@@ -44,6 +44,11 @@ export type CommandRequest =
       type: "cancel-order";
       characterId: string;
       orderId: string;
+    }
+  | {
+      playerId: string;
+      type: "retreat-battle";
+      battleId: string;
     };
 
 export type CommandSubmission =
@@ -74,12 +79,17 @@ function reject(code: string, error: string): CommandSubmission {
 
 function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
   const player = world.players[command.playerId];
+  const targetId = command.type === "character-action"
+    ? command.targetId
+    : command.type === "retreat-battle"
+      ? world.activeBattles[command.battleId]?.settlementId
+      : command.characterId;
   const event: SimEvent = {
     sequence: world.nextEventSequence,
     tick: world.tick,
     type: "player-command-accepted",
     actorId: player.characterId,
-    targetId: command.type === "character-action" ? command.targetId : command.characterId,
+    targetId,
     data: {
       command,
       nextCommandSequence: world.nextCommandSequence + 1,
@@ -119,6 +129,9 @@ function validateCharacterAction(
       return reject("not-hostile", "The current settlement is not a valid hostile raid target");
     }
     if (character.troops.count < 25) return reject("insufficient-troops", "At least 25 troops are required to raid");
+    if (Object.values(world.activeBattles).some((battle) => battle.settlementId === settlement.id)) {
+      return reject("battle-already-active", "Another major battle is already underway at this settlement");
+    }
   }
   if (request.action === "claim-settlement") {
     if (!settlement.factionId || settlement.factionId === character.factionId) {
@@ -144,6 +157,32 @@ function validateCharacterAction(
     targetId: request.action === "raid" || request.action === "claim-settlement"
       ? character.locationId
       : request.targetId,
+  };
+  return { ok: true, command, event: acceptedEvent(world, command) };
+}
+
+function validateBattleRetreat(
+  world: WorldState,
+  request: Extract<CommandRequest, { type: "retreat-battle" }>,
+): CommandSubmission {
+  const player = world.players[request.playerId];
+  const battle = world.activeBattles[request.battleId];
+  if (!battle) return reject("unknown-battle", "That battle is no longer active");
+  if (battle.attackerId !== player.characterId) {
+    return reject("not-commander", "The player does not command the attacking party");
+  }
+  if (battle.phase < 1 || battle.phase >= battle.totalPhases) {
+    return reject("retreat-unavailable", "Retreat is available only between unresolved battle phases");
+  }
+  if (world.pendingCommands.some((command) => command.playerId === player.id)) {
+    return reject("command-already-queued", "Another player command is already queued");
+  }
+  const command: PlayerCommand = {
+    id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
+    playerId: player.id,
+    issuedTick: world.tick,
+    type: "retreat-battle",
+    battleId: battle.id,
   };
   return { ok: true, command, event: acceptedEvent(world, command) };
 }
@@ -328,6 +367,11 @@ function validateOrderCancellation(
 export function submitCommand(world: WorldState, request: CommandRequest): CommandSubmission {
   const player = world.players[request.playerId];
   if (!player) return reject("unknown-player", "The player session is unknown");
+  const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === player.characterId);
+  if (activeBattle && request.type !== "retreat-battle") {
+    return reject("battle-in-progress", "Only a retreat decision is available while the character is in battle");
+  }
+  if (request.type === "retreat-battle") return validateBattleRetreat(world, request);
   if (request.type === "character-action") return validateCharacterAction(world, request);
   if (request.type === "issue-order") return validateStandingOrder(world, request);
   if (request.type === "confirm-order") return validateOrderConfirmation(world, request);

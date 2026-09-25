@@ -378,6 +378,9 @@ test("schema-3 saves without lifecycle fields recover with pending legacy orders
   const path = join(directory, "world.sqlite");
   try {
     const world = createPrototypeWorld(1847);
+    const legacyWorld = world as unknown as Record<string, unknown>;
+    legacyWorld.version = 3;
+    delete legacyWorld.activeBattles;
     for (const character of Object.values(world.characters)) {
       for (const order of character.standingOrders) {
         const legacy = order as unknown as Record<string, unknown>;
@@ -399,6 +402,8 @@ test("schema-3 saves without lifecycle fields recover with pending legacy orders
 
     const reopened = new WorldStore(path);
     const recovered = reopened.recover().state;
+    assert.equal(recovered.version, 4);
+    assert.deepEqual(recovered.activeBattles, {});
     const orders = Object.values(recovered.characters).flatMap((character) => character.standingOrders);
     assert.ok(orders.length > 0);
     assert.ok(orders.every((order) =>
