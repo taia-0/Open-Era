@@ -31,9 +31,9 @@ Git remains the complete history. This file exists for three things git does not
 ## Current state
 
 - **Baseline:** `main` carries the Phase 0 baseline as merge commit `1386e00`, from [pull request 1](https://github.com/taia-0/Open-Era/pull/1), approved by the owner and merged 2026-09-25.
-- **Last verified commit:** `1386e00`. 68 tests pass, typecheck is clean, and the gate passes locally and on GitHub Actions for `main` itself.
-- **Gate status:** passing. Golden hashes lock pre-redaction behavior, still pass unchanged, and reproduce on the runner as well as locally, so the flagged ICU sensitivity has not materialized on the CI runtime.
-- **Headline risk:** the event feed retains only the most recent 100 events with no pagination, so a player cannot audit its own history mid-campaign. Two sessions independently reported no legitimate way to estimate rival strength before committing.
+- **Last verified commit:** `7622bd3`. 86 tests pass, typecheck is clean, and the gate passes locally and on GitHub Actions for `main` itself.
+- **Gate status:** passing. Golden hashes lock pre-redaction behavior, still pass unchanged across two further milestones, and reproduce on the runner as well as locally, so the flagged ICU sensitivity has not materialized on the CI runtime.
+- **Headline risk:** no channel exists for a commander to learn a rival's strength other than a settlement-scoped forecast. The feed's missing history and the missing pre-commitment forecast are both closed as of Milestone A; estimation through investigation is not.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. Node 24 is installed keg-only at `/opt/homebrew/opt/node@24/bin`; the global `node` remains 22.
 
 ## Open items
@@ -41,13 +41,18 @@ Git remains the complete history. This file exists for three things git does not
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
 | Event feed leaked foreign character payloads; capturing ground widened it | Defect | Cursor | Fixed in `82c9bfc`; validated by an independent session with 0 foreign payloads visible |
-| Event feed is a rolling 100-event window with no pagination, so a player cannot audit its own history | Defect | Unassigned | Open; raised independently by session 002 |
-| `combat.active` is `null` while `settlement.battleInProgress` is true, with no stated authority | Defect | Unassigned | Open; raised by session 002 |
-| No legitimate channel exists for learning a rival's strength, so "estimates learned through investigation" has no machinery | Design gap | ChatGPT partner | Open; raised independently by both sessions |
-| Combat forecasts and travel ETAs are unavailable at the moment the commitment decision is made | Design gap | Unassigned | Open; raised by session 002 |
-| `POST /api/advance` returns no diff or event stream, so every step is advance-then-refetch | Ergonomic | Unassigned | Open; named the largest cost of playing |
-| Undocumented targeting and parameter rules: a pressure order needs a faction target, `briefing/officer` needs `characterId` | Wording | Unassigned | Open; raised by session 002 |
-| Surrender has no explicit command; it resolves implicitly through `claim-settlement` | Design gap | ChatGPT partner | Open |
+| Event feed is a rolling 100-event window with no pagination, so a player cannot audit its own history | Defect | Cursor | **Fixed** in [PR 4](https://github.com/taia-0/Open-Era/pull/4); a playtest then retrieved all 20,457 events with zero gaps and zero duplicates |
+| `combat.active` is `null` while `settlement.battleInProgress` is true, with no stated authority | Defect | Cursor | **Fixed** in `8bf60c8` and refined in [PR 5](https://github.com/taia-0/Open-Era/pull/5); one shared rule now governs the flag, the observable list and the forecast gate |
+| No legitimate channel exists for learning a rival's strength, so "estimates learned through investigation" has no machinery | Design gap | ChatGPT partner | Open; raised independently by two sessions. A settlement-scoped forecast from earned knowledge now exists, but nothing yet covers characters, parties, or factions |
+| Combat forecasts and travel ETAs are unavailable at the moment the commitment decision is made | Design gap | Cursor | **Fixed** in [PR 5](https://github.com/taia-0/Open-Era/pull/5); a playtest committed on a quoted voyage and a pre-commitment band |
+| `POST /api/advance` returns no diff or event stream, so every step is advance-then-refetch | Ergonomic | Cursor | **Fixed** in [PR 4](https://github.com/taia-0/Open-Era/pull/4); advance returns a projected event diff and a sequence watermark |
+| Undocumented targeting and parameter rules: a pressure order needs a faction target, `briefing/officer` needs `characterId` | Wording | Cursor | **Fixed** in [PR 4](https://github.com/taia-0/Open-Era/pull/4) and [PR 5](https://github.com/taia-0/Open-Era/pull/5); `capabilities.requests` publishes the whole contract |
+| Surrender has no explicit command; it resolves implicitly through `claim-settlement` | Design gap | Cursor | **Fixed** in [PR 5](https://github.com/taia-0/Open-Era/pull/5); `decline-surrender` makes the offer an explicit decision |
+| Starving pins morale at zero permanently while health keeps decaying, and the briefing never raises a provisioning item | Defect | Unassigned | Open; found by the paged-history session, which held morale at 0 from tick 154 to 187 with `rest` giving health but no morale. Blocks any long campaign from being a fair test |
+| Two pending commands targeting the same `orderId` are both accepted, and the second fails after the first resolves | Defect | Unassigned | Open; verified in the event store at sequences 704–713 and 724–737. The failure reason is clear, so it is an idempotency gap, not a discoverability one |
+| `briefing.attentionCount` does not match the number of `items` returned, and near-identical items are not aggregated | Defect | Unassigned | Open; reported `11` against 10 items, with seven separate deviation entries for one character. Attention count is the player's only signal that a decision is needed |
+| Estimated resource rows are shown with no age qualifier, beside exact owned data in identical formatting | Wording | Unassigned | Open; raised by the informed-commitment session. `intelligence.ageTicks` exists but the rows do not refer to it |
+| Population feeds the defender estimate but is unreadable before ownership, so a raider cannot weigh it | Design gap | Unassigned | Open; raised by the informed-commitment session. Indexed in [roadmap.md](docs/roadmap.md) as the missing reconnaissance channel |
 | One `issue-order` can produce two standing orders | Defect | Unassigned | Open, needs a decided intended identity |
 | `captureRisk` reads `low` through won battles, then capture arrives by claiming | Wording | Unassigned | Open |
 | `character.id.slice(-2)` parses a numeric cadence, which breaks past two-digit ids | Latent defect | Unassigned | Confirmed at `src/sim/engine.ts:972`; harmless below 100 characters |
@@ -104,7 +109,25 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
 - **Agent:** ChatGPT partner | **Commits:** `6d5097e`, `84aac08`, `a608636`, `1fbb8fd`, `1b020c5`
 - Persistent captivity, guaranteed-but-dangerous escape, bounded release terms, gradual troop return, and accelerated time that pauses at captivity transitions.
 
+### 2026-09-25 — M12: Read the record without guessing (Milestone A, part 1)
+- **Agent:** Cursor | **PR:** [#4](https://github.com/taia-0/Open-Era/pull/4) | **Playtest:** [paged-history-001](docs/playtests/paged-history-001.md)
+- Paged event history behind a `beforeSequence` cursor on the same projection path as the feed, an advance diff with a sequence watermark, a machine-readable command capability block with self-describing rejections, and explicit battle authority. Plus `docs/roadmap.md` and the playtest index in the design record.
+
+### 2026-09-25 — M13: Decide before committing (Milestone A, part 2)
+- **Agent:** Cursor | **PR:** [#5](https://github.com/taia-0/Open-Era/pull/5) | **Playtest:** [informed-commitment-001](docs/playtests/informed-commitment-001.md)
+- Travel ETAs, a pre-commitment forecast whose remote ground-truth weight is 0 so ignorance is expressed as band width rather than a scaled truth term, and `decline-surrender` as an explicit decision.
+
 ## Entries
+
+### 2026-09-25 — Milestone A merged, with two playtests and four defects fixed
+- **Agent:** Cursor | **Branch:** `docs/milestone-a-progress` | **Commits:** `8bf60c8`, `2d10173`, `eb06f74`, `a3d99b9` | **Type:** Feature plus records
+- **Changed** — the player-observable surface named by two prior sessions is closed. The event feed pages backwards from a cursor through the exact `projectEvent` path the feed uses; `POST /api/advance` returns its projected event diff and a watermark; `capabilities` publishes both the command rules and the HTTP request contract; battle authority is split into `commandedBattle` and `observedBattles` under one visibility rule; destinations carry `travelTicks`/`travelDays`; a forecast is available before commitment and derives its ground inputs with a ground-truth weight of **0** when the commander is not co-located; and `decline-surrender` makes a surrender offer an explicit accept-or-decline decision.
+- **Why** — two independent sessions said the same six gaps stopped them: they could not audit their own history, could not learn the rules without failing, could not tell which of two contradictory battle signals gated an action, could not weigh a commitment before making it, and could not answer a surrender offer with anything but acceptance.
+- **Verified** — `npm run typecheck` clean; the gate passes locally and on GitHub Actions for both pull requests, **86 tests**, and **all three golden hashes are byte-identical** before and after: `183e7f0a…`, `672be404…`, `b1fe59d0…`, with split recovery replaying 584 events to the same hash. Two fresh-context playtests were run by agents with no repository knowledge, one per part, each recorded in `docs/playtests/`.
+  - [paged-history-001](docs/playtests/paged-history-001.md) reached tick 187 and retrieved the **entire** 20,457-event history in 205 page requests: **zero gaps, zero duplicates**, 93.4% of events withheld, and **zero withheld payloads leaked**. It recommended `REVISE`; the host-contract half of that is fixed.
+  - [informed-commitment-001](docs/playtests/informed-commitment-001.md) committed to an attack on a settlement it had never visited, using only a 49-tick-old rumor, then attacked the redaction with four distinct inversion strategies. It recovered **no** true fortification, population or garrison before ownership.
+- **Left open** — four defects the playtests found and this milestone fixed are listed above in open items as closed. Still open and unowned: the starvation/morale soft-lock, duplicate pending commands for one `orderId`, briefing attention-count drift, unqualified estimate ages, and the missing reconnaissance channel for population.
+- **Links** — [pull request 4](https://github.com/taia-0/Open-Era/pull/4), [pull request 5](https://github.com/taia-0/Open-Era/pull/5), [roadmap](docs/roadmap.md)
 
 ### 2026-09-25 — Phase 0 baseline merged into main
 - **Agent:** Cursor | **Branch:** `main` | **Commits:** `1386e00`
