@@ -101,6 +101,7 @@ export const ACTION_CAPABILITIES: readonly ActionCapability[] = [
   { action: "recruit", target: "none", requires: ["at least 30 money", "at least 2 arms in local stock"] },
   { action: "raid", target: "current-settlement", requires: ["the current settlement belongs to a hostile faction", "at least 25 troops", "no other major battle underway at this settlement"] },
   { action: "claim-settlement", target: "current-settlement", requires: ["the current settlement is offering surrender to this character"] },
+  { action: "decline-surrender", target: "current-settlement", requires: ["the current settlement is offering surrender to this character"] },
   { action: "rest", target: "none", requires: [] },
 ];
 
@@ -220,6 +221,14 @@ function validateCharacterAction(
       return reject("not-surrendering", "The settlement is not offering surrender to this character");
     }
   }
+  if (request.action === "decline-surrender") {
+    if (!settlement.factionId || settlement.factionId === character.factionId) {
+      return reject("not-hostile", "The current settlement is not a hostile surrender target");
+    }
+    if (!settlementClaimAvailableTo(settlement, character.id)) {
+      return reject("not-surrendering", "The settlement is not offering surrender to this character");
+    }
+  }
   if (request.action === "recruit" && (character.money < 30 || settlement.stocks.arms < 2)) {
     return reject("cannot-recruit", "Recruitment requires money and locally available arms");
   }
@@ -233,7 +242,7 @@ function validateCharacterAction(
     issuedTick: world.tick,
     type: "character-action",
     action: request.action,
-    targetId: request.action === "raid" || request.action === "claim-settlement"
+    targetId: request.action === "raid" || request.action === "claim-settlement" || request.action === "decline-surrender"
       ? character.locationId
       : request.targetId,
   };

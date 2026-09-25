@@ -1,7 +1,8 @@
 import { combatForecast } from "../sim/combat.ts";
 import { commandCapabilities } from "../sim/commands.ts";
+import { travelDuration } from "../sim/engine.ts";
 import { marketPrice, round, settlementClaimAvailableTo } from "../sim/state.ts";
-import { RESOURCE_KEYS, type ActiveBattle, type SimEvent, type WorldState } from "../sim/types.ts";
+import { RESOURCE_KEYS, type ActiveBattle, type Character, type SimEvent, type WorldState } from "../sim/types.ts";
 import { projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
 
 function eventSummary(world: WorldState, event: SimEvent): string {
@@ -170,7 +171,10 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
       summary: `${surrender.name} is offering surrender to ${commander.name}.`,
       day: round(world.tick / world.ticksPerDay, 2),
       settlementId: surrender.id,
-      action: "claim-settlement",
+      action: "review-surrender",
+      // The offer is a decision, not a single button: accept and keep fighting
+      // are both legitimate, and the second one used to have no representation.
+      actions: ["claim-settlement", "decline-surrender"],
     });
   }
 
@@ -326,6 +330,26 @@ export function fullEventFeed(events: SimEvent[]): EventFeedPage {
   return { events, hasMore: false, limit: events.length, total: events.length };
 }
 
+/**
+ * Voyage length to a settlement the commander could actually sail to, in ticks
+ * and days. Nulls when the question does not apply: already there, already at
+ * sea, or captive. Uses the same function travel will use, so the quote cannot
+ * disagree with the voyage.
+ */
+function travelEstimate(
+  world: WorldState,
+  commander: Character,
+  settlementId: string,
+): { travelTicks: number | null; travelDays: number | null } {
+  const canSail = commander.locationId !== null &&
+    commander.locationId !== settlementId &&
+    commander.travel === null &&
+    commander.captivity === null;
+  if (!canSail) return { travelTicks: null, travelDays: null };
+  const ticks = travelDuration(world, commander, settlementId);
+  return { travelTicks: ticks, travelDays: round(ticks / world.ticksPerDay, 2) };
+}
+
 function projectCommandedBattle(world: WorldState, battle: ActiveBattle): Record<string, unknown> {
   return {
     ...battle,
@@ -400,14 +424,19 @@ export function dashboardState(
         settlement.factionId !== null &&
         settlement.factionId !== commander.factionId &&
         settlementClaimAvailableTo(settlement, commander.id);
-      const forecastAvailable = commander.locationId === settlement.id &&
-        settlement.factionId !== null &&
-        settlement.factionId !== commander.factionId &&
+      const hostile = settlement.factionId !== null && settlement.factionId !== commander.factionId;
+      // A forecast no longer requires standing on the island. It requires some
+      // earned basis for one: either direct observation or a report. The forecast
+      // blends every input by that report's confidence, so this widens when a
+      // decision can be informed, not what the commander can know.
+      const forecastAvailable = hostile &&
         commander.troops.count >= 25 &&
         !surrenderOffered &&
         !settlementBattle &&
-        !commandedBattle;
+        !commandedBattle &&
+        (commander.locationId === settlement.id || knowledge !== undefined);
       const forecast = forecastAvailable ? combatForecast(world, commander.id, settlement.id) : null;
+      const voyage = travelEstimate(world, commander, settlement.id);
       if (!exact) {
         return {
           id: settlement.id,
@@ -429,6 +458,8 @@ export function dashboardState(
           battleInProgress: Boolean(settlementBattle),
           surrenderOffered,
           combatForecast: forecast,
+          travelTicks: voyage.travelTicks,
+          travelDays: voyage.travelDays,
           intelligence: knowledge ? {
             exact: false,
             source: knowledge.source,
@@ -445,6 +476,8 @@ export function dashboardState(
         battleInProgress: Boolean(settlementBattle),
         surrenderOffered,
         combatForecast: forecast,
+        travelTicks: voyage.travelTicks,
+        travelDays: voyage.travelDays,
         intelligence: { exact: true, source: "owned", confidence: 1, observedTick: world.tick, ageTicks: 0 },
       };
     }),

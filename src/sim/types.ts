@@ -331,6 +331,7 @@ export type PlayerAction =
   | "recruit"
   | "raid"
   | "claim-settlement"
+  | "decline-surrender"
   | "rest";
 
 export type PlayerCommand =

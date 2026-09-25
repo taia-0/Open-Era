@@ -144,7 +144,12 @@ function upkeepCharacter(
   });
 }
 
-function travelDuration(world: WorldState, character: Character, destinationId: string): number {
+/**
+ * Voyage length in ticks. Pure, so it can be quoted before the voyage starts,
+ * and it is the same function the simulation applies when travel begins — a
+ * quoted estimate that disagreed with the real duration would be worse than none.
+ */
+export function travelDuration(world: WorldState, character: Character, destinationId: string): number {
   if (!character.locationId) return 1;
   const distance = distanceBetween(world, character.locationId, destinationId);
   const navigationMultiplier = 1 - character.skills.navigation / 220;
@@ -819,7 +824,7 @@ function startMajorBattle(
     defenderPhaseWins: 0,
     retreatDestinationId: selectRetreatDestination(world, character.id, settlement.id),
     lastPhase: null,
-    startingForecast: combatForecast(world, character.id, settlement.id),
+    startingForecast: combatForecast(world, character.id, settlement.id, { observedLocally: true }),
   };
   emit(world, events, {
     type: "battle-started",
@@ -1380,6 +1385,38 @@ function processPlayerCommands(
         });
         continue;
       }
+    }
+    if (command.action === "decline-surrender") {
+      const settlement = world.settlements[commander.locationId];
+      const hostile = settlement.factionId !== null && settlement.factionId !== commander.factionId;
+      if (!hostile || !settlementClaimAvailableTo(settlement, commander.id)) {
+        emit(world, events, {
+          type: "player-command-failed",
+          actorId: commander.id,
+          settlementId: settlement.id,
+          data: { commandId: command.id, reason: "the settlement is no longer offering surrender" },
+        });
+        continue;
+      }
+      // Declining ends the offer outright rather than letting it sit unanswered.
+      // The victor keeps the ground contested and must fight again to win it.
+      emit(world, events, {
+        type: "settlement-surrender-declined",
+        actorId: commander.id,
+        settlementId: settlement.id,
+        targetId: settlement.surrender?.previousFactionId ?? undefined,
+        data: {
+          commandId: command.id,
+          previousFactionId: settlement.surrender?.previousFactionId ?? null,
+        },
+      });
+      emit(world, events, {
+        type: "player-command-resolved",
+        actorId: commander.id,
+        settlementId: settlement.id,
+        data: { commandId: command.id, outcome: "surrender-declined", action: "decline-surrender" },
+      });
+      continue;
     }
     const chosen: DecisionCandidate = {
       action: command.action,
