@@ -356,7 +356,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       break;
     case "travel-started":
       if (!actor) throw new Error("Travel event has no actor");
-      actor.travel = event.data.travel as Character["travel"];
+      actor.travel = { ...(event.data.travel as NonNullable<Character["travel"]>) };
       actor.locationId = null;
       break;
     case "arrived":
@@ -410,7 +410,9 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       actor.troops.count = event.data.attackerTroops as number;
       actor.lastBattleTick = world.tick;
       actor.locationId = null;
-      actor.travel = (event.data.retreatTravel as Character["travel"] | undefined) ?? null;
+      actor.travel = event.data.retreatTravel
+        ? { ...(event.data.retreatTravel as NonNullable<Character["travel"]>) }
+        : null;
       delete world.activeBattles[event.data.battleId as string];
       break;
     case "rested":

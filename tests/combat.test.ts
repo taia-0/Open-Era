@@ -107,6 +107,8 @@ test("retreat is the only player command during a battle and ends it with lighte
   assert.equal(retreat.data.retreatRisk, battle.lastPhase?.retreatRisk);
   assert.equal(retreat.data.captureRisk, battle.lastPhase?.captureRisk);
   assert.equal(retreat.data.retreatDestinationId, "glassport");
+  const recordedWithdrawal = retreat.data.retreatTravel as { totalTicks: number; remainingTicks: number };
+  assert.equal(recordedWithdrawal.remainingTicks, recordedWithdrawal.totalTicks);
   assert.equal(Object.keys(world.activeBattles).length, 0);
   assert.equal(commander.defeats, defeatsBeforeRetreat);
   assert.ok(commander.health <= healthBeforeRetreat);
@@ -114,6 +116,7 @@ test("retreat is the only player command during a battle and ends it with lighte
   assert.equal(commander.locationId, null);
   assert.equal(commander.travel?.fromId, "cinder-key");
   assert.equal(commander.travel?.toId, "glassport");
+  assert.equal(commander.travel?.remainingTicks, recordedWithdrawal.totalTicks - 1);
   assert.deepEqual(submitCommand(world, {
     playerId: "prototype-player",
     type: "character-action",

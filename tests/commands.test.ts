@@ -45,6 +45,11 @@ test("a validated direct action is queued, executed once, and removed", () => {
   const commander = world.characters[world.players["prototype-player"].characterId];
   assert.equal(world.pendingCommands.length, 0);
   assert.equal(commander.travel?.toId, "verdant-cay");
+  const travelStarted = result.events.find((event) => event.type === "travel-started");
+  assert.ok(travelStarted);
+  const recordedTravel = travelStarted.data.travel as { totalTicks: number; remainingTicks: number };
+  assert.equal(recordedTravel.remainingTicks, recordedTravel.totalTicks);
+  assert.equal(commander.travel?.remainingTicks, recordedTravel.totalTicks - 1);
   assert.equal(result.events.filter((event) => event.type === "player-action-executed").length, 1);
   assert.equal(result.events.filter((event) => event.type === "player-command-resolved").length, 1);
 });
