@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { dashboardState } from "../src/dashboard/view-model.ts";
-import { combatForecast } from "../src/sim/combat.ts";
+import { combatForecast, selectRetreatDestination } from "../src/sim/combat.ts";
 import { submitCommand } from "../src/sim/commands.ts";
 import { runTick } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
@@ -38,6 +38,12 @@ test("strategy narrows the combat forecast and reveals more factors", () => {
   assert.equal(basic.detailLevel, "basic");
   assert.equal(command.detailLevel, "command");
   assert.ok(command.revealedFactors.some((factor) => factor.includes("defensive ground estimated")));
+});
+
+test("retreat routing prefers the nearest settlement controlled by the attacker's faction", () => {
+  const world = createPrototypeWorld(1847, { playerCharacterId: "character-14" });
+  assert.equal(selectRetreatDestination(world, "character-14", "crown-harbor"), "cinder-key");
+  assert.equal(selectRetreatDestination(world, "character-01", "cinder-key"), "glassport");
 });
 
 test("a major player attack resolves one phase and refreshes local intelligence", () => {
@@ -100,10 +106,27 @@ test("retreat is the only player command during a battle and ends it with lighte
   assert.ok(retreat);
   assert.equal(retreat.data.retreatRisk, battle.lastPhase?.retreatRisk);
   assert.equal(retreat.data.captureRisk, battle.lastPhase?.captureRisk);
+  assert.equal(retreat.data.retreatDestinationId, "glassport");
   assert.equal(Object.keys(world.activeBattles).length, 0);
   assert.equal(commander.defeats, defeatsBeforeRetreat);
   assert.ok(commander.health <= healthBeforeRetreat);
   assert.ok(Number(retreat.data.pursuitLosses) < battle.attackerInitialTroops * 0.2);
+  assert.equal(commander.locationId, null);
+  assert.equal(commander.travel?.fromId, "cinder-key");
+  assert.equal(commander.travel?.toId, "glassport");
+  assert.deepEqual(submitCommand(world, {
+    playerId: "prototype-player",
+    type: "character-action",
+    action: "rest",
+  }), {
+    ok: false,
+    code: "character-traveling",
+    error: "The character is already traveling",
+  });
+
+  while (commander.travel) runTick(world);
+  assert.equal(commander.locationId, "glassport");
+  assert.equal(commander.knowledge["glassport"].source, "direct");
 });
 
 test("a continued major battle resolves by its third phase", () => {

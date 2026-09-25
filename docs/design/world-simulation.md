@@ -104,6 +104,8 @@ Randomness depends heavily on commander strategy and troop discipline. Strategy 
 
 The current prototype makes that commitment visible through one compact forecast: outcome likelihood, expected losses, character-and-troop power, retreat prospects, and capture exposure. Strategy narrows estimate ranges and progressively reveals defensive-ground factors; intelligence quality still limits what even a skilled commander can know. Small attacks resolve immediately. Major attacks persist across three phases, refresh direct battlefield intelligence after each phase, and pause accelerated player time at every retreat window. Continuing requires advancing time again; retreat ends the battle with pursuit losses but avoids a formal defeat. Captivity itself remains a later system, so capture exposure is currently an advisory risk rather than a resolved capture outcome.
 
+A retreating party leaves the hostile settlement immediately and begins a forced sea journey. The route is disclosed at the battle decision window and targets the nearest settlement controlled by the party's faction, then the nearest neutral haven if no friendly settlement exists, then any alternate island as a last resort. The party cannot issue local commands while withdrawing and receives direct intelligence on arrival through the normal travel system.
+
 ## Character progression and powers
 
 ### Raw strength

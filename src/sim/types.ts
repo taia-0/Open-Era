@@ -124,6 +124,7 @@ export interface ActiveBattle {
   defenderInitialGarrison: number;
   attackerPhaseWins: number;
   defenderPhaseWins: number;
+  retreatDestinationId: string | null;
   lastPhase: BattlePhaseReport | null;
   startingForecast: CombatForecast;
 }

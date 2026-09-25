@@ -45,7 +45,7 @@ function eventSummary(world: WorldState, event: SimEvent): string {
     case "battle-phase-resolved":
       return `${actor} completed phase ${event.data.phase} at ${settlement}`;
     case "battle-retreated":
-      return `${actor} retreated from ${settlement}`;
+      return `${actor} retreated from ${settlement} toward ${world.settlements[String(event.data.retreatDestinationId)]?.name ?? "open waters"}`;
     case "settlement-claimed":
       return `${actor} accepted ${settlement}'s surrender and established a claim`;
     case "arrived":
@@ -103,7 +103,7 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
       severity: "action",
       actionRequired: true,
       title: `Battle phase ${activeBattle.phase} complete`,
-      summary: `${activeBattle.lastPhase.outcome.replaceAll("-", " ")}; retreat risk is ${activeBattle.lastPhase.retreatRisk}. Continue time or order retreat.`,
+      summary: `${activeBattle.lastPhase.outcome.replaceAll("-", " ")}; retreat risk is ${activeBattle.lastPhase.retreatRisk}. Continue or withdraw toward ${activeBattle.retreatDestinationId ? world.settlements[activeBattle.retreatDestinationId]?.name ?? "open waters" : "open waters"}.`,
       day: round(world.tick / world.ticksPerDay, 2),
       settlementId: activeBattle.settlementId,
       battleId: activeBattle.id,
@@ -270,6 +270,9 @@ export function dashboardState(world: WorldState, events: SimEvent[]): Record<st
       active: activeBattle ? {
         ...activeBattle,
         settlementName: world.settlements[activeBattle.settlementId].name,
+        retreatDestinationName: activeBattle.retreatDestinationId
+          ? world.settlements[activeBattle.retreatDestinationId]?.name ?? "Open waters"
+          : "Open waters",
         canRetreat: activeBattle.phase > 0 && activeBattle.phase < activeBattle.totalPhases,
       } : null,
     },

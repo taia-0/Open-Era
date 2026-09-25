@@ -1,5 +1,5 @@
 import { believedGarrison } from "./agency.ts";
-import { clamp, partyPower, round } from "./state.ts";
+import { clamp, distanceBetween, partyPower, round } from "./state.ts";
 import type {
   ActiveBattle,
   Character,
@@ -12,6 +12,26 @@ import type {
 
 export function settlementDefensePower(settlement: Settlement): number {
   return round(settlement.garrison * settlement.fortification + settlement.population * 0.002);
+}
+
+export function selectRetreatDestination(
+  world: WorldState,
+  attackerId: string,
+  battleSettlementId: string,
+): string | null {
+  const attacker = world.characters[attackerId];
+  const alternatives = Object.values(world.settlements)
+    .filter((settlement) => settlement.id !== battleSettlementId);
+  const friendly = alternatives.filter((settlement) =>
+    attacker.factionId === null ? settlement.factionId === null : settlement.factionId === attacker.factionId
+  );
+  const neutral = alternatives.filter((settlement) => settlement.factionId === null);
+  const candidates = friendly.length > 0 ? friendly : neutral.length > 0 ? neutral : alternatives;
+  return candidates
+    .sort((left, right) =>
+      distanceBetween(world, battleSettlementId, left.id) - distanceBetween(world, battleSettlementId, right.id) ||
+      left.id.localeCompare(right.id)
+    )[0]?.id ?? null;
 }
 
 export function isMajorBattle(character: Character, settlement: Settlement): boolean {

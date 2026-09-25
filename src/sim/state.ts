@@ -28,6 +28,9 @@ export function normalizeStandingOrder(order: StandingOrder): StandingOrder {
 export function normalizeWorldState(world: WorldState): WorldState {
   world.version = 4;
   world.activeBattles ??= {};
+  for (const battle of Object.values(world.activeBattles)) {
+    battle.retreatDestinationId ??= null;
+  }
   for (const character of Object.values(world.characters)) {
     character.standingOrders = character.standingOrders.map(normalizeStandingOrder);
   }
@@ -406,6 +409,8 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       actor.morale = event.data.attackerMorale as number;
       actor.troops.count = event.data.attackerTroops as number;
       actor.lastBattleTick = world.tick;
+      actor.locationId = null;
+      actor.travel = (event.data.retreatTravel as Character["travel"] | undefined) ?? null;
       delete world.activeBattles[event.data.battleId as string];
       break;
     case "rested":

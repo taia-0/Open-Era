@@ -650,7 +650,7 @@
         return '<h3>Major battle in progress</h3><div class="combat-card battle-live"><div class="combat-head"><strong>' + esc(battle.settlementName) + '</strong><span>Phase ' + battle.phase + '/' + battle.totalPhases + '</span></div>' +
           (phase ? '<div class="subtle">' + esc(phase.outcome.replaceAll("-", " ")) + ' · lost ' + phase.attackerLosses + ' troops · defender lost ' + phase.defenderLosses + ' · retreat ' + esc(phase.retreatRisk) + ' · capture exposure ' + esc(phase.captureRisk) + '</div>' : '') +
           '<div class="actions"><button class="primary" type="button" data-continue-battle="true">Continue battle</button>' +
-          (battle.canRetreat ? '<button class="action danger" type="button" data-retreat-battle="' + esc(battle.id) + '">Retreat now</button>' : '') + '</div></div>';
+          (battle.canRetreat ? '<button class="action danger" type="button" data-retreat-battle="' + esc(battle.id) + '">Retreat toward ' + esc(battle.retreatDestinationName) + '</button>' : '') + '</div></div>';
       }
       var recipients = world.characters.filter(function (item) {
         return item.controller.kind === "autonomous" && item.factionId && item.factionId === c.factionId;

@@ -5,6 +5,7 @@ import {
   combatForecast,
   isMajorBattle,
   projectedBattleRisk,
+  selectRetreatDestination,
   settlementDefensePower,
 } from "./combat.ts";
 import {
@@ -689,6 +690,7 @@ function startMajorBattle(
     defenderInitialGarrison: settlement.garrison,
     attackerPhaseWins: 0,
     defenderPhaseWins: 0,
+    retreatDestinationId: selectRetreatDestination(world, character.id, settlement.id),
     lastPhase: null,
     startingForecast: combatForecast(world, character.id, settlement.id),
   };
@@ -722,6 +724,15 @@ function retreatFromBattle(
 ): void {
   const character = world.characters[battle.attackerId];
   const settlement = world.settlements[battle.settlementId];
+  const retreatDestinationId = battle.retreatDestinationId ??
+    selectRetreatDestination(world, character.id, settlement.id);
+  const retreatDuration = retreatDestinationId ? travelDuration(world, character, retreatDestinationId) : null;
+  const retreatTravel = retreatDestinationId && retreatDuration !== null ? {
+    fromId: settlement.id,
+    toId: retreatDestinationId,
+    totalTicks: retreatDuration,
+    remainingTicks: retreatDuration,
+  } : null;
   const risks = battle.lastPhase
     ? { retreatRisk: battle.lastPhase.retreatRisk, captureRisk: battle.lastPhase.captureRisk }
     : battleRisk(world, battle);
@@ -729,6 +740,7 @@ function retreatFromBattle(
   const pursuitLosses = Math.min(character.troops.count, Math.max(0, Math.round(character.troops.count * riskRate * rng.between(0.75, 1.25))));
   const attackerHealth = round(clamp(character.health - (2 + pursuitLosses * 0.12), 1, 100));
   const attackerMorale = round(clamp(character.morale - (6 + pursuitLosses * 0.2), 0, 100));
+  emitCombatObservation(world, character, settlement.id, events, "final battlefield assessment before withdrawal");
   emit(world, events, {
     type: "battle-retreated",
     actorId: character.id,
@@ -742,12 +754,13 @@ function retreatFromBattle(
       attackerHealth,
       attackerMorale,
       attackerTroops: character.troops.count - pursuitLosses,
+      retreatDestinationId,
+      retreatTravel,
       retreatRisk: risks.retreatRisk,
       captureRisk: risks.captureRisk,
       outcome: pursuitLosses > 0 ? "contested-retreat" : "clean-retreat",
     },
   });
-  emitCombatObservation(world, character, settlement.id, events, "post-retreat assessment");
 }
 
 function progressActiveBattles(world: WorldState, events: SimEvent[], rng: DeterministicRng): Set<string> {

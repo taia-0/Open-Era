@@ -198,7 +198,10 @@ function eventStory(world: WorldState, event: SimEvent): string | null {
     return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** committed to a ${battle.totalPhases}-phase battle at **${settlement}**.`;
   }
   if (event.type === "battle-retreated") {
-    return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** retreated from **${settlement}** during phase ${event.data.phase}, losing ${event.data.pursuitLosses} troops in withdrawal.`;
+    const destination = event.data.retreatDestinationId
+      ? world.settlements[event.data.retreatDestinationId as string]?.name ?? event.data.retreatDestinationId
+      : "open waters";
+    return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** retreated from **${settlement}** toward **${destination}** during phase ${event.data.phase}, losing ${event.data.pursuitLosses} troops in withdrawal.`;
   }
   if (event.type === "settlement-claimed") {
     const previousFaction = event.data.previousFactionId
