@@ -66,6 +66,42 @@ export interface TroopGroup {
   discipline: number;
 }
 
+export interface CharacterScar {
+  id: string;
+  attribute: keyof CharacterAttributes;
+  penalty: number;
+  cause: "captivity-escape";
+  gainedTick: number;
+}
+
+export interface DebtObligation {
+  id: string;
+  creditorFactionId: string | null;
+  originalValue: number;
+  remainingValue: number;
+  incurredTick: number;
+  reason: "prisoner-release";
+}
+
+export interface CaptivityState {
+  captorFactionId: string | null;
+  settlementId: string;
+  capturedTick: number;
+  mandatoryReleaseTick: number;
+  cause: "major-defeat" | "failed-retreat";
+  displayedRisk: CombatRisk;
+  scatteredTroops: TroopGroup;
+  releaseDestinationId: string | null;
+}
+
+export interface TroopRecoveryState {
+  total: number;
+  remaining: number;
+  nextReturnTick: number;
+  returnEveryTicks: number;
+  sourceSettlementId: string;
+}
+
 export interface NumericRange {
   low: number;
   high: number;
@@ -352,6 +388,12 @@ export type PlayerCommand =
       issuedTick: number;
       type: "retreat-battle";
       battleId: string;
+    }
+  | {
+      id: string;
+      playerId: string;
+      issuedTick: number;
+      type: "escape-captivity";
     };
 
 export interface Character {
@@ -367,6 +409,10 @@ export interface Character {
   morale: number;
   sailors: number;
   troops: TroopGroup;
+  captivity: CaptivityState | null;
+  troopRecovery: TroopRecoveryState | null;
+  scars: CharacterScar[];
+  debts: DebtObligation[];
   attributes: CharacterAttributes;
   skills: CharacterSkills;
   personality: Personality;
@@ -386,7 +432,7 @@ export interface Character {
 }
 
 export interface WorldState {
-  version: 4;
+  version: 5;
   scenario: string;
   seed: number;
   rngState: number;

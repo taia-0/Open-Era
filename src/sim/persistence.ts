@@ -140,8 +140,8 @@ export class WorldStore {
 
     const state = JSON.parse(snapshot.state_json) as WorldState;
     const storedVersion = (state as unknown as { version: number }).version;
-    if (storedVersion !== 3 && storedVersion !== 4) {
-      throw new Error(`World schema ${storedVersion} is incompatible with schema 4; start this milestone with --reset`);
+    if (storedVersion !== 3 && storedVersion !== 4 && storedVersion !== 5) {
+      throw new Error(`World schema ${storedVersion} is incompatible with schema 5; start this milestone with --reset`);
     }
     const actualHash = stateHash(state);
     if (actualHash !== snapshot.state_hash) {

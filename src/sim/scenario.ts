@@ -112,6 +112,10 @@ function makeCharacter(
       experience: veteran ? rng.between(0.55, 0.8) : rng.between(0.05, 0.35),
       discipline: archetype === "officer" ? rng.between(0.7, 0.92) : rng.between(0.35, 0.78),
     },
+    captivity: null,
+    troopRecovery: null,
+    scars: [],
+    debts: [],
     attributes: {
       power: veteran ? rng.integer(68, 82) : rng.integer(20, 55),
       speed: veteran ? rng.integer(60, 78) : rng.integer(20, 55),
@@ -397,7 +401,7 @@ export function createPrototypeWorld(seed = 1847, options: PrototypeWorldOptions
     )[0]?.id ?? null;
 
   return {
-    version: 4,
+    version: 5,
     scenario: "four-island-pressure-test",
     seed,
     rngState: rng.state,

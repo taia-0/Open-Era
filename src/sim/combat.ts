@@ -59,6 +59,15 @@ function riskFromChance(chance: number): CombatRisk {
   return "severe";
 }
 
+export function captureChanceForRisk(risk: CombatRisk): number {
+  return {
+    low: 0.04,
+    moderate: 0.12,
+    high: 0.3,
+    severe: 0.55,
+  }[risk];
+}
+
 function outlook(chance: number): CombatForecast["outlook"] {
   if (chance >= 72) return "decisive-advantage";
   if (chance >= 58) return "favored";

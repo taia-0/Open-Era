@@ -26,13 +26,17 @@ export function normalizeStandingOrder(order: StandingOrder): StandingOrder {
 }
 
 export function normalizeWorldState(world: WorldState): WorldState {
-  world.version = 4;
+  world.version = 5;
   world.activeBattles ??= {};
   for (const battle of Object.values(world.activeBattles)) {
     battle.retreatDestinationId ??= null;
   }
   for (const character of Object.values(world.characters)) {
     character.standingOrders = character.standingOrders.map(normalizeStandingOrder);
+    character.captivity ??= null;
+    character.troopRecovery ??= null;
+    character.scars ??= [];
+    character.debts ??= [];
   }
   for (const player of Object.values(world.players)) {
     player.briefingAcknowledgements ??= {};
@@ -93,6 +97,7 @@ export function personalPower(character: Character): number {
 }
 
 export function partyPower(character: Character): number {
+  if (character.captivity) return 0;
   const troops = character.troops;
   const troopPower = troops.count * (0.65 + troops.experience * 0.8) * (0.6 + troops.discipline * 0.6);
   const leaderEffect = 1 + character.skills.leadership / 220;
@@ -414,6 +419,54 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
         ? { ...(event.data.retreatTravel as NonNullable<Character["travel"]>) }
         : null;
       delete world.activeBattles[event.data.battleId as string];
+      break;
+    case "post-defeat-withdrawal-started":
+      if (!actor) throw new Error("Post-defeat withdrawal event has no actor");
+      actor.locationId = event.data.travel ? null : event.settlementId ?? actor.locationId;
+      actor.travel = event.data.travel
+        ? { ...(event.data.travel as NonNullable<Character["travel"]>) }
+        : null;
+      break;
+    case "character-captured":
+      if (!actor || !settlement) throw new Error("Capture event is missing an entity");
+      actor.health = event.data.health as number;
+      actor.morale = event.data.morale as number;
+      actor.troops.count = 0;
+      actor.captivity = event.data.captivity as Character["captivity"];
+      actor.troopRecovery = null;
+      actor.locationId = settlement.id;
+      actor.travel = null;
+      actor.lastBattleTick = world.tick;
+      delete world.activeBattles[event.data.battleId as string];
+      break;
+    case "captivity-escaped":
+      if (!actor) throw new Error("Captivity escape event has no actor");
+      actor.health = event.data.health as number;
+      actor.morale = event.data.morale as number;
+      actor.attributes = event.data.attributes as Character["attributes"];
+      if (event.data.scar) actor.scars.push(event.data.scar as Character["scars"][number]);
+      actor.captivity = null;
+      actor.troopRecovery = event.data.troopRecovery as Character["troopRecovery"];
+      actor.travel = event.data.travel
+        ? { ...(event.data.travel as NonNullable<Character["travel"]>) }
+        : null;
+      actor.locationId = event.data.releaseLocationId as string | null;
+      break;
+    case "captivity-released":
+      if (!actor) throw new Error("Captivity release event has no actor");
+      actor.money = event.data.characterMoney as number;
+      if (event.data.debt) actor.debts.push(event.data.debt as Character["debts"][number]);
+      actor.captivity = null;
+      actor.troopRecovery = event.data.troopRecovery as Character["troopRecovery"];
+      actor.travel = event.data.travel
+        ? { ...(event.data.travel as NonNullable<Character["travel"]>) }
+        : null;
+      actor.locationId = event.data.releaseLocationId as string | null;
+      break;
+    case "scattered-troops-returned":
+      if (!actor) throw new Error("Troop return event has no actor");
+      actor.troops.count = event.data.troopCount as number;
+      actor.troopRecovery = event.data.troopRecovery as Character["troopRecovery"];
       break;
     case "rested":
       if (!actor) throw new Error("Rest event has no actor");

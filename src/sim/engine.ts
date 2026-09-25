@@ -2,6 +2,7 @@ import { DeterministicRng } from "./rng.ts";
 import {
   autonomousShouldRetreat,
   battleRisk,
+  captureChanceForRisk,
   combatForecast,
   isMajorBattle,
   projectedBattleRisk,
@@ -37,7 +38,12 @@ import {
   RESOURCE_KEYS,
   type ActiveBattle,
   type BattlePhaseReport,
+  type CaptivityState,
   type Character,
+  type CharacterAttributes,
+  type CharacterScar,
+  type CombatRisk,
+  type DebtObligation,
   type DecisionCandidate,
   type EventDraft,
   type ResourceKey,
@@ -45,8 +51,12 @@ import {
   type SimEvent,
   type StandingOrder,
   type TickResult,
+  type TravelState,
+  type TroopRecoveryState,
   type WorldState,
 } from "./types.ts";
+
+const CAPTIVITY_MAX_DAYS = 14;
 
 function cloneResources(resources: Resources): Resources {
   return { ...resources };
@@ -139,6 +149,110 @@ function travelDuration(world: WorldState, character: Character, destinationId: 
   const distance = distanceBetween(world, character.locationId, destinationId);
   const navigationMultiplier = 1 - character.skills.navigation / 220;
   return Math.max(2, Math.ceil((distance / 11) * navigationMultiplier));
+}
+
+function releaseTravel(
+  world: WorldState,
+  character: Character,
+  captivity: CaptivityState,
+): TravelState | null {
+  const destinationId = captivity.releaseDestinationId;
+  if (!destinationId || destinationId === captivity.settlementId) return null;
+  const totalTicks = travelDuration(world, character, destinationId);
+  return {
+    fromId: captivity.settlementId,
+    toId: destinationId,
+    totalTicks,
+    remainingTicks: totalTicks,
+  };
+}
+
+function recoveryAfterRelease(world: WorldState, captivity: CaptivityState): TroopRecoveryState | null {
+  if (captivity.scatteredTroops.count <= 0) return null;
+  return {
+    total: captivity.scatteredTroops.count,
+    remaining: captivity.scatteredTroops.count,
+    nextReturnTick: world.tick + world.ticksPerDay,
+    returnEveryTicks: world.ticksPerDay,
+    sourceSettlementId: captivity.settlementId,
+  };
+}
+
+interface CaptureAttempt {
+  cause: CaptivityState["cause"];
+  risk: CombatRisk;
+  battleId: string;
+  health: number;
+  morale: number;
+  troopCount: number;
+}
+
+function attemptCapture(
+  world: WorldState,
+  character: Character,
+  settlementId: string,
+  attempt: CaptureAttempt,
+  events: SimEvent[],
+  rng: DeterministicRng,
+  roll = rng.next(),
+): boolean {
+  const chance = captureChanceForRisk(attempt.risk);
+  if (roll >= chance) return false;
+  const captivity: CaptivityState = {
+    captorFactionId: world.settlements[settlementId].factionId,
+    settlementId,
+    capturedTick: world.tick,
+    mandatoryReleaseTick: world.tick + CAPTIVITY_MAX_DAYS * world.ticksPerDay,
+    cause: attempt.cause,
+    displayedRisk: attempt.risk,
+    scatteredTroops: {
+      count: attempt.troopCount,
+      experience: character.troops.experience,
+      discipline: character.troops.discipline,
+    },
+    releaseDestinationId: selectRetreatDestination(world, character.id, settlementId),
+  };
+  emit(world, events, {
+    type: "character-captured",
+    actorId: character.id,
+    targetId: captivity.captorFactionId ?? undefined,
+    settlementId,
+    data: {
+      battleId: attempt.battleId,
+      cause: attempt.cause,
+      displayedRisk: attempt.risk,
+      captureChance: chance,
+      captureRoll: round(roll, 4),
+      health: attempt.health,
+      morale: attempt.morale,
+      captivity,
+    },
+  });
+  return true;
+}
+
+function beginPostDefeatWithdrawal(
+  world: WorldState,
+  character: Character,
+  settlementId: string,
+  battleId: string,
+  events: SimEvent[],
+): void {
+  const destinationId = selectRetreatDestination(world, character.id, settlementId);
+  const duration = destinationId ? travelDuration(world, character, destinationId) : null;
+  const travel = destinationId && duration !== null ? {
+    fromId: settlementId,
+    toId: destinationId,
+    totalTicks: duration,
+    remainingTicks: duration,
+  } : null;
+  emit(world, events, {
+    type: "post-defeat-withdrawal-started",
+    actorId: character.id,
+    settlementId,
+    targetId: destinationId ?? undefined,
+    data: { battleId, destinationId, travel },
+  });
 }
 
 function bestTradeResource(
@@ -533,6 +647,7 @@ function completeMajorBattle(
   attackerWon: boolean,
   attackerScore: number,
   defenderScore: number,
+  rng: DeterministicRng,
 ): void {
   const character = world.characters[battle.attackerId];
   const settlement = world.settlements[battle.settlementId];
@@ -580,6 +695,18 @@ function completeMajorBattle(
     },
   });
   recordBattleConsequences(world, character, settlement, events, attackerWon);
+  if (!attackerWon) {
+    const risk = battle.lastPhase?.captureRisk ?? battle.startingForecast.captureRisk;
+    const captured = attemptCapture(world, character, settlement.id, {
+      cause: "major-defeat",
+      risk,
+      battleId: battle.id,
+      health: character.health,
+      morale: character.morale,
+      troopCount: character.troops.count,
+    }, events, rng);
+    if (!captured) beginPostDefeatWithdrawal(world, character, settlement.id, battle.id, events);
+  }
 }
 
 function resolveBattlePhase(
@@ -665,7 +792,7 @@ function resolveBattlePhase(
     (attackerTroops >= 8 && attackerHealth > 15 && attackerMorale > 12 &&
       (updatedBattle.attackerPhaseWins > updatedBattle.defenderPhaseWins ||
         (updatedBattle.attackerPhaseWins === updatedBattle.defenderPhaseWins && attackerScore > defenderScore)));
-  completeMajorBattle(world, updatedBattle, events, attackerWon, attackerScore, defenderScore);
+  completeMajorBattle(world, updatedBattle, events, attackerWon, attackerScore, defenderScore, rng);
 }
 
 function startMajorBattle(
@@ -721,7 +848,7 @@ function retreatFromBattle(
   events: SimEvent[],
   rng: DeterministicRng,
   commandId?: string,
-): void {
+): "retreated" | "captured" {
   const character = world.characters[battle.attackerId];
   const settlement = world.settlements[battle.settlementId];
   const retreatDestinationId = battle.retreatDestinationId ??
@@ -736,11 +863,21 @@ function retreatFromBattle(
   const risks = battle.lastPhase
     ? { retreatRisk: battle.lastPhase.retreatRisk, captureRisk: battle.lastPhase.captureRisk }
     : battleRisk(world, battle);
+  const captureRoll = rng.next();
   const riskRate = risks.retreatRisk === "severe" ? 0.1 : risks.retreatRisk === "high" ? 0.07 : risks.retreatRisk === "moderate" ? 0.045 : 0.025;
   const pursuitLosses = Math.min(character.troops.count, Math.max(0, Math.round(character.troops.count * riskRate * rng.between(0.75, 1.25))));
   const attackerHealth = round(clamp(character.health - (2 + pursuitLosses * 0.12), 1, 100));
   const attackerMorale = round(clamp(character.morale - (6 + pursuitLosses * 0.2), 0, 100));
   emitCombatObservation(world, character, settlement.id, events, "final battlefield assessment before withdrawal");
+  const captured = attemptCapture(world, character, settlement.id, {
+    cause: "failed-retreat",
+    risk: risks.captureRisk,
+    battleId: battle.id,
+    health: attackerHealth,
+    morale: attackerMorale,
+    troopCount: character.troops.count - pursuitLosses,
+  }, events, rng, captureRoll);
+  if (captured) return "captured";
   emit(world, events, {
     type: "battle-retreated",
     actorId: character.id,
@@ -761,6 +898,7 @@ function retreatFromBattle(
       outcome: pursuitLosses > 0 ? "contested-retreat" : "clean-retreat",
     },
   });
+  return "retreated";
 }
 
 function progressActiveBattles(world: WorldState, events: SimEvent[], rng: DeterministicRng): Set<string> {
@@ -870,6 +1008,123 @@ function evolveLocalRelationship(
   });
 }
 
+function escapeCaptivity(
+  world: WorldState,
+  character: Character,
+  events: SimEvent[],
+  rng: DeterministicRng,
+  commandId: string,
+): void {
+  const captivity = character.captivity!;
+  const injury = round(Math.max(12, 18 + rng.between(0, 12) - character.attributes.resilience / 30), 1);
+  const health = round(clamp(character.health - injury, 1, 100));
+  const morale = round(clamp(character.morale - 4, 0, 100));
+  const scarChance = clamp(0.08 + Math.max(0, 45 - health) * 0.003, 0.08, 0.25);
+  const scarRoll = rng.next();
+  let scar: CharacterScar | null = null;
+  const attributes: CharacterAttributes = { ...character.attributes };
+  if (scarRoll < scarChance) {
+    const attribute = rng.pick<keyof CharacterAttributes>(["power", "speed", "endurance", "resilience"]);
+    const penalty = Math.min(attributes[attribute] - 1, rng.integer(1, 3));
+    if (penalty > 0) {
+      attributes[attribute] -= penalty;
+      scar = {
+        id: `scar-${String(world.nextEventSequence).padStart(6, "0")}`,
+        attribute,
+        penalty,
+        cause: "captivity-escape",
+        gainedTick: world.tick,
+      };
+    }
+  }
+  const travel = releaseTravel(world, character, captivity);
+  emit(world, events, {
+    type: "captivity-escaped",
+    actorId: character.id,
+    targetId: captivity.captorFactionId ?? undefined,
+    settlementId: captivity.settlementId,
+    data: {
+      commandId,
+      injury,
+      health,
+      morale,
+      scarChance: round(scarChance, 3),
+      scarRoll: round(scarRoll, 4),
+      scar,
+      attributes,
+      travel,
+      releaseLocationId: travel ? null : captivity.settlementId,
+      troopRecovery: recoveryAfterRelease(world, captivity),
+    },
+  });
+}
+
+function processCaptivityDeadlines(
+  world: WorldState,
+  events: SimEvent[],
+  rng: DeterministicRng,
+): void {
+  for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    const captivity = character.captivity;
+    if (!captivity || world.tick < captivity.mandatoryReleaseTick) continue;
+    const physicalAverage = Object.values(character.attributes).reduce((sum, value) => sum + value, 0) / 4;
+    const systemMaximum = round(clamp(50 + captivity.scatteredTroops.count * 2 + physicalAverage * 0.5, 75, 600), 2);
+    const demandedValue = round(systemMaximum * rng.between(0.55, 1), 2);
+    const moneyPaid = round(Math.min(character.money, demandedValue), 2);
+    const debtValue = round(demandedValue - moneyPaid, 2);
+    const debt: DebtObligation | null = debtValue > 0 ? {
+      id: `debt-${String(world.nextEventSequence).padStart(6, "0")}`,
+      creditorFactionId: captivity.captorFactionId,
+      originalValue: debtValue,
+      remainingValue: debtValue,
+      incurredTick: world.tick,
+      reason: "prisoner-release",
+    } : null;
+    const travel = releaseTravel(world, character, captivity);
+    emit(world, events, {
+      type: "captivity-released",
+      actorId: character.id,
+      targetId: captivity.captorFactionId ?? undefined,
+      settlementId: captivity.settlementId,
+      data: {
+        reason: "mandatory-bounded-terms",
+        daysHeld: round((world.tick - captivity.capturedTick) / world.ticksPerDay, 2),
+        terms: { systemMaximum, demandedValue, moneyPaid, debtValue },
+        characterMoney: round(character.money - moneyPaid, 2),
+        debt,
+        travel,
+        releaseLocationId: travel ? null : captivity.settlementId,
+        troopRecovery: recoveryAfterRelease(world, captivity),
+      },
+    });
+  }
+}
+
+function progressTroopRecoveries(world: WorldState, events: SimEvent[]): void {
+  for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    const recovery = character.troopRecovery;
+    if (!recovery || character.captivity || world.tick < recovery.nextReturnTick) continue;
+    const returning = Math.min(recovery.remaining, Math.max(1, Math.ceil(recovery.total / 7)));
+    const remaining = recovery.remaining - returning;
+    const nextRecovery: TroopRecoveryState | null = remaining > 0 ? {
+      ...recovery,
+      remaining,
+      nextReturnTick: world.tick + recovery.returnEveryTicks,
+    } : null;
+    emit(world, events, {
+      type: "scattered-troops-returned",
+      actorId: character.id,
+      settlementId: character.locationId ?? undefined,
+      data: {
+        returning,
+        troopCount: character.troops.count + returning,
+        troopRecovery: nextRecovery,
+        completed: nextRecovery === null,
+      },
+    });
+  }
+}
+
 function processPlayerCommands(
   world: WorldState,
   events: SimEvent[],
@@ -882,6 +1137,30 @@ function processPlayerCommands(
       emit(world, events, {
         type: "player-command-failed",
         data: { commandId: command.id, reason: "player or controlled character no longer exists" },
+      });
+      continue;
+    }
+
+    if (command.type === "escape-captivity") {
+      if (!commander.captivity) {
+        emit(world, events, {
+          type: "player-command-failed",
+          actorId: commander.id,
+          data: { commandId: command.id, reason: "the character is no longer captive" },
+        });
+        continue;
+      }
+      emit(world, events, {
+        type: "player-action-executed",
+        actorId: commander.id,
+        settlementId: commander.captivity.settlementId,
+        data: { commandId: command.id, action: "escape-captivity" },
+      });
+      escapeCaptivity(world, commander, events, rng, command.id);
+      emit(world, events, {
+        type: "player-command-resolved",
+        actorId: commander.id,
+        data: { commandId: command.id, outcome: "captivity-escaped" },
       });
       continue;
     }
@@ -902,12 +1181,16 @@ function processPlayerCommands(
         settlementId: battle.settlementId,
         data: { commandId: command.id, action: "retreat", battleId: battle.id },
       });
-      retreatFromBattle(world, battle, events, rng, command.id);
+      const outcome = retreatFromBattle(world, battle, events, rng, command.id);
       emit(world, events, {
         type: "player-command-resolved",
         actorId: commander.id,
         settlementId: battle.settlementId,
-        data: { commandId: command.id, outcome: "battle-retreated", battleId: battle.id },
+        data: {
+          commandId: command.id,
+          outcome: outcome === "captured" ? "character-captured" : "battle-retreated",
+          battleId: battle.id,
+        },
       });
       continue;
     }
@@ -1380,12 +1663,15 @@ export function runTick(world: WorldState): TickResult {
 
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
+  processCaptivityDeadlines(world, events, rng);
+  progressTroopRecoveries(world, events);
   const battleParticipants = progressActiveBattles(world, events, rng);
   expireStandingOrders(world, events);
 
   for (const character of Object.values(world.characters).sort((a, b) => a.id.localeCompare(b.id))) {
     const inActiveBattle = Object.values(world.activeBattles).some((battle) => battle.attackerId === character.id);
     if (battleParticipants.has(character.id) || inActiveBattle) continue;
+    if (character.captivity) continue;
     upkeepCharacter(world, character, events, Boolean(character.travel));
     if (needsObservation(world, character)) {
       const knowledge = directObservation(world, character);

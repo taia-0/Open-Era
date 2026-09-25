@@ -49,6 +49,10 @@ export type CommandRequest =
       playerId: string;
       type: "retreat-battle";
       battleId: string;
+    }
+  | {
+      playerId: string;
+      type: "escape-captivity";
     };
 
 export type CommandSubmission =
@@ -83,6 +87,8 @@ function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
     ? command.targetId
     : command.type === "retreat-battle"
       ? world.activeBattles[command.battleId]?.settlementId
+      : command.type === "escape-captivity"
+        ? world.characters[player.characterId]?.captivity?.settlementId
       : command.characterId;
   const event: SimEvent = {
     sequence: world.nextEventSequence,
@@ -183,6 +189,25 @@ function validateBattleRetreat(
     issuedTick: world.tick,
     type: "retreat-battle",
     battleId: battle.id,
+  };
+  return { ok: true, command, event: acceptedEvent(world, command) };
+}
+
+function validateCaptivityEscape(
+  world: WorldState,
+  request: Extract<CommandRequest, { type: "escape-captivity" }>,
+): CommandSubmission {
+  const player = world.players[request.playerId];
+  const character = world.characters[player.characterId];
+  if (!character.captivity) return reject("not-captive", "The character is not being held captive");
+  if (world.pendingCommands.some((command) => command.playerId === player.id)) {
+    return reject("command-already-queued", "Another player command is already queued");
+  }
+  const command: PlayerCommand = {
+    id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
+    playerId: player.id,
+    issuedTick: world.tick,
+    type: "escape-captivity",
   };
   return { ok: true, command, event: acceptedEvent(world, command) };
 }
@@ -367,6 +392,11 @@ function validateOrderCancellation(
 export function submitCommand(world: WorldState, request: CommandRequest): CommandSubmission {
   const player = world.players[request.playerId];
   if (!player) return reject("unknown-player", "The player session is unknown");
+  const character = world.characters[player.characterId];
+  if (character.captivity && request.type !== "escape-captivity") {
+    return reject("character-captive", "Only an escape attempt is available while the character is captive");
+  }
+  if (request.type === "escape-captivity") return validateCaptivityEscape(world, request);
   const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === player.characterId);
   if (activeBattle && request.type !== "retreat-battle") {
     return reject("battle-in-progress", "Only a retreat decision is available while the character is in battle");
