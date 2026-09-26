@@ -347,6 +347,12 @@ export type PlayerCommand =
       /** Set by the two trading verbs: what to trade, and how much of it. */
       resource?: ResourceKey;
       quantity?: number;
+      /**
+       * The price per unit this order was accepted at. Fixed at acceptance so the
+       * player is charged the total they were quoted, even if a tick of
+       * autonomous trading moves the board before the order fills.
+       */
+      unitPrice?: number;
     }
   | {
       id: string;
@@ -468,6 +474,13 @@ export interface DecisionCandidate {
   resource?: ResourceKey;
   /** Units a trading action should move. Set by the player, not the planner. */
   quantity?: number;
+  /**
+   * The price per unit the order was accepted at. Player trades only: it fixes
+   * the price at the moment the player was shown it, because a tick of
+   * autonomous trading can move a board between accepting an order and filling
+   * it, and a player who was quoted a total must be charged that total.
+   */
+  unitPrice?: number;
 }
 
 export interface SimEvent {

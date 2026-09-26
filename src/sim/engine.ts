@@ -293,16 +293,20 @@ export function tradeQuote(
 
   // Named so a refusal can say which limit was reached rather than only that one
   // was. A partial fill the player did not ask for is the defect this replaces.
+  //
+  // A purchase has three ceilings and they bind in whichever order the market
+  // puts them, so the *smallest* decides and must be the one named. Testing the
+  // stock first told a player the island held only what their purse could buy.
   let limitedBy: TradeQuote["limitedBy"] = "none";
   if (quantity < requested) {
     if (direction === "sell") {
       limitedBy = tradableUnits(character, resource) < requested ? (resource === "provisions" ? "reserve" : "cargo") : "none";
-    } else if (settlement.stocks[resource] < requested) {
-      limitedBy = "stock";
-    } else if (capacity - load < requested) {
-      limitedBy = "hold";
     } else {
-      limitedBy = "money";
+      const byStock = settlement.stocks[resource];
+      const byHold = Math.max(0, capacity - load);
+      const byMoney = unitPrice > 0 ? character.money / unitPrice : 0;
+      const binding = Math.min(byStock, byHold, byMoney);
+      limitedBy = binding === byStock ? "stock" : binding === byHold ? "hold" : "money";
     }
   }
 
@@ -1643,10 +1647,11 @@ function processPlayerCommands(
     const chosen: DecisionCandidate = {
       action: command.action,
       targetId: command.targetId,
-      // The two trading verbs carry what to move and how much. The planner never
-      // sets these; they exist only because a player chose them explicitly.
+      // The two trading verbs carry what to move, how much of it, and the price
+      // it was accepted at. The planner never sets these; they exist only because
+      // a player chose them explicitly.
       ...(command.type === "character-action" && command.resource !== undefined
-        ? { resource: command.resource, quantity: command.quantity }
+        ? { resource: command.resource, quantity: command.quantity, unitPrice: command.unitPrice }
         : {}),
       score: 1,
       reason: "direct human instruction",
@@ -1771,18 +1776,33 @@ function resolveDecision(
     }
     case "buy-resource":
     case "sell-resource": {
-      // The quantity is the player's, already checked against stock, money, the
-      // hold and the provisions reserve at the boundary. This re-derives it
-      // through the same quote the player was shown, so the charge is the quote.
+      // The quantity and the price are the player's, both checked against stock,
+      // money, the hold and the provisions reserve when the order was accepted.
+      // The price is charged as quoted rather than re-read here, because a tick of
+      // autonomous trading can move a board in between, and an order accepted at
+      // one price must not quietly fill at another.
       const direction = chosen.action === "buy-resource" ? "buy" : "sell";
-      const quote = tradeQuote(world, character, chosen.resource ?? "provisions", direction, chosen.quantity ?? 0);
-      if (quote.quantity <= 0) break;
+      const resource = chosen.resource ?? "provisions";
+      const quoted = tradeQuote(world, character, resource, direction, chosen.quantity ?? 0);
+      const unitPrice = chosen.unitPrice ?? quoted.unitPrice;
+      // What the board, the hold, the purse and the reserve can still support. A
+      // board another trader has drained since acceptance shrinks the fill, and
+      // the event records what actually moved rather than claiming the request.
+      const affordable = unitPrice > 0 ? character.money / unitPrice : 0;
+      const spare = Math.max(0, cargoCapacity(character) - cargoLoad(character));
+      const limit = direction === "buy"
+        ? Math.min(settlement.stocks[resource], spare, affordable)
+        : tradableUnits(character, resource);
+      const quantity = round(Math.max(0, Math.min(chosen.quantity ?? 0, limit)), 3);
+      if (quantity <= 0) break;
+      const taxRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
+      const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction);
       const characterCargo = cloneResources(character.cargo);
       const settlementStocks = cloneResources(settlement.stocks);
-      characterCargo[quote.resource] = round(characterCargo[quote.resource] + (direction === "buy" ? quote.quantity : -quote.quantity));
-      settlementStocks[quote.resource] = round(settlementStocks[quote.resource] - (direction === "buy" ? quote.quantity : -quote.quantity));
+      characterCargo[resource] = round(characterCargo[resource] + (direction === "buy" ? quantity : -quantity));
+      settlementStocks[resource] = round(settlementStocks[resource] - (direction === "buy" ? quantity : -quantity));
       const factionTreasury = direction === "sell" && settlement.factionId
-        ? round(world.factions[settlement.factionId].treasury + quote.tax, 2)
+        ? round(world.factions[settlement.factionId].treasury + tax, 2)
         : settlement.factionId ? world.factions[settlement.factionId].treasury : 0;
       emit(world, events, {
         type: "market-trade",
@@ -1790,12 +1810,12 @@ function resolveDecision(
         settlementId,
         data: {
           direction: direction === "buy" ? "bought" : "sold",
-          resource: quote.resource,
-          quantity: quote.quantity,
-          unitPrice: quote.unitPrice,
-          gross: quote.gross,
-          tax: quote.tax,
-          characterMoney: quote.moneyAfter,
+          resource,
+          quantity,
+          unitPrice,
+          gross,
+          tax,
+          characterMoney: round(direction === "sell" ? character.money + net : character.money - net, 2),
           characterCargo,
           settlementStocks,
           factionTreasury,

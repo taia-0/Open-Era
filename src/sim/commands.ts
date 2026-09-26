@@ -1,4 +1,4 @@
-import { applyEvent, clamp, settlementClaimAvailableTo } from "./state.ts";
+import { applyEvent, clamp, round, settlementClaimAvailableTo } from "./state.ts";
 import { tradeQuote } from "./engine.ts";
 import type {
   OrderDirective,
@@ -359,6 +359,11 @@ function validateCharacterAction(
     if (settlement.stocks.provisions < 1) return reject("no-provisions", "This settlement has no provisions left to sell");
   }
 
+  // The price the accepted order will be filled at, if this is a trade. Captured
+  // here so the player is charged the total they were quoted: a tick of
+  // autonomous trading can move a board between acceptance and the fill.
+  let acceptedUnitPrice: number | undefined;
+
   if (request.action === "buy-resource" || request.action === "sell-resource") {
     const direction = request.action === "buy-resource" ? "buy" : "sell";
     const resource = request.resource;
@@ -389,8 +394,11 @@ function validateCharacterAction(
       if (quote.limitedBy === "hold") {
         return reject("hold-full", `The hold has room for ${quote.maxQuantity} more units; ${quantity} was requested`);
       }
-      return reject("insufficient-money", `${quantity} of ${resource} costs ${quote.gross} at ${quote.unitPrice} each; the character holds ${character.money}`);
+      // The cost of what was asked for, not of the smaller amount that would fit:
+      // a purse refusal has to quote the bill the player was trying to pay.
+      return reject("insufficient-money", `${quantity} of ${resource} costs ${round(quantity * quote.unitPrice, 2)} at ${quote.unitPrice} each; the character holds ${character.money}`);
     }
+    acceptedUnitPrice = quote.unitPrice;
   }
 
   const command: PlayerCommand = {
@@ -403,7 +411,7 @@ function validateCharacterAction(
       ? character.locationId
       : request.targetId,
     ...(request.action === "buy-resource" || request.action === "sell-resource"
-      ? { resource: request.resource, quantity: request.quantity }
+      ? { resource: request.resource, quantity: request.quantity, unitPrice: acceptedUnitPrice }
       : {}),
   };
   return { ok: true, command, event: acceptedEvent(world, command) };

@@ -84,6 +84,32 @@ test("the price the panel quotes is the price the boundary pays, selling", () =>
   }
 });
 
+test("a price that moves between acceptance and the fill does not change the charge", () => {
+  const { world, commander } = worldAt();
+  const here = market(world, commander);
+  const quote = here.market.resources.arms;
+  const quantity = Math.min(6, Math.floor(quote.maxBuy));
+  assert.ok(quantity >= 1, "the commander must be able to buy something for this to mean anything");
+
+  const before = commander.money;
+  const cargoBefore = commander.cargo.arms;
+  assert.equal(trade(world, "buy-resource", "arms", quantity).ok, true);
+  // A tick of autonomous trading can move a board before the player's order
+  // fills. Draining the stock does exactly that, and the order must still be
+  // charged the total the player was shown.
+  const settlement = world.settlements[commander.locationId!];
+  settlement.stocks.arms = Math.max(0, settlement.stocks.arms - settlement.stocks.arms * 0.5);
+  runTick(world);
+
+  assert.notEqual(market(world, commander).market.resources.arms.price, quote.price, "the board must have moved for this to mean anything");
+  assert.equal(
+    Number((before - commander.money).toFixed(2)),
+    panelTotal(quantity, quote.price, 0, "buy"),
+    "the order must fill at the price it was accepted at",
+  );
+  assert.equal(Number((commander.cargo.arms - cargoBefore).toFixed(3)), quantity, "and it must move the quantity that was accepted");
+});
+
 test("every resource can be bought and sold, not only provisions", () => {  const { world, commander } = worldAt();
   commander.money = 5_000;
   for (const resource of RESOURCE_KEYS) {
@@ -119,6 +145,36 @@ test("a purchase the purse cannot cover is refused and quotes the cost", () => {
   assert.equal(refused.ok, false);
   assert.equal(refused.ok === false ? refused.code : null, "insufficient-money");
   assert.match(refused.ok === false ? refused.error : "", /holds 1\b/, "the refusal must quote what the character holds");
+});
+
+test("a refusal names the limit that actually bound, not the first one checked", () => {
+  const { world, commander } = worldAt();
+  const settlement = world.settlements[commander.locationId!];
+  const resource = RESOURCE_KEYS[0];
+  const price = marketPrice(world, settlement.id, resource);
+
+  // A full board, an empty hold and a purse that can only cover part of the
+  // request: the purse is the binding limit, and saying "the island only holds
+  // this much" would be a false statement about the island.
+  settlement.stocks[resource] = 5_000;
+  commander.cargo[resource] = 0;
+  commander.money = price * 10.5;
+  const wanted = 40;
+  assert.ok(wanted * price > commander.money, "the purse must bind, or this proves nothing");
+  assert.ok(wanted < cargoCapacity(commander), "the hold must not bind, or this proves nothing");
+
+  const refused = trade(world, "buy-resource", resource, wanted);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.ok === false ? refused.code : null, "insufficient-money");
+  assert.match(refused.ok === false ? refused.error : "", new RegExp(`${wanted} of ${resource} costs`), "the refusal must quote the bill for what was asked");
+
+  // With the purse filled, the same request is bound by the board, and the
+  // refusal must switch to naming the board.
+  commander.money = 100_000;
+  settlement.stocks[resource] = 3;
+  const refusedByStock = trade(world, "buy-resource", resource, wanted);
+  assert.equal(refusedByStock.ok === false ? refusedByStock.code : null, "insufficient-stock");
+  assert.match(refusedByStock.ok === false ? refusedByStock.error : "", /holds 3 of/, "the refusal must quote the board");
 });
 
 test("a purchase larger than local stock is refused and names the stock", () => {
