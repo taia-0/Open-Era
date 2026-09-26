@@ -19,6 +19,7 @@ This branch contains the first **headless world prototype**. It is intentionally
 - Character-plus-troop combat against settlement garrisons, with quick skirmishes and persistent three-phase major battles
 - Strategy-scaled combat forecasts covering outcome, losses, force balance, withdrawal, and capture exposure
 - Persistent captivity after failed withdrawals or major defeats, with dangerous guaranteed escape, bounded fourteen-day release terms, and gradual troop return
+- Message-driven captivity negotiation with a named autonomous authority, qualitative stance changes, and validated accept/counter/reject decisions
 - Player retreat decisions at major-battle phase boundaries; accelerated time pauses for each decision
 - Surrender thresholds, deliberate settlement claims, and personal conqueror ownership
 - Persistent personality-rooted goals and structured multi-tick plans
@@ -132,4 +133,4 @@ The simulation files are intended to survive into the production server. The CLI
 
 ## Current boundary
 
-This is a behavioral probe, not a complete game. The dialogue adapter currently uses deterministic prototype replies rather than a paid LLM. Deeper personality branching, faction offices, settlement management, full debt enforcement and negotiation, rescue missions, lost technology, inner strength, inheritance, multiplayer authentication, and production networking are still deferred. The current dashboard is deliberately local and the player begins as a World Government commander so command acceptance, refusal, asynchronous communication, and defeat recovery can be exercised immediately.
+This is a behavioral probe, not a complete game. The dialogue adapter currently uses deterministic prototype replies rather than a paid LLM. Deeper personality branching, faction offices, settlement management, general contracts and debt enforcement, resource or service-based release terms, rescue missions, lost technology, inner strength, inheritance, multiplayer authentication, and production networking are still deferred. The current dashboard is deliberately local and the player begins as a World Government commander so command acceptance, refusal, asynchronous communication, and defeat recovery can be exercised immediately.

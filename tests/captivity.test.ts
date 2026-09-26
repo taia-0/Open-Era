@@ -15,6 +15,7 @@ import {
 } from "../src/sim/conversations.ts";
 import { runTick } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
+import { eventStory } from "../src/sim/reports.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";
 import type { WorldState } from "../src/sim/types.ts";
@@ -203,6 +204,8 @@ test("one structured counter is validated and an acceptable counter releases the
   const release = result.events.find((event) => event.type === "captivity-released");
   assert.ok(release);
   assert.equal(release.data.reason, "negotiated-counter");
+  assert.match(eventStory(world, release)!, /after a negotiated counter/);
+  assert.doesNotMatch(eventStory(world, release)!, /mandatory/);
   assert.equal(commander.captivity, null);
 });
 

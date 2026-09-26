@@ -37,7 +37,7 @@ Absence is not a defect. An untracked absence is a documentation gap, not a miss
 | Named-character lifecycle | [autonomous-characters.md:96-100](design/autonomous-characters.md) | Untracked | Ordinary-to-named promotion, retirement, and return are unmodelled. |
 | Lost-technology powers | [world-simulation.md:117-119](design/world-simulation.md) | Tracked deferred | Named in the root README boundary as "lost technology". |
 | Inner strength and schools | [world-simulation.md:122-131](design/world-simulation.md) | Tracked deferred | Named in the root README boundary as "inner strength". |
-| Full negotiation, debt enforcement, rescue missions | [world-simulation.md:139](design/world-simulation.md) | Tracked deferred | Stated inline as later milestones; also in the root README boundary. |
+| General negotiation, debt enforcement, rescue missions | [world-simulation.md:154-160](design/world-simulation.md) | Tracked deferred | Captivity now has message-driven money/debt release terms. Resource or service terms, general contracts, enforcement, and rescue remain deferred. |
 
 ### Troops
 
@@ -55,7 +55,7 @@ Absence is not a defect. An untracked absence is a documentation gap, not a miss
 | Searchable daily news database | [autonomous-characters.md:92-94](design/autonomous-characters.md), [game-vision.md:43](design/game-vision.md) | Untracked | No `news` token anywhere in `src/`. The design is explicit that news must not become a free global intelligence feed, so this is a mechanic with its own safety requirement. |
 | Player-directed exploration or investigation | [game-vision.md:27](design/game-vision.md) | Untracked | Listed as a core check-in choice. The player action set has no exploration verb; only a delegated `explore` order directive exists. Standing in a settlement now reveals its ground — garrison, fortification and population — but there is still no way to investigate a place you have not reached, so a raider cannot weigh a target's population before committing. |
 | Rival strength estimation through investigation | [game-vision.md:43](design/game-vision.md) | Tracked open | Recorded in [progress.md](../progress.md) open items. Milestone A added a settlement-scoped `combatForecast` built from earned knowledge and readable before travel, which covers settlements only; nothing exists for characters, parties, or factions. |
-| Structured negotiation outcomes (proposals, agreements, contracts) | [ui-art-direction.md:84](design/ui-art-direction.md), [autonomous-characters.md:133](design/autonomous-characters.md) | Untracked | No `agreement`, `proposal`, or `contract` object. Messages are text plus tags. The design reserves a separate authorized command workflow for language-model-proposed actions; that workflow does not exist. |
+| Structured negotiation outcomes beyond captivity | [ui-art-direction.md:84](design/ui-art-direction.md), [autonomous-characters.md:133](design/autonomous-characters.md) | Tracked deferred | Captivity release now has a persisted offer and validated accept/counter/reject workflow. General proposals, agreements, contracts, and language-model-proposed action authorization remain absent. |
 | Currency politics | [world-simulation.md:47](design/world-simulation.md) | Tracked deferred | Stated inline as absent from the first design. |
 
 ### Absent from the design as well as the code

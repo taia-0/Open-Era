@@ -193,7 +193,7 @@ function metricsCsv(events: SimEvent[]): string {
   return rows.join("\n") + "\n";
 }
 
-function eventStory(world: WorldState, event: SimEvent): string | null {
+export function eventStory(world: WorldState, event: SimEvent): string | null {
   const actor = event.actorId ? world.characters[event.actorId]?.name ?? event.actorId : "Unknown";
   const settlement = event.settlementId ? world.settlements[event.settlementId]?.name ?? event.settlementId : "unknown waters";
   if (event.type === "battle-resolved") {
@@ -219,7 +219,12 @@ function eventStory(world: WorldState, event: SimEvent): string | null {
   }
   if (event.type === "captivity-released") {
     const terms = event.data.terms as { moneyPaid: number; debtValue: number };
-    return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** was released from **${settlement}** under mandatory terms: ${terms.moneyPaid} paid and ${terms.debtValue} recorded as debt.`;
+    const releaseKind = event.data.reason === "negotiated-counter"
+      ? "after a negotiated counter"
+      : event.data.reason === "negotiated-offer"
+        ? "after accepting negotiated terms"
+        : "under mandatory bounded terms";
+    return `- Day ${round(event.tick / world.ticksPerDay, 1)}: **${actor}** was released from **${settlement}** ${releaseKind}: ${terms.moneyPaid} paid and ${terms.debtValue} recorded as debt.`;
   }
   if (event.type === "scattered-troops-returned") {
     return `- Day ${round(event.tick / world.ticksPerDay, 1)}: ${event.data.returning} scattered troops returned to **${actor}**${event.data.completed ? ", completing the recovery" : ""}.`;
@@ -364,7 +369,7 @@ The **${world.scenario}** scenario reached tick ${world.tick} (day ${round(world
 - ${autonomousCharacters} autonomous characters and ${humanCharacters} human-controlled character
 - ${events.length} persisted events across ${snapshotCount} snapshots
 - ${journeys} journeys, ${trades} market trades, ${battles} completed battles, and ${retreats} successful retreats
-- ${captures} captures, ${escapes} dangerous escapes, and ${releases} mandatory releases
+- ${captures} captures, ${escapes} dangerous escapes, and ${releases} releases
 - ${Object.keys(world.activeBattles).length} major battles currently active
 - ${acceptedCommands} player commands accepted and ${resolvedCommands} resolved
 - ${sentMessages} player messages, ${autonomousReplies} autonomous replies, and ${pendingReplies} replies pending

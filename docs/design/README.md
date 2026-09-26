@@ -32,6 +32,8 @@ Every playtest below is evidence for a capability the project claims. Several ar
 | [Paged history 001](../playtests/paged-history-001.md) | Full-history auditability: 20,457 events with no gaps or duplicates, and 93.4% withheld with no payload leaked |
 | [Informed commitment 001](../playtests/informed-commitment-001.md) | Deciding before travel from earned knowledge, and four failed attempts to invert the forecast into ground truth |
 | [Own party 001](../playtests/own-party-001.md) | A party's own provisioning trajectory is legible before it bites, and the push warning precedes the shortage; also the first evidence that trade cannot be pursued |
+| [Trade voyage 001](../playtests/trade-voyage-001.md) | Quantity-controlled four-resource trading and a voyage that pays for itself |
+| [Captivity negotiation 001](../playtests/captivity-negotiation-001.md) | Persuasion through delayed messages, qualitative captor feedback, structured terms, and negotiated release |
 
 ## Decision status
 
