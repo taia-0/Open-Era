@@ -1,7 +1,7 @@
 import { believedGarrison } from "../sim/agency.ts";
 import { combatForecast } from "../sim/combat.ts";
 import { commandCapabilities } from "../sim/commands.ts";
-import { travelDuration } from "../sim/engine.ts";
+import { provisionRunway, travelDuration, type ProvisionRunway } from "../sim/engine.ts";
 import { marketPrice, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { RESOURCE_KEYS, type ActiveBattle, type Character, type SimEvent, type WorldState } from "../sim/types.ts";
 import { projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
@@ -101,13 +101,112 @@ function eventSummary(world: WorldState, event: SimEvent): string {
   }
 }
 
+interface ProvisionSource {
+  settlementId: string;
+  name: string;
+  /** The commander is already at this settlement. */
+  aboard: boolean;
+  /** True when the figures are exact rather than a report. */
+  exact: boolean;
+  /** Provisions on the market, or null when the commander has never heard. */
+  provisions: number | null;
+  price: number | null;
+  travelTicks: number | null;
+  travelDays: number | null;
+}
+
+interface ProvisionPlan extends ProvisionSource {
+  /** The voyage fits inside the remaining runway, with nothing to spare. */
+  reachable: boolean;
+}
+
+/**
+ * The nearest place the commander could actually buy provisions, and whether the
+ * voyage fits inside the remaining runway.
+ *
+ * "You are about to starve" is only half an answer. The other half is whether any
+ * food is reachable, which is the decision the player actually has to make. Owned
+ * settlements are exact; foreign ones come from the same knowledge estimates the
+ * rest of the panel uses, so this cannot reveal a market the commander has not
+ * heard about.
+ */
+function provisionPlan(
+  world: WorldState,
+  commander: Character,
+  runway: ProvisionRunway,
+): ProvisionPlan | null {
+  const candidates: ProvisionSource[] = Object.values(world.settlements)
+    .map((settlement) => {
+      const exact = settlement.factionId === commander.factionId;
+      const knowledge = commander.knowledge[settlement.id];
+      const provisions = exact
+        ? settlement.stocks.provisions
+        : knowledge?.stocksEstimate.provisions ?? null;
+      const price = exact
+        ? marketPrice(world, settlement.id, "provisions")
+        : knowledge?.priceEstimate.provisions ?? null;
+      const aboard = commander.locationId === settlement.id;
+      // A party mid-voyage cannot divert. Its destination is the only market it
+      // can still reach in time, so that is the only candidate worth quoting —
+      // and quoting it is the whole point, because the realistic way to starve is
+      // to run out a few ticks short of a port you were already sailing to.
+      const travelTicks = aboard
+        ? 0
+        : commander.travel
+          ? commander.travel.toId === settlement.id ? commander.travel.remainingTicks : null
+          : travelEstimate(world, commander, settlement.id).travelTicks;
+      return {
+        settlementId: settlement.id,
+        name: settlement.name,
+        aboard,
+        exact,
+        provisions: provisions === null ? null : round(provisions, 1),
+        price: price === null ? null : round(price, 2),
+        travelTicks,
+        travelDays: travelTicks === null ? null : round(travelTicks / world.ticksPerDay, 2),
+      };
+    })
+    .filter((candidate) => (candidate.provisions ?? 0) >= 1)
+    // Already alongside, then closest. A market whose quantity is unknown sorts
+    // last, because the commander cannot plan around a stock they have not heard.
+    .sort((left, right) => {
+      if (left.aboard !== right.aboard) return left.aboard ? -1 : 1;
+      if (left.travelTicks === null) return 1;
+      if (right.travelTicks === null) return -1;
+      return left.travelTicks - right.travelTicks || left.settlementId.localeCompare(right.settlementId);
+    });
+
+  const nearest = candidates[0];
+  if (!nearest) return null;
+  // Arriving with nothing left in the hold is still arriving: provisions can be
+  // bought the moment the party is alongside.
+  const reachable = nearest.travelTicks === null
+    ? false
+    : runway.runwayTicks === null || nearest.travelTicks <= runway.runwayTicks;
+  return { ...nearest, reachable };
+}
+
+/**
+ * Background reports shown at once. Applies to informational items only: an
+ * action-required decision is never withheld, because a decision the player
+ * cannot see is a decision the player cannot make.
+ */
+const INFO_ITEM_BUDGET = 10;
+
+/**
+ * Reserve the provisioning warning insists on, in world days. The warning fires
+ * once the party could not make a return voyage to the nearest market and still
+ * hold this much. It is a judgement call rather than a derivation, tuned by the
+ * `own-party-001` playtest, and it should be revisited if long voyages change shape.
+ */
+const PROVISION_RESERVE_DAYS = 4;
+
 function checkInBriefing(world: WorldState, commanderId: string, events: SimEvent[]): Record<string, unknown> {
   const commander = world.characters[commanderId];
   const player = Object.values(world.players).find((candidate) => candidate.characterId === commanderId)!;
   const actionItems: Array<Record<string, unknown>> = [];
   const warningItems: Array<Record<string, unknown>> = [];
-  const infoItems: Array<Record<string, unknown>> = [];
-  const assignedOfficer = player.reportingOfficerId ? world.characters[player.reportingOfficerId] : null;
+  const infoItems: Array<Record<string, unknown>> = [];  const assignedOfficer = player.reportingOfficerId ? world.characters[player.reportingOfficerId] : null;
   const reportingOfficer = assignedOfficer?.controller.kind === "autonomous" &&
       assignedOfficer.factionId !== null &&
       assignedOfficer.factionId === commander.factionId
@@ -194,6 +293,69 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     });
   }
 
+  // The party's own supplies. The simulation has always acted on this: the
+  // autonomous planner weighs a supply need before it commits to a plan, so an
+  // unsupervised party provisions itself. A player had only a falling number and
+  // no warning, and one lost thirty-three ticks of morale to that silence.
+  const runway = provisionRunway(world, commander);
+  const resupply = provisionPlan(world, commander, runway);
+  const sourceHint = resupply
+    ? resupply.aboard
+      ? `${resupply.name} is alongside and sells provisions.`
+      : resupply.travelTicks === null
+        ? `No market you could still reach sells provisions.`
+        : `${resupply.name} is ${resupply.travelTicks} ticks${resupply.exact ? "" : " by report"} away — ${
+          resupply.reachable
+            ? "within reach, but there will be nothing to spare"
+            : `out of reach, which is short by ${resupply.travelTicks - runway.runwayTicks} ticks`
+        }.`
+    : "No settlement you know of has provisions to sell.";
+  if (runway.shortage > 0) {
+    const cost = [
+      `health ${runway.shortageHealthPerTick} and morale ${runway.shortageMoralePerTick} per tick`,
+      runway.shortageTroopLossPerTick > 0 ? `${runway.shortageTroopLossPerTick} troops per tick` : null,
+    ].filter(Boolean).join(", and ");
+    addItem({
+      id: "provision:critical",
+      severity: "action",
+      // Deliberately not acknowledgeable. This is not a heads-up, it is a state
+      // the party is in until someone buys food.
+      actionRequired: true,
+      title: "The party is starving",
+      summary: `The hold is empty and ${runway.shortage} provisions per tick cannot be found. That costs ${cost}. Morale gains nothing while the shortage lasts, so it will not recover on its own. ${sourceHint}`,
+      day: round(world.tick / world.ticksPerDay, 2),
+      settlementId: resupply?.settlementId ?? null,
+      aboard: resupply?.aboard ?? false,
+      action: "review-provisions",
+    });
+  } else {
+    // Warn while there is still time to act. A first playtest found this firing at
+    // one day of food, which is a smoke alarm that sounds once the fire is lit, so
+    // the standard is now a whole return voyage to the nearest market plus a four
+    // day reserve. That is the point at which the hold stops being able to
+    // guarantee an exit rather than merely being low.
+    const reserve = PROVISION_RESERVE_DAYS * world.ticksPerDay;
+    const voyage = resupply && !resupply.aboard ? (resupply.travelTicks ?? Infinity) : 0;
+    const needed = voyage === Infinity ? Infinity : 2 * voyage + reserve;
+    if (runway.runwayTicks <= needed) {
+      const ticks = runway.runwayTicks === 1 ? "1 tick" : `${runway.runwayTicks} ticks`;
+      const days = runway.runwayDays === 1 ? "1 day" : `${runway.runwayDays} days`;
+      const target = runway.resupplyTarget > runway.provisions
+        ? ` A full top-up would buy ${runway.resupplyTarget}, about ${Math.floor(runway.resupplyTarget / runway.demand)} ticks.`
+        : " The hold is already at the amount a top-up would buy.";
+      addItem({
+        id: "provision:low",
+        severity: "warning",
+        actionRequired: false,
+        title: "Provisions are running low",
+        summary: `About ${ticks} (${days}) of provisions remain at ${runway.demand} per tick.${target} ${sourceHint}`,
+        day: round(world.tick / world.ticksPerDay, 2),
+        settlementId: resupply?.settlementId ?? null,
+        acknowledgeable: true,
+      });
+    }
+  }
+
   const staleIntelligence = Object.values(world.settlements)
     .filter((settlement) => settlement.factionId !== commander.factionId)
     .map((settlement) => ({ settlement, knowledge: commander.knowledge[settlement.id] }))
@@ -213,8 +375,7 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     });
   }
 
-  const includedTypes = new Set([
-    "player-command-failed",
+  const includedTypes = new Set([    "player-command-failed",
     "standing-order-accepted",
     "standing-order-refused",
     "standing-order-deviated",
@@ -231,6 +392,7 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
   ]);
   const routineTypes = new Set(["standing-order-accepted", "standing-order-resumed", "standing-order-completed"]);
   const routineEvents: SimEvent[] = [];
+  const eventReports: Array<Record<string, unknown> & { sequence: number }> = [];
   for (const event of [...events].reverse()) {
     if (!includedTypes.has(event.type)) continue;
     if (event.type.startsWith("standing-order-") && !relevantOrder(event)) continue;
@@ -249,8 +411,9 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
       if (event.sequence > player.routineBriefingThroughSequence) routineEvents.push(event);
       continue;
     }
-    addItem({
+    eventReports.push({
       id: `event:${event.sequence}`,
+      sequence: event.sequence,
       severity: warning ? "warning" : "info",
       actionRequired: false,
       title: event.type.replaceAll("-", " "),
@@ -287,7 +450,49 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     });
   }
 
-  const items = [...actionItems, ...warningItems, ...infoItems].slice(0, 10);
+  // Repeated reports about the same subject are one piece of news, not seven.
+  // The paged-history session was shown seven near-identical "standing order
+  // deviated" entries for one character, which is what crowded the panel until
+  // genuine decisions fell off the end of it. Grouping is by kind and subject,
+  // deliberately not by order, because the duplicates differed only in which
+  // order they named.
+  const groupKey = (report: Record<string, unknown>): string =>
+    [report.title, report.characterId ?? "-", report.settlementId ?? "-"].join("|");
+  const grouped = new Map<string, Array<Record<string, unknown> & { sequence: number }>>();
+  for (const report of eventReports) {
+    const key = groupKey(report);
+    const bucket = grouped.get(key);
+    if (bucket) bucket.push(report);
+    else grouped.set(key, [report]);
+  }
+  for (const [key, bucket] of grouped) {
+    if (bucket.length === 1) {
+      addItem(bucket[0]);
+      continue;
+    }
+    // Newest sequence in the identifier, so acknowledging the group silences it
+    // only up to what has been read; the next report reopens it.
+    const newest = bucket.reduce((left, right) => (right.sequence > left.sequence ? right : left));
+    const oldest = bucket.reduce((left, right) => (right.sequence < left.sequence ? right : left));
+    addItem({
+      ...newest,
+      id: `event-group:${key}:${newest.sequence}`,
+      title: `${newest.title} ×${bucket.length}`,
+      summary: `${bucket.length} such reports, the most recent being: ${newest.summary}. The first was on day ${oldest.day}.`,
+      count: bucket.length,
+      throughSequence: newest.sequence,
+    });
+  }
+
+  // The budget applies to background information only. An action-required item is
+  // a decision the player cannot make if they cannot see it, so nothing that
+  // needs attention is ever dropped; the count reports what was shown, and any
+  // omitted background is stated rather than silently lost.
+  const attention = [...actionItems, ...warningItems];
+  const infoBudget = Math.max(0, INFO_ITEM_BUDGET - attention.length);
+  const info = infoItems.slice(0, infoBudget);
+  const omittedInfoCount = infoItems.length - info.length;
+  const items = [...attention, ...info];
   const eligibleOfficers = Object.values(world.characters)
     .filter((character) =>
       character.controller.kind === "autonomous" &&
@@ -299,7 +504,13 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     .map((character) => ({ id: character.id, name: character.name, leadership: character.skills.leadership }));
 
   return {
-    attentionCount: actionItems.length + warningItems.length,
+    /**
+     * Items needing a decision. Always equal to the number of action and warning
+     * items returned, because every one of them is returned.
+     */
+    attentionCount: attention.length,
+    /** Background reports held back to keep the panel readable. */
+    omittedInfoCount,
     reportingOfficer: reportingOfficer ? {
       id: reportingOfficer.id,
       name: reportingOfficer.name,
@@ -407,12 +618,27 @@ export function dashboardState(
     .filter((battle) => battle.attackerId !== commander.id && battleIsVisible(commander, battle.settlementId))
     .sort((left, right) => left.id.localeCompare(right.id));
   const captivity = commander.captivity;
+  const ownPartyRunway = provisionRunway(world, commander);
+  const resupplyPlan = provisionPlan(world, commander, ownPartyRunway);
   return {
     tick: world.tick,
     day: round(world.tick / world.ticksPerDay, 2),
     ticksPerDay: world.ticksPerDay,
     player,
     commanderId: commander.id,
+    /**
+     * The commander's own party. Owned assets expose exact statistics, and these
+     * are the numbers the party will actually be charged next tick, plus the
+     * trajectory they imply.
+     */
+    party: {
+      id: commander.id,
+      name: commander.name,
+      locationId: commander.locationId,
+      ...ownPartyRunway,
+      /** Where provisions could be bought, and whether the voyage fits the runway. */
+      resupply: resupplyPlan,
+    },
     pendingCommands: world.pendingCommands,
     capabilities: commandCapabilities({
       eventFeed: { limitMax: feed.limitMax, limitDefault: feed.limitDefault },

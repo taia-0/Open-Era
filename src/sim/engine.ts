@@ -111,6 +111,84 @@ function produceSettlements(world: WorldState, events: SimEvent[]): void {
   }
 }
 
+/**
+ * Provisions a party eats in one tick.
+ *
+ * One tick is four world-hours, so this is one sixth of a party's daily need
+ * rather than a full ration. Pure and exported, because a quoted runway that
+ * disagreed with the charge upkeep actually applies would be worse than none.
+ */
+export function provisionDemand(character: Character): number {
+  return round(0.12 + character.sailors * 0.008 + character.troops.count * 0.004);
+}
+
+/**
+ * Provisions a market top-up aims to leave a party holding.
+ *
+ * Pure and exported because the panel quotes this figure and `buy-provisions`
+ * charges against it. A quoted ceiling that disagreed with the real one would
+ * reproduce the exact blind spot it exists to remove: the hold filling to a
+ * number the player was never shown.
+ */
+export function provisionResupplyTarget(character: Character): number {
+  return round(28 + character.troops.count * 0.25);
+}
+
+export interface ProvisionRunway {
+  /** Provisions in the hold now. */
+  provisions: number;
+  /** Provisions consumed per tick at the current complement. */
+  demand: number;
+  /** Ticks until the hold is empty and shortage begins. */
+  runwayTicks: number;
+  /** The same runway in world days, for display. */
+  runwayDays: number;
+  /** Provisions missing per tick right now; zero while the party is fed. */
+  shortage: number;
+  /**
+   * Health lost per tick *while short of provisions*. This is the starvation cost
+   * only — it is not a net projection, and it reads zero on a fed party that is
+   * losing health for some other reason.
+   */
+  shortageHealthPerTick: number;
+  /** Morale lost per tick while short. Also a shortage term, not a net delta. */
+  shortageMoralePerTick: number;
+  /** Troops lost per tick while short. Zero until the shortfall is severe. */
+  shortageTroopLossPerTick: number;
+  /** What a market top-up at the current complement would leave the hold holding. */
+  resupplyTarget: number;
+}
+
+/**
+ * How long the hold lasts, and what running out would cost.
+ *
+ * A commander could already watch `cargo.provisions` fall, but nothing said when
+ * it reached zero or what happened next, and a long campaign was lost to that
+ * silence: morale sat at zero for thirty-three ticks because nobody was told.
+ * The autonomous planner weighs a supply need when it plans (`agency.ts`), so
+ * this is the player's half of a signal the simulation already acts on.
+ */export function provisionRunway(world: WorldState, character: Character): ProvisionRunway {
+  const demand = provisionDemand(character);
+  const provisions = round(character.cargo.provisions, 3);
+  const shortage = round(Math.max(0, demand - provisions), 3);
+  // Demand is never zero: it carries a flat term even for an empty party, so the
+  // runway is always defined and never divides by nothing.
+  const runwayTicks = Math.max(0, Math.floor(provisions / demand));
+  return {
+    provisions,
+    demand,
+    runwayTicks,
+    runwayDays: round(runwayTicks / world.ticksPerDay, 2),
+    shortage,
+    shortageHealthPerTick: round(shortage * 0.8, 3),
+    shortageMoralePerTick: round(shortage * 2.4, 3),
+    // Matches the `Math.floor(shortage * 0.5)` in upkeep, so a trivial shortfall
+    // is not reported as killing troops it will not kill.
+    shortageTroopLossPerTick: Math.floor(shortage * 0.5),
+    resupplyTarget: provisionResupplyTarget(character),
+  };
+}
+
 function upkeepCharacter(
   world: WorldState,
   character: Character,
@@ -118,9 +196,7 @@ function upkeepCharacter(
   traveling: boolean,
 ): void {
   const cargo = cloneResources(character.cargo);
-  // One tick is four world-hours. Consumption therefore represents one sixth
-  // of a party's daily needs rather than a full daily ration.
-  const demand = round(0.12 + character.sailors * 0.008 + character.troops.count * 0.004);
+  const demand = provisionDemand(character);
   const consumed = Math.min(cargo.provisions, demand);
   cargo.provisions = round(cargo.provisions - consumed);
   const shortage = round(demand - consumed);
@@ -1544,7 +1620,7 @@ function resolveDecision(
     }
     case "buy-provisions": {
       const price = marketPrice(world, settlementId, "provisions");
-      const desired = Math.max(0, 28 + character.troops.count * 0.25 - character.cargo.provisions);
+      const desired = Math.max(0, provisionResupplyTarget(character) - character.cargo.provisions);
       const quantity = round(Math.min(desired, settlement.stocks.provisions, character.money / price));
       if (quantity > 0) {
         const characterCargo = cloneResources(character.cargo);

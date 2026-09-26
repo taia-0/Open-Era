@@ -322,6 +322,7 @@
       <div class="footer-card">
         <div class="footer-title" id="brief-title">Exception-first check-in</div>
         <div class="event-feed" id="events"></div>
+        <div class="subtle" id="brief-omitted"></div>
       </div>
       <div class="footer-card">
         <div class="footer-title" id="chronicle-title">Chronicle</div>
@@ -549,10 +550,17 @@
     function renderHeader() {
       var c = commander();
       var f = faction(c.factionId);
+      var party = world.party || {};
       byId("world-time").textContent = "Day " + fmt(world.day, 1) + " · " + (f ? f.name : "Unaffiliated");
+      // The runway is the number that matters, not the stock: a falling count says
+      // nothing about whether the party will reach a market before it empties.
+      var runway = party.provisionRunwayTicks == null
+        ? '<span class="subtle">unknown</span>'
+        : party.provisionRunwayTicks + " ticks (" + fmt(party.provisionRunwayDays, 1) + " days)";
       byId("header-stats").innerHTML =
         '<span class="pill">Money <strong>' + fmt(c.money) + "</strong></span>" +
         '<span class="pill">Provisions <strong>' + fmt(c.cargo.provisions, 1) + "</strong></span>" +
+        '<span class="pill">Lasts <strong>' + runway + "</strong></span>" +
         '<span class="pill">Faction power <strong>' + fmt(f ? f.power : 0) + "</strong></span>";
     }
     function renderMap() {
@@ -797,6 +805,10 @@
       byId("brief-title").textContent = briefing.attentionCount
         ? "Check-in · " + briefing.attentionCount + " need attention"
         : "Check-in · clear";
+      // Background reports held back are stated, never silently dropped.
+      byId("brief-omitted").textContent = briefing.omittedInfoCount
+        ? briefing.omittedInfoCount + " older background report(s) not shown."
+        : "";
       var officer = byId("brief-officer");
       officer.innerHTML = '<option value="">Direct reports</option>' + (briefing.eligibleOfficers || []).map(function (item) {
         return '<option value="' + esc(item.id) + '">' + esc(item.name) + ' · leadership ' + item.leadership + '</option>';
@@ -813,7 +825,13 @@
               ? '<button class="brief-action" type="button" data-brief-battle="' + esc(item.settlementId) + '">Review battle</button>'
               : item.action === "review-captivity"
                 ? '<button class="brief-action" type="button" data-brief-captivity="true">Review captivity</button>'
-              : "";
+              : item.action === "review-provisions"
+                ? (item.aboard
+                  ? '<button class="brief-action" type="button" data-brief-buy="true">Buy provisions now</button>'
+                  : item.settlementId
+                    ? '<button class="brief-action" type="button" data-brief-market="' + esc(item.settlementId) + '">Open that market</button>'
+                    : "")
+                : "";
         var acknowledge = item.acknowledgeable
           ? '<button class="brief-action" type="button" data-brief-ack="' + esc(item.id) + '" data-brief-through="' + esc(item.throughSequence == null ? "" : item.throughSequence) + '">Acknowledge</button>'
           : "";
@@ -833,6 +851,12 @@
       });
       byId("events").querySelectorAll("[data-brief-captivity]").forEach(function (button) {
         button.addEventListener("click", function () { selectCharacter(world.commanderId); });
+      });
+      byId("events").querySelectorAll("[data-brief-buy]").forEach(function (button) {
+        button.addEventListener("click", function () { sendAction("buy-provisions"); });
+      });
+      byId("events").querySelectorAll("[data-brief-market]").forEach(function (button) {
+        button.addEventListener("click", function () { selectSettlement(button.dataset.briefMarket); });
       });
       byId("events").querySelectorAll("[data-brief-ack]").forEach(function (button) {
         button.addEventListener("click", function () {
