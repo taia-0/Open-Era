@@ -403,8 +403,8 @@
       world = await api("/api/state");
       // A fresh read always restarts the chronicle at the newest page.
       chronicle = (world.events || []).slice();
-      chronicleCursor = world.eventFeed ? world.eventFeed.cursor : null;
-      chronicleHasMore = Boolean(world.eventFeed && world.eventFeed.hasMore);
+      chronicleCursor = world.eventPage ? world.eventPage.cursor : null;
+      chronicleHasMore = Boolean(world.eventPage && world.eventPage.hasMore);
       render();
     }
     async function loadOlderChronicle() {
@@ -413,8 +413,8 @@
       try {
         var page = await api("/api/state?beforeSequence=" + encodeURIComponent(chronicleCursor) + "&limit=100");
         chronicle = chronicle.concat(page.events || []);
-        chronicleCursor = page.eventFeed ? page.eventFeed.cursor : null;
-        chronicleHasMore = Boolean(page.eventFeed && page.eventFeed.hasMore);
+        chronicleCursor = page.eventPage ? page.eventPage.cursor : null;
+        chronicleHasMore = Boolean(page.eventPage && page.eventPage.hasMore);
         renderChronicle();
       } catch (error) {
         toast(error.message, true);
@@ -663,6 +663,10 @@
     }
     function marketHtml(market) {
       if (!market) return "";
+      // The hold and purse belong to the commander, not the market. They come
+      // from party.hold so a market block never claims to be the one holding
+      // the money.
+      var hold = (world.party && world.party.hold) || { capacity: 0, load: 0, free: 0, money: 0, provisionsReserve: 0 };
       var rows = Object.keys(market.resources).map(function (resource) {
         var quote = market.resources[resource];
         var canBuy = quote.maxBuy >= 1;
@@ -676,9 +680,9 @@
           '</div>';
       }).join("");
       return '<h3>Trade here</h3><div class="market">' +
-        '<div class="subtle">' + fmt(market.load, 1) + ' of ' + fmt(market.capacity, 0) + ' hold used · ' + fmt(market.money, 2) + ' money · ' +
+        '<div class="subtle">' + fmt(hold.load, 1) + ' of ' + fmt(hold.capacity, 0) + ' hold used · ' + fmt(hold.money, 2) + ' money · ' +
           (market.taxRate > 0 ? fmt(market.taxRate * 100, 0) + "% tax on sales" : "no tax on sales") +
-          (market.provisionsReserve > 0 ? " · " + fmt(market.provisionsReserve, 1) + " provisions reserved for the crew" : "") +
+          (hold.provisionsReserve > 0 ? " · " + fmt(hold.provisionsReserve, 1) + " provisions reserved for the crew" : "") +
         '</div>' + rows + '</div>';
     }
     function meter(label, value, danger) {
@@ -1018,8 +1022,8 @@
       }).join("") || '<div class="empty">No history yet.</div>';
       byId("chronicle").innerHTML = rows;
       byId("chronicle-more").hidden = !chronicleHasMore;
-      byId("chronicle-title").textContent = world.eventFeed
-        ? "Chronicle · " + chronicle.length + " of " + world.eventFeed.total + " events"
+      byId("chronicle-title").textContent = world.eventPage
+        ? "Chronicle · " + chronicle.length + " of " + world.eventPage.total + " events"
         : "Chronicle";
     }
     function render() {

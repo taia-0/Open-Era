@@ -437,21 +437,21 @@ test("the event feed is paged by cursor and cannot be read past the page", async
 
     type Feed = {
       events: Array<{ sequence: number; type: string; data: unknown; payloadWithheld: boolean }>;
-      eventFeed: { count: number; limit: number; total: number; hasMore: boolean; oldestSequence: number; newestSequence: number; cursor: number };
+      eventPage: { count: number; limit: number; total: number; hasMore: boolean; oldestSequence: number; newestSequence: number; cursor: number };
     };
 
     const first = await (await fetch(`${base}/api/state?limit=50`)).json() as Feed;
-    assert.equal(first.eventFeed.count, 50, "the page must honour the requested size");
-    assert.equal(first.eventFeed.limit, 50);
-    assert.ok(first.eventFeed.total > 50, "the world must have enough history to page");
-    assert.equal(first.eventFeed.hasMore, true);
-    assert.ok(first.eventFeed.newestSequence > first.eventFeed.oldestSequence);
+    assert.equal(first.eventPage.count, 50, "the page must honour the requested size");
+    assert.equal(first.eventPage.limit, 50);
+    assert.ok(first.eventPage.total > 50, "the world must have enough history to page");
+    assert.equal(first.eventPage.hasMore, true);
+    assert.ok(first.eventPage.newestSequence > first.eventPage.oldestSequence);
 
-    const second = await (await fetch(`${base}/api/state?beforeSequence=${first.eventFeed.cursor}&limit=50`)).json() as Feed;
-    assert.equal(second.eventFeed.count, 50);
+    const second = await (await fetch(`${base}/api/state?beforeSequence=${first.eventPage.cursor}&limit=50`)).json() as Feed;
+    assert.equal(second.eventPage.count, 50);
     const firstSequences = new Set(first.events.map((event) => event.sequence));
     for (const event of second.events) {
-      assert.ok(event.sequence < first.eventFeed.cursor, `${event.sequence} must be older than the cursor`);
+      assert.ok(event.sequence < first.eventPage.cursor, `${event.sequence} must be older than the cursor`);
       assert.ok(!firstSequences.has(event.sequence), `${event.sequence} must not repeat across pages`);
     }
 
@@ -463,7 +463,7 @@ test("the event feed is paged by cursor and cannot be read past the page", async
     // Reading past the beginning of history returns an empty page, not an error.
     const beyond = await (await fetch(`${base}/api/state?beforeSequence=1&limit=50`)).json() as Feed;
     assert.equal(beyond.events.length, 0);
-    assert.equal(beyond.eventFeed.hasMore, false);
+    assert.equal(beyond.eventPage.hasMore, false);
 
     for (const path of ["/api/state?limit=0", "/api/state?limit=201", "/api/state?limit=abc", "/api/state?beforeSequence=-1"]) {
       const invalid = await fetch(`${base}${path}`);

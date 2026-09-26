@@ -111,9 +111,24 @@ test("the commander is the only character reported exactly", () => {
   assert.equal(projected.intelligence.source, "own-character");
   assert.equal(projected.money, round(commander.money, 2));
   assert.deepEqual(projected.plan, commander.plan);
-  assert.deepEqual(projected.knowledge, commander.knowledge);
   assert.deepEqual(projected.personality, commander.personality);
   assert.deepEqual(projected.standingOrders, commander.standingOrders);
+
+  // Knowledge is the commander's own, but a report seeded before the world began
+  // carries a deliberately negative tick of observation internally. A player must
+  // not be shown a tick that does not exist, so the projection floors it at 0 and
+  // changes nothing else about the entry.
+  const knowledge = projected.knowledge as Record<string, Record<string, unknown>>;
+  assert.deepEqual(Object.keys(knowledge).sort(), Object.keys(commander.knowledge).sort());
+  for (const [settlementId, entry] of Object.entries(knowledge)) {
+    const source = commander.knowledge[settlementId];
+    assert.ok(Number(entry.observedTick) >= 0, `${settlementId} must not report a negative observedTick`);
+    assert.deepEqual(
+      { ...entry, observedTick: source.observedTick },
+      source,
+      `${settlementId} must be the commander's own knowledge with only the age made sane`,
+    );
+  }
 });
 
 test("proximity reveals condition but never motive", () => {

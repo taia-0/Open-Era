@@ -393,9 +393,10 @@ test("the capability block documents the request contract, not just the rules", 
         limits: { advancedTicksPerRequest: { min: number; max: number } };
         requests: {
           commands: { path: string; body: Record<string, string> };
-          state: { path: string; query: Record<string, string> };
+          state: { path: string; query: Record<string, string>; response: Record<string, string> };
           advance: { path: string; body: Record<string, string> };
         };
+        actions: Array<{ action: string; requires: string[] }>;
       };
     };
     const requests = state.capabilities.requests;
@@ -404,9 +405,29 @@ test("the capability block documents the request contract, not just the rules", 
     for (const field of ["playerId", "type", "action", "targetId", "priority"]) {
       assert.ok(requests.commands.body[field], `the command body must document ${field}`);
     }
+    // The trade verbs need two fields the contract used to omit, and a playtest
+    // had to guess both names. They are documented, and the verbs are published.
+    for (const action of ["buy-resource", "sell-resource"]) {
+      assert.ok(
+        state.capabilities.actions.some((entry) => entry.action === action),
+        `${action} must be a published action`,
+      );
+    }
+    for (const field of ["resource", "quantity"]) {
+      assert.ok(requests.commands.body[field], `the command body must document ${field}`);
+    }
     assert.equal(requests.state.path, "GET /api/state");
     assert.ok(requests.state.query.beforeSequence, "the paging cursor must be documented");
     assert.ok(requests.state.query.limit, "the page limit must be documented");
+    // The paging descriptor says where the events are. It used to be called
+    // `eventFeed`, which read as though it held them, and a client paged it for
+    // events and got an empty result.
+    assert.ok(requests.state.response.events, "the contract must say where events live");
+    assert.ok(requests.state.response.eventPage, "the page descriptor must be documented");
+    assert.ok(
+      !("eventFeed" in (await (await fetch(`${base}/api/state`)).json() as Record<string, unknown>)),
+      "the misleading eventFeed key must be gone",
+    );
     // The published bound must be the one the server actually enforces.
     const limitCeiling = Number(requests.state.query.limit.match(/1\.\.(\d+)/)?.[1]);
     const overLimit = await fetch(`${base}/api/state?limit=${limitCeiling + 1}`);

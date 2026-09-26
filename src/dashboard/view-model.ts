@@ -628,6 +628,12 @@ function currentPrices(world: WorldState, settlementId: string): Record<string, 
 /**
  * What the commander could buy or sell at the market they are standing in.
  *
+ * Everything here belongs to the *market*: its tax, and its board of prices,
+ * stock and per-resource ceilings. The commander's own purse and hold are not
+ * here, because a field named `market.money` reads as the market's cash and
+ * invites a player to believe in a counterparty credit limit that does not
+ * exist. Those figures live on the commander's own `party.hold`.
+ *
  * Every figure comes from `tradeQuote`, the same function the command boundary
  * charges against, so the panel cannot quote a trade the boundary would price
  * differently. Nothing here is offered for a market the commander is not at,
@@ -636,22 +642,11 @@ function currentPrices(world: WorldState, settlementId: string): Record<string, 
  */
 function projectMarket(world: WorldState, commander: Character, settlementId: string): Record<string, unknown> {
   const settlement = world.settlements[settlementId];
-  const capacity = cargoCapacity(commander);
-  const load = cargoLoad(commander);
   const taxRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
   return {
     settlementId,
-    /** Units the hold can carry in total, across every resource. */
-    capacity,
-    /** Units it is carrying now. */
-    load: round(load, 3),
-    /** Units it could still take. */
-    free: round(Math.max(0, capacity - load), 3),
-    money: commander.money,
     /** Fraction of a sale the local faction takes. Zero with no faction. */
     taxRate,
-    /** Provisions held back from sale so a voyage cannot strand its own crew. */
-    provisionsReserve: round(commander.cargo.provisions - sellableProvisions(commander), 3),
     resources: Object.fromEntries(RESOURCE_KEYS.map((resource) => {
       const buy = tradeQuote(world, commander, resource, "buy", COMMAND_LIMITS.tradeQuantity.max);
       const sell = tradeQuote(world, commander, resource, "sell", COMMAND_LIMITS.tradeQuantity.max);
@@ -709,6 +704,22 @@ export function dashboardState(
       name: commander.name,
       locationId: commander.locationId,
       ...ownPartyRunway,
+      /**
+       * The commander's own purse and hold. These are the figures a trade board
+       * spends from and fills, so they live with the party rather than inside a
+       * `market` block, where `money` and `load` read as the settlement's.
+       */
+      hold: {
+        /** Units the hold can carry in total, across every resource. */
+        capacity: cargoCapacity(commander),
+        /** Units it is carrying now. */
+        load: round(cargoLoad(commander), 3),
+        /** Units it could still take. */
+        free: round(Math.max(0, cargoCapacity(commander) - cargoLoad(commander)), 3),
+        money: commander.money,
+        /** Provisions held back from sale, so a voyage cannot strand its own crew. */
+        provisionsReserve: round(commander.cargo.provisions - sellableProvisions(commander), 3),
+      },
       /** Where provisions could be bought, and whether the voyage fits the runway. */
       resupply: resupplyPlan,
     },
@@ -846,7 +857,13 @@ export function dashboardState(
       .sort((left, right) => left.id.localeCompare(right.id))
       .map((character) => projectCharacter(world, commander, character)),
     events: projectEventFeed(world, commander.id, feed.events).reverse(),
-    eventFeed: {
+    /**
+     * How to page `events`. This is a page descriptor, not the feed itself: the
+     * events are under `events` above. It was called `eventFeed`, which read as
+     * though it contained them, and a playtest paged it for new events and got
+     * an empty result.
+     */
+    eventPage: {
       count: feed.events.length,
       limit: feed.limit,
       total: feed.total,

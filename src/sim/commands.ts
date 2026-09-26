@@ -196,14 +196,20 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
         expiresInTicks: `optional for issue-order; ${COMMAND_LIMITS.orderDurationTicks.min}..${COMMAND_LIMITS.orderDurationTicks.max}, omitted means the order runs until it is finished`,
         orderId: "required for confirm-order, amend-order and cancel-order",
         battleId: "required for retreat-battle",
+        resource: `required for buy-resource and sell-resource; one of ${RESOURCE_KEYS.join(", ")}`,
+        quantity: `required for buy-resource and sell-resource; a whole number ${COMMAND_LIMITS.tradeQuantity.min}..${COMMAND_LIMITS.tradeQuantity.max}`,
       },
       failure: "any 4xx body is { ok: false, code, error }; `code` is stable, `error` is human prose",
     },
     state: {
       path: "GET /api/state",
       query: {
-        beforeSequence: "optional event cursor; pass eventFeed.cursor to read the next older page",
+        beforeSequence: "optional event cursor; pass eventPage.cursor to read the next older page",
         limit: `optional 1..${transport.eventFeed.limitMax}, defaults to ${transport.eventFeed.limitDefault}`,
+      },
+      response: {
+        events: "the page of visible events, newest first",
+        eventPage: "describes that page: count, limit, total, hasMore, oldestSequence, newestSequence, and the cursor to pass as beforeSequence",
       },
     },
     advance: {

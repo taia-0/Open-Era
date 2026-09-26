@@ -35,12 +35,16 @@ function panelTotal(quantity: number, unitPrice: number, taxRate: number, direct
   return Math.round((gross - tax) * 100) / 100;
 }
 
+/** Match the projection's rounding, which keeps three decimals. */
+function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
 function trade(world: WorldState, action: "buy-resource" | "sell-resource", resource: string, quantity: number) {
   return submitCommand(world, { playerId: PLAYER, type: "character-action", action, resource: resource as never, quantity });
 }
 
-/** The cheapest and dearest market for one resource, ignoring travel. */
-function extremeMarkets(world: WorldState, resource: (typeof RESOURCE_KEYS)[number]) {
+/** The cheapest and dearest market for one resource, ignoring travel. */function extremeMarkets(world: WorldState, resource: (typeof RESOURCE_KEYS)[number]) {
   const priced = Object.values(world.settlements)
     .map((settlement) => ({ settlement, price: marketPrice(world, settlement.id, resource) }))
     .sort((left, right) => left.price - right.price);
@@ -257,6 +261,50 @@ test("a market is quoted only where the commander is standing", () => {
     } else {
       assert.equal(settlement.market, null, `${settlement.id} is not the commander's market`);
     }
+  }
+});
+
+test("the market block describes the market, not the commander standing in it", () => {
+  const { world, commander } = worldAt();
+  const state = dashboardState(world, [], fullEventFeed([])) as Record<string, any>;
+  const here = state.settlements.find((entry: Record<string, any>) => entry.id === commander.locationId)!;
+
+  // A field named `market.money` reads as the market's own cash, and a player
+  // who trusts it believes in a counterparty credit limit that does not exist.
+  // Nothing the commander owns may appear inside the market block.
+  assert.deepEqual(
+    Object.keys(here.market).sort(),
+    ["resources", "settlementId", "taxRate"],
+    "the market block must carry market facts only",
+  );
+  for (const ownerField of ["money", "load", "free", "capacity", "provisionsReserve"]) {
+    assert.ok(!(ownerField in here.market), `market.${ownerField} is the commander's, not the market's`);
+  }
+
+  // The same figures live on the commander's own party, where they belong.
+  const hold = state.party.hold;
+  assert.equal(hold.money, commander.money);
+  assert.equal(hold.load, round3(cargoLoad(commander)), "the hold load must match the commander's actual cargo");
+  assert.equal(hold.capacity, cargoCapacity(commander));
+  assert.equal(hold.free, round3(cargoCapacity(commander) - cargoLoad(commander)));
+  assert.ok(hold.provisionsReserve > 0, "the crew's provisions reserve must be reported");
+  assert.ok(
+    Math.abs(hold.load + hold.free - hold.capacity) < 0.002,
+    "load and free must account for the whole hold",
+  );
+});
+
+test("a report seeded before the world began does not show a negative age", () => {
+  const { world, commander } = worldAt();
+  const state = dashboardState(world, [], fullEventFeed([])) as { characters: Array<Record<string, any>> };
+  const self = state.characters.find((entry) => entry.id === commander.id)!;
+
+  // Hearsay seeded before tick 0 carries a negative observedTick internally, so
+  // it reads as stale from day one. A player must not be shown a tick that never
+  // happened, and the age of every report must be a non-negative number.
+  assert.ok(Object.keys(self.knowledge).length > 0, "the commander must know of some settlements");
+  for (const [settlementId, entry] of Object.entries(self.knowledge as Record<string, any>)) {
+    assert.ok(entry.observedTick >= 0, `${settlementId} reported observedTick ${entry.observedTick}`);
   }
 });
 
