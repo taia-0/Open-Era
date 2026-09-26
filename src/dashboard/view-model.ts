@@ -1,7 +1,15 @@
 import { believedGarrison } from "../sim/agency.ts";
 import { combatForecast } from "../sim/combat.ts";
-import { commandCapabilities } from "../sim/commands.ts";
-import { provisionRunway, travelDuration, type ProvisionRunway } from "../sim/engine.ts";
+import { COMMAND_LIMITS, commandCapabilities } from "../sim/commands.ts";
+import {
+  cargoCapacity,
+  cargoLoad,
+  provisionRunway,
+  sellableProvisions,
+  tradeQuote,
+  travelDuration,
+  type ProvisionRunway,
+} from "../sim/engine.ts";
 import { marketPrice, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { RESOURCE_KEYS, type ActiveBattle, type Character, type SettlementKnowledge, type SimEvent, type WorldState } from "../sim/types.ts";
 import { projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
@@ -612,6 +620,56 @@ function projectCommandedBattle(world: WorldState, battle: ActiveBattle): Record
   };
 }
 
+/** Present-tense prices at one market, as the board actually reads right now. */
+function currentPrices(world: WorldState, settlementId: string): Record<string, number> {
+  return Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, marketPrice(world, settlementId, resource)]));
+}
+
+/**
+ * What the commander could buy or sell at the market they are standing in.
+ *
+ * Everything here belongs to the *market*: its tax, and its board of prices,
+ * stock and per-resource ceilings. The commander's own purse and hold are not
+ * here, because a field named `market.money` reads as the market's cash and
+ * invites a player to believe in a counterparty credit limit that does not
+ * exist. Those figures live on the commander's own `party.hold`.
+ *
+ * Every figure comes from `tradeQuote`, the same function the command boundary
+ * charges against, so the panel cannot quote a trade the boundary would price
+ * differently. Nothing here is offered for a market the commander is not at,
+ * because trading requires being there and a remote quote would be an estimate
+ * presented as a price.
+ */
+function projectMarket(world: WorldState, commander: Character, settlementId: string): Record<string, unknown> {
+  const settlement = world.settlements[settlementId];
+  const taxRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
+  return {
+    settlementId,
+    /** Fraction of a sale the local faction takes. Zero with no faction. */
+    taxRate,
+    resources: Object.fromEntries(RESOURCE_KEYS.map((resource) => {
+      const buy = tradeQuote(world, commander, resource, "buy", COMMAND_LIMITS.tradeQuantity.max);
+      const sell = tradeQuote(world, commander, resource, "sell", COMMAND_LIMITS.tradeQuantity.max);
+      return [resource, {
+        /**
+         * Board price, per unit, exact — cents are not rounded here because the
+         * panel runs this through the same cent cascade the boundary charges
+         * (`tradeAmounts`), and rounding twice would quote a total the purse
+         * disagrees with. One price covers both directions: a purchase adds no
+         * tax, a sale subtracts `taxRate` from the same board figure.
+         */
+        price: buy.unitPrice,
+        stock: round(settlement.stocks[resource], 3),
+        targetStock: settlement.targetStocks[resource],
+        /** Largest single buy the market, the hold and the purse allow. */
+        maxBuy: buy.maxQuantity,
+        /** Largest single sale the hold and the reserve allow. */
+        maxSell: sell.maxQuantity,
+      }];
+    })),
+  };
+}
+
 export function dashboardState(
   world: WorldState,
   briefingEvents: SimEvent[],
@@ -646,6 +704,22 @@ export function dashboardState(
       name: commander.name,
       locationId: commander.locationId,
       ...ownPartyRunway,
+      /**
+       * The commander's own purse and hold. These are the figures a trade board
+       * spends from and fills, so they live with the party rather than inside a
+       * `market` block, where `money` and `load` read as the settlement's.
+       */
+      hold: {
+        /** Units the hold can carry in total, across every resource. */
+        capacity: cargoCapacity(commander),
+        /** Units it is carrying now. */
+        load: round(cargoLoad(commander), 3),
+        /** Units it could still take. */
+        free: round(Math.max(0, cargoCapacity(commander) - cargoLoad(commander)), 3),
+        money: commander.money,
+        /** Provisions held back from sale, so a voyage cannot strand its own crew. */
+        provisionsReserve: round(commander.cargo.provisions - sellableProvisions(commander), 3),
+      },
       /** Where provisions could be bought, and whether the voyage fits the runway. */
       resupply: resupplyPlan,
     },
@@ -715,6 +789,12 @@ export function dashboardState(
       // in the other. Perception is present-tense here, because nothing persisted
       // records the ground of a place the commander has left.
       const coLocated = commander.locationId === settlement.id;
+      // What the commander can trade, and on what terms, wherever they are
+      // standing. Trading needs a market they are physically at, so this is the
+      // only place the true stock and price may be quoted — and building it from
+      // the same `tradeQuote` the boundary charges means the shown cost is the
+      // charged cost.
+      const market = coLocated ? projectMarket(world, commander, settlement.id) : null;
       if (!exact) {
         return {
           id: settlement.id,
@@ -726,12 +806,17 @@ export function dashboardState(
           workers: null,
           focus: null,
           production: null,
-          stocks: knowledge?.stocksEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
-          targetStocks: null,
+          // Perception of a market is present-tense for the same reason a
+          // garrison is: standing in it is direct observation, and showing an
+          // estimate beside a quote taken from the real board is worse than
+          // either. Away from it, nothing here is present-tense.
+          stocks: coLocated ? { ...settlement.stocks } : knowledge?.stocksEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
+          targetStocks: coLocated ? { ...settlement.targetStocks } : null,
           garrison: coLocated ? settlement.garrison : knowledge?.garrisonEstimate ?? null,
           fortification: coLocated ? settlement.fortification : null,
-          stability: null,
-          prices: knowledge?.priceEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
+          stability: coLocated ? settlement.stability : null,
+          prices: coLocated ? currentPrices(world, settlement.id) : knowledge?.priceEstimate ?? Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, 0])),
+          market,
           partyCount: null,
           // Present in the owned branch as well, so the settlement object has the
           // same keys either way. Its absence here crashed a playtest client.
@@ -741,35 +826,44 @@ export function dashboardState(
           combatForecast: forecast,
           travelTicks: voyage.travelTicks,
           travelDays: voyage.travelDays,
-          intelligence: knowledge ? {
+          intelligence: (knowledge || coLocated) ? {
             exact: false,
-            source: knowledge.source,
+            /** True when these figures are what the commander can see right now. */
+            present: coLocated,
+            source: coLocated ? "direct-observation" : knowledge!.source,
             // Read through the same belief function the forecast uses. Decaying
             // the stored confidence independently here is how the panel and the
             // forecast came to show different numbers for one report.
-            confidence: believedGarrison(world, commander, settlement.id).confidence,
-            observedTick: knowledge.observedTick,
-            ageTicks: world.tick - knowledge.observedTick,
+            confidence: coLocated ? 1 : believedGarrison(world, commander, settlement.id).confidence,
+            observedTick: coLocated ? world.tick : knowledge!.observedTick,
+            ageTicks: coLocated ? 0 : world.tick - knowledge!.observedTick,
           } : null,
         };
       }
       return {
         ...settlement,
-        prices: Object.fromEntries(RESOURCE_KEYS.map((resource) => [resource, marketPrice(world, settlement.id, resource)])),
+        prices: currentPrices(world, settlement.id),
+        market,
         partyCount: Object.values(world.characters).filter((character) => character.locationId === settlement.id).length,
         battleInProgress: battleVisible,
         surrenderOffered,
         combatForecast: forecast,
         travelTicks: voyage.travelTicks,
         travelDays: voyage.travelDays,
-        intelligence: { exact: true, source: "owned", confidence: 1, observedTick: world.tick, ageTicks: 0 },
+        intelligence: { exact: true, present: commander.locationId === settlement.id, source: "owned", confidence: 1, observedTick: world.tick, ageTicks: 0 },
       };
     }),
     characters: Object.values(world.characters)
       .sort((left, right) => left.id.localeCompare(right.id))
       .map((character) => projectCharacter(world, commander, character)),
     events: projectEventFeed(world, commander.id, feed.events).reverse(),
-    eventFeed: {
+    /**
+     * How to page `events`. This is a page descriptor, not the feed itself: the
+     * events are under `events` above. It was called `eventFeed`, which read as
+     * though it contained them, and a playtest paged it for new events and got
+     * an empty result.
+     */
+    eventPage: {
       count: feed.events.length,
       limit: feed.limit,
       total: feed.total,

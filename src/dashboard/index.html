@@ -168,6 +168,21 @@
     }
     .party-row { width: 100%; border-width: 0 0 1px; background: transparent; text-align: left; }
     .party-row:hover { color: var(--blue); }
+    .market { display: grid; gap: 6px; }
+    .market-row {
+      display: grid;
+      grid-template-columns: minmax(90px, 1fr) 62px auto auto;
+      gap: 6px;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid #e2dfd4;
+      font-size: 12px;
+    }
+    .market-name { display: grid; }
+    .market-name .subtle { font-size: 10px; }
+    .market-quantity { width: 100%; padding: 5px 6px; border: 1px solid #c8c6ba; border-radius: 8px; background: #fff; font: inherit; color: inherit; }
+    .market-row .action { padding: 5px 8px; font-size: 11px; }
+    .market-row .action:disabled { opacity: .45; cursor: not-allowed; }
     .meter { height: 8px; border-radius: 99px; overflow: hidden; background: #dcded5; margin-top: 5px; }
     .meter i { display: block; height: 100%; background: var(--green); }
     .meter.danger i { background: var(--danger); }
@@ -388,8 +403,8 @@
       world = await api("/api/state");
       // A fresh read always restarts the chronicle at the newest page.
       chronicle = (world.events || []).slice();
-      chronicleCursor = world.eventFeed ? world.eventFeed.cursor : null;
-      chronicleHasMore = Boolean(world.eventFeed && world.eventFeed.hasMore);
+      chronicleCursor = world.eventPage ? world.eventPage.cursor : null;
+      chronicleHasMore = Boolean(world.eventPage && world.eventPage.hasMore);
       render();
     }
     async function loadOlderChronicle() {
@@ -398,8 +413,8 @@
       try {
         var page = await api("/api/state?beforeSequence=" + encodeURIComponent(chronicleCursor) + "&limit=100");
         chronicle = chronicle.concat(page.events || []);
-        chronicleCursor = page.eventFeed ? page.eventFeed.cursor : null;
-        chronicleHasMore = Boolean(page.eventFeed && page.eventFeed.hasMore);
+        chronicleCursor = page.eventPage ? page.eventPage.cursor : null;
+        chronicleHasMore = Boolean(page.eventPage && page.eventPage.hasMore);
         renderChronicle();
       } catch (error) {
         toast(error.message, true);
@@ -426,13 +441,27 @@
     }
     function selectSettlement(id) { selected = { kind: "settlement", id: id }; render(); }
     function selectCharacter(id) { selected = { kind: "character", id: id }; render(); }
-    function sendAction(action, targetId) {
-      mutate("/api/commands", {
+    function sendAction(action, targetId, extra) {
+      mutate("/api/commands", Object.assign({
         playerId: world.player.id,
         type: "character-action",
         action: action,
         targetId: targetId || undefined
-      });
+      }, extra || {}));
+    }
+    /**
+     * Trade the number in the quantity box next to one resource row. The row
+     * carries its own limits, so an over-sized request is refused by the boundary
+     * with the ceiling named rather than silently filled short.
+     */
+    function sendTrade(resource, direction) {
+      var field = document.querySelector('[data-trade-quantity="' + resource + '"]');
+      var quantity = field ? Number(field.value) : NaN;
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        toast("Enter how many units to trade", true);
+        return;
+      }
+      sendAction(direction === "buy" ? "buy-resource" : "sell-resource", undefined, { resource: resource, quantity: quantity });
     }
     function retreatBattle(battleId) {
       mutate("/api/commands", {
@@ -593,6 +622,69 @@
         button.addEventListener("click", function () { selectCharacter(button.dataset.character); });
       });
     }
+    /**
+     * The trading controls, shown only where the commander is standing, because
+     * trading happens on the ground. Every limit is printed beside the control
+     * that will enforce it, so a refusal is never the first time a ceiling is
+     * visible.
+     */
+    /**
+     * The money one trade moves, in whole cents — the same three-step cascade as
+     * `tradeAmounts` in src/sim/engine.ts, which the command boundary charges
+     * against. Kept in step by tests/trade.test.ts, so the total printed in a row
+     * is the total the purse will show after the button is pressed.
+     */
+    function tradeAmounts(quantity, unitPrice, taxRate, direction) {
+      var gross = Math.round(quantity * unitPrice * 100) / 100;
+      var tax = direction === "sell" ? Math.round(gross * taxRate * 100) / 100 : 0;
+      return { gross: gross, tax: tax, net: Math.round((gross - tax) * 100) / 100 };
+    }
+    /**
+     * Print what the number in a row's box would cost and net, so no ceiling is
+     * met for the first time in a refusal. Re-runs on every keystroke.
+     */
+    function marketTotals(market) {
+      if (!market) return;
+      Object.keys(market.resources).forEach(function (resource) {
+        var quote = market.resources[resource];
+        var field = document.querySelector('[data-trade-quantity="' + resource + '"]');
+        var out = document.querySelector('[data-trade-total="' + resource + '"]');
+        if (!field || !out) return;
+        var quantity = Number(field.value);
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          out.textContent = "Enter a number of units";
+          return;
+        }
+        var cost = tradeAmounts(quantity, quote.price, 0, "buy");
+        var proceeds = tradeAmounts(quantity, quote.price, market.taxRate, "sell");
+        out.textContent = "Cost " + fmt(cost.net, 2) + " · Proceeds " + fmt(proceeds.net, 2) +
+          (proceeds.tax > 0 ? " (after " + fmt(proceeds.tax, 2) + " tax)" : "");
+      });
+    }
+    function marketHtml(market) {
+      if (!market) return "";
+      // The hold and purse belong to the commander, not the market. They come
+      // from party.hold so a market block never claims to be the one holding
+      // the money.
+      var hold = (world.party && world.party.hold) || { capacity: 0, load: 0, free: 0, money: 0, provisionsReserve: 0 };
+      var rows = Object.keys(market.resources).map(function (resource) {
+        var quote = market.resources[resource];
+        var canBuy = quote.maxBuy >= 1;
+        var canSell = quote.maxSell >= 1;
+        return '<div class="market-row">' +
+          '<div class="market-name"><strong>' + esc(resource) + '</strong><span class="subtle">' + fmt(quote.price, 2) + ' each · ' + fmt(quote.stock, 1) + ' in stock</span></div>' +
+          '<input class="market-quantity" type="number" min="1" step="1" value="1" data-trade-quantity="' + esc(resource) + '" aria-label="Units of ' + esc(resource) + '">' +
+          '<button class="action" type="button" data-trade="buy" data-trade-resource="' + esc(resource) + '"' + (canBuy ? "" : " disabled") + '>Buy' + (canBuy ? " up to " + fmt(quote.maxBuy, 0) : " — none available") + '</button>' +
+          '<button class="action" type="button" data-trade="sell" data-trade-resource="' + esc(resource) + '"' + (canSell ? "" : " disabled") + '>Sell' + (canSell ? " up to " + fmt(quote.maxSell, 0) : " — none held") + '</button>' +
+          '<span class="subtle market-total" data-trade-total="' + esc(resource) + '"></span>' +
+          '</div>';
+      }).join("");
+      return '<h3>Trade here</h3><div class="market">' +
+        '<div class="subtle">' + fmt(hold.load, 1) + ' of ' + fmt(hold.capacity, 0) + ' hold used · ' + fmt(hold.money, 2) + ' money · ' +
+          (market.taxRate > 0 ? fmt(market.taxRate * 100, 0) + "% tax on sales" : "no tax on sales") +
+          (hold.provisionsReserve > 0 ? " · " + fmt(hold.provisionsReserve, 1) + " provisions reserved for the crew" : "") +
+        '</div>' + rows + '</div>';
+    }
     function meter(label, value, danger) {
       return '<div><span class="subtle">' + esc(label) + " " + fmt(value) + '%</span><div class="meter' + (danger ? " danger" : "") + '"><i style="width:' + Math.max(0, Math.min(100, value)) + '%"></i></div></div>';
     }
@@ -608,14 +700,21 @@
       var here = c.locationId === item.id;
       var intel = item.intelligence;
       // A stale market report used to be drawn in exactly the same style as an
-      // owned record, so an estimate could be read as present-tense fact.
-      // Mark every derived number and name the age beside the figures it
-      // qualifies, not only in the header line far above them.
-      var estimated = !(intel && intel.exact);
-      var approx = estimated ? "~" : "";      var ageNote = intel && intel.ageTicks != null ? ", " + intel.ageTicks + " ticks old" : ", age unknown";
+      // owned record, so an estimate could be read as present-tense fact. Three
+      // cases are now distinct: an owned record, what the commander can see where
+      // they are standing, and a report of some age.
+      var owned = !!(intel && intel.exact);
+      var present = !!(intel && intel.present);
+      var derived = !owned && !present;
+      var approx = derived ? "~" : "";
+      var ageNote = intel && intel.ageTicks != null ? ", " + intel.ageTicks + " ticks old" : ", age unknown";
       var ageLabel = intel && intel.ageTicks != null ? intel.ageTicks + " ticks old" : "age unknown";
-      var intelLabel = intel && intel.exact ? "Exact owned records" : intel ? esc(intel.source) + " · " + fmt(intel.confidence * 100) + "% confidence · " + ageLabel : "No current report";
-      var stockHeading = intel ? "Stocks and prices" + (estimated ? ' <span class="subtle">estimated' + ageNote + "</span>" : "") : "Stocks and prices";
+      var intelLabel = owned
+        ? "Exact owned records"
+        : present
+          ? "Direct observation of this island"
+          : intel ? esc(intel.source) + " · " + fmt(intel.confidence * 100) + "% confidence · " + ageLabel : "No current report";
+      var stockHeading = intel ? "Stocks and prices" + (derived ? ' <span class="subtle">estimated' + ageNote + "</span>" : "") : "Stocks and prices";
       var forecast = item.combatForecast;
       // Distinguish "I am fighting" from "someone else is fighting here". The
       // settlement flag alone cannot tell a player which of those is true.
@@ -643,9 +742,10 @@
         '<div class="subtle">' + esc(owningFaction ? owningFaction.name : "Independent") + (owner ? " · Owned by " + esc(owner.name) : "") + " · Population " + (item.population == null ? "unknown" : item.population.toLocaleString()) + "</div>" +
         '<div class="subtle">' + intelLabel + "</div>" +
         '<div class="stat-grid">' +
-          // Standing here is direct perception of the ground, so the garrison is
-          // exact even on an island the commander does not own. The market rows
-          // below are still a report, because stock moves while they watch.
+          // Standing here is direct perception of the ground, so the garrison and
+          // the market rows below are what is actually there, not a report about
+          // it. Both stay marked approximate only when the commander is away and
+          // working from someone else's accounts.
           '<div class="stat"><span>Garrison</span><strong>' + (item.garrison == null ? '<span class="subtle">unknown</span>' : (here ? "" : approx) + item.garrison) + "</strong></div>" +
           '<div class="stat"><span>Fortification</span><strong>' + fmt(item.fortification, 2) + "×</strong></div>" +
           '<div class="stat"><span>Stability</span><strong>' + fmt(item.stability) + "%</strong></div>" +
@@ -657,6 +757,7 @@
               return '<div class="resource-row"><span>' + esc(key) + "</span><span><strong>" + approx + fmt(item.stocks[key], 1) + "</strong> @ " + approx + fmt(item.prices[key], 2) + "</span></div>";
             }).join("")
           : '<div class="empty">No current report on this market.</div>') +
+        marketHtml(item.market) +
         "<h3>Parties present</h3>" +
         (parties.length ? parties.map(function (party) {
           return '<button class="party-row" type="button" data-party="' + esc(party.id) + '"><span><strong>' + esc(party.name) + "</strong><br><span class=\"subtle\">" + esc(party.archetype) + '</span></span><span>' + (party.partyPower == null ? '<span class="subtle">strength unknown</span>' : fmt(party.partyPower)) + "</span></button>";
@@ -666,8 +767,7 @@
           (here && item.surrenderOffered ? '<button class="action danger" type="button" data-action="claim-settlement">Accept surrender &amp; claim</button>' : "") +
           (here && item.surrenderOffered ? '<button class="action" type="button" data-action="decline-surrender">Decline and keep fighting</button>' : "") +
           (here && item.factionId && item.factionId !== c.factionId && !item.surrenderOffered && !item.battleInProgress && !(world.combat && world.combat.commandedBattle) ? '<button class="action danger" type="button" data-action="raid">Commit attack</button>' : "") +
-          '<button class="action" type="button" data-action="trade-local">Trade locally</button>' +
-          '<button class="action" type="button" data-action="buy-provisions">Buy provisions</button>' +
+          (here ? '<button class="action" type="button" data-action="buy-provisions">Top up provisions</button>' : "") +
         "</div>";
     }
     function characterInspector(item) {
@@ -744,7 +844,6 @@
         '<button class="action" type="button" data-action="work">Work</button>' +
         '<button class="action" type="button" data-action="recruit">Recruit</button>' +
         '<button class="action" type="button" data-action="rest">Rest</button>' +
-        '<button class="action" type="button" data-action="trade-local">Trade</button>' +
         "</div><h3>Issue standing order</h3>" +
         '<label for="order-recipient">Recipient</label><select id="order-recipient">' +
         recipients.map(function (item) { return '<option value="' + esc(item.id) + '">' + esc(item.name) + " — " + esc(item.archetype) + "</option>"; }).join("") +
@@ -757,11 +856,20 @@
       var item = selected.kind === "character" ? character(selected.id) : settlement(selected.id);
       if (!item) { selected = { kind: "settlement", id: world.settlements[0].id }; item = world.settlements[0]; }
       byId("inspector").innerHTML = (selected.kind === "character" ? characterInspector(item) : settlementInspector(item)) + commandPanel();
+      // The trade rows are now in the document, so their totals can be filled in
+      // and kept live as the quantity boxes are edited.
+      marketTotals(selected.kind === "settlement" ? item.market : null);
+      byId("inspector").querySelectorAll("[data-trade-quantity]").forEach(function (field) {
+        field.addEventListener("input", function () { marketTotals(selected.kind === "settlement" ? item.market : null); });
+      });
       byId("inspector").querySelectorAll("[data-party]").forEach(function (button) {
         button.addEventListener("click", function () { selectCharacter(button.dataset.party); });
       });
       byId("inspector").querySelectorAll("[data-action]").forEach(function (button) {
         button.addEventListener("click", function () { sendAction(button.dataset.action, button.dataset.target); });
+      });
+      byId("inspector").querySelectorAll("[data-trade]").forEach(function (button) {
+        button.addEventListener("click", function () { sendTrade(button.dataset.tradeResource, button.dataset.trade); });
       });
       byId("inspector").querySelectorAll("[data-confirm-order]").forEach(function (button) {
         button.addEventListener("click", function () { confirmOrder(button.dataset.confirmCharacter, button.dataset.confirmOrder); });
@@ -914,8 +1022,8 @@
       }).join("") || '<div class="empty">No history yet.</div>';
       byId("chronicle").innerHTML = rows;
       byId("chronicle-more").hidden = !chronicleHasMore;
-      byId("chronicle-title").textContent = world.eventFeed
-        ? "Chronicle · " + chronicle.length + " of " + world.eventFeed.total + " events"
+      byId("chronicle-title").textContent = world.eventPage
+        ? "Chronicle · " + chronicle.length + " of " + world.eventPage.total + " events"
         : "Chronicle";
     }
     function render() {

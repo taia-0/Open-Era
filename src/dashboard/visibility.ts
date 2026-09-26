@@ -132,6 +132,24 @@ export function visibleStandingOrders(commander: Character, character: Character
   return character.standingOrders.filter((order) => order.issuerId === commander.id);
 }
 
+/**
+ * The commander's own knowledge of the world, with report ages made sane.
+ *
+ * Hearsay seeded before the world began carries a deliberately negative
+ * `observedTick` so it reads as stale from tick one. The simulation is right to
+ * store it that way, but a tick-of-observation before tick 0 is not something a
+ * player should be shown, so the projection floors it at 0. The internal copy is
+ * untouched, and every consumer that cares already floors it itself.
+ */
+function projectKnowledge(knowledge: Character["knowledge"]): Character["knowledge"] {
+  return Object.fromEntries(
+    Object.entries(knowledge).map(([settlementId, entry]) => [
+      settlementId,
+      { ...entry, observedTick: Math.max(0, entry.observedTick) },
+    ]),
+  ) as Character["knowledge"];
+}
+
 export function projectCharacter(
   world: WorldState,
   commander: Character,
@@ -181,7 +199,7 @@ export function projectCharacter(
     relationship: commander.relationships[character.id] ?? null,
     standingOrders,
     activeOrderAssessment: activeOrder ? assessStandingOrder(character, activeOrder) : null,
-    knowledge: isSelf ? character.knowledge : null,
+    knowledge: isSelf ? projectKnowledge(character.knowledge) : null,
     victories: character.victories,
     defeats: character.defeats,
     intelligence,
