@@ -58,6 +58,15 @@ Absence is not a defect. An untracked absence is a documentation gap, not a miss
 | Structured negotiation outcomes (proposals, agreements, contracts) | [ui-art-direction.md:84](design/ui-art-direction.md), [autonomous-characters.md:133](design/autonomous-characters.md) | Untracked | No `agreement`, `proposal`, or `contract` object. Messages are text plus tags. The design reserves a separate authorized command workflow for language-model-proposed actions; that workflow does not exist. |
 | Currency politics | [world-simulation.md:47](design/world-simulation.md) | Tracked deferred | Stated inline as absent from the first design. |
 
+### Absent from the design as well as the code
+
+These are not deferrals. Nothing in the design record describes them, which is why no earlier reading of it would have surfaced them, and they were only found by playing.
+
+| System | Evidence | Note |
+| --- | --- | --- |
+| A player-facing trade and economy loop | [game-vision.md:11](design/game-vision.md) mentions only that "goods move physically"; no design document defines buying, selling, cargo capacity, or margins | The only player verbs touching goods are `buy-provisions` and `trade-local`. Arms, medicine and ship materials exist on every market board and can never be bought, so the widest spreads in the world are unreachable. Found by the [own-party playtest](../playtests/own-party-001.md), which set out to run a trade voyage and could not: every route it could price sat at or below break-even, while a single `work` tick out-earned the entire expedition |
+| A player-facing way to open or use a conversation | [autonomous-characters.md](design/autonomous-characters.md) describes persistent negotiation in depth | The engine, the routes and the delayed deterministic replies all exist, and the design treats negotiation as a pillar. They are absent from `capabilities`, which documents neither `/api/threads` nor `/api/messages`, so the own-party session concluded the surface did not exist. This one is a contract gap rather than a missing system, and is listed in [progress.md](../progress.md) open items |
+
 ## Relationship to the open-items table
 
 [progress.md](../progress.md) tracks defects and gaps that a session has **raised**, with an owner and a status. This document is different: it tracks systems the design **promises**, whether or not anyone has looked for them yet. An item can appear in both, and the estimation channel currently does.

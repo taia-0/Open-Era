@@ -31,6 +31,7 @@ Every playtest below is evidence for a capability the project claims. Several ar
 | [Hidden state visibility 002](../playtests/hidden-state-visibility-002.md) | The same objective with the leak closed, confirming no foreign state is reachable |
 | [Paged history 001](../playtests/paged-history-001.md) | Full-history auditability: 20,457 events with no gaps or duplicates, and 93.4% withheld with no payload leaked |
 | [Informed commitment 001](../playtests/informed-commitment-001.md) | Deciding before travel from earned knowledge, and four failed attempts to invert the forecast into ground truth |
+| [Own party 001](../playtests/own-party-001.md) | A party's own provisioning trajectory is legible before it bites, and the push warning precedes the shortage; also the first evidence that trade cannot be pursued |
 
 ## Decision status
 
