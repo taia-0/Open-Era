@@ -83,6 +83,28 @@ export interface DebtObligation {
   reason: "prisoner-release";
 }
 
+export type CaptivityNegotiationStatus = "unreceptive" | "listening" | "considering" | "open";
+
+export interface CaptivityReleaseOffer {
+  id: string;
+  createdTick: number;
+  demandedValue: number;
+  systemMaximum: number;
+  countered: boolean;
+}
+
+export interface CaptivityNegotiationState {
+  /** The autonomous local authority who decides whether terms are offered. */
+  negotiatorId: string | null;
+  /** Hidden simulation state. Player projections expose only `status`. */
+  persuasion: number;
+  status: CaptivityNegotiationStatus;
+  attempts: number;
+  lastAttemptTick: number | null;
+  openedTick: number | null;
+  offer: CaptivityReleaseOffer | null;
+}
+
 export interface CaptivityState {
   captorFactionId: string | null;
   settlementId: string;
@@ -92,6 +114,7 @@ export interface CaptivityState {
   displayedRisk: CombatRisk;
   scatteredTroops: TroopGroup;
   releaseDestinationId: string | null;
+  negotiation: CaptivityNegotiationState;
 }
 
 export interface TroopRecoveryState {
@@ -282,6 +305,7 @@ export type MessageTag =
   | "urgent"
   | "trade"
   | "political"
+  | "negotiation"
   | "threat"
   | "request"
   | "supportive"
@@ -406,6 +430,15 @@ export type PlayerCommand =
       playerId: string;
       issuedTick: number;
       type: "escape-captivity";
+    }
+  | {
+      id: string;
+      playerId: string;
+      issuedTick: number;
+      type: "respond-captivity-offer";
+      offerId: string;
+      response: "accept" | "counter" | "reject";
+      counterValue?: number;
     };
 
 export interface Character {

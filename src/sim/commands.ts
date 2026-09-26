@@ -60,6 +60,13 @@ export type CommandRequest =
   | {
       playerId: string;
       type: "escape-captivity";
+    }
+  | {
+      playerId: string;
+      type: "respond-captivity-offer";
+      offerId: string;
+      response: "accept" | "counter" | "reject";
+      counterValue?: number;
     };
 
 export type CommandSubmission =
@@ -159,6 +166,7 @@ export const COMMAND_TYPES: readonly string[] = [
   "cancel-order",
   "retreat-battle",
   "escape-captivity",
+  "respond-captivity-offer",
 ];
 
 /**
@@ -196,6 +204,9 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
         expiresInTicks: `optional for issue-order; ${COMMAND_LIMITS.orderDurationTicks.min}..${COMMAND_LIMITS.orderDurationTicks.max}, omitted means the order runs until it is finished`,
         orderId: "required for confirm-order, amend-order and cancel-order",
         battleId: "required for retreat-battle",
+        offerId: "required for respond-captivity-offer; the current captivity offer id",
+        response: "required for respond-captivity-offer; accept, counter, or reject",
+        counterValue: "required only when countering; a non-negative amount no greater than the current demand",
         resource: `required for buy-resource and sell-resource; one of ${RESOURCE_KEYS.join(", ")}`,
         quantity: `required for buy-resource and sell-resource; a whole number ${COMMAND_LIMITS.tradeQuantity.min}..${COMMAND_LIMITS.tradeQuantity.max}`,
       },
@@ -265,6 +276,15 @@ export function commandCapabilities(transport?: CommandTransport): Record<string
     orderPreconditions: ORDER_PRECONDITIONS,
     directives: DIRECTIVE_CAPABILITIES,
     commandTypes: COMMAND_TYPES,
+    captivityNegotiation: {
+      progression: "Only direct messages to the assigned autonomous local authority can change its qualitative stance; message text never executes gameplay actions directly",
+      responses: {
+        accept: "accept the current money demand; any unpaid balance becomes debt",
+        counter: "propose one non-negative amount no greater than the demand; the authority decides from personality, relationship, circumstances, and accumulated persuasion",
+        reject: "close the current offer and return the authority to considering; messaging may continue",
+      },
+      fallback: "dangerous escape remains available, and bounded release terms become mandatory at the deadline",
+    },
     ...(transport ? { requests: requestContract(transport) } : {}),
   };
 }
@@ -288,6 +308,8 @@ function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
       ? world.activeBattles[command.battleId]?.settlementId
       : command.type === "escape-captivity"
         ? world.characters[player.characterId]?.captivity?.settlementId
+      : command.type === "respond-captivity-offer"
+        ? world.characters[player.characterId]?.captivity?.negotiation.negotiatorId ?? undefined
       : command.characterId;
   const event: SimEvent = {
     sequence: world.nextEventSequence,
@@ -464,6 +486,45 @@ function validateCaptivityEscape(
     playerId: player.id,
     issuedTick: world.tick,
     type: "escape-captivity",
+  };
+  return { ok: true, command, event: acceptedEvent(world, command) };
+}
+
+function validateCaptivityOfferResponse(
+  world: WorldState,
+  request: Extract<CommandRequest, { type: "respond-captivity-offer" }>,
+): CommandSubmission {
+  const player = world.players[request.playerId];
+  const character = world.characters[player.characterId];
+  const negotiation = character.captivity?.negotiation;
+  const offer = negotiation?.offer;
+  if (!character.captivity) return reject("not-captive", "The character is not being held captive");
+  if (negotiation?.status !== "open" || !offer) {
+    return reject("negotiations-not-open", "The captor has not opened release terms");
+  }
+  if (request.offerId !== offer.id) return reject("stale-offer", "That release offer is no longer current");
+  if (!new Set(["accept", "counter", "reject"]).has(request.response)) {
+    return reject("invalid-response", "A release offer may be accepted, countered, or rejected");
+  }
+  if (request.response === "counter") {
+    if (offer.countered) return reject("counter-already-used", "This offer has already received its one counterproposal");
+    if (!Number.isFinite(request.counterValue) || request.counterValue! < 0 || request.counterValue! > offer.demandedValue) {
+      return reject("invalid-counter", `A counter must be between 0 and the current demand of ${offer.demandedValue}`);
+    }
+  } else if (request.counterValue !== undefined) {
+    return reject("unexpected-counter", "counterValue is accepted only with a counter response");
+  }
+  if (world.pendingCommands.some((command) => command.playerId === player.id)) {
+    return reject("command-already-queued", "Another player command is already queued");
+  }
+  const command: PlayerCommand = {
+    id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
+    playerId: player.id,
+    issuedTick: world.tick,
+    type: "respond-captivity-offer",
+    offerId: offer.id,
+    response: request.response,
+    ...(request.response === "counter" ? { counterValue: round(request.counterValue!, 2) } : {}),
   };
   return { ok: true, command, event: acceptedEvent(world, command) };
 }
@@ -671,10 +732,15 @@ export function submitCommand(world: WorldState, request: CommandRequest): Comma
   const player = world.players[request.playerId];
   if (!player) return reject("unknown-player", "The player session is unknown");
   const character = world.characters[player.characterId];
-  if (character.captivity && request.type !== "escape-captivity") {
-    return reject("character-captive", "Only an escape attempt is available while the character is captive");
+  if (
+    character.captivity &&
+    request.type !== "escape-captivity" &&
+    request.type !== "respond-captivity-offer"
+  ) {
+    return reject("character-captive", "Only an escape attempt or response to open release terms is available while the character is captive");
   }
   if (request.type === "escape-captivity") return validateCaptivityEscape(world, request);
+  if (request.type === "respond-captivity-offer") return validateCaptivityOfferResponse(world, request);
   const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === player.characterId);
   if (activeBattle && request.type !== "retreat-battle") {
     return reject("battle-in-progress", "Only a retreat decision is available while the character is in battle");

@@ -160,9 +160,14 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
             event.actorId === playerCharacterId &&
             (event.type === "battle-phase-resolved" || event.type === "battle-retreated" || event.type === "battle-resolved")
           );
-          attentionUpdated = result.events.some((event) =>
-            event.actorId === playerCharacterId &&
-            (event.type === "character-captured" || event.type === "captivity-escaped" || event.type === "captivity-released")
+          attentionUpdated = tickEvents.some((event) =>
+            (event.actorId === playerCharacterId || event.targetId === playerCharacterId) &&
+            (
+              event.type === "character-captured" ||
+              event.type === "captivity-escaped" ||
+              event.type === "captivity-released" ||
+              event.type === "captivity-negotiations-opened"
+            )
           );
           if (combatUpdated || attentionUpdated) break;
         }

@@ -12,7 +12,7 @@ import {
 } from "../sim/engine.ts";
 import { marketPrice, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { RESOURCE_KEYS, type ActiveBattle, type Character, type SettlementKnowledge, type SimEvent, type WorldState } from "../sim/types.ts";
-import { projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
+import { projectCaptivity, projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
 
 /**
  * Whether a battle at this settlement is one the commander could actually know
@@ -82,6 +82,14 @@ function eventSummary(world: WorldState, event: SimEvent): string {
       const terms = event.data.terms as { moneyPaid: number; debtValue: number };
       return `${actor} was released from ${settlement}: ${terms.moneyPaid} paid and ${terms.debtValue} recorded as debt`;
     }
+    case "captivity-persuasion-updated":
+      return `${actor} reconsidered whether to discuss release with ${target}`;
+    case "captivity-negotiations-opened":
+      return `${actor} opened release negotiations with ${target}`;
+    case "captivity-counter-rejected":
+      return `${target} rejected ${actor}'s counterproposal`;
+    case "captivity-offer-rejected":
+      return `${actor} rejected the current release offer`;
     case "scattered-troops-returned":
       return `${event.data.returning} scattered troops returned to ${actor}`;
     case "settlement-claimed":
@@ -253,12 +261,19 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
       0,
       (commander.captivity.mandatoryReleaseTick - world.tick) / world.ticksPerDay,
     );
+    const negotiation = commander.captivity.negotiation;
+    const negotiatorName = negotiation.negotiatorId
+      ? world.characters[negotiation.negotiatorId]?.name ?? negotiation.negotiatorId
+      : "the local authority";
+    const negotiationSummary = negotiation.offer
+      ? `${negotiatorName} has opened terms demanding ${negotiation.offer.demandedValue} money. Accept, counter once, reject, or attempt escape.`
+      : `${negotiatorName} is ${negotiation.status}. Persuade them through direct messages, attempt escape, or wait for bounded mandatory terms.`;
     addItem({
       id: `captivity:${commander.captivity.capturedTick}`,
       severity: "action",
       actionRequired: true,
       title: "Character held captive",
-      summary: `Held at ${world.settlements[commander.captivity.settlementId]?.name ?? commander.captivity.settlementId}. Escape is guaranteed but dangerous; bounded release terms become mandatory in ${round(daysRemaining, 1)} days.`,
+      summary: `Held at ${world.settlements[commander.captivity.settlementId]?.name ?? commander.captivity.settlementId}. ${negotiationSummary} Mandatory release becomes due in ${round(daysRemaining, 1)} days.`,
       day: round(world.tick / world.ticksPerDay, 2),
       settlementId: commander.captivity.settlementId,
       action: "review-captivity",
@@ -404,6 +419,9 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     "character-captured",
     "captivity-escaped",
     "captivity-released",
+    "captivity-negotiations-opened",
+    "captivity-counter-rejected",
+    "captivity-offer-rejected",
     "scattered-troops-returned",
     "settlement-shortage",
     "settlement-claimed",
@@ -745,11 +763,14 @@ export function dashboardState(
     },
     captivity: {
       active: captivity ? {
-        ...captivity,
+        ...projectCaptivity(captivity),
         settlementName: world.settlements[captivity.settlementId]?.name ?? captivity.settlementId,
         captorName: captivity.captorFactionId
           ? world.factions[captivity.captorFactionId]?.name ?? captivity.captorFactionId
           : "Unknown captor",
+        negotiatorName: captivity.negotiation.negotiatorId
+          ? world.characters[captivity.negotiation.negotiatorId]?.name ?? captivity.negotiation.negotiatorId
+          : "No local authority identified",
         heldDays: round((world.tick - captivity.capturedTick) / world.ticksPerDay, 2),
         daysUntilMandatoryRelease: round(Math.max(0, captivity.mandatoryReleaseTick - world.tick) / world.ticksPerDay, 2),
         canEscape: true,

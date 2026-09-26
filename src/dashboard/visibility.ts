@@ -1,6 +1,6 @@
 import { assessStandingOrder } from "../sim/agency.ts";
 import { factionPower, partyPower, round } from "../sim/state.ts";
-import type { Character, SimEvent, StandingOrder, WorldState } from "../sim/types.ts";
+import type { CaptivityState, Character, SimEvent, StandingOrder, WorldState } from "../sim/types.ts";
 
 /**
  * Decides what a player may legitimately know about the rest of the world.
@@ -41,6 +41,38 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+/**
+ * Captivity is the commander's own condition, but the captor's exact patience
+ * and acceptance threshold are still another character's private reasoning.
+ */
+export function projectCaptivity(
+  captivity: CaptivityState | null,
+  negotiationVisible = true,
+): Record<string, unknown> | null {
+  if (!captivity) return null;
+  return {
+    captorFactionId: captivity.captorFactionId,
+    settlementId: captivity.settlementId,
+    capturedTick: captivity.capturedTick,
+    mandatoryReleaseTick: captivity.mandatoryReleaseTick,
+    cause: captivity.cause,
+    displayedRisk: captivity.displayedRisk,
+    scatteredTroops: captivity.scatteredTroops,
+    releaseDestinationId: captivity.releaseDestinationId,
+    negotiation: negotiationVisible ? {
+      negotiatorId: captivity.negotiation.negotiatorId,
+      status: captivity.negotiation.status,
+      openedTick: captivity.negotiation.openedTick,
+      offer: captivity.negotiation.offer ? {
+        id: captivity.negotiation.offer.id,
+        createdTick: captivity.negotiation.offer.createdTick,
+        demandedValue: captivity.negotiation.offer.demandedValue,
+        countered: captivity.negotiation.offer.countered,
+      } : null,
+    } : null,
+  };
 }
 
 /**
@@ -184,7 +216,7 @@ export function projectCharacter(
     morale: condition ? round(character.morale, 1) : null,
     sailors: condition ? character.sailors : null,
     troops: condition ? character.troops : null,
-    captivity: condition ? character.captivity : null,
+    captivity: condition ? projectCaptivity(character.captivity, isSelf) : null,
     troopRecovery: condition ? character.troopRecovery : null,
     scars: condition ? character.scars : null,
     debts: isSelf ? character.debts : null,

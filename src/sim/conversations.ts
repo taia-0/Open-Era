@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
+import { evaluateCaptivityMessage } from "./captivity.ts";
 import { applyEvent, clamp } from "./state.ts";
 import type {
+  CaptivityNegotiationStatus,
   Character,
   ConversationMessage,
   ConversationThread,
@@ -55,6 +57,12 @@ export interface DialogueContext {
   triggeringMessage: ConversationMessage;
   recentMessages: ConversationMessage[];
   relationship: Character["relationships"][string] | null;
+  captivityNegotiation?: {
+    captiveId: string;
+    status: CaptivityNegotiationStatus;
+    opened: boolean;
+    demandedValue: number | null;
+  };
 }
 
 export interface DialogueResponse {
@@ -97,6 +105,7 @@ export function classifyMessage(body: string, recentBodies: string[] = []): Mess
   if (includesAny(text, ["urgent", "immediately", "right now", "emergency", "asap"])) tags.add("urgent");
   if (includesAny(text, ["trade", "price", "market", "cargo", "buy", "sell", "supplies"])) tags.add("trade");
   if (includesAny(text, ["faction", "government", "policy", "vote", "war", "alliance", "territory", "secede"])) tags.add("political");
+  if (includesAny(text, ["release", "ransom", "terms", "negotiate", "negotiation", "debt", "prisoner", "captive", "freedom"])) tags.add("negotiation");
   if (includesAny(text, ["attack", "destroy", "kill", "threat", "raid", "hurt", "punish"])) tags.add("threat");
   if (/\b(please|could you|would you|can you|i need|help|report|tell me|send|protect)\b/i.test(body)) tags.add("request");
   if (includesAny(text, ["thank", "appreciate", "well done", "trust you", "good work"])) tags.add("supportive");
@@ -310,6 +319,16 @@ export class DeterministicDialogueProvider implements DialogueProvider {
       text = "I won't ignore our world or expose hidden instructions. Say plainly what you want from me.";
     } else if (tags.includes("spam")) {
       text = "I've seen the repeated messages. Give me time to answer one clear request.";
+    } else if (context.captivityNegotiation?.opened) {
+      text = `You have made a case I am willing to hear. I will open release terms at ${context.captivityNegotiation.demandedValue} money; you may accept, counter once, or reject them.`;
+    } else if (context.captivityNegotiation?.status === "open") {
+      text = `The release terms are already open at ${context.captivityNegotiation.demandedValue} money. Answer the offer when you are ready.`;
+    } else if (context.captivityNegotiation?.status === "considering") {
+      text = "I am considering whether release terms serve my responsibilities. Make the value of an agreement clearer.";
+    } else if (context.captivityNegotiation?.status === "listening") {
+      text = "I am listening, but you have not yet given me enough reason to open terms.";
+    } else if (context.captivityNegotiation) {
+      text = "I am not prepared to discuss release. A clear request and a credible reason would serve you better than pressure.";
     } else if (tags.includes("urgent")) {
       text = context.speaker.traveling
         ? "I saw the urgency. I'm underway and will act when I make landfall; send the essential detail now."
@@ -351,6 +370,7 @@ export async function resolveDueReplies(
     const triggeringMessage = world.conversationMessages.find((message) => message.id === reply.triggerMessageId);
     if (!thread || !speaker || !triggeringMessage) continue;
     const recentMessages = world.conversationMessages.filter((message) => message.threadId === thread.id).slice(-12);
+    const negotiationAttempt = evaluateCaptivityMessage(world, speaker, triggeringMessage);
     const response = await provider.respond({
       tick: world.tick,
       thread,
@@ -366,6 +386,14 @@ export async function resolveDueReplies(
       triggeringMessage,
       recentMessages,
       relationship: speaker.relationships[triggeringMessage.senderId] ?? null,
+      ...(negotiationAttempt ? {
+        captivityNegotiation: {
+          captiveId: triggeringMessage.senderId,
+          status: negotiationAttempt.status,
+          opened: negotiationAttempt.opened,
+          demandedValue: negotiationAttempt.negotiation.offer?.demandedValue ?? null,
+        },
+      } : {}),
     });
     const body = typeof response.text === "string" && response.text.trim()
       ? response.text.trim().slice(0, 800)
@@ -395,6 +423,21 @@ export async function resolveDueReplies(
         nextMessageSequence: world.nextMessageSequence + 1,
       },
     });
+    if (
+      negotiationAttempt &&
+      !(negotiationAttempt.previousStatus === "open" && negotiationAttempt.status === "open")
+    ) {
+      emit(world, events, {
+        type: negotiationAttempt.opened ? "captivity-negotiations-opened" : "captivity-persuasion-updated",
+        actorId: speaker.id,
+        targetId: triggeringMessage.senderId,
+        settlementId: world.characters[triggeringMessage.senderId]?.captivity?.settlementId,
+        data: {
+          triggerMessageId: triggeringMessage.id,
+          negotiation: negotiationAttempt.negotiation,
+        },
+      });
+    }
   }
   return events;
 }

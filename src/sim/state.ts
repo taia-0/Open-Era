@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { normalizeCaptivityNegotiation, selectCaptivityNegotiator } from "./captivity.ts";
 import type {
+  CaptivityNegotiationState,
   Character,
   ResourceKey,
   Resources,
@@ -34,6 +36,15 @@ export function normalizeWorldState(world: WorldState): WorldState {
   for (const character of Object.values(world.characters)) {
     character.standingOrders = character.standingOrders.map(normalizeStandingOrder);
     character.captivity ??= null;
+    if (character.captivity) {
+      normalizeCaptivityNegotiation(character.captivity);
+      character.captivity.negotiation.negotiatorId ??= selectCaptivityNegotiator(
+        world,
+        character.id,
+        character.captivity.settlementId,
+        character.captivity.captorFactionId,
+      );
+    }
     character.troopRecovery ??= null;
     character.scars ??= [];
     character.debts ??= [];
@@ -42,6 +53,11 @@ export function normalizeWorldState(world: WorldState): WorldState {
     player.briefingAcknowledgements ??= {};
     player.routineBriefingThroughSequence ??= 0;
     player.reportingOfficerId ??= null;
+    const negotiatorId = world.characters[player.characterId]?.captivity?.negotiation.negotiatorId;
+    if (negotiatorId && !player.knownCharacterIds.includes(negotiatorId)) {
+      player.knownCharacterIds.push(negotiatorId);
+      player.knownCharacterIds.sort();
+    }
   }
   return world;
 }
@@ -188,6 +204,25 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
           profiledPlayer.conversationTagScores[tag] = (profiledPlayer.conversationTagScores[tag] ?? 0) + 1;
         }
       }
+      break;
+    }
+    case "captivity-persuasion-updated":
+    case "captivity-negotiations-opened": {
+      const captive = event.targetId ? world.characters[event.targetId] : undefined;
+      if (!captive?.captivity) throw new Error("Captivity negotiation event has no captive");
+      captive.captivity.negotiation = event.data.negotiation as CaptivityNegotiationState;
+      break;
+    }
+    case "captivity-counter-rejected": {
+      if (!actor?.captivity?.negotiation.offer) throw new Error("Rejected counter has no active offer");
+      actor.captivity.negotiation.offer.countered = true;
+      break;
+    }
+    case "captivity-offer-rejected": {
+      if (!actor?.captivity) throw new Error("Rejected captivity offer has no captive");
+      actor.captivity.negotiation.status = "considering";
+      actor.captivity.negotiation.offer = null;
+      actor.captivity.negotiation.openedTick = null;
       break;
     }
     case "briefing-item-acknowledged": {
@@ -437,6 +472,13 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       actor.locationId = settlement.id;
       actor.travel = null;
       actor.lastBattleTick = world.tick;
+      if (actor.captivity?.negotiation.negotiatorId) {
+        const player = Object.values(world.players).find((candidate) => candidate.characterId === actor.id);
+        if (player && !player.knownCharacterIds.includes(actor.captivity.negotiation.negotiatorId)) {
+          player.knownCharacterIds.push(actor.captivity.negotiation.negotiatorId);
+          player.knownCharacterIds.sort();
+        }
+      }
       delete world.activeBattles[event.data.battleId as string];
       break;
     case "captivity-escaped":

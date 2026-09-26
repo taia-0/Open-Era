@@ -4,9 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
+import { projectCharacter } from "../src/dashboard/visibility.ts";
 import { captureChanceForRisk } from "../src/sim/combat.ts";
 import { submitCommand } from "../src/sim/commands.ts";
-import { createConversationThread, sendConversationMessage } from "../src/sim/conversations.ts";
+import {
+  createConversationThread,
+  DeterministicDialogueProvider,
+  resolveDueReplies,
+  sendConversationMessage,
+} from "../src/sim/conversations.ts";
 import { runTick } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
@@ -70,7 +76,7 @@ test("a failed dangerous withdrawal captures the character and scatters survivin
   }), {
     ok: false,
     code: "character-captive",
-    error: "Only an escape attempt is available while the character is captive",
+    error: "Only an escape attempt or response to open release terms is available while the character is captive",
   });
 
   const thread = createConversationThread(world, {
@@ -84,6 +90,148 @@ test("a failed dangerous withdrawal captures the character and scatters survivin
     threadId: thread.value.id,
     body: "I have been captured. Please arrange help or terms.",
   }).ok, true);
+});
+
+async function persuadeCaptor(world: WorldState): Promise<string> {
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  const negotiatorId = commander.captivity?.negotiation.negotiatorId;
+  assert.ok(negotiatorId);
+  const created = createConversationThread(world, {
+    playerId: "prototype-player",
+    kind: "direct",
+    participantIds: [negotiatorId],
+  });
+  assert.equal(created.ok, true);
+  const bodies = [
+    "Please open release negotiations. I can pay a ransom and honor the debt.",
+    "I appreciate your duty. Could we discuss fair terms for my release?",
+    "Please negotiate my freedom. A peaceful agreement benefits both factions.",
+    "I am asking for clear release terms and will honor a lawful debt.",
+  ];
+  for (const body of bodies) {
+    const sent = sendConversationMessage(world, {
+      playerId: "prototype-player",
+      threadId: created.value.id,
+      body,
+    });
+    assert.equal(sent.ok, true);
+    const dueTick = sent.value.replies[0].dueTick;
+    while (world.tick < dueTick) runTick(world);
+    await resolveDueReplies(world, new DeterministicDialogueProvider());
+    if (commander.captivity?.negotiation.offer) return created.value.id;
+  }
+  assert.fail("the local authority should open negotiations after several credible messages");
+}
+
+test("capture assigns a local authority whose qualitative stance changes through messages", async () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  const negotiatorId = commander.captivity?.negotiation.negotiatorId;
+  assert.ok(negotiatorId);
+  assert.equal(world.characters[negotiatorId].factionId, commander.captivity?.captorFactionId);
+  const availableLocals = Object.values(world.characters).filter((character) =>
+    character.controller.kind === "autonomous" &&
+    character.factionId === commander.captivity?.captorFactionId &&
+    character.locationId === commander.captivity?.settlementId
+  );
+  if (availableLocals.length > 0) {
+    assert.equal(world.characters[negotiatorId].locationId, commander.captivity?.settlementId);
+  }
+  assert.ok(world.players["prototype-player"].knownCharacterIds.includes(negotiatorId));
+
+  const bystanderId = world.players["prototype-player"].knownCharacterIds.find((id) =>
+    id !== commander.id && id !== negotiatorId && world.characters[id]?.controller.kind === "autonomous"
+  );
+  assert.ok(bystanderId);
+  const bystanderThread = createConversationThread(world, {
+    playerId: "prototype-player",
+    kind: "direct",
+    participantIds: [bystanderId],
+  });
+  assert.equal(bystanderThread.ok, true);
+  const misplacedRequest = sendConversationMessage(world, {
+    playerId: "prototype-player",
+    threadId: bystanderThread.value.id,
+    body: "Please arrange my release and negotiate ransom terms.",
+  });
+  assert.equal(misplacedRequest.ok, true);
+  while (world.tick < misplacedRequest.value.replies[0].dueTick) runTick(world);
+  await resolveDueReplies(world, new DeterministicDialogueProvider());
+  assert.equal(commander.captivity?.negotiation.persuasion, 0);
+
+  await persuadeCaptor(world);
+  const negotiation = commander.captivity?.negotiation;
+  assert.equal(negotiation?.status, "open");
+  assert.ok(negotiation?.offer);
+  assert.ok(negotiation.offer.demandedValue <= negotiation.offer.systemMaximum);
+
+  const view = dashboardState(world, [], fullEventFeed([])) as {
+    captivity: {
+      active: {
+        negotiation: Record<string, unknown> & { offer: Record<string, unknown> };
+      };
+    };
+  };
+  assert.equal(view.captivity.active.negotiation.status, "open");
+  assert.equal("persuasion" in view.captivity.active.negotiation, false);
+  assert.equal("attempts" in view.captivity.active.negotiation, false);
+  assert.equal("systemMaximum" in view.captivity.active.negotiation.offer, false);
+
+  const observer = world.characters[negotiatorId];
+  observer.locationId = commander.locationId;
+  observer.travel = null;
+  const foreignProjection = projectCharacter(world, observer, commander) as {
+    captivity: { negotiation: unknown };
+  };
+  assert.equal(foreignProjection.captivity.negotiation, null);
+});
+
+test("one structured counter is validated and an acceptable counter releases the captive", async () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  await persuadeCaptor(world);
+  const offer = commander.captivity!.negotiation.offer!;
+  const submitted = submitCommand(world, {
+    playerId: "prototype-player",
+    type: "respond-captivity-offer",
+    offerId: offer.id,
+    response: "counter",
+    counterValue: offer.demandedValue,
+  });
+  assert.equal(submitted.ok, true);
+  const result = runTick(world);
+  const release = result.events.find((event) => event.type === "captivity-released");
+  assert.ok(release);
+  assert.equal(release.data.reason, "negotiated-counter");
+  assert.equal(commander.captivity, null);
+});
+
+test("a rejected low counter cannot be repeated against the same offer", async () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  await persuadeCaptor(world);
+  const offer = commander.captivity!.negotiation.offer!;
+  assert.equal(submitCommand(world, {
+    playerId: "prototype-player",
+    type: "respond-captivity-offer",
+    offerId: offer.id,
+    response: "counter",
+    counterValue: 0,
+  }).ok, true);
+  const result = runTick(world);
+  assert.ok(result.events.some((event) => event.type === "captivity-counter-rejected"));
+  assert.equal(commander.captivity?.negotiation.offer?.countered, true);
+  assert.deepEqual(submitCommand(world, {
+    playerId: "prototype-player",
+    type: "respond-captivity-offer",
+    offerId: offer.id,
+    response: "counter",
+    counterValue: 1,
+  }), {
+    ok: false,
+    code: "counter-already-used",
+    error: "This offer has already received its one counterproposal",
+  });
 });
 
 test("guaranteed escape wounds the character, may scar them, and starts gradual troop recovery", () => {

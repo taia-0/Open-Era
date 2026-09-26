@@ -433,6 +433,7 @@
         });
         toast(result.command ? "Command queued" : result.thread ? "Conversation created" : result.message ? "Message sent" : result.itemId ? "Briefing item acknowledged" : Object.hasOwn(result, "characterId") ? "Reporting route updated" : "World advanced", false);
         await refresh();
+        return result;
       } catch (error) {
         toast(error.message, true);
       } finally {
@@ -475,6 +476,41 @@
         playerId: world.player.id,
         type: "escape-captivity"
       });
+    }
+    function respondCaptivity(response) {
+      var captivity = world.captivity && world.captivity.active;
+      var offer = captivity && captivity.negotiation && captivity.negotiation.offer;
+      if (!offer) return toast("No release offer is open", true);
+      var counter = byId("captivity-counter");
+      mutate("/api/commands", {
+        playerId: world.player.id,
+        type: "respond-captivity-offer",
+        offerId: offer.id,
+        response: response,
+        counterValue: response === "counter" && counter ? Number(counter.value) : undefined
+      });
+    }
+    async function messageNegotiator(characterId) {
+      var existing = (world.conversations.threads || []).find(function (thread) {
+        return thread.kind === "direct" && thread.participantIds.includes(characterId);
+      });
+      if (existing) {
+        selectedThreadId = existing.id;
+        renderChat();
+        return;
+      }
+      await mutate("/api/threads", {
+        playerId: world.player.id,
+        kind: "direct",
+        participantIds: [characterId]
+      });
+      var created = (world.conversations.threads || []).find(function (thread) {
+        return thread.kind === "direct" && thread.participantIds.includes(characterId);
+      });
+      if (created) {
+        selectedThreadId = created.id;
+        renderChat();
+      }
     }
     function issueOrder() {
       var recipient = byId("order-recipient").value;
@@ -824,10 +860,18 @@
       var c = commander();
       var captivity = world.captivity && world.captivity.active;
       if (captivity) {
+        var negotiation = captivity.negotiation || { status: "unreceptive", offer: null };
+        var offer = negotiation.offer;
+        var terms = offer
+          ? '<div class="stat"><strong>Release demand: ' + fmt(offer.demandedValue) + ' money</strong><div class="subtle">Any unpaid amount becomes a formal debt. The captor permits one counterproposal.</div></div>' +
+            '<div class="actions"><button class="primary" type="button" data-captivity-response="accept">Accept terms</button>' +
+            (offer.countered ? '' : '<input id="captivity-counter" type="number" min="0" max="' + esc(offer.demandedValue) + '" step="1" value="' + esc(Math.round(offer.demandedValue * .75)) + '"><button class="action" type="button" data-captivity-response="counter">Counter</button>') +
+            '<button class="action danger" type="button" data-captivity-response="reject">Reject offer</button></div>'
+          : '<div class="combat-factor">Negotiation stance: <strong>' + esc(negotiation.status) + '</strong>. Persuade the local authority through direct messages; their exact patience and threshold remain private.</div>';
         return '<h3>Captivity</h3><div class="combat-card battle-live"><div class="combat-head"><strong>' + esc(captivity.settlementName) + '</strong><span>' + esc(captivity.captorName) + '</span></div>' +
           '<div class="subtle">Held ' + fmt(captivity.heldDays) + ' days · mandatory bounded release terms in ' + fmt(captivity.daysUntilMandatoryRelease) + ' days · ' + captivity.scatteredTroops.count + ' surviving troops scattered</div>' +
-          '<div class="combat-factor">Escape always succeeds, but causes a serious wound and carries a small risk of a permanent physical scar. Messaging remains available while captive.</div>' +
-          '<div class="actions"><button class="action danger" type="button" data-escape-captivity="true">Escape captivity</button></div></div>';
+          '<div class="combat-factor">Local authority: <strong>' + esc(captivity.negotiatorName) + '</strong>. Escape always succeeds, but causes a serious wound and carries a small risk of a permanent physical scar.</div>' + terms +
+          '<div class="actions">' + (negotiation.negotiatorId ? '<button class="action" type="button" data-message-negotiator="' + esc(negotiation.negotiatorId) + '">Message authority</button>' : '') + '<button class="action danger" type="button" data-escape-captivity="true">Escape captivity</button></div></div>';
       }
       var battle = world.combat && world.combat.commandedBattle;
       if (battle) {
@@ -879,6 +923,12 @@
       });
       byId("inspector").querySelectorAll("[data-escape-captivity]").forEach(function (button) {
         button.addEventListener("click", escapeCaptivity);
+      });
+      byId("inspector").querySelectorAll("[data-captivity-response]").forEach(function (button) {
+        button.addEventListener("click", function () { respondCaptivity(button.dataset.captivityResponse); });
+      });
+      byId("inspector").querySelectorAll("[data-message-negotiator]").forEach(function (button) {
+        button.addEventListener("click", function () { messageNegotiator(button.dataset.messageNegotiator); });
       });
       byId("inspector").querySelectorAll("[data-continue-battle]").forEach(function (button) {
         button.addEventListener("click", function () { mutate("/api/advance", { ticks: 1 }); });
