@@ -327,6 +327,8 @@ export type PlayerAction =
   | "travel"
   | "buy-provisions"
   | "trade-local"
+  | "buy-resource"
+  | "sell-resource"
   | "work"
   | "recruit"
   | "raid"
@@ -342,6 +344,9 @@ export type PlayerCommand =
       type: "character-action";
       action: PlayerAction;
       targetId?: string;
+      /** Set by the two trading verbs: what to trade, and how much of it. */
+      resource?: ResourceKey;
+      quantity?: number;
     }
   | {
       id: string;
@@ -461,6 +466,8 @@ export interface DecisionCandidate {
   reason: string;
   targetId?: string;
   resource?: ResourceKey;
+  /** Units a trading action should move. Set by the player, not the planner. */
+  quantity?: number;
 }
 
 export interface SimEvent {

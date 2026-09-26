@@ -111,20 +111,26 @@ test("an estimated market is labelled with its age and approximate values", () =
   }
 });
 
-test("standing on a foreign island shows its garrison exactly and its market as a report", () => {
+test("standing on a foreign island shows its garrison and its market as direct observation", () => {
   const state = projectedStateAt("cinder-key");
   const renderer = rendererFor(state);
   const settlement = (state.settlements as Array<Record<string, any>>).find((entry) => entry.id === "cinder-key")!;
   assert.equal(settlement.intelligence.exact, false, "an island the commander does not own is not an owned record");
+  assert.equal(settlement.intelligence.present, true, "standing on the island is direct observation");
 
   const html = renderer.settlementInspector(settlement);
+  assert.match(html, /Direct observation of this island/, "the commander must be told the figures are what they can see");
   const garrisonIndex = html.indexOf("<span>Garrison</span>");
   const garrison = html.slice(garrisonIndex, garrisonIndex + 120);
   // A garrison read off the ground is exact; marking it approximate would be the
   // same defect as marking an estimate exact, pointing the other way.
   assert.doesNotMatch(garrison, /~/, "a garrison read from the ground must not be marked approximate");
   assert.doesNotMatch(garrison, /unknown/, "standing on the island must reveal its garrison");
-  assert.match(stockSection(html), /estimated/, "the market is still a report while standing there");
+  // Stock and price are the same kind of perception: the figures on the board in
+  // front of the commander, not a decaying report about them.
+  const section = stockSection(html);
+  assert.doesNotMatch(section, /estimated/, "a market being stood in is not an estimate");
+  assert.doesNotMatch(section, /~/, "direct observation must not be marked approximate");
 });
 
 test("an owned market is never marked approximate", () => {  const state = projectedState();
@@ -144,15 +150,20 @@ test("a market with no report says so instead of drawing zero stocks as fact", (
   const state = projectedState();
   const renderer = rendererFor(state);
   const [template] = state.settlements as Array<Record<string, unknown>>;
+  // A settlement the commander neither owns nor stands in: no report, and so no
+  // trade board either. Trading needs a market they are physically at.
   const unreported = {
     ...template,
     id: "unreported",
     intelligence: null,
     garrison: null,
+    market: null,
     stocks: { provisions: 0, arms: 0, medicine: 0, shipMaterials: 0 },
     prices: { provisions: 0, arms: 0, medicine: 0, shipMaterials: 0 },
   };
-  const section = stockSection(renderer.settlementInspector(unreported));
+  const html = renderer.settlementInspector(unreported);
+  const section = stockSection(html);
   assert.match(section, /No current report on this market\./);
-  assert.doesNotMatch(section, /0\.0/, "an unreported market must not render as an exact zero stock");
+  assert.doesNotMatch(section, /resource-row/, "an unreported market must not render stocks as fact");
+  assert.doesNotMatch(html, /Trade here/, "a market the commander is not standing in must not offer a trade board");
 });

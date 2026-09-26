@@ -551,7 +551,7 @@ test("the published command capabilities match what the boundary accepts", async
 
     const state = await (await fetch(`${base}/api/state`)).json() as {
       capabilities: {
-        limits: { orderPriority: { min: number; max: number; default: number }; orderDurationTicks: { min: number; max: number }; advancedTicksPerRequest: { min: number; max: number } };
+        limits: { orderPriority: { min: number; max: number; default: number }; orderDurationTicks: { min: number; max: number }; advancedTicksPerRequest: { min: number; max: number }; tradeQuantity: { min: number; max: number } };
         actions: Array<{ action: string; target: string; requires: string[] }>;
         directives: Array<{ directive: string; target: string }>;
         actionPreconditions: string[];
@@ -560,10 +560,15 @@ test("the published command capabilities match what the boundary accepts", async
     };
 
     assert.deepEqual(state.capabilities.limits.orderPriority, { min: 0.1, max: 1, default: 0.78 });
+    assert.deepEqual(state.capabilities.limits.tradeQuantity, { min: 1, max: 200 });
     const actions = state.capabilities.actions.map((entry) => entry.action);
-    for (const action of ["travel", "buy-provisions", "trade-local", "work", "recruit", "raid", "claim-settlement", "rest"]) {
+    for (const action of ["travel", "buy-provisions", "buy-resource", "sell-resource", "work", "recruit", "raid", "claim-settlement", "rest"]) {
       assert.ok(actions.includes(action), `${action} must be documented`);
     }
+    // The verb that picked what to liquidate for the player is gone from the
+    // player's surface, so it must not be advertised. Autonomous characters
+    // still use it internally; this set is the player boundary only.
+    assert.ok(!actions.includes("trade-local"), "the silent liquidation verb must no longer be offered to a player");
     const directives = state.capabilities.directives.map((entry) => entry.directive);
     assert.deepEqual(directives.sort(), ["explore", "pressure", "protect", "trade-supplies"]);
     // The documented target kinds must match the validator, not a wish.

@@ -189,6 +189,139 @@ export interface ProvisionRunway {
   };
 }
 
+/** Hold capacity in units, shared across every resource. */
+export function cargoCapacity(character: Character): number {
+  return 40 + character.sailors * 2;
+}
+
+/** Units of every resource currently in the hold. */
+export function cargoLoad(character: Character): number {
+  return round(RESOURCE_KEYS.reduce((total, resource) => total + character.cargo[resource], 0), 3);
+}
+
+/**
+ * Provisions a trader may not sell: the crew's own reserve.
+ *
+ * Selling the reserve is how a profitable-looking voyage strands its crew, so
+ * the boundary refuses it rather than warning about it afterwards.
+ */
+export function sellableProvisions(character: Character): number {
+  const reserve = 20 + character.troops.count * 0.18;
+  return round(Math.max(0, character.cargo.provisions - reserve), 3);
+}
+
+/** Units of one resource the hold could still take, and units it could give up. */
+export function tradableUnits(character: Character, resource: ResourceKey): number {
+  return resource === "provisions" ? sellableProvisions(character) : round(character.cargo[resource], 3);
+}
+
+/**
+ * The money one trade moves, in whole cents.
+ *
+ * Money rounds to cents here and only here: a panel that multiplied an exact
+ * per-unit price would show a total the purse does not agree with, so the panel
+ * mirrors this same three-step cascade (see `tradeAmounts` in the dashboard
+ * page) and `tests/trade.test.ts` holds the two to each other.
+ */
+export function tradeAmounts(
+  quantity: number,
+  unitPrice: number,
+  taxRate: number,
+  direction: "buy" | "sell",
+): { gross: number; tax: number; net: number } {
+  const gross = round(quantity * unitPrice, 2);
+  const tax = direction === "sell" ? round(gross * taxRate, 2) : 0;
+  return { gross, tax, net: round(gross - tax, 2) };
+}
+
+export interface TradeQuote {
+  resource: ResourceKey;
+  direction: "buy" | "sell";
+  /** Units the player asked for. */
+  requested: number;
+  /** Units that can actually move, after stock, money, hold and reserve limits. */
+  quantity: number;
+  /** Units of the requested amount that cannot be filled, and why. */
+  shortfall: number;
+  limitedBy: "none" | "stock" | "money" | "hold" | "cargo" | "reserve";
+  /** Price per unit, before any tax. */
+  unitPrice: number;
+  /** quantity x unitPrice. */
+  gross: number;
+  /** Local faction tax on a sale; zero on a purchase, which is not earned money. */
+  tax: number;
+  /** Money that changes hands: paid on a buy, received after tax on a sell. */
+  net: number;
+  moneyAfter: number;
+  /** The largest quantity the same trade would accept. */
+  maxQuantity: number;
+}
+
+/**
+ * What one trade would actually do, before it is done.
+ *
+ * Pure and exported because the panel quotes this and the boundary charges it.
+ * The two trading verbs and the market preview all read this one function, so a
+ * quoted price cannot drift from the price charged — the failure mode the
+ * provisioning work already had to close once.
+ */
+export function tradeQuote(
+  world: WorldState,
+  character: Character,
+  resource: ResourceKey,
+  direction: "buy" | "sell",
+  requested: number,
+): TradeQuote {
+  const settlement = world.settlements[character.locationId!];
+  const unitPrice = marketPrice(world, settlement.id, resource);
+  const capacity = cargoCapacity(character);
+  const load = cargoLoad(character);
+
+  let maxQuantity: number;
+  if (direction === "buy") {
+    const byHold = Math.max(0, capacity - load);
+    const byMoney = unitPrice > 0 ? character.money / unitPrice : 0;
+    maxQuantity = Math.max(0, Math.min(settlement.stocks[resource], byHold, byMoney));
+  } else {
+    maxQuantity = tradableUnits(character, resource);
+  }
+  maxQuantity = round(maxQuantity, 3);
+
+  const quantity = round(Math.max(0, Math.min(requested, maxQuantity)), 3);
+  const taxRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
+  const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction);
+
+  // Named so a refusal can say which limit was reached rather than only that one
+  // was. A partial fill the player did not ask for is the defect this replaces.
+  let limitedBy: TradeQuote["limitedBy"] = "none";
+  if (quantity < requested) {
+    if (direction === "sell") {
+      limitedBy = tradableUnits(character, resource) < requested ? (resource === "provisions" ? "reserve" : "cargo") : "none";
+    } else if (settlement.stocks[resource] < requested) {
+      limitedBy = "stock";
+    } else if (capacity - load < requested) {
+      limitedBy = "hold";
+    } else {
+      limitedBy = "money";
+    }
+  }
+
+  return {
+    resource,
+    direction,
+    requested: round(requested, 3),
+    quantity,
+    shortfall: round(Math.max(0, requested - quantity), 3),
+    limitedBy,
+    unitPrice,
+    gross,
+    tax,
+    net,
+    moneyAfter: round(direction === "sell" ? character.money + net : character.money - net, 2),
+    maxQuantity,
+  };
+}
+
 function upkeepCharacter(
   world: WorldState,
   character: Character,
@@ -1510,6 +1643,11 @@ function processPlayerCommands(
     const chosen: DecisionCandidate = {
       action: command.action,
       targetId: command.targetId,
+      // The two trading verbs carry what to move and how much. The planner never
+      // sets these; they exist only because a player chose them explicitly.
+      ...(command.type === "character-action" && command.resource !== undefined
+        ? { resource: command.resource, quantity: command.quantity }
+        : {}),
       score: 1,
       reason: "direct human instruction",
     };
@@ -1627,6 +1765,40 @@ function resolveDecision(
         data: {
           travel: { fromId: settlementId, toId: destinationId, totalTicks, remainingTicks: totalTicks },
           reason: chosen.reason,
+        },
+      });
+      break;
+    }
+    case "buy-resource":
+    case "sell-resource": {
+      // The quantity is the player's, already checked against stock, money, the
+      // hold and the provisions reserve at the boundary. This re-derives it
+      // through the same quote the player was shown, so the charge is the quote.
+      const direction = chosen.action === "buy-resource" ? "buy" : "sell";
+      const quote = tradeQuote(world, character, chosen.resource ?? "provisions", direction, chosen.quantity ?? 0);
+      if (quote.quantity <= 0) break;
+      const characterCargo = cloneResources(character.cargo);
+      const settlementStocks = cloneResources(settlement.stocks);
+      characterCargo[quote.resource] = round(characterCargo[quote.resource] + (direction === "buy" ? quote.quantity : -quote.quantity));
+      settlementStocks[quote.resource] = round(settlementStocks[quote.resource] - (direction === "buy" ? quote.quantity : -quote.quantity));
+      const factionTreasury = direction === "sell" && settlement.factionId
+        ? round(world.factions[settlement.factionId].treasury + quote.tax, 2)
+        : settlement.factionId ? world.factions[settlement.factionId].treasury : 0;
+      emit(world, events, {
+        type: "market-trade",
+        actorId: character.id,
+        settlementId,
+        data: {
+          direction: direction === "buy" ? "bought" : "sold",
+          resource: quote.resource,
+          quantity: quote.quantity,
+          unitPrice: quote.unitPrice,
+          gross: quote.gross,
+          tax: quote.tax,
+          characterMoney: quote.moneyAfter,
+          characterCargo,
+          settlementStocks,
+          factionTreasury,
         },
       });
       break;

@@ -52,6 +52,20 @@ Local supply and demand set prices within stability limits. Territorial factions
 
 Taxes cannot be evaded through a hidden action. A settlement owner can escape a faction's tax authority only by declaring separation, which is an overt political act.
 
+### Player trade
+
+A player trades by naming what to buy or sell and how much, and can see the price before committing. Any of the four resources may be traded on any market. Three constraints apply: the stock the market actually holds, the money the buyer actually holds, and the hold the party can actually carry. Trade is the player verb that moves goods between islands, and it is the physical transport the resource model assumes.
+
+Prototype choices, made to make this evaluable rather than decided:
+
+- Hold capacity is 40 units plus 2 per sailor, shared across all four resources.
+- Provisions below the party reserve cannot be sold. A trader cannot strand their own crew to make a sale.
+- Selling pays the tax rate of the faction holding the settlement. Buying pays none, because a purchase is not money earned in the settlement.
+- The quoted price applies to the whole quantity of one trade. The stock that trade moves is reflected in the next quote, so a large sale earns less per unit than a small one, but only after it has happened.
+- The autonomous path uses the same prices and constraints with its own heuristics for choosing volume. It is not the player's path, and the two are deliberately not required to agree.
+
+Open: whether a voyage should out-earn working the same ticks, and the margins that would make it do so. The measurements behind that question, and the decision to defer it, are recorded in [progress.md](../../progress.md) and [roadmap.md](../roadmap.md). Also open: whether cargo can be lost, spoiled or taken rather than only bought and sold.
+
 ## Settlements, ownership, and secession
 
 A character may legally own a settlement by founding or colonizing it, purchasing it, receiving a negotiated transfer or faction grant, or conquering it and establishing a claim.

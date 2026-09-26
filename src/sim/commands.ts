@@ -1,11 +1,14 @@
 import { applyEvent, clamp, settlementClaimAvailableTo } from "./state.ts";
+import { tradeQuote } from "./engine.ts";
 import type {
   OrderDirective,
   PlayerAction,
   PlayerCommand,
+  ResourceKey,
   SimEvent,
   WorldState,
 } from "./types.ts";
+import { RESOURCE_KEYS } from "./types.ts";
 
 export type CommandRequest =
   | {
@@ -13,6 +16,10 @@ export type CommandRequest =
       type: "character-action";
       action: PlayerAction;
       targetId?: string;
+      /** Required by buy-resource and sell-resource: what to trade. */
+      resource?: ResourceKey;
+      /** Required by buy-resource and sell-resource: how much, in units. */
+      quantity?: number;
     }
   | {
       playerId: string;
@@ -69,6 +76,12 @@ export const COMMAND_LIMITS = {
   orderPriority: { min: 0.1, max: 1, default: 0.78 },
   orderDurationTicks: { min: 1, max: 720, default: null },
   advancedTicksPerRequest: { min: 1, max: 144 },
+  /**
+   * Units one trading verb may move. Bounded so a single command cannot be used
+   * to hand over an arbitrary fraction of the world's stock in one tick, and
+   * published so a client can refuse an over-sized request before sending it.
+   */
+  tradeQuantity: { min: 1, max: 200 },
 } as const;
 
 export type CapabilityTarget = "settlement" | "faction" | "current-settlement" | "none";
@@ -96,7 +109,27 @@ export const ACTION_PRECONDITIONS: readonly string[] = [
 export const ACTION_CAPABILITIES: readonly ActionCapability[] = [
   { action: "travel", target: "settlement", requires: ["the destination is a known settlement", "the destination is not the current settlement"] },
   { action: "buy-provisions", target: "none", requires: ["at least 2 money", "at least 1 provision in local stock"] },
-  { action: "trade-local", target: "none", requires: [] },
+  {
+    action: "buy-resource",
+    target: "none",
+    requires: [
+      `resource is one of ${RESOURCE_KEYS.join(", ")}`,
+      `quantity is between ${COMMAND_LIMITS.tradeQuantity.min} and ${COMMAND_LIMITS.tradeQuantity.max}`,
+      "the market holds that much stock",
+      "the character holds enough money at the quoted price",
+      "the hold has that much free capacity",
+    ],
+  },
+  {
+    action: "sell-resource",
+    target: "none",
+    requires: [
+      `resource is one of ${RESOURCE_KEYS.join(", ")}`,
+      `quantity is between ${COMMAND_LIMITS.tradeQuantity.min} and ${COMMAND_LIMITS.tradeQuantity.max}`,
+      "the hold carries that much of the resource",
+      "provisions below the party reserve are not sellable",
+    ],
+  },
   { action: "work", target: "none", requires: [] },
   { action: "recruit", target: "none", requires: ["at least 30 money", "at least 2 arms in local stock"] },
   { action: "raid", target: "current-settlement", requires: ["the current settlement belongs to a hostile faction", "at least 25 troops", "no other major battle underway at this settlement"] },
@@ -326,6 +359,40 @@ function validateCharacterAction(
     if (settlement.stocks.provisions < 1) return reject("no-provisions", "This settlement has no provisions left to sell");
   }
 
+  if (request.action === "buy-resource" || request.action === "sell-resource") {
+    const direction = request.action === "buy-resource" ? "buy" : "sell";
+    const resource = request.resource;
+    if (!resource || !RESOURCE_KEYS.includes(resource)) {
+      return reject("invalid-resource", `Trading requires a resource; choose one of ${RESOURCE_KEYS.join(", ")}`);
+    }
+    const quantity = request.quantity;
+    const { min, max } = COMMAND_LIMITS.tradeQuantity;
+    // Whole units only. Resources are carried fractionally by upkeep and
+    // production, but a player trades discrete goods, and a fractional quantity
+    // would make "how much did I just buy" a question about rounding.
+    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < min || quantity > max) {
+      return reject("invalid-quantity", `Trading moves a whole number of units between ${min} and ${max}; ${JSON.stringify(quantity)} was requested`);
+    }
+    // The quote is the same function the charge uses, so the refusal below and
+    // the price paid cannot disagree about what the trade would have cost.
+    const quote = tradeQuote(world, character, resource, direction, quantity);
+    if (quote.quantity < quantity) {
+      if (direction === "sell" && quote.limitedBy === "reserve") {
+        return reject("party-reserve", `Only ${quote.maxQuantity} of ${resource} may be sold; the rest is the party's own reserve`);
+      }
+      if (direction === "sell") {
+        return reject("insufficient-cargo", `The hold carries ${quote.maxQuantity} of ${resource}; ${quantity} was requested`);
+      }
+      if (quote.limitedBy === "stock") {
+        return reject("insufficient-stock", `${settlement.name} holds ${quote.maxQuantity} of ${resource}; ${quantity} was requested`);
+      }
+      if (quote.limitedBy === "hold") {
+        return reject("hold-full", `The hold has room for ${quote.maxQuantity} more units; ${quantity} was requested`);
+      }
+      return reject("insufficient-money", `${quantity} of ${resource} costs ${quote.gross} at ${quote.unitPrice} each; the character holds ${character.money}`);
+    }
+  }
+
   const command: PlayerCommand = {
     id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
     playerId: player.id,
@@ -335,6 +402,9 @@ function validateCharacterAction(
     targetId: request.action === "raid" || request.action === "claim-settlement" || request.action === "decline-surrender"
       ? character.locationId
       : request.targetId,
+    ...(request.action === "buy-resource" || request.action === "sell-resource"
+      ? { resource: request.resource, quantity: request.quantity }
+      : {}),
   };
   return { ok: true, command, event: acceptedEvent(world, command) };
 }
