@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { runTick, runTicks } from "../src/sim/engine.ts";
+import { characterCadence, runTick, runTicks } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { canonicalJson, stateHash } from "../src/sim/state.ts";
@@ -75,4 +75,30 @@ test("the pressure-test scenario exercises its connected systems", () => {
 
   const sequences = result.events.map((event) => event.sequence);
   assert.deepEqual(sequences, Array.from({ length: sequences.length }, (_, index) => index + 1));
+});
+
+test("a character's periodic cadence stays distinct once ids outgrow two digits", () => {
+  // This offset used to come from `id.slice(-2)`, which reads character-100 and
+  // character-101 as the same "00" and "01" as the first two characters. The
+  // zero-padded prototype roster hides that, so the aliasing is asserted
+  // directly rather than waited for.
+  const cadences = ["character-01", "character-02", "character-100", "character-101"].map(characterCadence);
+  assert.deepEqual(cadences, [1, 2, 100, 101]);
+  assert.equal(new Set(cadences).size, cadences.length, "two characters must not share one cadence slot");
+
+  // A malformed id must not throw or poison the modular arithmetic with NaN.
+  assert.equal(characterCadence("character-"), 0);
+  assert.equal(characterCadence("character-abc"), 0);
+});
+
+test("every character's relationships are reviewed on one tick per day", () => {
+  const world = createPrototypeWorld(1847);
+  const ids = Object.keys(world.characters);
+  // A stagger is only a stagger if it spreads work out rather than collapsing it
+  // onto a single tick, and it must revisit each character exactly once a day.
+  for (const id of ids) {
+    const offset = characterCadence(id);
+    const days = Array.from({ length: world.ticksPerDay }, (_, tick) => (tick + offset) % world.ticksPerDay);
+    assert.equal(days.filter((value) => value === 0).length, 1, `${id} must be reviewed once per day`);
+  }
 });

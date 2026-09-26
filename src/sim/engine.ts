@@ -1043,6 +1043,19 @@ function progressActiveGoal(
   });
 }
 
+/**
+ * A stable per-character offset used to stagger periodic work across ticks.
+ *
+ * This read `id.slice(-2)`, which silently aliases once ids pass two digits:
+ * `character-100` and `character-101` both parsed as `00` and `01`. Ids are
+ * zero-padded today, so nothing is wrong yet, but the cadence would quietly
+ * collapse rather than fail when the roster grows.
+ */
+export function characterCadence(characterId: string): number {
+  const parsed = Number.parseInt(characterId.split("-").pop() ?? "", 10);
+  return Number.isSafeInteger(parsed) ? Math.abs(parsed) : 0;
+}
+
 function evolveLocalRelationship(
   world: WorldState,
   character: Character,
@@ -1050,7 +1063,7 @@ function evolveLocalRelationship(
   rng: DeterministicRng,
 ): void {
   if (!character.locationId) return;
-  const numericId = Number.parseInt(character.id.slice(-2), 10);
+  const numericId = characterCadence(character.id);
   if ((world.tick + numericId) % world.ticksPerDay !== 0) return;
   const companions = Object.values(world.characters)
     .filter((candidate) => candidate.id !== character.id && candidate.locationId === character.locationId)

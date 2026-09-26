@@ -607,7 +607,15 @@
       var travelAllowed = !c.travel && c.locationId !== item.id;
       var here = c.locationId === item.id;
       var intel = item.intelligence;
-      var intelLabel = intel && intel.exact ? "Exact owned records" : intel ? esc(intel.source) + " · " + fmt(intel.confidence * 100) + "% confidence · " + intel.ageTicks + " ticks old" : "No current report";
+      // A stale market report used to be drawn in exactly the same style as an
+      // owned record, so an estimate could be read as present-tense fact.
+      // Mark every derived number and name the age beside the figures it
+      // qualifies, not only in the header line far above them.
+      var estimated = !(intel && intel.exact);
+      var approx = estimated ? "~" : "";      var ageNote = intel && intel.ageTicks != null ? ", " + intel.ageTicks + " ticks old" : ", age unknown";
+      var ageLabel = intel && intel.ageTicks != null ? intel.ageTicks + " ticks old" : "age unknown";
+      var intelLabel = intel && intel.exact ? "Exact owned records" : intel ? esc(intel.source) + " · " + fmt(intel.confidence * 100) + "% confidence · " + ageLabel : "No current report";
+      var stockHeading = intel ? "Stocks and prices" + (estimated ? ' <span class="subtle">estimated' + ageNote + "</span>" : "") : "Stocks and prices";
       var forecast = item.combatForecast;
       // Distinguish "I am fighting" from "someone else is fighting here". The
       // settlement flag alone cannot tell a player which of those is true.
@@ -635,15 +643,20 @@
         '<div class="subtle">' + esc(owningFaction ? owningFaction.name : "Independent") + (owner ? " · Owned by " + esc(owner.name) : "") + " · Population " + (item.population == null ? "unknown" : item.population.toLocaleString()) + "</div>" +
         '<div class="subtle">' + intelLabel + "</div>" +
         '<div class="stat-grid">' +
-          '<div class="stat"><span>Garrison</span><strong>' + item.garrison + "</strong></div>" +
+          // Standing here is direct perception of the ground, so the garrison is
+          // exact even on an island the commander does not own. The market rows
+          // below are still a report, because stock moves while they watch.
+          '<div class="stat"><span>Garrison</span><strong>' + (item.garrison == null ? '<span class="subtle">unknown</span>' : (here ? "" : approx) + item.garrison) + "</strong></div>" +
           '<div class="stat"><span>Fortification</span><strong>' + fmt(item.fortification, 2) + "×</strong></div>" +
           '<div class="stat"><span>Stability</span><strong>' + fmt(item.stability) + "%</strong></div>" +
           '<div class="stat"><span>Production</span><strong>' + esc(item.focus || "Unknown") + "</strong></div>" +
         "</div>" +
-        "<h3>Stocks and prices</h3>" +
-        Object.keys(item.stocks).map(function (key) {
-          return '<div class="resource-row"><span>' + esc(key) + "</span><span><strong>" + fmt(item.stocks[key], 1) + "</strong> @ " + fmt(item.prices[key], 2) + "</span></div>";
-        }).join("") +
+        "<h3>" + stockHeading + "</h3>" +
+        (intel
+          ? Object.keys(item.stocks).map(function (key) {
+              return '<div class="resource-row"><span>' + esc(key) + "</span><span><strong>" + approx + fmt(item.stocks[key], 1) + "</strong> @ " + approx + fmt(item.prices[key], 2) + "</span></div>";
+            }).join("")
+          : '<div class="empty">No current report on this market.</div>') +
         "<h3>Parties present</h3>" +
         (parties.length ? parties.map(function (party) {
           return '<button class="party-row" type="button" data-party="' + esc(party.id) + '"><span><strong>' + esc(party.name) + "</strong><br><span class=\"subtle\">" + esc(party.archetype) + '</span></span><span>' + (party.partyPower == null ? '<span class="subtle">strength unknown</span>' : fmt(party.partyPower)) + "</span></button>";

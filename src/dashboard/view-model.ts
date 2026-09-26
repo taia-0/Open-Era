@@ -3,7 +3,7 @@ import { combatForecast } from "../sim/combat.ts";
 import { commandCapabilities } from "../sim/commands.ts";
 import { provisionRunway, travelDuration, type ProvisionRunway } from "../sim/engine.ts";
 import { marketPrice, round, settlementClaimAvailableTo } from "../sim/state.ts";
-import { RESOURCE_KEYS, type ActiveBattle, type Character, type SimEvent, type WorldState } from "../sim/types.ts";
+import { RESOURCE_KEYS, type ActiveBattle, type Character, type SettlementKnowledge, type SimEvent, type WorldState } from "../sim/types.ts";
 import { projectCharacter, projectEvent, projectFactions } from "./visibility.ts";
 
 /**
@@ -356,19 +356,29 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     }
   }
 
+  // Hearsay seeded before the world began carries a negative `observedTick` to
+  // mark it as predating the commander's arrival. That backdating is not elapsed
+  // time, and reading it as such made a two-day-old world describe a report four
+  // days old and fire this warning on day one for knowledge that was never fresh.
+  const staleness = (knowledge: SettlementKnowledge): number =>
+    world.tick - Math.max(0, knowledge.observedTick);
   const staleIntelligence = Object.values(world.settlements)
     .filter((settlement) => settlement.factionId !== commander.factionId)
     .map((settlement) => ({ settlement, knowledge: commander.knowledge[settlement.id] }))
-    .filter(({ knowledge }) => knowledge && world.tick - knowledge.observedTick >= world.ticksPerDay * 3)
-    .sort((left, right) => left.knowledge.observedTick - right.knowledge.observedTick)
+    .filter(({ knowledge }) => knowledge && staleness(knowledge) >= world.ticksPerDay * 3)
+    // Most stale first, so the two reported are the two least trustworthy.
+    .sort((left, right) => staleness(right.knowledge) - staleness(left.knowledge))
     .slice(0, 2);
   for (const { settlement, knowledge } of staleIntelligence) {
     addItem({
-      id: `intel:${settlement.id}:${knowledge.observedTick}`,
+      // Clamped so a backdated report cannot put a negative number in an id.
+      id: `intel:${settlement.id}:${Math.max(0, knowledge.observedTick)}`,
       severity: "warning",
       actionRequired: false,
       title: "Intelligence is stale",
-      summary: `${settlement.name}'s report is ${world.tick - knowledge.observedTick} ticks old.`,
+      summary: knowledge.observedTick < 0
+        ? `${settlement.name}'s report predates your arrival and has never been refreshed.`
+        : `${settlement.name}'s report is ${staleness(knowledge)} ticks old.`,
       day: round(world.tick / world.ticksPerDay, 2),
       settlementId: settlement.id,
       acknowledgeable: true,

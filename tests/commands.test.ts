@@ -470,3 +470,61 @@ test("schema-3 saves without lifecycle fields recover with pending legacy orders
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("a second command against one standing order is refused while the first is queued", () => {
+  const world = createPrototypeWorld(1847);
+  const firstTick = runTick(world);
+  const report = firstTick.events.find((event) =>
+    event.type === "standing-order-completion-reported" && event.data.issuerId === "character-01"
+  );
+  assert.ok(report);
+  const recipient = world.characters[report.actorId!];
+  const order = recipient.standingOrders.find((candidate) => candidate.id === report.data.orderId)!;
+
+  const confirm = () => submitCommand(world, {
+    playerId: "prototype-player",
+    type: "confirm-order",
+    characterId: recipient.id,
+    orderId: order.id,
+  });
+  const first = confirm();
+  assert.equal(first.ok, true);
+
+  // Both commands named the same order. Accepting the second only for it to fail
+  // after the first resolved is an accepted command that could never succeed.
+  const second = confirm();
+  assert.equal(second.ok, false);
+  assert.equal(second.ok === false ? second.code : null, "order-already-queued");
+  assert.equal(
+    world.pendingCommands.filter((command) => "orderId" in command && command.orderId === order.id).length,
+    1,
+  );
+});
+
+test("two different standing orders may still be changed in the same tick", () => {
+  const world = createPrototypeWorld(1847);
+  // Two open orders held by one character, so the guard cannot pass by refusing
+  // every second mutation regardless of which order it names.
+  const recipient = world.characters["character-04"];
+  for (const targetId of ["glassport", "cinder-key"]) {
+    assert.equal(submitCommand(world, {
+      playerId: "prototype-player",
+      type: "issue-order",
+      characterId: recipient.id,
+      directive: "protect",
+      targetId,
+      priority: 0.9,
+    }).ok, true);
+  }
+  runTick(world);
+  const orders = recipient.standingOrders.filter((order) => order.status !== "cancelled" && order.status !== "completed");
+  assert.ok(orders.length >= 2, "the character must hold two live orders for this check to mean anything");
+
+  const cancellations = orders.slice(0, 2).map((order) => submitCommand(world, {
+    playerId: "prototype-player",
+    type: "cancel-order",
+    characterId: recipient.id,
+    orderId: order.id,
+  }));
+  assert.deepEqual(cancellations.map((result) => result.ok), [true, true]);
+});
