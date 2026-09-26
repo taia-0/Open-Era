@@ -418,6 +418,54 @@ test("the capability block documents the request contract, not just the rules", 
       requests.advance.body.ticks.includes(String(advanceCeiling)),
       "the advance contract must quote the same limit the validator enforces",
     );
+
+    // These routes worked the whole time but went unpublished, which a playtest
+    // read as the conversation system not existing. A route is only documented
+    // if a client can act on the documentation, so each is called as published.
+    const conversations = requests as unknown as Record<string, { path: string; body: Record<string, string> }>;
+    const published = ["briefingAcknowledge", "briefingOfficer", "threads", "messages"] as const;
+    assert.equal(conversations.threads.path, "POST /api/threads");
+    assert.equal(conversations.messages.path, "POST /api/messages");
+    assert.equal(conversations.briefingOfficer.path, "POST /api/briefing/officer");
+    assert.equal(conversations.briefingAcknowledge.path, "POST /api/briefing/acknowledge");
+
+    for (const name of published) {
+      const entry = conversations[name];
+      const [method, route] = entry.path.split(" ");
+      const served = await fetch(`${base}${route}`, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      assert.notEqual(served.status, 404, `${name} is published as ${entry.path} but nothing serves it`);
+    }
+
+    const roster = await (await fetch(`${base}/api/state`)).json() as { characters: Array<{ id: string }> };
+    const peer = roster.characters.find((character) => character.id !== "character-01")!;
+    const threadResponse = await fetch(`${base}/api/threads`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerId: "prototype-player", kind: "direct", participantIds: [peer.id], title: "Check-in" }),
+    });
+    assert.equal(threadResponse.status, 201, "the published thread body must be the accepted body");
+    const thread = (await threadResponse.json() as { thread: { id: string } }).thread;
+
+    const messageResponse = await fetch(`${base}/api/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerId: "prototype-player", threadId: thread.id, body: "Report in." }),
+    });
+    assert.equal(messageResponse.status, 202, "the published message body must be the accepted body");
+
+    // Acknowledging an id that names nothing is a no-op, not a false success
+    // about a decision: an action-required id is still refused.
+    const refused = await fetch(`${base}/api/briefing/acknowledge`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerId: "prototype-player", itemId: "confirm:character-02:order-00001" }),
+    });
+    assert.equal(refused.status, 400, "an unresolved decision must not be acknowledgeable");
+    assert.equal((await refused.json() as { code: string }).code, "action-required");
   } finally {
     await app.close();
     rmSync(directory, { recursive: true, force: true });

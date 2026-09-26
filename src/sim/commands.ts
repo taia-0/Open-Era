@@ -177,6 +177,44 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
       path: "POST /api/advance",
       body: { ticks: `optional ${COMMAND_LIMITS.advancedTicksPerRequest.min}..${COMMAND_LIMITS.advancedTicksPerRequest.max}, defaults to 1` },
     },
+    // These four routes existed and worked but were missing from this contract,
+    // which claims to publish the whole surface. A playtest read the omission as
+    // the conversation system not existing at all and never used it.
+    briefingAcknowledge: {
+      path: "POST /api/briefing/acknowledge",
+      body: {
+        playerId: "required; the id from state.player.id",
+        itemId: "required; a briefing item id whose acknowledgeable flag is true",
+        routineThroughSequence: "required only for a routed digest item; pass the item's throughSequence",
+      },
+      failure: "a refusal returns HTTP 400 with a stable code: { ok: false, code: \"action-required\" } for an unresolved decision, { ok: false, code: \"invalid-sequence\" } for a bad digest cursor. An id that names no current item is accepted as a no-op so a stale click after the tick advances is not an error",
+    },
+    briefingOfficer: {
+      path: "POST /api/briefing/officer",
+      body: {
+        playerId: "required; the id from state.player.id",
+        characterId: "the officer to appoint (officerId is accepted as an alias), or null to clear the appointment",
+      },
+      failure: "the officer must be an autonomous subordinate in the commander's faction whom the player has already learned of",
+    },
+    threads: {
+      path: "POST /api/threads",
+      body: {
+        playerId: "required; the id from state.player.id",
+        kind: "required; \"direct\" or \"group\"",
+        participantIds: "required; the character ids to include, named as they appear in state.characters",
+        title: "optional; the thread title",
+      },
+    },
+    messages: {
+      path: "POST /api/messages",
+      body: {
+        playerId: "required; the id from state.player.id",
+        threadId: "required; a thread id from state.conversations",
+        body: "required; the message text",
+      },
+      failure: "a rate-limited send returns 429 with code \"rate-limited\"; other rejections return 400 with a stable code",
+    },
   };
 }
 
@@ -427,6 +465,9 @@ function validateOrderConfirmation(
   if (order.status !== "awaiting-confirmation") {
     return reject("not-awaiting-confirmation", "The character has not reported this order complete");
   }
+  if (orderMutationPending(world, order.id)) {
+    return reject("order-already-queued", "Another command already queued will act on that order");
+  }
 
   const command: PlayerCommand = {
     id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
@@ -437,6 +478,22 @@ function validateOrderConfirmation(
     orderId: order.id,
   };
   return { ok: true, command, event: acceptedEvent(world, command) };
+}
+
+/**
+ * Whether a command already queued will consume this standing order.
+ *
+ * Order mutations had no such guard, so two commands naming the same `orderId`
+ * were both accepted and the second failed only after the first had resolved --
+ * an accepted command that could never succeed. Deduplicating by order rather
+ * than by player still allows two different orders to be changed in one tick.
+ */
+function orderMutationPending(world: WorldState, orderId: string): boolean {
+  return world.pendingCommands.some(
+    (command) =>
+      (command.type === "confirm-order" || command.type === "amend-order" || command.type === "cancel-order") &&
+      command.orderId === orderId,
+  );
 }
 
 function issuerOrder(
@@ -452,6 +509,9 @@ function issuerOrder(
   const order = recipient.standingOrders.find((candidate) => candidate.id === orderId);
   if (!order) return reject("unknown-order", "That standing order does not exist");
   if (order.issuerId !== issuerId) return reject("not-issuer", "Only the character who issued an order may change it");
+  if (orderMutationPending(world, order.id)) {
+    return reject("order-already-queued", "Another command already queued will act on that order");
+  }
   return { issuerId, recipient, order };
 }
 
