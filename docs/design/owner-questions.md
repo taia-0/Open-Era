@@ -442,6 +442,48 @@ Answer by number, for example "4: yes" or "4: keep the default." The default is 
 
 **Source:** [Political layer](political-layer.md#questions-for-micah) question 5
 
+## Loyalty drift
+
+### 43. Someone walks out of prison still owing the ransom. Does their loyalty fall?
+
+**Default:** Yes, by 0.04, once, on that release. A release they can pay in full does not change it. The drop stays if they pay the rest later. This is not the missed daily payment. That day still passes with no mark, as the debt note already says. On these runs the drop happens 8, 2, and 6 times, and nobody falls under 0.25.
+
+**If you pick the other way:** Their loyalty would not fall. A release they can pay in full does not change it, and the missed daily payment still passes with no mark.
+
+**Status:** Accepted, not built (M31)
+
+**Source:** [Loyalty drift](loyalty-drift.md#questions-for-micah) question 1
+
+### 44. Can that change make them disobey, or change the work they pick?
+
+**Default:** No. Orders, plans, and work keep using the loyalty they were given at the start. The only new use is who covers the seat while the commander is in prison. On these runs that person does not change. The one close call is Bram Tern over Finn Frost by a small margin, and neither of them owes a ransom before that cover starts.
+
+**If you pick the other way:** Orders, plans, and work would use the new loyalty. A pending order could accept or refuse differently, and a close choice of work could flip.
+
+**Status:** Accepted, not built (M31)
+
+**Source:** [Loyalty drift](loyalty-drift.md#questions-for-micah) question 2
+
+### 45. Who is allowed to see loyalty?
+
+**Default:** You see it for your own faction, including the drop. A rival's stays hidden, the way their treasury does. Today you see only your own.
+
+**If you pick the other way:** A rival would see loyalty.
+
+**Status:** Accepted, not built (M31)
+
+**Source:** [Loyalty drift](loyalty-drift.md#questions-for-micah) question 3
+
+### 46. Should captains start giving new orders on their own?
+
+**Default:** No, not in this change. A separate sketch was measured, and it rewrites the first 72 ticks.
+
+**If you pick the other way:** Captains would give new orders on their own. The version that was measured rewrites the first 72 ticks.
+
+**Status:** Default: not yet
+
+**Source:** [Loyalty drift](loyalty-drift.md#questions-for-micah) question 4
+
 ## Already settled
 
-The [progress log](../../progress.md) (reconnaissance brief, 2026-09-29) answered reconnaissance questions 1–8. Reconnaissance question 1 is no: a survey or an officer's look stores population, walls, and who was anchored. Reconnaissance question 2 keeps confidence and the original date on that handoff. Reconnaissance questions 3–8 stay put: public sea courses, a live garrison from your other ports, no captives or informants. [Party sightings](party-sightings.md#left-open) repeats those. A foreign price is that dated report, not a live quote ([World simulation](world-simulation.md#player-trade)). An idle player with money still starves if they give no orders ([Port provisions](port-provisions.md#the-idle-commander)). Unpaid ransom is questions 22–29 ([Captivity debts](captivity-debts.md#questions-for-micah)). A landless raid once a town has 8 soldiers, and no troops left behind on the claim, is questions 30–32 ([Portless recovery](portless-recovery.md#questions-for-micah)). A higher score is the attacker's victory when morale is 12 or under, a close fight included and the short retake accepted, rest does not refill the hold, and the capture die is still rolled, is questions 33–37 ([Battle morale](battle-morale.md#questions-for-micah)). Someone else covers the seat while the commander is in prison and hands it back on release, the cover is the highest leadership plus loyalty with the lower id winning a tie and trust is not used, you cannot name someone else or keep the cover after release, everyone including a rival sees who holds the seat, and if that cover is captured the next person steps up for the whole 14 days, is questions 38–42 ([Political layer](political-layer.md#questions-for-micah)). Battered-port surrender, fed garrisons, and refusing an unpaid voyage are built. The first hour is a test, not a choice. The one-click food buy is a known bug queued for engineering: the button will show the cost, apply the share-of-stock cap, and its refusal text will be fixed ([World simulation](world-simulation.md#player-trade); [progress log](../../progress.md#open-items)).
+The [progress log](../../progress.md) (reconnaissance brief, 2026-09-29) answered reconnaissance questions 1–8. Reconnaissance question 1 is no: a survey or an officer's look stores population, walls, and who was anchored. Reconnaissance question 2 keeps confidence and the original date on that handoff. Reconnaissance questions 3–8 stay put: public sea courses, a live garrison from your other ports, no captives or informants. [Party sightings](party-sightings.md#left-open) repeats those. A foreign price is that dated report, not a live quote ([World simulation](world-simulation.md#player-trade)). An idle player with money still starves if they give no orders ([Port provisions](port-provisions.md#the-idle-commander)). Unpaid ransom is questions 22–29 ([Captivity debts](captivity-debts.md#questions-for-micah)). A landless raid once a town has 8 soldiers, and no troops left behind on the claim, is questions 30–32 ([Portless recovery](portless-recovery.md#questions-for-micah)). A higher score is the attacker's victory when morale is 12 or under, a close fight included and the short retake accepted, rest does not refill the hold, and the capture die is still rolled, is questions 33–37 ([Battle morale](battle-morale.md#questions-for-micah)). Someone else covers the seat while the commander is in prison and hands it back on release, the cover is the highest leadership plus loyalty with the lower id winning a tie and trust is not used, you cannot name someone else or keep the cover after release, everyone including a rival sees who holds the seat, and if that cover is captured the next person steps up for the whole 14 days, is questions 38–42 ([Political layer](political-layer.md#questions-for-micah)). A character released still owing ransom loses 0.04 loyalty once, a paid release changes nothing, orders, plans and work keep using the starting loyalty, and you see loyalty only for your own faction, is questions 43–45 ([Loyalty drift](loyalty-drift.md#questions-for-micah)). Battered-port surrender, fed garrisons, and refusing an unpaid voyage are built. The first hour is a test, not a choice. The one-click food buy is a known bug queued for engineering: the button will show the cost, apply the share-of-stock cap, and its refusal text will be fixed ([World simulation](world-simulation.md#player-trade); [progress log](../../progress.md#open-items)).
