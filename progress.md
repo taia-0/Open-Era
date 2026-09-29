@@ -30,10 +30,10 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** branched from `origin/main` at `dd431bf`. This branch is `feature/confirm-unanswered-orders` (M27). No pull request. `origin/main` later moved to `9470cb8` and was merged. That merge is design notes only and did not move the hashes.
-- **Last verified:** `npm run typecheck` clean, **198 tests**, `./scripts/evaluate-milestone.sh order-confirmation` and `order-confirmation-merge`. Node v24.21.0, ICU 78.3.
-- **Gate status:** golden hashes were regenerated once for the confirmation rule. Tick-72 hashes are `8e081fb09f0a73c29a8ca37581552f31ad8906fe5889fe4805dcf855e97f954a` (1847, 8301 events), `64e843281dcb0733918fa72393a71f25ed36bdc40ae4d56e320c7461fca91538` (2718, 8516), `b85a681050e4e21c96ea69dab9677565253641dae0bc26ca1b230996076e81d6` (4096, 8031). Split recovery replayed 572 events.
-- **Headline risk:** the order-confirmation playtest is pending with a blind operator at `docs/playtests/order-confirmation-001.md`.
+- **Baseline:** branched from `origin/main` at `9320219`. This branch is `feature/ransom-to-captor`. No pull request. `origin/main` later moved to `e206f4f` and was merged. That merge is design notes only and did not move the hashes.
+- **Last verified:** `npm run typecheck` clean, **204 tests**, `./scripts/evaluate-milestone.sh ransom-to-captor`. Node v24.21.0, ICU 78.3.
+- **Gate status:** golden hashes were not regenerated. Tick-72 hashes stay `8e081fb09f0a73c29a8ca37581552f31ad8906fe5889fe4805dcf855e97f954a` (1847, 8301 events), `64e843281dcb0733918fa72393a71f25ed36bdc40ae4d56e320c7461fca91538` (2718, 8516), `b85a681050e4e21c96ea69dab9677565253641dae0bc26ca1b230996076e81d6` (4096, 8031). Split recovery replayed 572 events.
+- **Headline risk:** the ransom playtest is pending with a blind operator at `docs/playtests/ransom-to-captor-001.md`. A distinct `closed-unanswered` report kind was measured and left off this branch because it moves the tick-72 hashes.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
@@ -45,6 +45,7 @@ Git remains the complete history. This file exists for three things git does not
 | The "Command queued for Mara Vane" summary does not name the carrier, the price, or the destination | Readability | Unassigned | Open |
 | Relationship-changed lines have null data and no stated reason | Readability | Unassigned | Open |
 | The names Toma Reef and Toma Hale collide in the feed | Readability | Unassigned | Open |
+| The "Completion needs confirmation" briefing should show "closes in N ticks" | Readability | Unassigned | Open |
 | A character whose ambitions all reach progress 1 throws `<name> has no active goals` on the next plan review | Defect | Cursor | **Fixed** on `fix/no-active-goals`. Satisfaction stays. The opening roots (survival, archetype, and faction membership) are renewed at progress 0. Battle-born goals stay satisfied until the next victory or defeat. Reproduced through the CLI at tick 307 / 269 / 260 on seeds 1847 / 2718 / 4096, the same ticks as the bare harness |
 | Event feed leaked foreign character payloads; capturing ground widened it | Defect | Cursor | Fixed in `82c9bfc`; validated by an independent session with 0 foreign payloads visible |
 | Event feed is a rolling 100-event window with no pagination, so a player cannot audit its own history | Defect | Cursor | **Fixed** in [PR 4](https://github.com/taia-0/Open-Era/pull/4); a playtest then retrieved all 20,457 events with zero gaps and zero duplicates |
@@ -91,6 +92,11 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-09-29 — Release-day ransom reaches the captor treasury
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/ransom-to-captor` | **Playtest:** pending, [ransom-to-captor-001](docs/playtests/ransom-to-captor-001.md)
+- On the mandatory release, `moneyPaid` is added to the captor faction's treasury. A missing captor record keeps the coins in the purse. No release falls inside 72 ticks, so the golden hashes were not regenerated. Tick-72 counts stay 8301 / 8516 / 8031. Recovery stays 572.
+- Links    — [ransom-to-captor-001](docs/playtests/ransom-to-captor-001.md) (pending a blind operator)
 
 ### 2026-09-29 — M27: Close an unanswered completion report
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/confirm-unanswered-orders` | **Playtest:** pending, [order-confirmation-001](docs/playtests/order-confirmation-001.md)
@@ -209,6 +215,14 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
 - A player can name a good and a quantity and see the price before paying, on any of the four resources, with every limit quoted before it is hit. A voyage pays for itself (+113.27 on 108 starting money in playtest). Whether it out-earns working the same ticks is a separate, deferred milestone.
 
 ## Entries
+
+### 2026-09-29 — Release-day ransom coins reach the captor treasury
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/ransom-to-captor` | **Commits:** `8392450` (the credit, the tests, the question status). `5e916f2` merges `origin/main` at `e206f4f`. This entry is the record commit. | **Type:** Behavior
+- **Changed** — `processCaptivityDeadlines` in `src/sim/engine.ts` still takes `min(purse, demand)` on release day, and only when `captivity.captorFactionId` names a faction that is still in `world.factions`. `applyEvent` for `captivity-released` in `src/sim/state.ts` adds that `terms.moneyPaid` to `world.factions[event.targetId].treasury`. The new balance is not copied onto the event. A null captor, or an id with no faction record, pays 0, keeps the coins in the purse, and records the whole demand as debt. A faction with no ports still has a treasury and still receives the coins. Escapes still move no coins. No new RNG draw. `npm run golden:update` was not run.
+- **Why** — the coins left the purse and arrived nowhere. Q24's written default is to leave that in place. The task requires the coins to be conserved and to reach the captor faction's treasury, which is the question's other option. That is what shipped.
+- **Verified** — Node v24.21.0, ICU 78.3. The silent-close kind was tried first and reverted before any commit: `lastReport` is inside `stateHash`, and `issuer-silent` closes inside 72 ticks (8 / 8 / 9). New hashes were `cb04ba5d392d8b1c868cc97e54cb21b21ec171edd546bb70d0d7aba86cc69c11` (1847), `c386e76d401ee11bd44d20bf6237b556e65eb8af8e0c6cd850c14b969fc6123a` (2718), `20975bf480e5aa11eeafe1ce39c36cf5ba0fa8e2d5de2bb5887a35d7b3aecc9f` (4096). Event counts stayed 8301 / 8516 / 8031. Recovery replay stayed 572. Rewriting `closed-unanswered` back to `confirmed` restored the fixture hashes, so the kind string was the whole difference. `./scripts/evaluate-milestone.sh closed-unanswered-probe` failed on that uncommitted tree and was not kept. After the ransom credit: typecheck clean, **204 tests**. New tests: "a ransom release moves the purse into the captor treasury and conserves coins", "a purse that covers the ransom pays it in full and records no debt", "an empty purse records the debt and does not touch the treasury", "a captor with no faction keeps the coins in the purse", "a captor id with no faction record keeps the coins in the purse", "a landless captor faction still receives the release-day coins". No release in 72 ticks on 1847, 2718, or 4096 (first releases are event ticks 118, 202, and 96). `./scripts/evaluate-milestone.sh ransom-to-captor` passes with the fixture hashes, 8301 / 8516 / 8031, recovery 572. No `golden:update`. Headless 1200 ticks, no commands: 1847 credits 613.17 to Free Tide and 455.73 to World Government across 10 releases; 2718 credits 281.34 to World Government across 3; 4096 credits 94.15 to Free Tide and 503.28 to World Government across 9. `origin/main` at `e206f4f` was merged before that gate. The merge is the loyalty-drift note and owner questions 43–46. The playtest plan was checked against a headless projection of the dashboard API and was not run as a session. [ransom-to-captor-001](docs/playtests/ransom-to-captor-001.md) is pending a blind operator.
+- **Left open** — the playtest, at `docs/playtests/ransom-to-captor-001.md`. The "Completion needs confirmation" briefing should show "closes in N ticks". Not built. Daily ransom installments (questions 22–23 and 25–29) are still unbuilt. `closed-unanswered` waits for a stack on M28 because it moves the tick-72 hashes.
+- **Links** — [playtest](docs/playtests/ransom-to-captor-001.md) (pending a blind operator) | [owner question 24](docs/design/owner-questions.md) | [captivity debts](docs/design/captivity-debts.md). No pull request.
 
 ### 2026-09-29 — M27: an unanswered completion report closes itself
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/confirm-unanswered-orders` | **Commits:** `a894252` (at-sea refusal score and cost basis are null), `f2fe975` (the close, the tests, the re-baseline), `99a5e77` (the playtest plan). `1ad4cc9` merges `origin/main` at `9470cb8`. This entry is the record commit. | **Type:** Behavior
