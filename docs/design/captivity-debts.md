@@ -1,6 +1,6 @@
 # Captivity debts
 
-**Status: Open.** Proposal for the owner to accept, change, or reject. This tree is `2918554`, the merge of PR #27, which includes M23. The headless runs below are that unmodified tree. The collection rule was patched in locally to measure it, then reverted. This note is not decided until it moves into [world simulation](world-simulation.md). It follows the last paragraph of [order confirmation](order-confirmation.md): a debt is owed to a faction, and the order-confirmation hook is the wrong place to collect it.
+**Status: Open.** Proposal for the owner to accept, change, or reject. Installments were not built on `main` at `6c4c902`. The 1200-tick census in [Re-measured before installments](#re-measured-before-installments) does not match the rows below, so the gate failed and the rule stayed out of the code. This tree is `2918554`, the merge of PR #27, which includes M23. The headless runs below are that unmodified tree. The collection rule was patched in locally to measure it, then reverted. This note is not decided until it moves into [world simulation](world-simulation.md). It follows the last paragraph of [order confirmation](order-confirmation.md): a debt is owed to a faction, and the order-confirmation hook is the wrong place to collect it.
 
 Runs are `createPrototypeWorld` plus `runTick`, no player commands, seeds 1847 / 2718 / 4096, Node v24.21.0, ICU 78.3. Tick numbers on events are the `tick` field. `npm test` on this tree passes, 170 tests. The 72-tick hashes match `tests/fixtures/golden-hashes.json` (`d7eb02eb…`, `d0b4b449…`, `d5d9da8b…`; 8275, 8489, 8003 events). M23 did not change that fixture. The same three seeds at tick 1200 also match `6d7badb`, the tree before M23, including every release row and debt id below. Long runs are 1200 ticks. Median is the average of the two central values when the count is even.
 
@@ -274,6 +274,36 @@ Follow `docs/playtests/TEMPLATE.md`. Dashboard HTTP JSON only, as in [informed-c
 6. **They have already set money aside to pay for a grain delivery. Can the ransom take it?** Default: no. That money is waiting for the grain. It is not in the purse, and collection only reads the purse.
 7. **An officer says a job is done, and the report is waiting. Does signing it, or ignoring it, pay a ransom?** Default: no. The signature closes a job. The ransom is owed to a faction.
 8. **Who is allowed to see the size of the debt?** Default: the prisoner sees their own. The faction that is owed sees who owes it and how much, and does not see the purse. Anyone else can see that a payment happened and which faction was paid, and cannot see the amount.
+
+## Re-measured before installments
+
+The gate is the sentence above that the three seeds at tick 1200 match every release row and debt id in this note, read with the census table. The procedure is the appendix script: `createPrototypeWorld` plus `runTick`, no player commands, 1200 ticks, seeds 1847 / 2718 / 4096. It was run on `main` at `6c4c902` with no code change. That tree already has M28 and M29. Node v24.21.0, ICU 78.3. The gate does not pass. `collectCaptivityDebts` was not added. Release-day `moneyPaid` is untouched.
+
+| Seed | Captures | Releases | Debts | Paid in full | Still held | Debt total | min | median | max | `moneyPaid` |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1847 | 1 | 1 | 1 | 0 | 0 | 103.21 | 103.21 | 103.21 | 103.21 | 13.4 |
+| 2718 | 3 | 3 | 1 | 2 | 0 | 217.74 | 217.74 | 217.74 | 217.74 | 154.12 |
+| 4096 | 5 | 5 | 2 | 3 | 0 | 281.65 | 4.73 | 140.825 | 276.92 | 348.88 |
+
+The note's row is 10 / 10 / 8 / 2 / 0 / 2254.16 / 58.18 / 285.55 / 490.26 and 798.46; 3 / 3 / 2 / 1 / 0 / 332.62 / 30.13 / 166.31 / 302.49 and 281.34; 11 / 9 / 6 / 3 / 2 / 1043.79 / 53.91 / 191.525 / 253.98 and 597.43. None of the sixteen debt ids recur. Direction on this tree: World Government owes Free Tide 103.21 on 1847 (Sable Morrow). Free Tide owes World Government 217.74 on 2718 and 281.65 on 4096. Escapes: 0. `remainingValue` still equals `originalValue`. No row was removed. State hashes at tick 1200: `02627e6545848b4f510e68fff0ea23f7357dee8d8934fe69d11669834462a31a`, `38eef8b91aa9de0290a10a04cdfa5347d9c8a5b3dbf683b64f457be51a0003d9`, `28532e3821ef6f3c5257747f11e0d0e8c4e2d4cd97cac90dbd4edb90a7e0859a`. `rngState`: `2270529879`, `1566190560`, `2099783667`. Events: 168342, 167379, 164952.
+
+| Seed | Tick | Id | Who | Port | Creditor | Demand | Paid | Debt | Purse before |
+| ---: | ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| 1847 | 118 | debt-013680 | Sable Morrow, character-04, captured 34 | cinder-key | free-tide | 116.61 | 13.4 | 103.21 | 13.4 |
+| 2718 | 155 | — | Mina Vale, character-15, captured 71 | crown-harbor | — | 58.13 | 58.13 | 0 | 110.08 |
+| 2718 | 495 | debt-064026 | Esme Dusk, character-19, captured 411 | crown-harbor | world-government | 224.06 | 6.32 | 217.74 | 6.32 |
+| 2718 | 705 | — | Zara Gale, character-17, captured 621 | crown-harbor | — | 89.67 | 89.67 | 0 | 6110.5 |
+| 4096 | 96 | — | Sable Morrow, character-04, captured 12 | cinder-key | — | 106.84 | 106.84 | 0 | 130.34 |
+| 4096 | 102 | — | Dax Pike, character-20, captured 18 | glassport | — | 85.07 | 85.07 | 0 | 175.13 |
+| 4096 | 123 | debt-013887 | Esme Dusk, character-19, captured 39 | crown-harbor | world-government | 65.08 | 60.35 | 4.73 | 60.35 |
+| 4096 | 245 | — | Mina Vale, character-15, captured 161 | crown-harbor | — | 50.37 | 50.37 | 0 | 307.14 |
+| 4096 | 565 | debt-072047 | Esme Dusk, captured 481 | crown-harbor | world-government | 323.17 | 46.25 | 276.92 | 46.25 |
+
+Crown Harbor `settlement-claimed` over these 1200 ticks: 20, 4, and 0. On 1847 the gaps of 1 or 2 ticks are Pax Ash at 595 (world-government to free-tide) and Iris Stone at 597; Niko Wren at 727 and Finn Frost at 728; Niko Wren at 881 and Finn Frost at 882; Pax Ash at 991 and Sable Morrow at 993; Sable Morrow at 1101 and Finn Frost at 1102. Glassport does the same at 1102 (Corin Hale) and 1104 (Jun Marrow). On 2718, Cinder Key does it at 35 (Vale Drake) and 36 (Mina Vale). No capture and no release falls on those ticks, or within 2 ticks of them. No debt opens, closes, or changes `creditorFactionId` on a claim. Across all three seeds, debt mutations are 0 and debt removals are 0. No creditor is null, and every creditor id is still in `world.factions`, so none of the open rows is unpayable under the skip in the rule.
+
+One captivity does span a port flip, and the debt still does not move. On 1847 Sable is held at Cinder Key from 34 to 118, captor free-tide. Jun Marrow takes the port at 70 (free-tide to world-government) and Pax Ash takes it back at 80. The debt is created at 118, after both claims, as `debt-013680`, creditor free-tide, which is the captor at tick 34 and the holder at release. From 70 to 80 the holder is not that creditor, and the row does not exist yet. After 118, `remainingValue` stays 103.21 through tick 1200. On 4096 the same pattern pays in full, so no row opens: Iris Stone takes Cinder Key at 51 and Mina Vale returns it at 94, two ticks before Sable's release at 96; Mara Calder takes Glassport at 54 and Iris Stone returns it at 77, before Dax's release at 102.
+
+The ping-pong is real. It does not rewrite a debt. The census still fails the gate, because M28 and M29 changed who is captured. The sixteen rows are not this world.
 
 ## Appendix
 

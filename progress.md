@@ -30,16 +30,20 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** branched from `origin/main` at `ef81bf3`. This branch is `feature/outscore-rule` (M29). No pull request. `origin/main` later moved to `f86ad31` and was merged. That merge is the autonomous-orders note and owner questions 47–53. It did not move the hashes.
-- **Last verified:** `npm ci` and `npm run typecheck` clean, **209 tests**, `./scripts/evaluate-milestone.sh outscore-rule` after that merge. Node v24.21.0, ICU 78.3.
-- **Gate status:** golden hashes were not regenerated. Tick-72 hashes stay `cb04ba5d392d8b1c868cc97e54cb21b21ec171edd546bb70d0d7aba86cc69c11` (1847, 8301 events), `bd7d8cc44d5fa21022ecb8f8086e13dfbb9475eb025b5ae53f87e2991f90035c` (2718, 8513), `20975bf480e5aa11eeafe1ce39c36cf5ba0fa8e2d5de2bb5887a35d7b3aecc9f` (4096, 8031). Split recovery replayed 572 events.
-- **Headline risk:** the outscore playtest is pending with a blind operator at `docs/playtests/outscore-rule-001.md`.
+- **Baseline:** branched from `origin/main` at `6c4c902`. This branch is `feature/captivity-debt-installments`. No pull request. Installments were not implemented. The note's 1200-tick census does not match this world.
+- **Last verified:** the 1200-tick captivity census on unmodified `6c4c902`, then `npm run typecheck` clean, **209 tests**, `./scripts/evaluate-milestone.sh captivity-debt-installments`. Node v24.21.0, ICU 78.3.
+- **Gate status:** the installment gate failed. Golden hashes were not regenerated. Tick-72 hashes stay `cb04ba5d392d8b1c868cc97e54cb21b21ec171edd546bb70d0d7aba86cc69c11` (1847, 8301 events), `bd7d8cc44d5fa21022ecb8f8086e13dfbb9475eb025b5ae53f87e2991f90035c` (2718, 8513), `20975bf480e5aa11eeafe1ce39c36cf5ba0fa8e2d5de2bb5887a35d7b3aecc9f` (4096, 8031). Split recovery replayed 572 events on the last M29 run.
+- **Headline risk:** the unpaid-ransom rows in [captivity debts](docs/design/captivity-debts.md) are from `2918554`. On `6c4c902` the 1200-tick debts are 1, 1, and 2, and none of those ids match.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
+| HIGHEST PRIORITY: add a player-visible reason line on battle-resolved when the player witnessed the battle, such as "outscore" or "nerve broke" | Readability | Unassigned | Open |
+| With several attackers, the briefing says more than one captain "won at Crown Harbor" in the same tick while the panel still shows the other side | Readability | Unassigned | Open |
+| A claim says the captain "accepted Crown Harbor's surrender", but the surrender block is written and consumed within one tick, so the player never saw an offer | Readability | Unassigned | Open |
+| The visible port upkeep and the player's knowledge line give a garrison estimate (15) that disagrees with the dock panel (14, then 12) | Readability | Unassigned | Open |
 | After a port is captured, the player's panel falls back to a stale tick-0 rumor (for example "free-tide, garrison 131" at Cinder Key on 2718) instead of the last exact reading | Readability | Unassigned | Open |
 | The owned-port panel shows a surrender block (offeredToId/offeredTick) beside surrenderOffered false, which reads as contradictory | Readability | Unassigned | Open |
 | A silent close is still event type `standing-order-completed` | Readability | Unassigned | Open |
@@ -214,6 +218,14 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
 - A player can name a good and a quantity and see the price before paying, on any of the four resources, with every limit quoted before it is hit. A voyage pays for itself (+113.27 on 108 starting money in playtest). Whether it out-earns working the same ticks is a separate, deferred milestone.
 
 ## Entries
+
+### 2026-09-29 — Captivity-debt installments stopped at the 1200-tick census
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/captivity-debt-installments` | **Commits:** this record | **Type:** Measurement
+- **Changed** — No simulation code. [captivity debts](docs/design/captivity-debts.md) gains a re-measure on `main` at `6c4c902`. The appendix script was run as written. The census is 1 / 1 / 1 debt (103.21) on 1847, 3 / 3 / 1 (217.74) on 2718, and 5 / 5 / 2 (281.65) on 4096. The note's rows are 10 / 10 / 8 (2254.16), 3 / 3 / 2 (332.62), and 11 / 9 / 6 (1043.79). None of the sixteen debt ids recur. Release-day coins still leave the purse and still do not enter a treasury. `feature/ransom-to-captor` was not touched.
+- **Why** — The note gates installments on that 1200-tick census. M28 and M29 are now on main, and Crown Harbor on 1847 has 20 claims. The recorded rows are not this world, so the rule was not added and nothing was tuned to recreate them.
+- **Verified** — Node v24.21.0, ICU 78.3, `createPrototypeWorld` plus `runTick`, no commands, 1200 ticks. Debt mutations 0, removals 0, null creditors 0, escapes 0. Crown Harbor gaps of 1–2 ticks on 1847 (595/597, 727/728, 881/882, 991/993, 1101/1102), Glassport 1102/1104, and Cinder Key 35/36 on 2718 do not open, close, or reassign a debt. Sable Morrow's 1847 hold at Cinder Key does span Jun Marrow's claim at 70 and Pax Ash's at 80; `debt-013680` is created at 118 with creditor free-tide and does not change through tick 1200. `npm run typecheck` clean, **209 tests**, `./scripts/evaluate-milestone.sh captivity-debt-installments` passes. Tick-72 hashes stay `cb04ba5d…` / `bd7d8cc4…` / `20975bf4…` (8301, 8513, 8031). Recovery replayed 572 events. No `golden:update`.
+- **Left open** — Installments, until the census is accepted again or the note is rewritten for this world. Question 24 (release-day coins) stays unanswered. Four readability items are queued and not built: a witnessed battle with no reason line (highest priority), several captains each told as the winner of Crown Harbor in one tick, a surrender claim the player never saw offered, and a garrison estimate of 15 against a dock panel of 14 then 12.
+- **Links** — [captivity debts](docs/design/captivity-debts.md#re-measured-before-installments). No pull request.
 
 ### 2026-09-29 — M29: a higher score wins a finished major battle
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/outscore-rule` | **Commits:** `713a0ad` (the rule and the tests), `00eba2e` (the flip census and Crown Harbor churn), `f29c6ea` (the playtest plan). `e0e0e21` merges `origin/main` at `f86ad31`. This entry is the record commit. | **Type:** Behavior
