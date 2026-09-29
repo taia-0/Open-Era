@@ -10,8 +10,8 @@ import { createConversationThread, sendConversationMessage } from "../src/sim/co
 import { runTick } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
-import { stateHash } from "../src/sim/state.ts";
-import type { WorldState } from "../src/sim/types.ts";
+import { applyEvent, round, stateHash } from "../src/sim/state.ts";
+import type { SimEvent, WorldState } from "../src/sim/types.ts";
 
 function forceRetreatCapture(seed = 1847): WorldState {
   const world = createPrototypeWorld(seed);
@@ -136,6 +136,182 @@ test("the fourteen-day deadline forces release on bounded terms", () => {
   assert.equal(commander.money, 0);
   assert.equal(commander.debts.length, 1);
   assert.equal(commander.troopRecovery?.remaining, commander.troopRecovery?.total);
+});
+
+function coinStock(world: WorldState): number {
+  const purses = Object.values(world.characters).reduce((sum, character) => sum + character.money, 0);
+  const treasuries = Object.values(world.factions).reduce((sum, faction) => sum + faction.treasury, 0);
+  const escrow = Object.values(world.contracts ?? {}).reduce((sum, contract) => sum + contract.escrow, 0);
+  return round(purses + treasuries + escrow, 2);
+}
+
+function dueForRelease(world: WorldState, characterId: string): void {
+  const character = world.characters[characterId];
+  const captivity = character.captivity;
+  assert.ok(captivity);
+  captivity.capturedTick = world.tick - 14 * world.ticksPerDay;
+  captivity.mandatoryReleaseTick = world.tick;
+}
+
+/**
+ * Replay the tick through the named character's release and prove that event
+ * did not create or destroy coins. Later wages and passage are outside this check.
+ */
+function assertReleaseConserves(
+  before: WorldState,
+  events: SimEvent[],
+  characterId: string,
+  captorId: string | null,
+  treasuryBefore: number | null,
+  moneyPaid: number,
+): void {
+  const replay = structuredClone(before);
+  let matched = false;
+  for (const event of events) {
+    const stockBefore = coinStock(replay);
+    applyEvent(replay, event);
+    if (event.type === "captivity-released" && event.actorId === characterId) {
+      matched = true;
+      assert.equal(coinStock(replay), stockBefore);
+      assert.equal(replay.characters[characterId].money, round(before.characters[characterId].money - moneyPaid, 2));
+      if (captorId && treasuryBefore !== null) {
+        assert.equal(replay.factions[captorId].treasury, round(treasuryBefore + moneyPaid, 2));
+      }
+      assert.equal(event.data.factionTreasury, undefined);
+      break;
+    }
+  }
+  assert.equal(matched, true);
+}
+
+test("a ransom release moves the purse into the captor treasury and conserves coins", () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  const captorId = commander.captivity?.captorFactionId ?? null;
+  assert.ok(captorId);
+  commander.money = 10;
+  dueForRelease(world, commander.id);
+  const treasuryBefore = world.factions[captorId].treasury;
+  const snapshot = structuredClone(world);
+  const result = runTick(world);
+  const release = result.events.find((event) => event.type === "captivity-released" && event.actorId === commander.id);
+  assert.ok(release);
+  const terms = release.data.terms as { moneyPaid: number; debtValue: number; demandedValue: number };
+  assert.equal(terms.moneyPaid, 10);
+  assert.equal(terms.debtValue, round(terms.demandedValue - 10, 2));
+  assert.equal(release.data.characterMoney, 0);
+  assert.equal(release.targetId, captorId);
+  assertReleaseConserves(snapshot, result.events, commander.id, captorId, treasuryBefore, 10);
+});
+
+test("a purse that covers the ransom pays it in full and records no debt", () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  const captorId = commander.captivity!.captorFactionId!;
+  commander.money = 10_000;
+  dueForRelease(world, commander.id);
+  const treasuryBefore = world.factions[captorId].treasury;
+  const snapshot = structuredClone(world);
+  const result = runTick(world);
+  const release = result.events.find((event) => event.type === "captivity-released" && event.actorId === commander.id);
+  assert.ok(release);
+  const terms = release.data.terms as { moneyPaid: number; debtValue: number; demandedValue: number };
+  assert.equal(terms.debtValue, 0);
+  assert.equal(release.data.debt, null);
+  assert.equal(terms.moneyPaid, terms.demandedValue);
+  assert.ok(terms.moneyPaid > 0);
+  assert.equal(release.data.characterMoney, round(10_000 - terms.moneyPaid, 2));
+  assertReleaseConserves(snapshot, result.events, commander.id, captorId, treasuryBefore, terms.moneyPaid);
+});
+
+test("an empty purse records the debt and does not touch the treasury", () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  const captorId = commander.captivity!.captorFactionId!;
+  commander.money = 0;
+  dueForRelease(world, commander.id);
+  const treasuryBefore = world.factions[captorId].treasury;
+  const snapshot = structuredClone(world);
+  const result = runTick(world);
+  const release = result.events.find((event) => event.type === "captivity-released" && event.actorId === commander.id);
+  assert.ok(release);
+  const terms = release.data.terms as { moneyPaid: number; debtValue: number; demandedValue: number };
+  assert.equal(terms.moneyPaid, 0);
+  assert.equal(terms.debtValue, terms.demandedValue);
+  assert.equal(release.data.characterMoney, 0);
+  assert.equal(commander.debts.length, 1);
+  assertReleaseConserves(snapshot, result.events, commander.id, captorId, treasuryBefore, 0);
+});
+
+test("a captor with no faction keeps the coins in the purse", () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  commander.captivity!.captorFactionId = null;
+  commander.money = 40;
+  dueForRelease(world, commander.id);
+  const treasuriesBefore = Object.fromEntries(Object.values(world.factions).map((faction) => [faction.id, faction.treasury]));
+  const snapshot = structuredClone(world);
+  const result = runTick(world);
+  const release = result.events.find((event) => event.type === "captivity-released" && event.actorId === commander.id);
+  assert.ok(release);
+  const terms = release.data.terms as { moneyPaid: number; debtValue: number; demandedValue: number };
+  assert.equal(terms.moneyPaid, 0);
+  assert.equal(terms.debtValue, terms.demandedValue);
+  assert.equal(release.data.characterMoney, 40);
+  assert.equal(release.targetId, undefined);
+  const debt = release.data.debt as { creditorFactionId: string | null; remainingValue: number };
+  assert.equal(debt.creditorFactionId, null);
+  assert.equal(debt.remainingValue, terms.demandedValue);
+  assertReleaseConserves(snapshot, result.events, commander.id, null, null, 0);
+  for (const [id, treasury] of Object.entries(treasuriesBefore)) {
+    const replay = structuredClone(snapshot);
+    for (const event of result.events) {
+      applyEvent(replay, event);
+      if (event === release) break;
+    }
+    assert.equal(replay.factions[id].treasury, treasury);
+  }
+});
+
+test("a captor id with no faction record keeps the coins in the purse", () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  commander.captivity!.captorFactionId = "retired-faction";
+  commander.money = 40;
+  dueForRelease(world, commander.id);
+  const snapshot = structuredClone(world);
+  const result = runTick(world);
+  const release = result.events.find((event) => event.type === "captivity-released" && event.actorId === commander.id);
+  assert.ok(release);
+  const terms = release.data.terms as { moneyPaid: number; debtValue: number; demandedValue: number };
+  assert.equal(terms.moneyPaid, 0);
+  assert.equal(release.data.characterMoney, 40);
+  assert.equal(terms.debtValue, terms.demandedValue);
+  const debt = release.data.debt as { creditorFactionId: string | null };
+  assert.equal(debt.creditorFactionId, "retired-faction");
+  assert.equal(world.factions["retired-faction"], undefined);
+  assertReleaseConserves(snapshot, result.events, commander.id, null, null, 0);
+});
+
+test("a landless captor faction still receives the release-day coins", () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  const captorId = commander.captivity!.captorFactionId!;
+  for (const settlement of Object.values(world.settlements)) {
+    if (settlement.factionId === captorId) settlement.factionId = settlement.factionId === "world-government" ? "free-tide" : "world-government";
+  }
+  assert.equal(Object.values(world.settlements).some((settlement) => settlement.factionId === captorId), false);
+  commander.money = 25.5;
+  dueForRelease(world, commander.id);
+  const treasuryBefore = world.factions[captorId].treasury;
+  const snapshot = structuredClone(world);
+  const result = runTick(world);
+  const release = result.events.find((event) => event.type === "captivity-released" && event.actorId === commander.id);
+  assert.ok(release);
+  const terms = release.data.terms as { moneyPaid: number };
+  assert.equal(terms.moneyPaid, 25.5);
+  assert.equal(release.targetId, captorId);
+  assertReleaseConserves(snapshot, result.events, commander.id, captorId, treasuryBefore, 25.5);
 });
 
 test("captivity is visible through the public dashboard and survives recovery", () => {

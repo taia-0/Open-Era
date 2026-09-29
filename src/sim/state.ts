@@ -546,6 +546,18 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
     case "captivity-released":
       if (!actor) throw new Error("Captivity release event has no actor");
       actor.money = event.data.characterMoney as number;
+      // The purse already dropped `terms.moneyPaid`. That amount arrives in the
+      // captor treasury named by `targetId`. The new balance stays off the
+      // event: the prisoner can read this payload, and a rival treasury is hidden.
+      // A release that paid nothing, or has no faction record, does not write one.
+      {
+        const paid = (event.data.terms as { moneyPaid?: number } | undefined)?.moneyPaid;
+        if (typeof paid === "number" && paid > 0) {
+          const faction = event.targetId ? world.factions[event.targetId] : undefined;
+          if (!faction) throw new Error("Captivity release paid coins to a missing captor treasury");
+          faction.treasury = round(faction.treasury + paid, 2);
+        }
+      }
       if (event.data.debt) actor.debts.push(event.data.debt as Character["debts"][number]);
       actor.captivity = null;
       actor.troopRecovery = event.data.troopRecovery as Character["troopRecovery"];

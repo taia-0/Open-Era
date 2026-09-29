@@ -1559,7 +1559,12 @@ function processCaptivityDeadlines(
     const physicalAverage = Object.values(character.attributes).reduce((sum, value) => sum + value, 0) / 4;
     const systemMaximum = round(clamp(50 + captivity.scatteredTroops.count * 2 + physicalAverage * 0.5, 75, 600), 2);
     const demandedValue = round(systemMaximum * rng.between(0.55, 1), 2);
-    const moneyPaid = round(Math.min(character.money, demandedValue), 2);
+    // Release-day coins go to the captor faction's treasury. `applyEvent`
+    // adds `moneyPaid` there. A null captor, or an id with no faction record,
+    // has nowhere to put them, so the coins stay in the purse and the whole
+    // demand is the debt. Nothing is created or destroyed.
+    const captor = captivity.captorFactionId ? world.factions[captivity.captorFactionId] : undefined;
+    const moneyPaid = captor ? round(Math.min(character.money, demandedValue), 2) : 0;
     const debtValue = round(demandedValue - moneyPaid, 2);
     const debt: DebtObligation | null = debtValue > 0 ? {
       id: `debt-${String(world.nextEventSequence).padStart(6, "0")}`,

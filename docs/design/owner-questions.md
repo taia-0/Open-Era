@@ -252,7 +252,7 @@ Answer by number, for example "4: yes" or "4: keep the default." The default is 
 
 **If you pick the other way:** The coins taken on release day would go to the captor's treasury as well.
 
-**Status:** Queued as a separate bug. Not part of the installment milestone.
+**Status:** The written default leaves the coins nowhere. `feature/ransom-to-captor` takes the other way so the coins are not destroyed: `moneyPaid` is added to the captor faction's treasury, including after that faction loses its last port. A null captor, or an id with no faction record, keeps the coins in the purse and records the whole demand as debt. Not part of the installment milestone.
 
 **Source:** [Captivity debts](captivity-debts.md#questions-for-micah) question 3
 
