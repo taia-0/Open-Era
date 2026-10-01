@@ -275,7 +275,7 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
   );
 });
 
-test("seed 1847 at tick 595 names Glassport as out of reach while she is free", () => {
+test("seed 1847 at tick 595 names Verdant Cay while she is held", () => {
   const result = runTicks(createPrototypeWorld(1847), 595);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
@@ -285,37 +285,36 @@ test("seed 1847 at tick 595 names Glassport as out of reach while she is free", 
   };
   assert.equal(result.state.tick, 595);
   assert.equal(view.day, 99.17);
-  assert.equal(commander.captivity, null);
+  assert.equal(commander.captivity?.settlementId, "crown-harbor");
   assert.equal(commander.locationId, "crown-harbor");
   const starving = view.briefing.items.find((item) => item.id === "provision:critical");
   assert.ok(starving);
-  assert.equal(starving.settlementId, "glassport");
+  assert.equal(starving.settlementId, "verdant-cay");
   assert.equal(
     starving.summary,
-    "The hold is empty and 0.576 provisions per tick cannot be found. That costs health 0.461 per tick. Morale is already 0, so the shortage does not lower it. Morale gains nothing while the shortage lasts, so it will not recover on its own. Crown Harbor has no provisions to sell. Glassport is 4 ticks by report away — out of reach, which is short by 4 ticks.",
+    "The hold is empty and 0.256 provisions per tick cannot be found. That costs health 0.205 per tick. Morale is already 0, so the shortage does not lower it. Morale gains nothing while the shortage lasts, so it will not recover on its own. Crown Harbor has no provisions to sell. Verdant Cay sells provisions, and you cannot reach it while you are held.",
   );
   assert.equal(starving.summary.includes("No market you could still reach sells provisions"), false);
-  assert.equal(starving.summary.includes("while you are held"), false);
   const resupply = view.party.resupply;
   assert.ok(resupply);
-  assert.equal(resupply.settlementId, "glassport");
-  assert.equal(resupply.provisions, 134);
-  assert.equal(resupply.price, 2.41);
+  assert.equal(resupply.settlementId, "verdant-cay");
+  assert.equal(resupply.provisions, 269);
+  assert.equal(resupply.price, 1.18);
   assert.equal(resupply.reachable, false);
-  assert.equal(resupply.travelTicks, 4);
+  assert.equal(resupply.travelTicks, null);
 });
 
-test("seed 1847 at tick 679 shows only the rounded unscarred loyalty", () => {
+test("seed 1847 at tick 679 shows only the rounded scarred loyalty", () => {
   const world = runTicks(createPrototypeWorld(1847), 679).state;
   const commander = commanderOf(world);
   const card = projectCharacter(world, commander, commander);
   assert.equal(world.tick, 679);
   assert.equal(commander.captivity, null);
-  assert.equal(commander.loyaltyAdjustment, undefined);
-  assert.equal(card.loyalty, 0.808);
+  assert.equal(commander.loyaltyAdjustment, -0.04);
+  assert.equal(card.loyalty, 0.768);
   assert.equal(
     card.loyaltyNote,
-    "The seat reads 0.808. That rounded figure is the one the seat uses.",
+    "The seat reads 0.768. That rounded figure is the one the seat uses.",
   );
   assert.equal(/\d+\.\d{4,}/.test(String(card.loyaltyNote)), false);
   assert.equal(commander.personality.loyalty, 0.807927391717676);

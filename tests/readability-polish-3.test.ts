@@ -141,18 +141,19 @@ test("seed 1847 tick 69 names both captains and does not say each one took the p
   }
 });
 
-test("seed 1847 tick 339 says morale gave out, and does not say nerve broke", () => {
-  const run = runTicks(createPrototypeWorld(1847), 340);
-  const battle = run.events.find((event) =>
-    event.type === "battle-resolved" && event.tick === 339 && event.actorId === "character-14",
-  );
+test("seed 1847 tick 594 says morale gave out, and does not say nerve broke", () => {
+  const run = runTicks(createPrototypeWorld(1847), 595);
+  const battle = run.events.find((event) => event.sequence === 76573);
   assert.ok(battle);
-  assert.equal(battle.data.outcome, "defender-victory");
+  assert.equal(battle.type, "battle-resolved");
+  assert.equal(battle.tick, 594);
+  assert.equal(battle.actorId, "character-14");
+  assert.equal(battle.data.outcome, "attacker-victory");
   assert.equal(typeof battle.data.battleId, "string");
   const [row] = projectEventFeed(run.state, "character-01", [battle]);
   assert.equal(row?.payloadWithheld, true);
   assert.equal(row?.data, null);
-  assert.equal(row?.summary, "Pax Ash lost the fight at Crown Harbor because morale gave out, on a lower score.");
+  assert.equal(row?.summary, "Pax Ash won the fight at Crown Harbor on a higher score, after morale gave out. A surrender was offered.");
   assert.equal(String(row?.summary).includes("nerve"), false);
   assert.equal(String(row?.summary).includes("outscore"), false);
 });

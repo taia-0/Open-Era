@@ -192,25 +192,20 @@ export function partyPower(character: Character): number {
 /**
  * Split a ransom that was actually paid.
  *
- * Money is stored at two decimal places. The split is done in whole cents so
- * the shares sum exactly to `paid`. There is no RNG.
+ * Money is stored at two decimal places. The shares are whole cents so they
+ * sum exactly to `paid`. There is no RNG and no floating remainder.
  *
- * When the captor has a faction, the odd cent goes to that faction's treasury.
- * The leader's share is `floor(cents / 2)` and the treasury's share is the
- * rest. 58.13 is 29.07 to the treasury and 29.06 to the leader.
+ * When the captor has a faction, the treasury receives every cent and the
+ * party leader receives 0. There is no half-and-half split and no odd cent.
  *
  * When the captor has no faction, the leader receives every cent and the
  * treasury share is 0.
  */
 export function splitRansom(paid: number, hasFaction: boolean): { treasuryShare: number; leaderShare: number } {
   const cents = Math.round(paid * 100);
-  if (!hasFaction) return { treasuryShare: 0, leaderShare: round(cents / 100, 2) };
-  const leaderCents = Math.floor(cents / 2);
-  const treasuryCents = cents - leaderCents;
-  return {
-    treasuryShare: round(treasuryCents / 100, 2),
-    leaderShare: round(leaderCents / 100, 2),
-  };
+  const amount = round(cents / 100, 2);
+  if (!hasFaction) return { treasuryShare: 0, leaderShare: amount };
+  return { treasuryShare: amount, leaderShare: 0 };
 }
 
 function partyLeaderScore(character: Character): number {
