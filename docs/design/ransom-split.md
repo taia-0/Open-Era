@@ -4,7 +4,7 @@ Settled. Question 24 in [owner questions](owner-questions.md). The coins a priso
 
 ## Correction (2026-10-01)
 
-This addendum supersedes the 50/50 split below. Question 24 in the questions file still records that split. The questions file is unchanged. This ruling replaces it.
+This addendum supersedes the 50/50 split below. Question 24 now records this ruling: 100% to a faction captor's treasury, and 100% to the leader when the captor has no faction.
 
 When the captor has a faction, 100% of the coins actually paid go to that faction's treasury. The party leader receives 0. `floor(cents / 2)` and the odd-cent-to-treasury rule are gone for a faction captor. When the captor has no faction, the party leader still receives 100%, as before. The debt is still the unpaid remainder. Nothing is taken from the debt.
 

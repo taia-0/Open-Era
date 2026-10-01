@@ -27,6 +27,7 @@ import {
   characterCapturedSentence,
   characterName,
   eventBriefingTitle,
+  qualifyCollidingNames,
   passageUpkeepSentence,
   publicFeedSentence,
   settlementClaimedSentence,
@@ -129,25 +130,17 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     case "player-command-failed":
       return `${actor}'s command failed: ${event.data.reason}`;
     case "standing-order-issued":
-      return `${actor} issued ${String((event.data.order as { directive: string }).directive).replaceAll("-", " ")} orders to ${target}`;
+      return qualifyCollidingNames(world, `${actor} issued ${String((event.data.order as { directive: string }).directive).replaceAll("-", " ")} orders to ${target}`);
     case "standing-order-amended":
-      return String(event.data.summary);
     case "standing-order-cancelled":
-      return String(event.data.summary);
     case "standing-order-accepted":
-      return String(event.data.summary);
     case "standing-order-refused":
-      return String(event.data.summary);
     case "standing-order-deviated":
-      return String(event.data.summary);
     case "standing-order-resumed":
-      return String(event.data.summary);
     case "standing-order-completion-reported":
-      return String(event.data.summary);
     case "standing-order-completed":
-      return String(event.data.summary);
     case "standing-order-expired":
-      return String(event.data.summary);
+      return qualifyCollidingNames(world, String(event.data.summary));
     case "plan-reconsidered":
       return `${actor} reconsidered their plan: ${event.data.reason}`;
     case "battle-resolved":
@@ -168,7 +161,7 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     case "captivity-escaped":
       return captivityEscapedSentence(world, event);
     case "captivity-released":
-      return captivityReleasedSentence(world, event);
+      return captivityReleasedSentence(world, event, reader);
     case "character-upkeep": {
       const passage = passageUpkeepSentence(world, event);
       if (passage) return passage;
@@ -437,7 +430,10 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
         severity: "action",
         actionRequired: true,
         title: "A completion report needs confirmation.",
-        summary: order.lastReport?.summary ?? `${character.name} reports an order complete.`,
+        summary: qualifyCollidingNames(
+          world,
+          order.lastReport?.summary ?? `${characterName(world, character.id, character.name)} reports an order complete.`,
+        ),
         day: round(order.statusChangedTick / world.ticksPerDay, 2),
         characterId: character.id,
         orderId: order.id,
