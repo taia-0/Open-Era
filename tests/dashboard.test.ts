@@ -791,6 +791,8 @@ test("a rejected command names the precondition it failed", () => {
   commander.travel = null;
   commander.captivity = null;
   commander.money = 0;
+  // The holder draws the treasury. Empty it so the short-purse refusal still fires.
+  world.factions[commander.factionId!].treasury = 0;
 
   // "money and arms" left a player unable to tell which was missing.
   const broke = submitCommand(world, {
@@ -804,6 +806,7 @@ test("a rejected command names the precondition it failed", () => {
   assert.match(broke.error, /money/);
 
   commander.money = 1_000;
+  world.factions[commander.factionId!].treasury = 1_000;
   const settlement = world.settlements[commander.locationId];
   settlement.stocks.arms = 0;
   const unarmed = submitCommand(world, {

@@ -23,6 +23,7 @@ import {
   reviewPlan,
 } from "./agency.ts";
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
+import { resolvePassageCharge, resolveQuotedSpend, spendableAmount, spendData } from "./allowance.ts";
 import {
   applyEvent,
   captorPartyLeader,
@@ -92,14 +93,16 @@ export function passageCost(ticks: number): number {
 }
 
 /**
- * Whether the purse can cover the quoted passage to `destinationId` before leaving.
+ * Whether the quoted passage to `destinationId` can be covered before leaving.
  *
  * The quote is `passageCost(travelDuration)` and nothing else. The money is
  * spent at sea, not paid to the destination, so a destination tax is not part
  * of it. Player commands and autonomous planning both ask this function, so
- * the two cannot drift. Equality is enough: the player refusal is
- * `money < cost`. A voyage already underway is not re-quoted here; each sea
- * tick still charges `min(money, PASSAGE_COST_PER_TICK)`.
+ * the two cannot drift. A faction member covers it from today's allowance and
+ * then the purse. The free command holder covers it from the treasury. The
+ * refusal text is still the short-purse line. A voyage already underway is not
+ * re-quoted here; each sea tick still charges what can be paid, down to zero,
+ * and is not turned around.
  */
 export function quotedPassage(
   world: WorldState,
@@ -108,7 +111,7 @@ export function quotedPassage(
 ): { ticks: number; cost: number; affordable: boolean } {
   const ticks = travelDuration(world, character, destinationId);
   const cost = passageCost(ticks);
-  return { ticks, cost, affordable: character.money >= cost };
+  return { ticks, cost, affordable: resolveQuotedSpend(world, character, cost, PASSAGE_COST_PER_TICK).ok };
 }
 
 /**
@@ -412,6 +415,18 @@ export function tradableUnits(character: Character, resource: ResourceKey): numb
  * mirrors this same three-step cascade (see `tradeAmounts` in the dashboard
  * page) and `tests/trade.test.ts` holds the two to each other.
  */
+/** Purse after a trade. A buy draws allowance then purse, so the purse may fall by less than the gross. */
+function moneyAfterTrade(
+  world: WorldState,
+  character: Character,
+  direction: "buy" | "sell",
+  net: number,
+): number {
+  if (direction === "sell") return round(character.money + net, 2);
+  const spent = resolveQuotedSpend(world, character, net, PASSAGE_COST_PER_TICK);
+  return spent.ok ? spent.characterMoney : round(character.money, 2);
+}
+
 export function tradeAmounts(
   quantity: number,
   unitPrice: number,
@@ -470,7 +485,7 @@ export function tradeQuote(
   let maxQuantity: number;
   if (direction === "buy") {
     const byHold = Math.max(0, capacity - load);
-    const byMoney = unitPrice > 0 ? character.money / unitPrice : 0;
+    const byMoney = unitPrice > 0 ? spendableAmount(world, character, PASSAGE_COST_PER_TICK) / unitPrice : 0;
     maxQuantity = Math.max(0, Math.min(settlement.stocks[resource], depth, byHold, byMoney));
   } else {
     maxQuantity = Math.min(tradableUnits(character, resource), depth);
@@ -498,7 +513,7 @@ export function tradeQuote(
         ["stock", settlement.stocks[resource]],
         ["depth", depth],
         ["hold", Math.max(0, capacity - load)],
-        ["money", unitPrice > 0 ? character.money / unitPrice : 0],
+        ["money", unitPrice > 0 ? spendableAmount(world, character, PASSAGE_COST_PER_TICK) / unitPrice : 0],
       ];
       limitedBy = candidates.reduce((best, candidate) => candidate[1] < best[1] ? candidate : best)[0];
     }
@@ -515,7 +530,7 @@ export function tradeQuote(
     gross,
     tax,
     net,
-    moneyAfter: round(direction === "sell" ? character.money + net : character.money - net, 2),
+    moneyAfter: moneyAfterTrade(world, character, direction, net),
     maxQuantity,
   };
 }
@@ -536,9 +551,10 @@ function upkeepCharacter(
   const health = clamp(character.health - shortage * 0.8, 1, 100);
   // Provisions burn at the same rate at sea and at anchor. The passage charge
   // is the part that does not: a voyage has to be worth the money it costs,
-  // not only the ticks it takes. A party that cannot pay spends what it has.
-  const passage = traveling ? round(Math.min(character.money, PASSAGE_COST_PER_TICK), 2) : 0;
-  const characterMoney = round(character.money - passage, 2);
+  // not only the ticks it takes. A party that cannot pay spends what it can
+  // and is not turned around. Allowance first, then the purse. The free holder
+  // draws the treasury. A captive is not walked, and a quote while held draws nothing.
+  const passage = traveling ? resolvePassageCharge(world, character, PASSAGE_COST_PER_TICK) : null;
 
   emit(world, events, {
     type: "character-upkeep",
@@ -552,7 +568,13 @@ function upkeepCharacter(
       health: round(health),
       troopCount: character.troops.count - troopLoss,
       troopLoss,
-      ...(traveling ? { passageCost: passage, characterMoney } : {}),
+      ...(passage
+        ? {
+            passageCost: round(passage.treasuryDrawn + passage.purseDrawn, 2),
+            characterMoney: passage.characterMoney,
+            ...spendData(passage),
+          }
+        : {}),
     },
   });
 }
@@ -837,10 +859,10 @@ function buildCandidates(
     const planInfluence = planActionBoost(character, candidate.action, candidate.targetId);
     candidate.score = round(candidate.score + planInfluence.boost + rng.between(-3.5, 3.5), 2);
     if (planInfluence.reason) candidate.reason += `; ${planInfluence.reason}`;
-    if (candidate.action === "buy-provisions" && (settlement.stocks.provisions < 1 || character.money < 2)) {
+    if (candidate.action === "buy-provisions" && (settlement.stocks.provisions < 1 || spendableAmount(world, character, PASSAGE_COST_PER_TICK) < 2)) {
       candidate.score = -1_000;
     }
-    if (candidate.action === "recruit" && (character.money < 30 || settlement.stocks.arms < 2)) {
+    if (candidate.action === "recruit" && (spendableAmount(world, character, PASSAGE_COST_PER_TICK) < 30 || settlement.stocks.arms < 2)) {
       candidate.score = -1_000;
     }
     if (
@@ -882,6 +904,7 @@ function resolveTrade(
   let characterMoney: number;
   let tax: number;
   let factionTreasury = settlement.factionId ? world.factions[settlement.factionId].treasury : 0;
+  let purchase: ReturnType<typeof resolveQuotedSpend> | null = null;
 
   if (carried && tradableAmount(character, resource) >= 2) {
     quantity = round(Math.min(tradableAmount(character, resource), 16 + character.skills.trade / 7, marketDepth(settlement, resource)));
@@ -896,14 +919,17 @@ function resolveTrade(
   } else {
     const capacity = 40 + character.sailors * 2;
     const load = RESOURCE_KEYS.reduce((sum, key) => sum + character.cargo[key], 0);
-    quantity = round(Math.min(20 + character.skills.trade / 8, capacity - load, marketDepth(settlement, resource), settlement.stocks[resource], character.money / price));
+    const spendable = spendableAmount(world, character, PASSAGE_COST_PER_TICK);
+    quantity = round(Math.min(20 + character.skills.trade / 8, capacity - load, marketDepth(settlement, resource), settlement.stocks[resource], price > 0 ? spendable / price : 0));
     if (quantity <= 0) {
       return;
     }
     gross = round(quantity * price, 2);
     tax = 0;
     direction = "bought";
-    characterMoney = round(character.money - gross, 2);
+    purchase = resolveQuotedSpend(world, character, gross, PASSAGE_COST_PER_TICK);
+    if (!purchase.ok) return;
+    characterMoney = purchase.characterMoney;
     characterCargo[resource] = round(characterCargo[resource] + quantity);
     settlementStocks[resource] = round(settlementStocks[resource] - quantity);
   }
@@ -922,7 +948,11 @@ function resolveTrade(
       characterMoney,
       characterCargo,
       settlementStocks,
-      factionTreasury,
+      ...(direction === "sold"
+        ? { factionTreasury }
+        : purchase && purchase.ok
+          ? spendData(purchase)
+          : {}),
     },
   });
 }
@@ -1968,7 +1998,8 @@ function resolveContractCommand(
       return;
     }
     const due = round(command.price - existing.escrow, 2);
-    if (due > commander.money) {
+    const raised = due > 0 ? resolveQuotedSpend(world, commander, due, PASSAGE_COST_PER_TICK) : null;
+    if (raised && !raised.ok) {
       emit(world, events, {
         type: "player-command-failed",
         actorId: commander.id,
@@ -1992,10 +2023,10 @@ function resolveContractCommand(
       events,
       "contract-amended",
       next,
-      round(commander.money - due, 2),
+      raised && raised.ok ? raised.characterMoney : round(commander.money - due, 2),
       carrier.money,
       commander.id,
-      { commandId: command.id },
+      { commandId: command.id, ...(raised && raised.ok ? { ...spendData(raised), characterMoney: raised.characterMoney } : {}) },
     );
     emit(world, events, {
       type: "player-command-resolved",
@@ -2006,7 +2037,8 @@ function resolveContractCommand(
     return;
   }
 
-  if (command.price > commander.money) {
+  const escrow = resolveQuotedSpend(world, commander, command.price, PASSAGE_COST_PER_TICK);
+  if (!escrow.ok) {
     emit(world, events, {
       type: "player-command-failed",
       actorId: commander.id,
@@ -2037,10 +2069,10 @@ function resolveContractCommand(
     events,
     "contract-offered",
     contract,
-    round(commander.money - command.price, 2),
+    escrow.characterMoney,
     carrier.money,
     commander.id,
-    { commandId: command.id },
+    { commandId: command.id, ...spendData(escrow), characterMoney: escrow.characterMoney },
   );
   emit(world, events, {
     type: "player-command-resolved",
@@ -2189,6 +2221,17 @@ function processPlayerCommands(
         type: "player-command-resolved",
         actorId: commander.id,
         data: { commandId: command.id, outcome: "captivity-escaped" },
+      });
+      continue;
+    }
+
+    // A captive already queued something else before the hold. Escape is the
+    // only action that still runs. The refusal text is the one submit uses.
+    if (commander.captivity) {
+      emit(world, events, {
+        type: "player-command-failed",
+        actorId: commander.id,
+        data: { commandId: command.id, reason: "Only an escape attempt is available while the character is captive" },
       });
       continue;
     }
@@ -2666,7 +2709,7 @@ function resolveDecision(
       // What the board, the hold, the purse and the reserve can still support. A
       // board another trader has drained since acceptance shrinks the fill, and
       // the event records what actually moved rather than claiming the request.
-      const affordable = unitPrice > 0 ? character.money / unitPrice : 0;
+      const affordable = unitPrice > 0 ? spendableAmount(world, character, PASSAGE_COST_PER_TICK) / unitPrice : 0;
       const spare = Math.max(0, cargoCapacity(character) - cargoLoad(character));
       const depth = marketDepth(settlement, resource);
       const limit = direction === "buy"
@@ -2680,6 +2723,10 @@ function resolveDecision(
       const settlementStocks = cloneResources(settlement.stocks);
       characterCargo[resource] = round(characterCargo[resource] + (direction === "buy" ? quantity : -quantity));
       settlementStocks[resource] = round(settlementStocks[resource] - (direction === "buy" ? quantity : -quantity));
+      const purchase = direction === "buy"
+        ? resolveQuotedSpend(world, character, gross, PASSAGE_COST_PER_TICK)
+        : null;
+      if (purchase && !purchase.ok) break;
       const factionTreasury = direction === "sell" && settlement.factionId
         ? round(world.factions[settlement.factionId].treasury + tax, 2)
         : settlement.factionId ? world.factions[settlement.factionId].treasury : 0;
@@ -2694,10 +2741,16 @@ function resolveDecision(
           unitPrice,
           gross,
           tax,
-          characterMoney: round(direction === "sell" ? character.money + net : character.money - net, 2),
+          characterMoney: purchase && purchase.ok
+            ? purchase.characterMoney
+            : round(character.money + net, 2),
           characterCargo,
           settlementStocks,
-          factionTreasury,
+          ...(direction === "sell"
+            ? { factionTreasury }
+            : purchase && purchase.ok
+              ? spendData(purchase)
+              : {}),
         },
       });
       break;
@@ -2709,8 +2762,12 @@ function resolveDecision(
       if (typeof chosen.unitPrice !== "number") {
         const price = marketPrice(world, settlementId, "provisions");
         const desired = Math.max(0, provisionResupplyTarget(character) - character.cargo.provisions);
-        const quantity = round(Math.min(desired, settlement.stocks.provisions, character.money / price));
+        const spendable = spendableAmount(world, character, PASSAGE_COST_PER_TICK);
+        const quantity = round(Math.min(desired, settlement.stocks.provisions, price > 0 ? spendable / price : 0));
         if (quantity > 0) {
+          const gross = round(quantity * price, 2);
+          const spent = resolveQuotedSpend(world, character, gross, PASSAGE_COST_PER_TICK);
+          if (!spent.ok) break;
           const characterCargo = cloneResources(character.cargo);
           const settlementStocks = cloneResources(settlement.stocks);
           characterCargo.provisions = round(characterCargo.provisions + quantity);
@@ -2724,12 +2781,12 @@ function resolveDecision(
               resource: "provisions",
               quantity,
               unitPrice: price,
-              gross: round(quantity * price, 2),
+              gross,
               tax: 0,
-              characterMoney: round(character.money - quantity * price, 2),
+              characterMoney: spent.characterMoney,
               characterCargo,
               settlementStocks,
-              factionTreasury: settlement.factionId ? world.factions[settlement.factionId].treasury : 0,
+              ...spendData(spent),
             },
           });
         }
@@ -2737,14 +2794,16 @@ function resolveDecision(
       }
       const price = chosen.unitPrice;
       const depth = marketDepth(settlement, "provisions");
-      const affordable = price > 0 ? character.money / price : 0;
+      const affordable = price > 0 ? spendableAmount(world, character, PASSAGE_COST_PER_TICK) / price : 0;
       const quantity = round(Math.max(0, Math.min(chosen.quantity ?? 0, settlement.stocks.provisions, affordable, depth)));
       if (quantity > 0) {
+        const gross = round(quantity * price, 2);
+        const spent = resolveQuotedSpend(world, character, gross, PASSAGE_COST_PER_TICK);
+        if (!spent.ok) break;
         const characterCargo = cloneResources(character.cargo);
         const settlementStocks = cloneResources(settlement.stocks);
         characterCargo.provisions = round(characterCargo.provisions + quantity);
         settlementStocks.provisions = round(settlementStocks.provisions - quantity);
-        const gross = round(quantity * price, 2);
         emit(world, events, {
           type: "market-trade",
           actorId: character.id,
@@ -2756,10 +2815,10 @@ function resolveDecision(
             unitPrice: price,
             gross,
             tax: 0,
-            characterMoney: round(character.money - gross, 2),
+            characterMoney: spent.characterMoney,
             characterCargo,
             settlementStocks,
-            factionTreasury: settlement.factionId ? world.factions[settlement.factionId].treasury : 0,
+            ...spendData(spent),
           },
         });
       }
@@ -2786,7 +2845,11 @@ function resolveDecision(
       break;
     }
     case "recruit": {
-      const quantity = Math.max(1, Math.min(8, Math.floor(character.money / 12), Math.floor(settlement.stocks.arms / 0.35)));
+      const spendable = spendableAmount(world, character, PASSAGE_COST_PER_TICK);
+      const quantity = Math.max(1, Math.min(8, Math.floor(spendable / 12), Math.floor(settlement.stocks.arms / 0.35)));
+      const cost = quantity * 12;
+      const spent = resolveQuotedSpend(world, character, cost, PASSAGE_COST_PER_TICK);
+      if (!spent.ok) break;
       const settlementStocks = cloneResources(settlement.stocks);
       settlementStocks.arms = round(settlementStocks.arms - quantity * 0.35);
       emit(world, events, {
@@ -2795,10 +2858,11 @@ function resolveDecision(
         settlementId,
         data: {
           quantity,
-          cost: quantity * 12,
-          characterMoney: round(character.money - quantity * 12, 2),
+          cost,
+          characterMoney: spent.characterMoney,
           troopCount: character.troops.count + quantity,
           settlementStocks,
+          ...spendData(spent),
         },
       });
       break;

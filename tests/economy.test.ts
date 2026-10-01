@@ -111,6 +111,8 @@ test("buy-provisions clamps a player top-up to the depth and quotes that cost", 
   commander.cargo.provisions = 0;
   const held = round(gross - 0.01, 2);
   commander.money = held;
+  // The holder draws the treasury. Short the treasury, not only the purse.
+  world.factions[commander.factionId!].treasury = held;
   const short = submitCommand(world, { playerId: PLAYER, type: "character-action", action: "buy-provisions" });
   assert.equal(short.ok, false);
   assert.equal(short.ok === false ? short.code : null, "insufficient-money");
@@ -123,6 +125,7 @@ test("buy-provisions clamps a player top-up to the depth and quotes that cost", 
   assert.equal(commander.cargo.provisions, 0);
 
   commander.money = 10_000;
+  world.factions[commander.factionId!].treasury = 10_000;
   const purseBefore = commander.money;
   const shelfBefore = settlement.stocks.provisions;
   const over = submitCommand(world, { playerId: PLAYER, type: "character-action", action: "buy-provisions" });
@@ -148,10 +151,13 @@ test("buy-provisions clamps a player top-up to the depth and quotes that cost", 
   assert.equal(purchase.data.unitPrice, price);
   assert.equal(purchase.data.gross, gross);
   assert.equal(purchase.data.tax, 0);
-  assert.equal(purchase.data.characterMoney, round(purseBefore - gross, 2));
+  // The holder draws the gross from the treasury. The purse stays.
+  assert.equal(purchase.data.characterMoney, purseBefore);
+  assert.equal(purchase.data.treasuryDrawn, gross);
+  assert.equal(purchase.data.purseDrawn, 0);
   assert.equal((purchase.data.characterCargo as { provisions: number }).provisions, round(depth, 3));
   assert.equal((purchase.data.settlementStocks as { provisions: number }).provisions, round(shelfBefore - depth, 3));
-  assert.equal(commander.money, round(purseBefore - gross, 2));
+  assert.equal(commander.money, purseBefore);
   assert.equal(resolved.data.quantity, depth);
   assert.equal(resolved.data.unitPrice, price);
   assert.equal(resolved.data.gross, gross);
@@ -168,6 +174,7 @@ test("buy-provisions names a short purse, an empty shelf, and a missing port", (
   const price = marketPrice(world, settlement.id, "provisions");
   const gross = tradeAmounts(12, price, 0, "buy").gross;
   commander.money = 0;
+  world.factions[commander.factionId!].treasury = 0;
   const broke = submitCommand(world, { playerId: PLAYER, type: "character-action", action: "buy-provisions" });
   assert.equal(broke.ok, false);
   assert.equal(broke.ok === false ? broke.code : null, "insufficient-money");
@@ -188,6 +195,8 @@ test("buy-provisions names a short purse, an empty shelf, and a missing port", (
   commander.cargo.provisions = round(target - 0.5, 3);
   settlement.stocks.provisions = 500;
   commander.money = 1.5;
+  // The holder spends the treasury. Keep it at the purse figure so the 2-coin floor still binds.
+  world.factions[commander.factionId!].treasury = 1.5;
   const smallPrice = marketPrice(world, settlement.id, "provisions");
   const smallGross = tradeAmounts(0.5, smallPrice, 0, "buy").gross;
   assert.ok(smallGross <= 1.5, "the floor case has to be a bill the purse could otherwise pay");
@@ -316,17 +325,23 @@ test("travel charges money the quoted passage said it would, and eats no extra f
     targetId: destination.id,
   }).ok, true);
 
+  const sailed: Array<{ type: string; actorId?: string; data: Record<string, unknown> }> = [];
   let guard = 0;
   while (commanderOf(sailing).travel || sailing.tick === 0) {
-    runTick(sailing);
+    sailed.push(...runTick(sailing).events);
     guard += 1;
     assert.ok(guard < 40, "the voyage must finish");
     if (!commanderOf(sailing).travel && sailing.tick > 0 && commanderOf(sailing).locationId === destination.id) break;
   }
   while (anchor.tick < sailing.tick) runTick(anchor);
 
-  const spent = Number((moneyBefore.sailing - sailing.characters[id].money).toFixed(2));
-  assert.equal(spent, destination.passageCost, "the purse must fall by the quoted passage and nothing else");
+  // The holder draws passage from the treasury. The purse does not fall.
+  const spent = Number(sailed
+    .filter((event) => event.type === "character-upkeep" && event.actorId === id)
+    .reduce((sum, event) => sum + Number(event.data.treasuryDrawn ?? 0), 0)
+    .toFixed(2));
+  assert.equal(spent, destination.passageCost, "the treasury must pay the quoted passage and nothing else");
+  assert.equal(sailing.characters[id].money, moneyBefore.sailing);
   assert.equal(anchor.characters[id].money, moneyBefore.anchor, "standing still must not charge a passage");
 
   const eaten = (before: number, world: WorldState) => Number((before - world.characters[id].cargo.provisions).toFixed(3));
@@ -838,7 +853,8 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   const fulfilCarrier = fulfilled.characters["character-17"];
   assert.equal(offerProvisions(fulfilled, 18, 12).ok, true);
   const offerTick = runTick(fulfilled);
-  assertEscrowConserved(offerTick.events, round(108 + 93, 2));
+  // The holder draws the price from the treasury, so the purse-and-escrow sum rises by that draw.
+  assertEscrowConserved(offerTick.events, round(108 + 93 + 18, 2));
   const escrow = Object.values(fulfilled.contracts ?? {})[0].escrow;
   assert.equal(escrow, 18);
   const beforeFulfil = round(fulfilBuyer.money + fulfilCarrier.money + escrow, 2);
@@ -846,14 +862,14 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   assertEscrowConserved(fulfilTick.events, beforeFulfil);
   assert.equal(Object.values(fulfilled.contracts ?? {})[0].status, "fulfilled");
   assert.equal(Object.values(fulfilled.contracts ?? {})[0].escrow, 0);
-  assert.equal(fulfilBuyer.money, 90);
+  assert.equal(fulfilBuyer.money, 108);
 
   const refused = createPrototypeWorld(1847);
   const refuseBuyer = refused.characters["character-01"];
   const refuseCarrier = refused.characters["character-17"];
   assert.equal(offerProvisions(refused, 8, 12).ok, true);
   const cheapOffer = runTick(refused);
-  assertEscrowConserved(cheapOffer.events, round(108 + 93, 2));
+  assertEscrowConserved(cheapOffer.events, round(108 + 93 + 8, 2));
   const cheap = Object.values(refused.contracts ?? {})[0];
   assert.equal(cheap.status, "offered");
   const beforeRefuse = round(refuseBuyer.money + refuseCarrier.money + cheap.escrow, 2);
@@ -864,7 +880,8 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   assert.equal(refusal.data.gate, "score");
   assert.equal(refusal.data.score, 0.197);
   assert.equal(refusal.data.escrow, 0);
-  assert.equal(refuseBuyer.money, 108);
+  // A refused offer refunds the treasury draw into the purse.
+  assert.equal(refuseBuyer.money, 116);
   assert.equal(Object.values(refused.contracts ?? {})[0].status, "refused");
   assert.equal(
     refuseTick.events.filter((event) =>
@@ -878,7 +895,7 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   const expireCarrier = expired.characters["character-17"];
   assert.equal(offerProvisions(expired, 18, 1).ok, true);
   const shortOffer = runTick(expired);
-  assertEscrowConserved(shortOffer.events, round(108 + 93, 2));
+  assertEscrowConserved(shortOffer.events, round(108 + 93 + 18, 2));
   expireCarrier.locationId = "crown-harbor";
   expireCarrier.travel = null;
   const open = Object.values(expired.contracts ?? {})[0];
@@ -887,7 +904,7 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   assertEscrowConserved(breachTick.events, beforeBreach);
   assert.equal(Object.values(expired.contracts ?? {})[0].status, "breached");
   assert.equal(Object.values(expired.contracts ?? {})[0].settled, true);
-  assert.equal(expireBuyer.money, 108);
+  assert.equal(expireBuyer.money, 126);
   const later = runTick(expired);
   assert.equal(later.events.some((event) => event.type.startsWith("contract-")), false);
 });

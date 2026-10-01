@@ -1063,7 +1063,8 @@ test("cancelling an offer returns the escrow and writes no relationship", () => 
   runTick(world);
   const contract = Object.values(world.contracts ?? {})[0];
   assert.equal(contract.status, "offered");
-  assert.equal(buyer.money, 90);
+  // The holder draws the escrow from the treasury. The purse stays 108 until a refund.
+  assert.equal(buyer.money, 108);
   assert.equal(contract.escrow, 18);
 
   const cancel = submitCommand(world, {
@@ -1077,7 +1078,8 @@ test("cancelling an offer returns the escrow and writes no relationship", () => 
   assert.equal(world.contracts?.[contract.id].status, "cancelled");
   assert.equal(world.contracts?.[contract.id].escrow, 0);
   assert.equal(world.contracts?.[contract.id].settled, true);
-  assert.equal(buyer.money, 108);
+  // Cancelling credits the treasury-funded escrow back to the purse.
+  assert.equal(buyer.money, 126);
   assert.equal(
     settled.events.filter((event) =>
       event.type === "relationship-changed" &&

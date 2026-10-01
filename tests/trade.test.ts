@@ -59,14 +59,17 @@ test("the price the panel quotes is the price the boundary charges, buying", () 
   assert.ok(quantity >= 1, "the commander must be able to buy something for this to mean anything");
 
   const before = commander.money;
+  const treasuryBefore = world.factions[commander.factionId!].treasury;
   const submitted = trade(world, "buy-resource", "arms", quantity);
   assert.equal(submitted.ok, true);
-  runTick(world);
-  assert.equal(
-    Number((before - commander.money).toFixed(2)),
-    panelTotal(quantity, quote.price, 0, "buy"),
-    "the money charged must be the total the panel prints",
-  );
+  const bought = runTick(world);
+  const purchase = bought.events.find((event) => event.type === "market-trade" && event.actorId === commander.id && event.data.direction === "bought");
+  assert.ok(purchase);
+  // The holder draws the bill from the treasury. The purse does not fall.
+  assert.equal(commander.money, before);
+  assert.equal(purchase.data.treasuryDrawn, panelTotal(quantity, quote.price, 0, "buy"));
+  assert.equal(purchase.data.purseDrawn, 0);
+  assert.equal(purchase.data.factionTreasury, Number((treasuryBefore - Number(purchase.data.treasuryDrawn)).toFixed(2)));
 });
 
 test("the price the panel quotes is the price the boundary pays, selling", () => {
@@ -97,20 +100,23 @@ test("a price that moves between acceptance and the fill does not change the cha
 
   const before = commander.money;
   const cargoBefore = commander.cargo.arms;
+  const treasuryBefore = world.factions[commander.factionId!].treasury;
   assert.equal(trade(world, "buy-resource", "arms", quantity).ok, true);
   // A tick of autonomous trading can move a board before the player's order
   // fills. Draining the stock does exactly that, and the order must still be
   // charged the total the player was shown.
   const settlement = world.settlements[commander.locationId!];
   settlement.stocks.arms = Math.max(0, settlement.stocks.arms - settlement.stocks.arms * 0.5);
-  runTick(world);
+  const filled = runTick(world);
+  const purchase = filled.events.find((event) => event.type === "market-trade" && event.actorId === commander.id && event.data.direction === "bought");
+  assert.ok(purchase);
 
   assert.notEqual(market(world, commander).market.resources.arms.price, quote.price, "the board must have moved for this to mean anything");
-  assert.equal(
-    Number((before - commander.money).toFixed(2)),
-    panelTotal(quantity, quote.price, 0, "buy"),
-    "the order must fill at the price it was accepted at",
-  );
+  // The holder pays the accepted total from the treasury, at the accepted price.
+  assert.equal(commander.money, before);
+  assert.equal(purchase.data.unitPrice, quote.price);
+  assert.equal(purchase.data.treasuryDrawn, panelTotal(quantity, quote.price, 0, "buy"));
+  assert.equal(purchase.data.factionTreasury, Number((treasuryBefore - Number(purchase.data.treasuryDrawn)).toFixed(2)));
   assert.equal(Number((commander.cargo.arms - cargoBefore).toFixed(3)), quantity, "and it must move the quantity that was accepted");
 });
 
@@ -151,6 +157,8 @@ test("a purchase the purse cannot cover is refused and quotes the cost", () => {
   const { world, commander } = worldAt();
   const price = marketPrice(world, commander.locationId!, "medicine");
   commander.money = 1;
+  // The holder draws the treasury. Empty it so a short purse is a short treasury.
+  world.factions[commander.factionId!].treasury = 0;
   const wanted = Math.min(COMMAND_LIMIT_MAX, Math.max(1, Math.floor(2 / price)));
   const refused = trade(world, "buy-resource", "medicine", wanted);
   assert.equal(refused.ok, false);
@@ -170,6 +178,8 @@ test("a refusal names the limit that actually bound, not the first one checked",
   settlement.stocks[resource] = 5_000;
   commander.cargo[resource] = 0;
   commander.money = price * 10.5;
+  // The holder spends the treasury. Cap it at the purse figure this test used to set.
+  world.factions[commander.factionId!].treasury = commander.money;
   const wanted = 40;
   assert.ok(wanted * price > commander.money, "the purse must bind, or this proves nothing");
   assert.ok(wanted < cargoCapacity(commander), "the hold must not bind, or this proves nothing");

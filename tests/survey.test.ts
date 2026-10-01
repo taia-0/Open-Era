@@ -609,27 +609,28 @@ test("a remote garrison carries the report's tick and age, and a negative tick i
 });
 
 test("a garrison age equals the world tick minus the tick the player is shown", () => {
+  // Treasury spending moved the tick 72 reports. Verdant Cay is the stale rumor. Glassport is owned and fresh.
   const world = createPrototypeWorld(2718);
   runTicks(world, 72);
   assert.equal(world.tick, 72);
   const state = dashboardState(world, [], fullEventFeed([])) as { settlements: PanelSettlement[] };
   const shown = (id: string): PanelSettlement => state.settlements.find((entry) => entry.id === id)!;
 
-  const cinder = shown("cinder-key");
-  assert.equal(cinder.garrison, 131);
-  assert.ok(cinder.garrisonIntelligence);
-  assert.ok(cinder.intelligence);
-  assert.equal(cinder.garrisonIntelligence.source, "rumor");
-  assert.equal(cinder.garrisonIntelligence.observedTick, 0);
-  assert.equal(cinder.garrisonIntelligence.ageTicks, world.tick - cinder.garrisonIntelligence.observedTick);
-  assert.equal(cinder.intelligence.ageTicks, world.tick - cinder.intelligence.observedTick);
+  const verdant = shown("verdant-cay");
+  assert.equal(verdant.garrison, 85);
+  assert.ok(verdant.garrisonIntelligence);
+  assert.ok(verdant.intelligence);
+  assert.equal(verdant.garrisonIntelligence.source, "rumor");
+  assert.equal(verdant.garrisonIntelligence.observedTick, 0);
+  assert.equal(verdant.garrisonIntelligence.ageTicks, world.tick - verdant.garrisonIntelligence.observedTick);
+  assert.equal(verdant.intelligence.ageTicks, world.tick - verdant.intelligence.observedTick);
 
   const glass = shown("glassport");
-  assert.equal(glass.garrison, 138);
+  assert.equal(glass.garrison, 122);
   assert.ok(glass.garrisonIntelligence);
   assert.ok(glass.intelligence);
-  assert.equal(glass.garrisonIntelligence.source, "faction-report");
-  assert.equal(glass.garrisonIntelligence.observedTick, 0);
+  assert.equal(glass.garrisonIntelligence.source, "owned");
+  assert.equal(glass.garrisonIntelligence.observedTick, 72);
   assert.equal(glass.garrisonIntelligence.ageTicks, world.tick - glass.garrisonIntelligence.observedTick);
   assert.equal(glass.intelligence.ageTicks, world.tick - glass.intelligence.observedTick);
   assert.equal(glass.garrisonIntelligence.ageTicks, glass.intelligence.ageTicks);
@@ -728,7 +729,9 @@ test("a player voyage the quoted passage cannot cover is refused", () => {
   const quote = quotedPassage(world, commander, destination.id);
   assert.equal(quote.cost, cost);
   assert.equal(quote.ticks, travelDuration(world, commander, destination.id));
-  commander.money = Math.max(0, cost - 0.01);
+  // The free holder draws the treasury. A purse that could pay does not.
+  commander.money = 500;
+  world.factions[commander.factionId!].treasury = Math.max(0, cost - 0.01);
   assert.equal(quotedPassage(world, commander, destination.id).affordable, false);
   const refused = submitCommand(world, {
     playerId: "prototype-player",
@@ -741,7 +744,7 @@ test("a player voyage the quoted passage cannot cover is refused", () => {
   assert.match(refused.ok === false ? refused.error : "", new RegExp(String(cost)));
   assert.equal(world.pendingCommands.length, 0);
 
-  commander.money = cost;
+  world.factions[commander.factionId!].treasury = cost;
   assert.equal(quotedPassage(world, commander, destination.id).affordable, true);
   const accepted = submitCommand(world, {
     playerId: "prototype-player",
@@ -781,6 +784,9 @@ function curiousTraveler(money: number): { world: WorldState; traveler: Characte
   };
   traveler.lastPlanReviewTick = world.tick;
   traveler.money = money;
+  // Exhaust today's allowance so these tests still measure the purse. A member
+  // otherwise covers the quote from the allowance first.
+  traveler.allowanceRemaining = 0;
   return { world, traveler, away };
 }
 

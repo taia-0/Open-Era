@@ -275,16 +275,17 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
   );
 });
 
-test("seed 1847 at tick 595 names Verdant Cay while she is held", () => {
-  const result = runTicks(createPrototypeWorld(1847), 595);
+test("seed 1847 at tick 705 names Verdant Cay while she is held", () => {
+  // Treasury spending moved the hold off tick 595.
+  const result = runTicks(createPrototypeWorld(1847), 705);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
     day: number;
     party: { resupply: { settlementId: string; provisions: number; price: number; reachable: boolean; travelTicks: number | null } | null };
     briefing: { items: Array<{ id: string; summary: string; settlementId: string | null }> };
   };
-  assert.equal(result.state.tick, 595);
-  assert.equal(view.day, 99.17);
+  assert.equal(result.state.tick, 705);
+  assert.equal(view.day, 117.5);
   assert.equal(commander.captivity?.settlementId, "crown-harbor");
   assert.equal(commander.locationId, "crown-harbor");
   const starving = view.briefing.items.find((item) => item.id === "provision:critical");
@@ -304,11 +305,12 @@ test("seed 1847 at tick 595 names Verdant Cay while she is held", () => {
   assert.equal(resupply.travelTicks, null);
 });
 
-test("seed 1847 at tick 679 shows only the rounded scarred loyalty", () => {
-  const world = runTicks(createPrototypeWorld(1847), 679).state;
+test("seed 1847 at tick 789 shows only the rounded scarred loyalty", () => {
+  // Treasury spending moved the loyalty scar off tick 679.
+  const world = runTicks(createPrototypeWorld(1847), 789).state;
   const commander = commanderOf(world);
   const card = projectCharacter(world, commander, commander);
-  assert.equal(world.tick, 679);
+  assert.equal(world.tick, 789);
   assert.equal(commander.captivity, null);
   assert.equal(commander.loyaltyAdjustment, -0.04);
   assert.equal(card.loyalty, 0.768);
@@ -322,27 +324,28 @@ test("seed 1847 at tick 679 shows only the rounded scarred loyalty", () => {
   assert.equal(String(card.loyaltyNote).includes("0.767927391717676"), false);
 });
 
-test("Mina Vale at tick 72 says she named no ports, and 12 are held by World Government", () => {
-  const world = runTicks(createPrototypeWorld(2718), 72).state;
+test("Dax Pike at tick 172 says he named no ports, and 59 are held by World Government", () => {
+  // Treasury spending moved the empty port list off Mina Vale at tick 72. Dax Pike's hold is that list now.
+  const world = runTicks(createPrototypeWorld(1847), 172).state;
   const before = stateHash(world);
   const mara = commanderOf(world);
-  const mina = world.characters["character-15"];
-  assert.equal(mina.name, "Mina Vale");
-  assert.equal(world.tick, 72);
-  const card = projectCharacter(world, mara, mina);
+  const dax = world.characters["character-20"];
+  assert.equal(dax.name, "Dax Pike");
+  assert.equal(world.tick, 172);
+  const card = projectCharacter(world, mara, dax);
   const intel = card.captiveIntel as {
     troops: number;
     ports: unknown[];
     portsNote: string | null;
   };
-  assert.equal(intel.troops, 12);
+  assert.equal(intel.troops, 59);
   assert.deepEqual(intel.ports, []);
-  assert.equal(intel.portsNote, "Mina Vale named no ports. The list may be incomplete.");
+  assert.equal(intel.portsNote, "Dax Pike named no ports. The list may be incomplete.");
   assert.equal((card.troops as { count: number }).count, 0);
-  assert.equal(card.troopsNote, "0 with Mina Vale; 12 held by World Government. The experience and discipline are the troops now held by World Government.");
-  assert.equal(mina.troops.count, 0);
-  assert.equal(projectCharacter(world, mina, mina).captiveIntel, null);
-  assert.equal(projectCharacter(world, mina, mina).troopsNote, null);
+  assert.equal(card.troopsNote, "0 with Dax Pike; 59 held by World Government. The experience and discipline are the troops now held by World Government.");
+  assert.equal(dax.troops.count, 0);
+  assert.equal(projectCharacter(world, dax, dax).captiveIntel, null);
+  assert.equal(projectCharacter(world, dax, dax).troopsNote, null);
   assert.equal(stateHash(world), before);
 });
 
