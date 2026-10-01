@@ -7,7 +7,8 @@ import type { Character, WorldState } from "./types.ts";
  * Whole cents. Allowance first, then the purse, and never more from the
  * treasury than it holds. The two shares sum to the bill. A shortfall refuses
  * the whole quote. An uncapped holder draws the treasury only. The purse is
- * the later `source: "purse"` choice, not this default.
+ * A player command may pass `source: "purse"` to pay the purse and skip the
+ * allowance. The autonomous path never does.
  */
 export interface QuotedBillDraw {
   treasuryDrawn: number;
@@ -50,6 +51,9 @@ export function drawQuotedBill(input: {
 
 export type SpendRole = "captive" | "factionless" | "holder" | "member";
 
+/** `"purse"` pays the purse and does not draw the allowance or the treasury. */
+export type SpendSource = "default" | "purse";
+
 /**
  * Who is paying.
  *
@@ -74,11 +78,16 @@ function cents(value: number): number {
 }
 
 /** Coins this character can put toward one quoted bill. A captive has none. */
-export function spendableAmount(world: WorldState, character: Character, passagePerTick: number): number {
+export function spendableAmount(
+  world: WorldState,
+  character: Character,
+  passagePerTick: number,
+  source: SpendSource = "default",
+): number {
   const role = spendRole(world, character);
   if (role === "captive") return 0;
   const purse = Math.max(0, cents(character.money));
-  if (role === "factionless") return round(purse / 100, 2);
+  if (source === "purse" || role === "factionless") return round(purse / 100, 2);
   const treasury = Math.max(0, cents(world.factions[character.factionId!].treasury));
   if (role === "holder") return round(treasury / 100, 2);
   const cap = cents(world.ticksPerDay * passagePerTick);
@@ -91,12 +100,13 @@ export function quoteCharacterBill(
   character: Character,
   bill: number,
   passagePerTick: number,
+  source: SpendSource = "default",
 ): { ok: true } & QuotedBillDraw | { ok: false; reason: "shortfall" } {
   const role = spendRole(world, character);
   if (role === "captive") return { ok: false, reason: "shortfall" };
   const billCents = cents(bill);
   if (billCents < 0) return { ok: false, reason: "shortfall" };
-  if (role === "factionless") {
+  if (source === "purse" || role === "factionless") {
     if (Math.max(0, cents(character.money)) < billCents) return { ok: false, reason: "shortfall" };
     return {
       ok: true,
@@ -134,8 +144,9 @@ export function resolveQuotedSpend(
   character: Character,
   bill: number,
   passagePerTick: number,
+  source: SpendSource = "default",
 ): ResolvedSpend | { ok: false; reason: "shortfall" } {
-  const quote = quoteCharacterBill(world, character, bill, passagePerTick);
+  const quote = quoteCharacterBill(world, character, bill, passagePerTick, source);
   if (!quote.ok) return quote;
   const resolved: ResolvedSpend = {
     ok: true,
@@ -159,7 +170,8 @@ export function resolvePassageCharge(
   character: Character,
   passagePerTick: number,
 ): ResolvedSpend {
-  const affordable = Math.min(passagePerTick, Math.max(0, spendableAmount(world, character, passagePerTick)));
+  const source: SpendSource = character.travel?.source === "purse" ? "purse" : "default";
+  const affordable = Math.min(passagePerTick, Math.max(0, spendableAmount(world, character, passagePerTick, source)));
   const bill = round(affordable, 2);
   if (bill <= 0) {
     return {
@@ -170,7 +182,7 @@ export function resolvePassageCharge(
       characterMoney: round(character.money, 2),
     };
   }
-  const spent = resolveQuotedSpend(world, character, bill, passagePerTick);
+  const spent = resolveQuotedSpend(world, character, bill, passagePerTick, source);
   if (!spent.ok) {
     return {
       ok: true,

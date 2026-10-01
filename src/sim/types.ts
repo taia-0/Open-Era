@@ -175,6 +175,12 @@ export interface TravelState {
   toId: string;
   totalTicks: number;
   remainingTicks: number;
+  /**
+   * Set only when a player voyage was accepted with `source: "purse"`.
+   * Sea ticks then pay the purse and skip the allowance. Absent on every
+   * autonomous voyage, so a headless log does not grow the field.
+   */
+  source?: "purse";
 }
 
 export type GoalKind =
@@ -472,6 +478,13 @@ export type PlayerCommand =
        * than one order may clear. `quantity` is then `marketDepth`, not the gap.
        */
       capped?: boolean;
+      /**
+       * `"purse"` pays this character's purse and skips the allowance.
+       * Omitted on a member keeps the allowance-then-purse draw. The free
+       * command holder's accept event echoes `"treasury"` when the request
+       * omits it.
+       */
+      source?: "purse" | "treasury";
     }
   | {
       id: string;
@@ -538,6 +551,8 @@ export type PlayerCommand =
       destinationId: string;
       price: number;
       expiresTick: number;
+      /** Same field as on a character action. `"purse"` skips the allowance. */
+      source?: "purse" | "treasury";
     }
   | {
       id: string;
@@ -660,6 +675,8 @@ export interface DecisionCandidate {
    * it, and a player who was quoted a total must be charged that total.
    */
   unitPrice?: number;
+  /** Player `source: "purse"` only. Autonomous decisions leave this unset. */
+  spendSource?: "purse";
 }
 
 export interface SimEvent {

@@ -1,9 +1,10 @@
 import { openStandingOrder } from "./agency.ts";
 import { openSupplyContract } from "./contracts.ts";
 import { applyEvent, clamp, marketPrice, round, settlementClaimAvailableTo } from "./state.ts";
-import { resolveQuotedSpend, spendableAmount } from "./allowance.ts";
+import { resolveQuotedSpend, spendRole, spendableAmount, type SpendSource } from "./allowance.ts";
 import { MARKET_DEPTH_FRACTION, marketDepth, PASSAGE_COST_PER_TICK, provisionResupplyTarget, quotedPassage, tradeAmounts, tradeQuote } from "./engine.ts";
 import type {
+  Character,
   OrderDirective,
   PlayerAction,
   PlayerCommand,
@@ -23,6 +24,11 @@ export type CommandRequest =
       resource?: ResourceKey;
       /** Required by buy-resource and sell-resource: how much, in units. */
       quantity?: number;
+      /**
+       * `"purse"` pays the purse and skips the allowance. Omitted, the free
+       * holder draws the treasury and a member draws the allowance, then the purse.
+       */
+      source?: "purse" | "treasury";
     }
   | {
       playerId: string;
@@ -72,6 +78,8 @@ export type CommandRequest =
       destinationId: string;
       price: number;
       expiresInTicks: number;
+      /** `"purse"` pays the purse and skips the allowance. */
+      source?: "purse" | "treasury";
     }
   | {
       playerId: string;
@@ -233,6 +241,7 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
         price: "required for offer-contract; the escrow taken from the offerer when the offer is applied",
         destinationId: "required for offer-contract; the settlement shelf that receives the provisions",
         contractId: "required for cancel-contract",
+        source: "optional on character-action and offer-contract; \"purse\" pays the purse and skips the allowance. Omitted, the free command holder draws the treasury and a member draws the allowance, then the purse",
       },
       failure: "any 4xx body is { ok: false, code, error }; `code` is stable, `error` is human prose",
     },
@@ -315,6 +324,41 @@ function reject(code: string, error: string): CommandSubmission {
   return { ok: false, code, error };
 }
 
+function rawSource(request: object): unknown {
+  return Object.prototype.hasOwnProperty.call(request, "source")
+    ? (request as { source?: unknown }).source
+    : undefined;
+}
+
+function sourceRefusal(value: unknown): { ok: false; code: string; error: string } {
+  return { ok: false, code: "invalid-source", error: `source is "purse" or omitted; ${JSON.stringify(value)} was requested` };
+}
+
+/**
+ * The request's `source`, or the free holder's echoed `"treasury"` when it
+ * is omitted. A member who omits it keeps the allowance-then-purse draw and
+ * the field stays off the command. `"purse"` is the only value a client sends.
+ * `"treasury"` is accepted from the free holder because that is what an
+ * omitted command echoes. Anyone else sending it is refused with the same
+ * sentence.
+ */
+function commandSource(
+  world: WorldState,
+  character: Character,
+  raw: unknown,
+): { ok: true; source?: "purse" | "treasury" } | { ok: false; code: string; error: string } {
+  if (raw === undefined) {
+    return spendRole(world, character) === "holder" ? { ok: true, source: "treasury" } : { ok: true };
+  }
+  if (raw === "purse") return { ok: true, source: "purse" };
+  if (raw === "treasury" && spendRole(world, character) === "holder") return { ok: true, source: "treasury" };
+  return sourceRefusal(raw);
+}
+
+function billSource(source: "purse" | "treasury" | undefined): SpendSource {
+  return source === "purse" ? "purse" : "default";
+}
+
 function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
   const player = world.players[command.playerId];
   const character = world.characters[player.characterId];
@@ -353,6 +397,9 @@ function validateCharacterAction(
   if (character.controller.kind !== "human" || character.controller.playerId !== player.id) {
     return reject("not-controller", "The player does not control this character");
   }
+  const sourced = commandSource(world, character, rawSource(request));
+  if (!sourced.ok) return sourced;
+  const spend = sourced.source;
   if (world.pendingCommands.some((command) => command.type === "character-action" && command.playerId === player.id)) {
     return reject("action-already-queued", "Only one direct character action may be queued at a time");
   }
@@ -367,7 +414,7 @@ function validateCharacterAction(
     if (request.targetId === character.locationId) {
       return reject("already-there", "The character is already at that settlement");
     }
-    const quote = quotedPassage(world, character, request.targetId);
+    const quote = quotedPassage(world, character, request.targetId, billSource(spend));
     if (!quote.affordable) {
       const destination = world.settlements[request.targetId];
       return reject(
@@ -414,7 +461,7 @@ function validateCharacterAction(
     // which of the two it was missing. The gate is still 30. A member covers it
     // from the allowance and then the purse. The holder covers it from the treasury.
     // The sentence still names the purse, which is the short-purse refusal.
-    if (spendableAmount(world, character, PASSAGE_COST_PER_TICK) < 30) return reject("insufficient-money", `Recruitment costs 30 money; the character holds ${character.money}`);
+    if (spendableAmount(world, character, PASSAGE_COST_PER_TICK, billSource(spend)) < 30) return reject("insufficient-money", `Recruitment costs 30 money; the character holds ${character.money}`);
     if (settlement.stocks.arms < 2) return reject("no-arms", `Recruitment needs 2 arms here; the settlement holds ${settlement.stocks.arms}`);
   }
   // The price the accepted order will be filled at, if this is a trade. Captured
@@ -448,7 +495,7 @@ function validateCharacterAction(
     acceptedCapped = uncapped > depth;
     const gross = tradeAmounts(quantity, price, 0, "buy").gross;
     const held = round(character.money, 2);
-    if (!resolveQuotedSpend(world, character, gross, PASSAGE_COST_PER_TICK).ok) {
+    if (!resolveQuotedSpend(world, character, gross, PASSAGE_COST_PER_TICK, billSource(spend)).ok) {
       return reject(
         "insufficient-money",
         `${quantity} provisions costs ${gross} at ${price} each; the character holds ${held}`,
@@ -457,7 +504,7 @@ function validateCharacterAction(
     // Two money is the minimum balance, not the price. A purse that can pay a
     // smaller bill and still sits under 2 is refused with both numbers. The
     // figure is now what this character can spend, and the sentence still names the purse.
-    if (spendableAmount(world, character, PASSAGE_COST_PER_TICK) < 2) {
+    if (spendableAmount(world, character, PASSAGE_COST_PER_TICK, billSource(spend)) < 2) {
       return reject(
         "insufficient-money",
         `Buying provisions needs at least 2 money; ${quantity} provisions costs ${gross} at ${price} each and the character holds ${held}`,
@@ -484,7 +531,7 @@ function validateCharacterAction(
     }
     // The quote is the same function the charge uses, so the refusal below and
     // the price paid cannot disagree about what the trade would have cost.
-    const quote = tradeQuote(world, character, resource, direction, quantity);
+    const quote = tradeQuote(world, character, resource, direction, quantity, billSource(spend));
     if (quote.quantity < quantity) {
       if (quote.limitedBy === "depth") {
         const whole = Math.floor(quote.maxQuantity);
@@ -533,6 +580,7 @@ function validateCharacterAction(
           ...(acceptedCapped ? { capped: true } : {}),
         }
       : {}),
+    ...(spend ? { source: spend } : {}),
   };
   return { ok: true, command, event: acceptedEvent(world, command) };
 }
@@ -857,6 +905,9 @@ function validateOfferContract(
 ): CommandSubmission {
   const player = world.players[request.playerId];
   const buyer = world.characters[player.characterId];
+  const sourced = commandSource(world, buyer, rawSource(request));
+  if (!sourced.ok) return sourced;
+  const spend = sourced.source;
   const carrier = world.characters[request.characterId];
   if (!carrier) return reject("unknown-character", "The carrier is unknown");
   if (carrier.id === buyer.id) return reject("invalid-carrier", "A character cannot contract with themselves");
@@ -903,7 +954,7 @@ function validateOfferContract(
       return reject("no-change", "The offer does not change the contract");
     }
     const due = round(price - open.escrow, 2);
-    if (due > 0 && !resolveQuotedSpend(world, buyer, due, PASSAGE_COST_PER_TICK).ok) {
+    if (due > 0 && !resolveQuotedSpend(world, buyer, due, PASSAGE_COST_PER_TICK, billSource(spend)).ok) {
       return reject("insufficient-money", `Raising the price to ${price} needs ${due} more; the character holds ${round(buyer.money, 2)}`);
     }
     const command: PlayerCommand = {
@@ -917,6 +968,7 @@ function validateOfferContract(
       destinationId: request.destinationId,
       price,
       expiresTick: deadlineTick,
+      ...(spend ? { source: spend } : {}),
     };
     return { ok: true, command, event: acceptedEvent(world, command) };
   }
@@ -927,7 +979,7 @@ function validateOfferContract(
   )) {
     return reject("contract-already-queued", "An offer to this carrier is already queued");
   }
-  if (!resolveQuotedSpend(world, buyer, price, PASSAGE_COST_PER_TICK).ok) {
+  if (!resolveQuotedSpend(world, buyer, price, PASSAGE_COST_PER_TICK, billSource(spend)).ok) {
     return reject("insufficient-money", `The contract price is ${price}; the character holds ${round(buyer.money, 2)}`);
   }
   const command: PlayerCommand = {
@@ -940,6 +992,7 @@ function validateOfferContract(
     destinationId: request.destinationId,
     price,
     expiresTick: world.tick + duration,
+    ...(spend ? { source: spend } : {}),
   };
   return { ok: true, command, event: acceptedEvent(world, command) };
 }
@@ -984,6 +1037,10 @@ export function submitCommand(world: WorldState, request: CommandRequest): Comma
   const character = world.characters[player.characterId];
   if (character.captivity && request.type !== "escape-captivity") {
     return reject("character-captive", "Only an escape attempt is available while the character is captive");
+  }
+  if (request.type !== "character-action" && request.type !== "offer-contract") {
+    const raw = rawSource(request);
+    if (raw !== undefined) return sourceRefusal(raw);
   }
   if (request.type === "escape-captivity") return validateCaptivityEscape(world, request);
   const activeBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === player.characterId);
