@@ -469,7 +469,11 @@ test("Mina Vale's release at event tick 155 keeps the paid line beside her priso
   assert.equal(maraRow?.summary, sentence);
   const [ownRow] = projectEventFeed(world, mina.id, [release]);
   assert.equal(ownRow?.payloadWithheld, false);
-  assert.equal(ownRow?.summary, sentence);
+  assert.equal(
+    ownRow?.summary,
+    "Mina Vale was released from Crown Harbor. 58.13 was paid and 0 was recorded as debt. 58.13 went to the World Government treasury. The balance is not visible to you. The ransom line covers only the ransom.",
+  );
+  assert.equal((ownRow?.data as { ransom: { factionTreasury?: number } }).ransom.factionTreasury, undefined);
   const view = dashboardState(world, result.events, fullEventFeed(result.events)) as {
     briefing: { items: Array<{ id: string; summary: string }> };
   };
@@ -501,7 +505,7 @@ test("Sable Morrow's release at state tick 119 says loyalty fell beside her pris
   assert.ok(release);
   assert.equal(release.type, "captivity-released");
   assert.equal(release.tick, 118);
-  const sentence = "Sable Morrow was released from Cinder Key. 13.4 was paid and 103.21 was recorded as debt. Loyalty fell. 13.4 went to the Free Tide Compact treasury. The ransom line covers only the ransom.";
+  const sentence = "Sable Morrow was released from Cinder Key. 13.4 was paid and 103.21 was recorded as debt. Loyalty fell. 13.4 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
   const [maraRow] = projectEventFeed(world, mara.id, [release]);
   assert.equal(maraRow?.payloadWithheld, true);
   assert.equal(maraRow?.data, null);
@@ -509,6 +513,10 @@ test("Sable Morrow's release at state tick 119 says loyalty fell beside her pris
   const [ownRow] = projectEventFeed(world, sable.id, [release]);
   assert.equal(ownRow?.payloadWithheld, false);
   assert.equal(ownRow?.summary, sentence);
+  assert.equal(
+    (ownRow?.data as { ransom: { factionTreasury?: number } }).ransom.factionTreasury,
+    undefined,
+  );
   const view = dashboardState(world, result.events, fullEventFeed(result.events)) as {
     briefing: { items: Array<{ id: string; summary: string }> };
   };

@@ -191,17 +191,18 @@ test("seed 1847 tick 118 separates the ransom from the Crown Harbor tax", () => 
   const harbor = run.events.find((event) => event.sequence === 13675);
   const traded = run.events.find((event) => event.sequence === 13701);
   assert.ok(release && upkeep && harbor && traded);
-  const line = "Sable Morrow was released from Cinder Key. 13.4 was paid and 103.21 was recorded as debt. Loyalty fell. 13.4 went to the Free Tide Compact treasury. The ransom line covers only the ransom.";
+  const mara = run.state.characters["character-01"];
+  const line = "Sable Morrow was released from Cinder Key. 13.4 was paid and 103.21 was recorded as debt. Loyalty fell. 13.4 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
   const [releaseRow] = projectEventFeed(run.state, "character-01", [release]);
   assert.equal(releaseRow?.payloadWithheld, true);
   assert.equal(releaseRow?.data, null);
   assert.equal(releaseRow?.summary, line);
-  assert.deepEqual(releaseRow?.details, captivityReleasedParts(run.state, release));
+  assert.deepEqual(releaseRow?.details, captivityReleasedParts(run.state, release, false, mara));
   assert.deepEqual(releaseRow?.details, [
     "Sable Morrow was released from Cinder Key.",
     "13.4 was paid and 103.21 was recorded as debt.",
     "Loyalty fell.",
-    "13.4 went to the Free Tide Compact treasury.",
+    "13.4 went to the Free Tide Compact treasury. The balance is not visible to you.",
     "The ransom line covers only the ransom.",
   ]);
   assert.equal(String(line).includes("29.01"), false);

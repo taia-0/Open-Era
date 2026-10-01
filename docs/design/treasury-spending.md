@@ -1,8 +1,10 @@
 # Treasury spending
 
-**Status: Open.** Design note. The allowance and the ruler's spend are not built. Question 24 in [owner questions](owner-questions.md) is still recorded there as settled 50/50. The questions file is unchanged.
+**Status: Open.** Design note. The ruler's spend is not built. The allowance in slice 2 is a read-time projection only. Question 24 in [owner questions](owner-questions.md) records the owner's ruling: 100% to a faction captor's treasury, and 100% to the leader when the captor has no faction. That ruling supersedes the 50/50 split.
 
 **Correction (2026-10-01).** The ransom routing in slice 1 is built. A faction captor's treasury receives the whole payment, `leaderShare` is 0, and `leaderId` and `leaderMoney` are omitted. The measured 1200-tick hashes below are the 50/50 campaign. The new baseline is the addendum in [ransom split](ransom-split.md).
+
+**Correction (allowance projection).** Slice 2 does not write `allowanceRemaining` onto the character and does not draw coins. Own-faction rows show the cap, 18. The remaining figure is omitted while nothing has been drawn that day. Omitted means full, the same rule as section 3. The free command holder is uncapped. The acting commander keeps 18. A rival's cap, remaining, and treasury balance stay null. A line that names a treasury whose balance that reader cannot see says the balance is not visible to you, and does not print the number.
 
 Runs below are `createPrototypeWorld` plus `runTick`, no player commands, seeds 1847 / 2718 / 4096, 1200 ticks, on this tree (`f87beb5`), Node v24.21.0, ICU 78.3. Tick numbers on events are the `tick` field. A figure at tick 72 or tick 1200 is the world after that many `runTick` calls. `npm test` passed, 301 tests, including the golden pin and its recovery replay of 572 events. The harness was local and was not committed.
 

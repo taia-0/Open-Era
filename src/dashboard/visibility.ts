@@ -1,7 +1,8 @@
 import { assessStandingOrder, garrisonConfidenceLabel } from "../sim/agency.ts";
 import { commandHolderId, factionPower, partyPower, partyPowerFromTroops, round } from "../sim/state.ts";
 import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder, SupplyContract, TravelState, WorldState } from "../sim/types.ts";
-import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, releaseDebtNote, ransomIncomeNote, seatSummaryFor, skillsWithheldNote, summaryStaysWhenWithheld } from "./wording.ts";
+import { projectAllowance } from "./allowance.ts";
+import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, skillsWithheldNote, summaryStaysWhenWithheld } from "./wording.ts";
 
 /**
  * Decides what a player may legitimately know about the rest of the world.
@@ -131,6 +132,50 @@ export function characterIntelligence(
 export function visibleStandingOrders(commander: Character, character: Character): StandingOrder[] {
   if (character.id === commander.id) return character.standingOrders;
   return character.standingOrders.filter((order) => order.issuerId === commander.id);
+}
+
+/**
+ * The order the reader is shown. A stored summary keeps the bare name.
+ * The copy qualifies Toma Reef and Toma Hale. The world order is not written.
+ */
+function projectStandingOrder(world: WorldState, order: StandingOrder): StandingOrder {
+  const summary = order.lastReport?.summary;
+  if (!summary) return order;
+  const qualified = qualifyCollidingNames(world, summary);
+  if (qualified === summary) return order;
+  return { ...order, lastReport: { ...order.lastReport!, summary: qualified } };
+}
+
+/**
+ * Drop a treasury absolute the reader is not allowed to see.
+ *
+ * Returns the same object when nothing is hidden, so a visible own-faction
+ * payload stays identical. Withheld events never reach this; their `data` is null.
+ */
+function withoutHiddenTreasury(world: WorldState, commander: Character, event: SimEvent): unknown {
+  const data = event.data;
+  if (!data || typeof data !== "object") return data;
+  const record = data as Record<string, unknown>;
+  const ransom = record.ransom;
+  const ransomRecord = ransom && typeof ransom === "object" ? ransom as Record<string, unknown> : null;
+  const ransomFaction = typeof ransomRecord?.treasuryFactionId === "string" ? ransomRecord.treasuryFactionId : null;
+  const hideRansom = ransomRecord !== null
+    && typeof ransomRecord.factionTreasury === "number"
+    && ransomFaction !== null
+    && ransomFaction !== commander.factionId;
+  const settlementFaction = event.settlementId ? world.settlements[event.settlementId]?.factionId ?? null : null;
+  const hideTop = typeof record.factionTreasury === "number"
+    && typeof settlementFaction === "string"
+    && settlementFaction !== commander.factionId;
+  if (!hideRansom && !hideTop) return data;
+  const copy: Record<string, unknown> = { ...record };
+  if (hideTop) delete copy.factionTreasury;
+  if (hideRansom && ransomRecord) {
+    const ransomCopy = { ...ransomRecord };
+    delete ransomCopy.factionTreasury;
+    copy.ransom = ransomCopy;
+  }
+  return copy;
 }
 
 /**
@@ -648,7 +693,7 @@ export function projectCharacter(
   const condition = intelligence.conditionExact;
   const capability = intelligence.capabilityExact;
 
-  const standingOrders = visibleStandingOrders(commander, character);
+  const standingOrders = visibleStandingOrders(commander, character).map((order) => projectStandingOrder(world, order));
   const storedSighting = isSelf ? undefined : commander.partySightings?.[character.id];
   const seaSightings = isSelf ? seaSightingsFor(world, character) : null;
   const seaSighting = isSelf ? null : seaSightingsFor(world, commander)?.[character.id] ?? null;
@@ -758,6 +803,11 @@ export function projectCharacter(
     loyalty,
     /** Which figure the seat reads. The commander's own card only. */
     loyaltyNote: isSelf ? loyaltyNoteFor(character, round(character.personality.loyalty + (character.loyaltyAdjustment ?? 0), 3)) : null,
+    /**
+     * Own faction only. The cap is 18 per day. Remaining is omitted while full,
+     * because nothing has been drawn. The free holder is uncapped. A rival is null.
+     */
+    ...projectAllowance(world, commander, character),
     partyPower: condition ? partyPower(character) : null,
     activeGoal: isSelf
       ? character.goals.find((goal) => goal.id === character.activeGoalId) ?? null
@@ -798,6 +848,8 @@ export function projectFactions(world: WorldState, commander: Character): Record
         actingCommanderId: faction.actingCommanderId ?? null,
         seatSummary: seatSummaryFor(world, faction),
         treasury: owned ? faction.treasury : null,
+        /** The balance, in words, when the number is withheld. Own faction leaves this null. */
+        treasuryNote: owned ? null : "not visible to you",
         // A faction's tax is public in a way its treasury is not: every sale in
         // its ports pays it, and a merchant has to know the rate before sailing.
         taxRate: faction.taxRate,
@@ -901,7 +953,10 @@ export function projectEvent(
   if (!visible && !summaryStaysWhenWithheld(event.type)) {
     summary = ownedPortTaxSentence(world, commander.factionId, event) ?? publicFeedSentence(world, event);
   }
-  const details = event.type === "captivity-released" ? captivityReleasedParts(world, event, false) : null;
+  if (event.type.startsWith("standing-order-") || event.type === "market-trade") {
+    summary = qualifyCollidingNames(world, summary);
+  }
+  const details = event.type === "captivity-released" ? captivityReleasedParts(world, event, false, commander) : null;
   return {
     sequence: event.sequence,
     tick: event.tick,
@@ -912,7 +967,7 @@ export function projectEvent(
     settlementId: event.settlementId,
     summary,
     details,
-    data: visible ? event.data : null,
+    data: visible ? withoutHiddenTreasury(world, commander, event) : null,
     payloadWithheld: !visible,
   };
 }

@@ -70,6 +70,18 @@ export function characterName(world: WorldState, id: string | undefined, fallbac
   return `${character.name} (${faction})`;
 }
 
+/**
+ * Display-only. Stored summaries still say "Toma Reef". A row the reader can
+ * see uses the same qualifier as the card. Already-qualified text is left as it is.
+ */
+export function qualifyCollidingNames(world: WorldState, text: string): string {
+  const reef = characterName(world, TOMA_REEF_ID, "Toma Reef");
+  const hale = characterName(world, TOMA_HALE_ID, "Toma Hale");
+  return text
+    .replaceAll(/Toma Reef(?! \()/g, reef)
+    .replaceAll(/Toma Hale(?! \()/g, hale);
+}
+
 export function settlementName(world: WorldState, id: string | undefined, fallback: string): string {
   if (!id) return fallback;
   return world.settlements[id]?.name ?? id;
@@ -317,14 +329,32 @@ function ransomCredit(event: SimEvent): RansomCredit | null {
 }
 
 /**
+ * The reader cannot see this faction's treasury balance.
+ * No reader means the world chronicle, which is not a person's view.
+ */
+function treasuryBalanceHidden(reader: Character | undefined, treasuryFactionId: string | null): boolean {
+  if (!reader || !treasuryFactionId) return false;
+  return reader.factionId !== treasuryFactionId;
+}
+
+/**
  * The payment line both sides read.
  *
  * A faction captor names only the treasury and the whole amount paid. A
  * factionless captor names only the party leader. A stored leader share above
  * 0 still names both recipients, so an older split event stays readable.
  * Absent when the release has no ransom credit.
+ *
+ * The amount paid is not the balance. When this reader cannot see that
+ * treasury, the line says so instead of leaving the balance blank. The number
+ * stays off the line.
  */
-export function ransomPaidSentence(world: WorldState, event: SimEvent, chronicle = false): string | null {
+export function ransomPaidSentence(
+  world: WorldState,
+  event: SimEvent,
+  chronicle = false,
+  reader?: Character,
+): string | null {
   const credit = ransomCredit(event);
   if (!credit) return null;
   const terms = event.data.terms as { moneyPaid?: number } | undefined;
@@ -333,14 +363,17 @@ export function ransomPaidSentence(world: WorldState, event: SimEvent, chronicle
   const payerText = chronicle ? `**${payer}**` : payer;
   const leaderName = credit.leaderId ? characterName(world, credit.leaderId, "the party leader") : null;
   const leaderText = leaderName ? (chronicle ? `**${leaderName}**` : leaderName) : null;
+  const hidden = !chronicle && treasuryBalanceHidden(reader, credit.treasuryFactionId)
+    ? ". The balance is not visible to you"
+    : "";
   if (credit.treasuryFactionId) {
     const factionName = world.factions[credit.treasuryFactionId]?.name ?? credit.treasuryFactionId;
     const factionText = chronicle ? `**${factionName}**` : factionName;
     if (leaderText && credit.leaderShare > 0) {
       const treasury = `${credit.treasuryShare} to the ${factionText} treasury`;
-      return `${payerText} paid ${paid} ransom: ${treasury} and ${credit.leaderShare} to ${leaderText}`;
+      return `${payerText} paid ${paid} ransom: ${treasury} and ${credit.leaderShare} to ${leaderText}${hidden}`;
     }
-    return `${paid} went to the ${factionText} treasury`;
+    return `${paid} went to the ${factionText} treasury${hidden}`;
   }
   if (!leaderText) return null;
   return `${payerText} paid ${paid} ransom: ${credit.leaderShare} to ${leaderText}`;
@@ -354,7 +387,12 @@ export function ransomPaidSentence(world: WorldState, event: SimEvent, chronicle
  * line when debt is above 0, the ransom split, and the seat when she holds it.
  * The ransom sentence names only the ransom.
  */
-export function captivityReleasedParts(world: WorldState, event: SimEvent, chronicle = false): string[] {
+export function captivityReleasedParts(
+  world: WorldState,
+  event: SimEvent,
+  chronicle = false,
+  reader?: Character,
+): string[] {
   const actor = characterName(world, event.actorId, "Someone");
   const settlement = settlementName(world, event.settlementId, "captivity");
   const actorText = chronicle ? `**${actor}**` : actor;
@@ -369,7 +407,7 @@ export function captivityReleasedParts(world: WorldState, event: SimEvent, chron
     parts.push(`${terms.moneyPaid} was paid and ${terms.debtValue} was recorded as debt.`);
   }
   if (typeof terms?.debtValue === "number" && terms.debtValue > 0) parts.push("Loyalty fell.");
-  const paid = ransomPaidSentence(world, event, chronicle);
+  const paid = ransomPaidSentence(world, event, chronicle, reader);
   if (paid) {
     parts.push(`${paid}.`);
     parts.push("The ransom line covers only the ransom.");
@@ -383,8 +421,8 @@ export function captivityReleasedParts(world: WorldState, event: SimEvent, chron
   return parts;
 }
 
-export function captivityReleasedSentence(world: WorldState, event: SimEvent): string {
-  return captivityReleasedParts(world, event, false).join(" ");
+export function captivityReleasedSentence(world: WorldState, event: SimEvent, reader?: Character): string {
+  return captivityReleasedParts(world, event, false, reader).join(" ");
 }
 
 export function captivityReleasedChronicle(world: WorldState, event: SimEvent): string {

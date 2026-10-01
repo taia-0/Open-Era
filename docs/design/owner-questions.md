@@ -252,7 +252,7 @@ Answer by number, for example "4: yes" or "4: keep the default." The default is 
 
 **If you pick the other way:** The coins taken on release day would go to the captor's treasury as well.
 
-**Status:** Settled. The ransom paid on release is split 50% to the captor's faction treasury and 50% to the captor's party leader when the captor has a faction. When the captor has no faction, 100% goes to the captor's party leader. The odd cent goes to the treasury. See [Ransom split](ransom-split.md).
+**Status:** Settled. 100% of the ransom paid on release goes to a faction captor's treasury. When the captor has no faction, 100% goes to the captor's party leader. This supersedes the 50/50 split, including the odd cent to the treasury. Built in PR #75. See [Ransom split](ransom-split.md).
 
 **Source:** [Captivity debts](captivity-debts.md#questions-for-micah) question 3
 
