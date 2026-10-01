@@ -161,6 +161,127 @@ Sequence 11 summary, exact:
 
 ## Session
 
+Blind operator. Head before the first request: `e2d314d928246b072ea543ddd09400ba0db2c9d5`. Node `v24.21.0`. Seed 1847. Seat Mara Vane (`character-01`, `playerId` `prototype-player`). No other character. Three processes, one at a time. No commands except the two bodies in checkpoints 3 and 4.
+
+### Checkpoint 1 — sequence 26 and the spent cap, state tick 1
+
+`GET /api/health` HTTP 200 `{"ok":true,"tick":0,"events":0}`.
+
+`POST /api/advance` `{"ticks":1}` HTTP 200. `ticksAdvanced` 1. `attentionUpdated` false. `tick` 1. `day` 0.17.
+
+`GET /api/state?limit=200`. State `tick` 1. State `day` 0.17. `eventPage.total` 182. `oldestSequence` 1. `newestSequence` 182. Sequence 26 is on this page.
+
+Sequence 26:
+
+- `type` `recruited`
+- `tick` 0
+- `actorId` `character-04`
+- `settlementId` `glassport`
+- `payloadWithheld` true
+- `data` null
+
+Summary, exact:
+
+`Sable Morrow recruited 8 at Glassport for 96: 18 from the treasury and 78 from the purse.`
+
+Sable Morrow, `character-04`:
+
+- `money` 182
+- `allowanceCap` 18
+- `allowanceRemaining` 0
+- `allowanceNote` `cap used`
+- `allowanceUncapped` false
+- `allowanceRole` `member`
+
+Mara's `money` is 108. `allowanceCap` is `no cap`. `allowanceNote` null.
+
+`world-government` `treasury` is 17947.16. `treasuryNote` null.
+
+### Checkpoint 2 — a withheld recruit with no count and no cost
+
+On the same page:
+
+- Sequence 174, `recruited`, `actorId` `character-29`, `payloadWithheld` true, `data` null. Summary `Orin Frost recruited at Crown Harbor.`
+- Sequence 154, `recruited`, `actorId` `character-25`, `payloadWithheld` true, `data` null. Summary `Jun Ash recruited at Crown Harbor.`
+
+Neither summary contains `8`, `96`, `18`, or `78`.
+
+Process stopped. Port 4317 free.
+
+### Checkpoint 3 — recruit from the purse
+
+Fresh process. `GET /api/health` `{"ok":true,"tick":0,"events":0}`.
+
+`POST /api/commands` `{"playerId":"prototype-player","type":"character-action","action":"recruit","source":"purse"}` HTTP 202. `command.id` `command-00001`. `command.action` `recruit`. `command.source` `purse`.
+
+`GET /api/state?limit=200` before the advance. `tick` 0. `eventPage.total` 1.
+
+Sequence 1 summary, exact:
+
+`Command queued for Mara Vane: recruit at Crown Harbor (from the purse)`
+
+`payloadWithheld` false. `data.command.action` `recruit`. `data.command.source` `purse`.
+
+`POST /api/advance` `{"ticks":1}` HTTP 200. `tick` 1. `day` 0.17.
+
+`GET /api/state?limit=200`.
+
+Mara Vane:
+
+- `money` 12
+- `troops.count` 88
+- `allowanceCap` `no cap`
+- `allowanceRemaining` null
+- `allowanceNote` null
+
+`world-government` `treasury` is 17947.16.
+
+Sequence 11:
+
+- `type` `recruited`
+- `actorId` `character-01`
+- `payloadWithheld` false
+- `data.quantity` 8
+- `data.cost` 96
+- `data.treasuryDrawn` 0
+- `data.purseDrawn` 96
+- `data.characterMoney` 12
+- `data.troopCount` 88
+
+Summary, exact:
+
+`Mara Vane recruited 8 at Crown Harbor for 96 from the purse.`
+
+Sequence 1 is still `Command queued for Mara Vane: recruit at Crown Harbor (from the purse)`.
+
+Process stopped. Port 4317 free.
+
+### Checkpoint 4 — recruit from the treasury
+
+Fresh process. Health `{"ok":true,"tick":0,"events":0}`.
+
+`POST /api/commands` `{"playerId":"prototype-player","type":"character-action","action":"recruit"}` HTTP 202. `command.source` `treasury`.
+
+`GET /api/state?limit=200` before the advance. Sequence 1 summary, exact:
+
+`Command queued for Mara Vane: recruit at Crown Harbor (from the treasury)`
+
+`POST /api/advance` `{"ticks":1}` HTTP 200. `tick` 1.
+
+Mara's `money` is 108. `troops.count` is 88. `allowanceCap` is `no cap`.
+
+`world-government` `treasury` is 17851.16.
+
+Sequence 11 summary, exact:
+
+`Mara Vane recruited 8 at Crown Harbor for 96 from the treasury.`
+
+`payloadWithheld` false. `data.quantity` 8. `data.cost` 96. `data.treasuryDrawn` 96. `data.purseDrawn` 0. `data.characterMoney` 108.
+
 ## Findings
 
+Every listed reading matched. Sequence 26 is one sentence naming the count and both payers, and `data` is null. Sable's remainder is 0 and the note is `cap used`. The two factionless recruits name no count and no cost. The purse command is HTTP 202, the queued line names the purse, and the recruit line says she paid from the purse, with money 12, troops 88, and treasury 17947.16. Omitting `source` echoes `treasury`, the queued line names the treasury, and the recruit line says she paid from the treasury, with money 108 and treasury 17851.16. The two recruits do not use the same payer.
+
 ## Verdict
+
+PROMOTE
