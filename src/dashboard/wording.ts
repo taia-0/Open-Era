@@ -728,7 +728,10 @@ export function passageUpkeepSentence(world: WorldState, event: SimEvent): strin
  * A treasury draw the reader's own faction is allowed to see.
  *
  * Same shape as the port-tax sentence: who paid, and how much left the treasury.
- * Cargo, motives, and the purse stay out. A rival, and a draw of zero, return null.
+ * Cargo and motives stay out. The purse share is named only when the event
+ * already records `purseDrawn`. Characters carry no pronoun, and the existing
+ * sentences use "their", so the purse clause does too. A rival, and a draw of
+ * zero, return null.
  */
 export function treasuryDrawSentence(world: WorldState, readerFactionId: string | null, event: SimEvent): string | null {
   if (!readerFactionId || !event.actorId) return null;
@@ -736,7 +739,12 @@ export function treasuryDrawSentence(world: WorldState, readerFactionId: string 
   if (!actor || actor.factionId !== readerFactionId) return null;
   const drawn = event.data.treasuryDrawn;
   if (typeof drawn !== "number" || drawn <= 0) return null;
-  return `${characterName(world, event.actorId, "Someone")} drew ${drawn} from the treasury.`;
+  const name = characterName(world, event.actorId, "Someone");
+  const purse = event.data.purseDrawn;
+  if (typeof purse === "number" && purse > 0) {
+    return `${name} drew ${drawn} from the treasury and paid ${purse} from their purse.`;
+  }
+  return `${name} drew ${drawn} from the treasury.`;
 }
 
 /**

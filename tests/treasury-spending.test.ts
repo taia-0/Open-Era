@@ -64,6 +64,7 @@ test("a member draws the allowance, then the purse", () => {
   const row = projectCharacter(world, world.characters[bram.id], world.characters[bram.id]);
   assert.equal(row.allowanceCap, 18);
   assert.equal(row.allowanceRemaining, 0);
+  assert.equal(row.allowanceNote, null);
   assert.equal(row.allowanceRole, "member");
 });
 
@@ -88,7 +89,7 @@ test("the free command holder draws the treasury without a cap", () => {
   assert.equal(world.characters[mara.id].money, 0);
   assert.equal("allowanceRemaining" in world.characters[mara.id], false);
   const row = projectCharacter(world, mara, mara);
-  assert.equal(row.allowanceCap, null);
+  assert.equal(row.allowanceCap, "no cap");
   assert.equal(row.allowanceRemaining, null);
   assert.equal(row.allowanceUncapped, true);
 });

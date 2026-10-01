@@ -4,7 +4,7 @@
 
 **Correction (2026-10-01).** The ransom routing in slice 1 is built. A faction captor's treasury receives the whole payment, `leaderShare` is 0, and `leaderId` and `leaderMoney` are omitted. The measured 1200-tick hashes below are the 50/50 campaign. The new baseline is the addendum in [ransom split](ransom-split.md).
 
-**Addendum (2026-10-01, slice 3).** Spending is built. A member draws the daily allowance from the treasury, then the purse. The free command holder draws the treasury with no cap. The census and the new hashes are in the addendum at the end of this note. Player `source: "purse"` is still slice 4.
+**Addendum (2026-10-01, slice 3).** Spending is built. A member draws the daily allowance from the treasury, then the purse. The free command holder draws the treasury with no cap. The census and the new hashes are in the addendum at the end of this note. Player `source: "purse"` is slice 4, built afterwards. It did not move these hashes.
 
 **Correction (allowance projection).** Slice 2 does not write `allowanceRemaining` onto the character and does not draw coins. Own-faction rows show the cap, 18. The remaining figure is omitted while nothing has been drawn that day. Omitted means full, the same rule as section 3. The free command holder is uncapped. The acting commander keeps 18. A rival's cap, remaining, and treasury balance stay null. A line that names a treasury whose balance that reader cannot see says the balance is not visible to you, and does not print the number.
 
@@ -204,3 +204,7 @@ The first event is the same recruit as the 72-tick run. Counts below are old →
 | 4096 | `59a2599f61429a5c57b1d20728267c9b136100a5e066e3c4f38c4109a7a3c242` | `09b04e93142c9f9460ffbd913d6e4e65bc41b8b71392bc0f17a32502050f9f03` | 164691 → 164657 | 6 → 4 | 6 → 3 | 6 → 3 | 47645.23 (7218) | 43044.28 | 4600.95 | 212269.33 | 4 | 46132.91 → 10438.69 | 13275.44 → 0 |
 
 Event totals move because the extra affordable actions, and the battles that follow them, add and remove rows. The treasuries end lower because member allowances and the holder's uncapped draws subtract, while tax and ransom still credit the same treasuries. Free Tide ends near empty on these three runs. `standing-order-refused` stays 6, 6, and 4.
+
+## Addendum (2026-10-01) — slice 4
+
+`source: "purse"` is on `character-action` and `offer-contract`. It pays the purse and skips the allowance. Omitted, the free holder still draws the treasury and a member still draws the allowance first. Headless runs send no commands, so the slice 3 hashes above are unchanged. A treasury-paid escrow still refunds to the purse. That refund waits on the balance decision.
