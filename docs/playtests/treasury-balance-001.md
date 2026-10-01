@@ -157,6 +157,86 @@ The contract's `status` is `cancelled` and its `escrow` is 0.
 
 ## Session
 
+Blind operator. One process. Seed 1847. Seat Mara Vane, `character-01`, `playerId` `prototype-player`. Node `v24.21.0`. `git rev-parse HEAD` before the first request: `1631f3adcfb79f90555bc320de5cd6cc030e9fdc`.
+
+`GET /api/health` HTTP 200 `{"ok":true,"tick":0,"events":0}`.
+
+### Checkpoint 1
+
+`GET /api/state?limit=200`. State `tick` 0. State `day` 0.
+
+Mara Vane, `character-01`: `money` 108. `allowanceCap` `no cap`. `allowanceRole` `holder`. `allowanceUncapped` true. `allowanceNote` null. `locationId` `crown-harbor`.
+
+Jun Marrow, `character-05`: `allowanceCap` 18. `allowanceNote` `none spent today`. `allowanceRole` `member`.
+
+Bram Quill, `character-02`: `allowanceCap` 18. `allowanceNote` `none spent today`. `allowanceRole` `member`.
+
+`world-government` `treasury` 18000. `treasuryNote` null.
+
+Pax Ash, `character-14`: `allowanceCap` null. `allowanceNote` null. `allowanceRole` null. `factionId` `free-tide`.
+
+`free-tide` `treasury` null. `treasuryNote` `not visible to you`.
+
+### Checkpoint 2
+
+`POST /api/commands` with the offer body. HTTP 202. `command.id` `command-00001`. `command.source` `treasury`. `command.price` 17900.
+
+`POST /api/advance` `{"ticks":1}`. HTTP 200. `ticksAdvanced` 1. `tick` 1. `day` 0.17.
+
+`GET /api/state?limit=200`. State `tick` 1. State `day` 0.17. `eventPage.total` 185. `eventPage.count` 185. `oldestSequence` 1. `newestSequence` 185.
+
+`world-government` `treasury` 78.2. `treasuryNote` null.
+
+Jun Marrow, `character-05`: `allowanceCap` 6.51. `allowanceRemaining` absent. `allowanceNote` `none spent today`. `allowanceRole` `member`. `allowanceUncapped` false.
+
+Bram Quill, `character-02`: `allowanceCap` 6.51. `allowanceNote` `none spent today`.
+
+Sable Morrow, `character-04`: `money` 172.33. `allowanceCap` 6.51. `allowanceRemaining` 0. `allowanceNote` `cap used`.
+
+Sequence 29, on this page: `type` `recruited`. `tick` 0. `actorId` `character-04`. `settlementId` `glassport`. `payloadWithheld` true. `data` null. Summary: `Sable Morrow recruited 8 at Glassport for 96: 8.33 from the treasury and 87.67 from the purse.`
+
+Sequence 10: `type` `contract-offered`. `actorId` `character-01`. `payloadWithheld` false. `data.treasuryDrawn` 17900. `data.purseDrawn` 0. `data.characterMoney` 108. `data.factionTreasury` 100. `data.contract.escrowFromTreasury` 17900. `data.contract.escrowFromPurse` 0.
+
+Mara Vane: `money` 108. `allowanceCap` `no cap`. `allowanceRole` `holder`.
+
+Contract `command-00001:contract`: `status` `offered`. `price` 17900. `escrow` 17900.
+
+Pax Ash: `allowanceCap` null. `free-tide` `treasury` null. `treasuryNote` `not visible to you`.
+
+### Checkpoint 3
+
+`POST /api/commands` with the cancel body. HTTP 202. `command.id` `command-00002`.
+
+`POST /api/advance` `{"ticks":1}`. HTTP 200. `tick` 2. `day` 0.33.
+
+`GET /api/state?limit=200`. State `tick` 2. State `day` 0.33. `eventPage.oldestSequence` 75. `newestSequence` 274. `total` 274. Sequence 193 is on this page.
+
+Sequence 193: `type` `contract-cancelled`. `tick` 1. `actorId` `character-01`. `targetId` `character-05`. `payloadWithheld` false. `data` present. Summary: `Mara Vane cancelled the provisions contract.`
+
+`data.treasuryRefunded` 17900. `data.purseRefunded` 0. `data.buyerMoney` 108. `data.factionTreasury` 17978.2. `data.contract.escrow` 0. `data.contract.escrowFromTreasury` 0. `data.contract.escrowFromPurse` 0. `data.contract.status` `cancelled`.
+
+Mara Vane: `money` 108. `allowanceCap` `no cap`.
+
+`world-government` `treasury` 17956.57.
+
+Jun Marrow: `allowanceCap` 18. `allowanceRemaining` 15. `allowanceNote` null.
+
+Contract `command-00001:contract`: `status` `cancelled`. `escrow` 0.
+
 ## Findings
 
+The opening caps matched. Mara's cap was `no cap` and her purse stayed 108. Jun's and Bram's caps were 18 with `none spent today`. World Government treasury was 18000. Pax's cap was null. Free Tide read `not visible to you`.
+
+The offer was HTTP 202 with `source` `treasury` and `price` 17900. At tick 1 the treasury was 78.2. Jun's cap was 6.51 with `none spent today`, and Bram's cap was the same. Sequence 29 was `Sable Morrow recruited 8 at Glassport for 96: 8.33 from the treasury and 87.67 from the purse.` with `data` null. Her remainder was 0 and her note was `cap used`. Mara's cap stayed `no cap`.
+
+The cancel was HTTP 202. Sequence 193 had `treasuryRefunded` 17900, `purseRefunded` 0, and `buyerMoney` 108. The treasury on the next read was 17956.57. The event's `factionTreasury` was 17978.2. Jun's cap was 18, his remainder was 15, and his note was null. The contract status was `cancelled` and its escrow was 0.
+
+One reading missed. Checkpoint 2 says `eventPage.total` 184. The read was 185. Checkpoint 3's page matched: oldest 75, newest 274, total 274.
+
+That miss is not a wrong cap. Sable's recruit did not pay 18 from the treasury. Her note was not blank at remainder 0. The cancel did not credit the purse. Mara's cap did not become a number. The offer and the cancel were HTTP 202. Tick 1 was 1. Sequence 29 was Sable Morrow's recruit.
+
 ## Verdict
+
+PROMOTE
+
+The criteria's listed readings matched. The tick 1 event total is the miss above. It is not a REVISE condition and it is not an ABANDON condition.
