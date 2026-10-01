@@ -30,17 +30,17 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/ransom-to-treasury` from `e61aa98`. A faction ransom pays that treasury every cent. The leader receives 0.
-- **Last verified:** 309 tests. Tick-72 hashes are unchanged. Tick-1200 hashes moved. The blind playtest is not run.
-- **Gate status:** `./scripts/evaluate-milestone.sh ransom-to-treasury` passed. Tick-72 hashes stay `cb04ba5d…` / `bd7d8cc4…` / `20975bf4…` (8301, 8513, 8031). Recovery 572.
-- **Headline:** The coins a faction prisoner pays on release arrive in the captor treasury, and the party leader's purse does not move.
+- **Baseline:** `feature/treasury-allowance` from `20399eb`. The allowance is a read-time projection. No coins move.
+- **Last verified:** 315 tests. Tick-72 and tick-1200 hashes are unchanged. The blind playtest is not run.
+- **Gate status:** `./scripts/evaluate-milestone.sh treasury-allowance` passed. Tick-72 hashes stay `cb04ba5d…` / `bd7d8cc4…` / `20975bf4…` (8301, 8513, 8031). Recovery 572.
+- **Headline:** A faction member's daily allowance reads as 18 until something is drawn, the free holder is uncapped, and a rival does not see the balance.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
-| Trade/order rows Mara can read should also use the display qualifier, e.g. 'Toma Reef (World Government)', matching the cards (from M34.3 playtest) | Readability | Open Era Engineer | Queued |
+| Trade/order rows Mara can read should also use the display qualifier, e.g. 'Toma Reef (World Government)', matching the cards (from M34.3 playtest) | Readability | Open Era Engineer | **Fixed** on `feature/treasury-allowance`. Sequence 43 reads `Toma Reef (World Government) accepted the trade supplies order.` The stored summary stays `Toma Reef accepted the trade supplies order.` |
 | HIGHEST PRIORITY: add a player-visible reason line on battle-resolved when the player witnessed the battle, such as "outscore" or "nerve broke" | Readability | Cursor | **Fixed in M34.3.** The feed says why, from the payload. It does not say `outscore` or `nerve` |
 | With several attackers, the briefing says more than one captain "won at Crown Harbor" in the same tick while the panel still shows the other side | Readability | Cursor | **Fixed in M34.3.** Two wins on one tick name both captains and say the garrison was left standing |
 | A claim says the captain "accepted Crown Harbor's surrender", but the surrender block is written and consumed within one tick, so the player never saw an offer | Readability | Cursor | **Fixed in M34.3.** A claim taken on the next tick says the offer was not waiting. No same-tick consumption was found in 1,200 ticks |
@@ -128,6 +128,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-01 — Treasury allowance projection
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/treasury-allowance` | **Commits:** `dca8cf3` (the projection). This commit records that SHA. | **Type:** feature
+- **Changed** — Own-faction character rows show a daily allowance cap of 18 (`ticksPerDay` 6 times the passage charge of 3). `allowanceRemaining` is omitted while nothing has been drawn that day. Omitted means full. The figure is derived from the world tick. It is not stored. The free command holder is uncapped (`allowanceRole` `holder`). A captive holder cannot spend. The acting commander keeps 18 and is not uncapped. A rival row leaves the allowance null. `treasuryNote` is `not visible to you` when the treasury number is withheld. A release line that names a treasury the reader cannot see says `The balance is not visible to you` and does not print the balance. `data` stays null when the payload is withheld. A visible payload drops `factionTreasury` when that treasury is not the reader's. Sequence 43 reads `Toma Reef (World Government) accepted the trade supplies order.` The stored summary stays unqualified. Question 24 records 100% to a faction captor's treasury and 100% to the leader when the captor has no faction, superseding the 50/50 split. No spend, no new event, no new stored field.
+- **Why** — Slice 2 of the treasury note. The seeds have no draws, so the honest row is the full cap and who is uncapped. The draw arithmetic is tested on constructed bills and is not called from `runTick`.
+- **Verified** — Base `20399eb` is the parent. Node v24.21.0. `npm run typecheck` is clean. **315 tests.** `./scripts/evaluate-milestone.sh treasury-allowance` passed. Tick-72 hashes, before and after, are `cb04ba5d392d8b1c868cc97e54cb21b21ec171edd546bb70d0d7aba86cc69c11` (1847, 8301), `bd7d8cc44d5fa21022ecb8f8086e13dfbb9475eb025b5ae53f87e2991f90035c` (2718, 8513), `20975bf480e5aa11eeafe1ce39c36cf5ba0fa8e2d5de2bb5887a35d7b3aecc9f` (4096, 8031). Split recovery replayed 572 events. No `golden:update`. Tick-1200 before and after: hashes `04215936a3693247f86b5297fd8865ea7fa70a7b31f7be98d410bc148e92c121` / `a8c5e8b3664957d013ed8f38d2bcd28fa635d5ce226167b4541f20e9047fe345` / `59a2599f61429a5c57b1d20728267c9b136100a5e066e3c4f38c4109a7a3c242`. Events 164313 / 165434 / 164691. Captures 12 / 8 / 6. Releases 12 / 8 / 6. Release records 8 / 7 / 6. No event through those runs carries `treasuryDrawn`. The dashboard path was read on this tree before the blind session: seed 1847, no commands, `GET /api/state?limit=200` and `POST /api/advance` on `127.0.0.1:4317`. Tick 0 Bram Quill cap 18, remainder absent, day start 0. Tick 3 the same cap, `allowanceOnDayBoundary` false. Tick 6 day start 6, cap still 18. Tick 1 sequence 43 is the qualified Toma sentence and `data.summary` is still the bare name. Tick 119 sequence 13680 has `data` null and `The balance is not visible to you`. World Government treasury `21553.01`. Free Tide treasury null. Tick 595 Mara is `captive-holder` and Jun Marrow is `acting-commander` with cap 18. Blind playtest [treasury-allowance-001](docs/playtests/treasury-allowance-001.md) is not run.
+- **Left open** — The blind session is not run. No seeded draw exists, so `allowanceRemaining` is never a number on these runs. Spending, the daily reset on the character, and the player `source` field are the later slice. That slice moves hashes.
+- **Links** — [playtest treasury-allowance-001](docs/playtests/treasury-allowance-001.md) (not run), [treasury spending](docs/design/treasury-spending.md), question 24 in [owner questions](docs/design/owner-questions.md)
 
 ### 2026-10-01 — Ransom to treasury
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/ransom-to-treasury` | **Commits:** `c4651b8` (the rule). This commit records that SHA. | **Type:** feature
