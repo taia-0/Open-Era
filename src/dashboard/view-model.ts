@@ -30,6 +30,8 @@ import {
   qualifyCollidingNames,
   passageUpkeepSentence,
   publicFeedSentence,
+  queuedCommandSentence,
+  recruitDetailSentence,
   settlementClaimedSentence,
 } from "./wording.ts";
 
@@ -112,16 +114,8 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
   const target = labelOf(world, event.targetId);
   const settlement = event.settlementId ? world.settlements[event.settlementId]?.name ?? event.settlementId : null;
   switch (event.type) {
-    case "player-command-accepted": {
-      const command = event.data.command as { action?: string; quantity?: number; unitPrice?: number; gross?: number; capped?: boolean } | undefined;
-      if (command?.action === "buy-provisions" && typeof command.gross === "number") {
-        const cap = command.capped
-          ? ` (${settlement ?? "This market"} clears no more than ${command.quantity} in one order)`
-          : "";
-        return `Command queued for ${actor}: ${command.quantity} provisions at ${command.unitPrice} each, ${command.gross} total${cap}`;
-      }
-      return `Command queued for ${actor}`;
-    }
+    case "player-command-accepted":
+      return queuedCommandSentence(world, event, actor, settlement);
     case "player-command-resolved":
       if (event.data.action === "buy-provisions" && typeof event.data.gross === "number") {
         return `${actor} bought ${event.data.quantity} provisions for ${event.data.gross} (${event.data.unitPrice} each)`;
@@ -187,6 +181,8 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
       const tax = typeof event.data.tax === "number" && event.data.tax > 0 ? ` Tax of ${event.data.tax} went to the treasury.` : "";
       return `${actor} worked${place}.${tax}`;
     }
+    case "recruited":
+      return recruitDetailSentence(world, event) ?? publicFeedSentence(world, event);
     case "contract-offered":
       return `${actor} offered ${event.data.price} to land ${event.data.quantity} provisions at ${destinationName(world, event)}.`;
     case "contract-amended":

@@ -75,6 +75,7 @@ export function projectAllowance(
     allowanceOnDayBoundary: world.tick % world.ticksPerDay === 0,
     allowanceDayStart: dayStart,
     allowanceResetsOnTick: dayStart + world.ticksPerDay,
-    allowanceNote: showRemaining ? null : "none spent today",
+    // Remainder 0 is spent out. A partial remainder stays blank. Omitted is full.
+    allowanceNote: remaining === 0 ? "cap used" : showRemaining ? null : "none spent today",
   };
 }
