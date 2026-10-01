@@ -30,18 +30,19 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/treasury-spending` from `fcf0ca9`. Members draw the daily allowance, then the purse. The free holder draws the treasury with no cap.
-- **Last verified:** 324 tests. Tick-72 hashes are `4ea893a4…` / `d376ad02…` / `ac780b39…` (8413, 8456, 8261). Recovery replays 600.
-- **Gate status:** `./scripts/evaluate-milestone.sh treasury-spending` passed. The blind plan is not run.
-- **Headline:** A quote draws the allowance first. The purse covers the rest or the old short-purse refusal stands. The day boundary clears `allowanceRemaining`.
+- **Baseline:** `feature/treasury-source` from `deba318`. A player command may pay the purse. Headless draws are unchanged.
+- **Last verified:** 331 tests. Tick-72 hashes `4ea893a4…` / `d376ad02…` / `ac780b39…` (8413, 8456, 8261). Recovery replays 600. Tick-1200 hashes match the spending baseline.
+- **Gate status:** `./scripts/evaluate-milestone.sh treasury-source` passed. The blind plan is not run.
+- **Headline:** `source: "purse"` skips the allowance. The draw sentence names that purse share. A full cap reads `none spent today`. The holder reads `no cap`.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
-| Projection polish: show 'none spent today' when allowanceRemaining is omitted | Projection | Open Era Engineer | queued |
-| Projection polish: show 'no cap' instead of a blank cap for the uncapped holder | Projection | Open Era Engineer | queued |
+| Escrow refund: a treasury-paid escrow should refund to the treasury (or split back by source), not the purse. Hold until the balance decision so we re-baseline once. | Treasury | Open Era Engineer | queued (held) |
+| Projection polish: show 'none spent today' when allowanceRemaining is omitted | Projection | Open Era Engineer | **Fixed** on `feature/treasury-source`. An own-faction capped officer with no `allowanceRemaining` has `allowanceNote` `none spent today`. A stored remainder leaves the note null. A rival note stays null |
+| Projection polish: show 'no cap' instead of a blank cap for the uncapped holder | Projection | Open Era Engineer | **Fixed** on `feature/treasury-source`. The free holder's `allowanceCap` is `no cap`. A captive holder stays null, with `Cannot spend while held.` A rival cap stays null |
 | Trade/order rows Mara can read should also use the display qualifier, e.g. 'Toma Reef (World Government)', matching the cards (from M34.3 playtest) | Readability | Open Era Engineer | **Fixed** on `feature/treasury-allowance`. Sequence 43 reads `Toma Reef (World Government) accepted the trade supplies order.` The stored summary stays `Toma Reef accepted the trade supplies order.` |
 | HIGHEST PRIORITY: add a player-visible reason line on battle-resolved when the player witnessed the battle, such as "outscore" or "nerve broke" | Readability | Cursor | **Fixed in M34.3.** The feed says why, from the payload. It does not say `outscore` or `nerve` |
 | With several attackers, the briefing says more than one captain "won at Crown Harbor" in the same tick while the panel still shows the other side | Readability | Cursor | **Fixed in M34.3.** Two wins on one tick name both captains and say the garrison was left standing |
@@ -130,6 +131,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-01 — Player purse source and allowance wording
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/treasury-source` | **Commits:** `ffbb3ef` (the command field), `2c6915d` (the sentences). This commit records the gate and the unread plan. | **Type:** feature
+- **Changed** — `character-action` and `offer-contract` take optional `source`. `"purse"` pays the purse and does not draw the allowance or the treasury. Omitted, a member still draws the allowance then the purse, and the free holder's accept event echoes `"treasury"`. Any other value, and `source` on any other command type, is `invalid-source` with `source is "purse" or omitted; … was requested`. A captive still gets `character-captive`. A short purse still gets `insufficient-money` or `insufficient-passage`. The field is on `capabilities.requests`. A purse voyage stores `source: "purse"` on that travel only, so later sea ticks skip the allowance. Headless travel does not grow the field. The draw sentence adds `and paid {purseDrawn} from their purse` when the event already has a purse share above 0, and stays `{name} drew {amount} from the treasury.` when the purse paid nothing. Characters have no pronoun, so the clause uses `their`. An omitted remainder on an own-faction capped officer reads `none spent today`. The free holder's cap reads `no cap`. Rival rows stay null. A hidden treasury still reads `not visible to you`.
+- **Why** — Slice 4 of the treasury note, then the queued projection sentences. The daily cap stays 18. No balance number changed.
+- **Verified** — Base `deba318`. Node v24.21.0, ICU 78.3. `npm run typecheck` is clean. **331 tests.** `./scripts/evaluate-milestone.sh treasury-source` passed. Recovery replayed 600 events. No `golden:update`. Slice 4 did not move the hashes. 72-tick before and after: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events, 0 captures), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456, 0 captures), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261, 1 capture). No releases. 1200-tick before and after: `0ea6c604f68a9a871a41bb3d3915367e905c24df676e7642bd510408966a7ab5` / `04c55c0b09ce004d847867885498616b2bf80fa112690c4a48578a96caf22268` / `09b04e93142c9f9460ffbd913d6e4e65bc41b8b71392bc0f17a32502050f9f03`. Events 164191 / 160835 / 164657. Captures 9 / 15 / 4. Releases 9 / 13 / 3. Release records 7 / 9 / 3. The projection sentences are read-time only, and the same hashes still match after them. Dashboard HTTP on `127.0.0.1:4317`, seed 1847: tick 0 Sable `allowanceNote` `none spent today`, Mara `allowanceCap` `no cap`, money 108, World Government treasury 18000, Free Tide `not visible to you`. Tick 1 sequence 26 is `Sable Morrow drew 18 from the treasury and paid 78 from their purse.` with `data` null. Her money is 182 and `allowanceRemaining` is 0. Tick 6 she is at sea, `money` null, `allowanceRemaining` absent, `allowanceNote` `none spent today`. A restarted process accepted Mara's recruit with `source: "purse"` (HTTP 202). After one tick her money is 12, the event has `treasuryDrawn` 0 and `purseDrawn` 96, and the treasury is 17947.16, the same figure as the tick with no command. Her cap is still `no cap`. `source: "wallet"` and `source` on `issue-order` return HTTP 400 `invalid-source`.
+- **Left open** — The blind session is not run. Own-faction money at sea stays null: a party underway is not directly observed (`src/dashboard/visibility.ts:63-65`), the faction tier sets `conditionExact` false (`src/dashboard/visibility.ts:110`), and money follows that flag (`src/dashboard/visibility.ts:733`). The escrow refund is queued and held. The daily cap is still 18.
+- **Links** — [playtest treasury-source-001](docs/playtests/treasury-source-001.md) (not run), [treasury spending](docs/design/treasury-spending.md)
 
 ### 2026-10-01 — Treasury spending
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/treasury-spending` | **Commits:** `3f1dac3` (the draw), `c1e545f` (the divergence note and the unread plan), `8774a27` (the golden re-baseline). | **Type:** feature
