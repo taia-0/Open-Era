@@ -64,7 +64,8 @@ test("a member draws the allowance, then the purse", () => {
   const row = projectCharacter(world, world.characters[bram.id], world.characters[bram.id]);
   assert.equal(row.allowanceCap, 18);
   assert.equal(row.allowanceRemaining, 0);
-  assert.equal(row.allowanceNote, null);
+  // Remainder 0 used to leave the note blank.
+  assert.equal(row.allowanceNote, "cap used");
   assert.equal(row.allowanceRole, "member");
 });
 

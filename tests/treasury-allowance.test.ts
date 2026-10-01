@@ -86,7 +86,8 @@ test("seed 1847 shows a full allowance at the day boundary and mid-day, and omit
   if ("allowanceRemaining" in mid) {
     assert.equal(typeof mid.allowanceRemaining, "number");
     assert.ok((mid.allowanceRemaining ?? 18) < 18);
-    assert.equal(mid.allowanceNote, null);
+    // A spent-out remainder reads 'cap used'. A partial remainder stays blank.
+    assert.equal(mid.allowanceNote, mid.allowanceRemaining === 0 ? "cap used" : null);
   } else {
     assert.equal(mid.allowanceNote, "none spent today");
   }
@@ -274,8 +275,16 @@ test("seed 1847 sequence 26 names the purse share recorded on the event", () => 
   const [row] = projectEventFeed(run.state, "character-01", [stored]);
   assert.equal(row?.payloadWithheld, true);
   assert.equal(row?.data, null);
-  assert.equal(row?.summary, "Sable Morrow drew 18 from the treasury and paid 78 from their purse.");
+  // A recruit with a treasury draw uses one sentence. The draw line is not repeated.
+  assert.equal(stored.data.quantity, 8);
+  assert.equal(stored.data.cost, 96);
+  assert.equal(row?.summary, "Sable Morrow recruited 8 at Glassport for 96: 18 from the treasury and 78 from the purse.");
+  assert.equal(
+    treasuryDrawSentence(run.state, "world-government", stored),
+    "Sable Morrow drew 18 from the treasury and paid 78 from the purse.",
+  );
   const [rival] = projectEventFeed(run.state, "character-14", [stored]);
+  // A rival keeps the public sentence. Count and cost stay off it.
   assert.equal(rival?.summary, "Sable Morrow recruited at Glassport.");
   assert.equal(rival?.data, null);
   assert.equal(

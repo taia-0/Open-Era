@@ -2,7 +2,7 @@ import { assessStandingOrder, garrisonConfidenceLabel } from "../sim/agency.ts";
 import { commandHolderId, factionPower, partyPower, partyPowerFromTroops, round } from "../sim/state.ts";
 import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder, SupplyContract, TravelState, WorldState } from "../sim/types.ts";
 import { projectAllowance } from "./allowance.ts";
-import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, skillsWithheldNote, summaryStaysWhenWithheld, treasuryDrawSentence } from "./wording.ts";
+import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, skillsWithheldNote, summaryStaysWhenWithheld, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
 
 /**
  * Decides what a player may legitimately know about the rest of the world.
@@ -956,6 +956,7 @@ export function projectEvent(
   let summary = richSummary === raw ? publicFeedSentence(world, event) : richSummary;
   if (!visible && !summaryStaysWhenWithheld(event.type)) {
     summary = ownedPortTaxSentence(world, commander.factionId, event)
+      ?? withheldRecruitSentence(world, commander.factionId, event)
       ?? treasuryDrawSentence(world, commander.factionId, event)
       ?? publicFeedSentence(world, event);
   }

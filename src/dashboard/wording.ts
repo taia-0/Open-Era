@@ -729,9 +729,11 @@ export function passageUpkeepSentence(world: WorldState, event: SimEvent): strin
  *
  * Same shape as the port-tax sentence: who paid, and how much left the treasury.
  * Cargo and motives stay out. The purse share is named only when the event
- * already records `purseDrawn`. Characters carry no pronoun, and the existing
- * sentences use "their", so the purse clause does too. A rival, and a draw of
- * zero, return null.
+ * already records `purseDrawn`. Characters have no pronoun field, so the purse
+ * clause does not invent one. A rival, and a draw of zero, return null.
+ *
+ * A recruit that already carries a count and a cost uses `recruitDetailSentence`
+ * instead of this line, so the draw is not said twice.
  */
 export function treasuryDrawSentence(world: WorldState, readerFactionId: string | null, event: SimEvent): string | null {
   if (!readerFactionId || !event.actorId) return null;
@@ -742,9 +744,108 @@ export function treasuryDrawSentence(world: WorldState, readerFactionId: string 
   const name = characterName(world, event.actorId, "Someone");
   const purse = event.data.purseDrawn;
   if (typeof purse === "number" && purse > 0) {
-    return `${name} drew ${drawn} from the treasury and paid ${purse} from their purse.`;
+    return `${name} drew ${drawn} from the treasury and paid ${purse} from the purse.`;
   }
   return `${name} drew ${drawn} from the treasury.`;
+}
+
+/**
+ * Count and cost already stored on a recruit.
+ *
+ * One sentence for the whole event. Both payers stay in that sentence, so a
+ * treasury draw is not dropped and is not repeated as a second line. Null when
+ * the count or the cost is missing.
+ */
+export function recruitDetailSentence(world: WorldState, event: SimEvent): string | null {
+  if (event.type !== "recruited") return null;
+  const quantity = event.data.quantity;
+  const cost = event.data.cost;
+  if (typeof quantity !== "number" || typeof cost !== "number") return null;
+  const actor = characterName(world, event.actorId, "Someone");
+  const place = event.settlementId ? settlementName(world, event.settlementId, event.settlementId) : null;
+  const at = place ? ` at ${place}` : "";
+  const treasury = typeof event.data.treasuryDrawn === "number" ? event.data.treasuryDrawn : 0;
+  const purse = typeof event.data.purseDrawn === "number" ? event.data.purseDrawn : 0;
+  if (treasury > 0 && purse > 0) {
+    return `${actor} recruited ${quantity}${at} for ${cost}: ${treasury} from the treasury and ${purse} from the purse.`;
+  }
+  if (treasury > 0) return `${actor} recruited ${quantity}${at} for ${cost} from the treasury.`;
+  if (purse > 0) return `${actor} recruited ${quantity}${at} for ${cost} from the purse.`;
+  return `${actor} recruited ${quantity}${at}.`;
+}
+
+/**
+ * A withheld recruit the reader's own faction may already see a treasury draw on.
+ *
+ * A rival stays null. A purse-only row stays null. Both keep the public
+ * sentence, which does not name the count or the cost. Null when the detail
+ * cannot be built, so the draw sentence can still name the treasury share.
+ */
+export function withheldRecruitSentence(world: WorldState, readerFactionId: string | null, event: SimEvent): string | null {
+  if (event.type !== "recruited") return null;
+  if (!readerFactionId || !event.actorId) return null;
+  const actor = world.characters[event.actorId];
+  if (!actor || actor.factionId !== readerFactionId) return null;
+  const drawn = event.data.treasuryDrawn;
+  if (typeof drawn !== "number" || drawn <= 0) return null;
+  return recruitDetailSentence(world, event);
+}
+
+/**
+ * The queued-command line.
+ *
+ * A provision buy keeps the quoted total. Any other action is named only when
+ * the command itself carries the action and a purse or treasury source, and a
+ * berth can be named. The berth is the settlement stored on the event, or the
+ * officer's port on this reading when the command did not store one. Anything
+ * missing keeps `Command queued for {name}`.
+ */
+export function queuedCommandSentence(
+  world: WorldState,
+  event: SimEvent,
+  actor: string,
+  settlement: string | null,
+): string {
+  const fallback = `Command queued for ${actor}`;
+  const command = commandRecord(event.data.command);
+  if (!command) return fallback;
+  if (command.action === "buy-provisions" && typeof command.gross === "number") {
+    const cap = command.capped
+      ? ` (${settlement ?? "This market"} clears no more than ${command.quantity} in one order)`
+      : "";
+    return `Command queued for ${actor}: ${command.quantity} provisions at ${command.unitPrice} each, ${command.gross} total${cap}`;
+  }
+  if (typeof command.action !== "string" || command.action.length === 0) return fallback;
+  const source = command.source === "purse" || command.source === "treasury" ? command.source : null;
+  const place = settlement ?? berthName(world, event.actorId);
+  if (!source || !place) return fallback;
+  return `Command queued for ${actor}: ${command.action} at ${place} (from the ${source})`;
+}
+
+function commandRecord(value: unknown): {
+  action?: string;
+  source?: string;
+  quantity?: number;
+  unitPrice?: number;
+  gross?: number;
+  capped?: boolean;
+} | null {
+  if (!value || typeof value !== "object") return null;
+  return value as {
+    action?: string;
+    source?: string;
+    quantity?: number;
+    unitPrice?: number;
+    gross?: number;
+    capped?: boolean;
+  };
+}
+
+function berthName(world: WorldState, actorId: string | undefined): string | null {
+  if (!actorId) return null;
+  const locationId = world.characters[actorId]?.locationId;
+  if (!locationId) return null;
+  return world.settlements[locationId]?.name ?? null;
 }
 
 /**
