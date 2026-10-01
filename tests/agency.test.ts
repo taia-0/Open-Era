@@ -718,12 +718,15 @@ test("a carrier already at sea refuses under the travel gate and the escrow retu
   });
   assert.equal(refusal.data.travelTicks, 2);
   assert.equal(refusal.data.escrow, 0);
-  // The refund of the treasury-funded 30 credits the purse.
-  assert.equal(refusal.data.buyerMoney, 138);
+  // The treasury-funded 30 returns to the treasury. The purse stays 108.
+  // It used to be credited to the purse, which raised buyerMoney to 138.
+  assert.equal(refusal.data.buyerMoney, 108);
+  assert.equal(refusal.data.treasuryRefunded, 30);
+  assert.equal(refusal.data.purseRefunded, 0);
   assert.equal(world.contracts?.[contract.id].status, "refused");
   assert.equal(world.contracts?.[contract.id].settled, true);
   assert.equal(world.contracts?.[contract.id].escrow, 0);
-  assert.equal(mara.money, 138);
+  assert.equal(mara.money, 108);
   assert.equal(
     judged.events.filter((event) => event.type === "contract-refused").length,
     1,
@@ -736,7 +739,7 @@ test("a carrier already at sea refuses under the travel gate and the escrow retu
 
   const again = runTick(world);
   assert.equal(again.events.some((event) => event.type === "contract-refused"), false);
-  assert.equal(mara.money, 138);
+  assert.equal(mara.money, 108);
 });
 
 test("scoring a contract always has a positive cost basis", () => {
@@ -941,12 +944,15 @@ test("a passed deadline returns the escrow and writes the defeat deltas", () => 
   assert.equal(contract.status, "breached");
   assert.equal(contract.escrow, 0);
   assert.equal(contract.settled, true);
-  // The refund of a treasury-funded escrow credits the purse.
-  assert.equal(breached.data.buyerMoney, 126);
+  // The treasury-funded 18 returns to the treasury. The purse stays 108.
+  // It used to be credited to the purse, which raised buyerMoney to 126.
+  assert.equal(breached.data.buyerMoney, 108);
+  assert.equal(breached.data.treasuryRefunded, 18);
+  assert.equal(breached.data.purseRefunded, 0);
   assert.equal(breached.data.carrierMoney, carrierMoney);
   assert.equal(breached.data.escrow, 0);
   assert.equal(breached.data.carrierCargo, undefined);
-  assert.equal(mara.money, 126);
+  assert.equal(mara.money, 108);
   assert.ok(Math.abs(zara.cargo.provisions - cargo) < 1, "the grain stays aboard");
   assert.equal(judged.events.some((event) => event.type === "contract-fulfilled"), false);
   assert.equal(

@@ -1078,8 +1078,9 @@ test("cancelling an offer returns the escrow and writes no relationship", () => 
   assert.equal(world.contracts?.[contract.id].status, "cancelled");
   assert.equal(world.contracts?.[contract.id].escrow, 0);
   assert.equal(world.contracts?.[contract.id].settled, true);
-  // Cancelling credits the treasury-funded escrow back to the purse.
-  assert.equal(buyer.money, 126);
+  // Cancelling returns the treasury-funded escrow to the treasury. The purse stays 108.
+  // It used to be credited to the purse, which raised the buyer to 126.
+  assert.equal(buyer.money, 108);
   assert.equal(
     settled.events.filter((event) =>
       event.type === "relationship-changed" &&

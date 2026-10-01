@@ -915,6 +915,16 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (buyer && typeof event.data.buyerMoney === "number") buyer.money = event.data.buyerMoney;
       if (carrier && typeof event.data.carrierMoney === "number") carrier.money = event.data.carrierMoney;
       if (buyer) applyTreasuryDraw(world, buyer, event.data);
+      // A refund credits the treasury part back. It does not write
+      // `allowanceRemaining`. `factionTreasury` is the absolute after the credit.
+      if (
+        buyer?.factionId &&
+        typeof event.data.treasuryRefunded === "number" &&
+        event.data.treasuryRefunded > 0 &&
+        typeof event.data.factionTreasury === "number"
+      ) {
+        world.factions[buyer.factionId].treasury = event.data.factionTreasury;
+      }
       if (event.type === "contract-fulfilled") {
         const shelf = world.settlements[contract.destinationId];
         if (!shelf || !carrier) throw new Error("Contract fulfilment is missing a shelf or a carrier");

@@ -98,29 +98,29 @@ test("the store read is the same tick window, and the cap keeps the newest rows"
   }
 });
 
-test("seed 1847 tick 136 states the captured troops on the captor's feed and not on a rival's", () => {
-  // Treasury spending moved Mina Vale's capture off seed 2718 tick 72.
-  const run = runTicks(createPrototypeWorld(1847), 137);
-  const capture = run.events.find((event) => event.sequence === 15994);
+test("seed 1847 tick 137 states the captured troops on the captor's feed and not on a rival's", () => {
+  // Treasury spending moved Mina Vale's capture off seed 2718 tick 72. The balance share moved it to tick 137.
+  const run = runTicks(createPrototypeWorld(1847), 138);
+  const capture = run.events.find((event) => event.sequence === 16104);
   assert.ok(capture);
   assert.equal(capture.type, "character-captured");
-  assert.equal(capture.tick, 136);
+  assert.equal(capture.tick, 137);
   const [forMara] = projectEventFeed(run.state, "character-01", [capture]);
   assert.equal(forMara?.payloadWithheld, true);
   assert.equal(forMara?.data, null);
   assert.equal(
     forMara?.summary,
-    "World Government took Mina Vale at Crown Harbor after major defeat. 8 troops were taken, power 53.348.",
+    "World Government took Mina Vale at Crown Harbor after major defeat. 7 troops were taken, power 52.59.",
   );
   const [forPax] = projectEventFeed(run.state, "character-14", [capture]);
   assert.equal(forPax?.data, null);
   assert.equal(forPax?.summary, "World Government took Mina Vale at Crown Harbor after major defeat");
-  assert.equal(String(forPax?.summary).includes("53.348"), false);
-  assert.equal(String(forPax?.summary).includes("8 troops"), false);
+  assert.equal(String(forPax?.summary).includes("52.59"), false);
+  assert.equal(String(forPax?.summary).includes("7 troops"), false);
 });
 
 test("seed 1847 names both captains and does not say each one took the port", () => {
-  // Treasury spending split the old tick 69 pair. The claim is Jun's on tick 66. The shared win is Glassport on tick 469.
+  // Treasury spending split the old tick 69 pair. The claim is Jun's on tick 66. The balance share moved the shared win to Crown Harbor on tick 1035.
   const claimedRun = runTicks(createPrototypeWorld(1847), 67);
   const battle = claimedRun.events.find((event) => event.sequence === 7596);
   const claim = claimedRun.events.find((event) => event.sequence === 7719);
@@ -140,22 +140,22 @@ test("seed 1847 names both captains and does not say each one took the port", ()
     "Jun Marrow claimed Cinder Key. The surrender was offered and taken on the next tick, so it was not waiting.",
   );
 
-  const shared = runTicks(createPrototypeWorld(1847), 470);
+  const shared = runTicks(createPrototypeWorld(1847), 1036);
   const wins = shared.events.filter((event) =>
-    event.type === "battle-resolved" && event.tick === 469 && event.settlementId === "glassport",
+    event.type === "battle-resolved" && event.tick === 1035 && event.settlementId === "crown-harbor",
   );
   const sharedFeed = projectEventFeed(shared.state, "character-01", wins);
-  const kessa = sharedFeed.find((row) => row.sequence === 58432);
-  const ada = sharedFeed.find((row) => row.sequence === 58449);
+  const esme = sharedFeed.find((row) => row.sequence === 137430);
+  const bram = sharedFeed.find((row) => row.sequence === 137449);
   assert.equal(
-    kessa?.summary,
-    "Kessa Calder won the fight at Glassport on a higher score, after morale gave out. 2 captains won a fight here on this tick: Kessa Calder, Ada Sorn. This fight left the garrison standing. A surrender was offered.",
+    esme?.summary,
+    "Esme Dusk won the fight at Crown Harbor on a higher score, after morale gave out. 2 captains won a fight here on this tick: Esme Dusk, Bram Tern. This fight left the garrison standing. A surrender was offered.",
   );
   assert.equal(
-    ada?.summary,
-    "Ada Sorn won the fight at Glassport on a higher score. 2 captains won a fight here on this tick: Kessa Calder, Ada Sorn. This fight left the garrison standing. A surrender was offered.",
+    bram?.summary,
+    "Bram Tern won the fight at Crown Harbor on a higher score, after morale gave out. 2 captains won a fight here on this tick: Esme Dusk, Bram Tern. This fight left the garrison standing. A surrender was offered.",
   );
-  for (const row of [jun, claimed, kessa, ada]) {
+  for (const row of [jun, claimed, esme, bram]) {
     assert.equal(row?.payloadWithheld, true);
     assert.equal(row?.data, null);
     assert.equal(String(row?.summary).includes("outscore"), false);
@@ -164,20 +164,20 @@ test("seed 1847 names both captains and does not say each one took the port", ()
   }
 });
 
-test("seed 1847 tick 469 says morale gave out, and does not say nerve broke", () => {
-  // Treasury spending moved this fight off tick 594.
-  const run = runTicks(createPrototypeWorld(1847), 470);
-  const battle = run.events.find((event) => event.sequence === 58405);
+test("seed 1847 tick 671 says morale gave out, and does not say nerve broke", () => {
+  // Treasury spending moved this fight off tick 594. The balance share moved it to Crown Harbor on tick 671.
+  const run = runTicks(createPrototypeWorld(1847), 672);
+  const battle = run.events.find((event) => event.sequence === 86196);
   assert.ok(battle);
   assert.equal(battle.type, "battle-resolved");
-  assert.equal(battle.tick, 469);
+  assert.equal(battle.tick, 671);
   assert.equal(battle.actorId, "character-05");
   assert.equal(battle.data.outcome, "attacker-victory");
   assert.equal(typeof battle.data.battleId, "string");
   const [row] = projectEventFeed(run.state, "character-01", [battle]);
   assert.equal(row?.payloadWithheld, true);
   assert.equal(row?.data, null);
-  assert.equal(row?.summary, "Jun Marrow won the fight at Cinder Key on a higher score, after morale gave out. A surrender was offered.");
+  assert.equal(row?.summary, "Jun Marrow won the fight at Crown Harbor on a higher score, after morale gave out. A surrender was offered.");
   assert.equal(String(row?.summary).includes("nerve"), false);
   assert.equal(String(row?.summary).includes("outscore"), false);
 });
