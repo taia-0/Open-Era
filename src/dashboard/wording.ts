@@ -319,8 +319,10 @@ function ransomCredit(event: SimEvent): RansomCredit | null {
 /**
  * The payment line both sides read.
  *
- * Names each recipient and the amount. A faction line puts the treasury first.
- * No faction names only the party leader. Absent when the release has no split.
+ * A faction captor names only the treasury and the whole amount paid. A
+ * factionless captor names only the party leader. A stored leader share above
+ * 0 still names both recipients, so an older split event stays readable.
+ * Absent when the release has no ransom credit.
  */
 export function ransomPaidSentence(world: WorldState, event: SimEvent, chronicle = false): string | null {
   const credit = ransomCredit(event);
@@ -334,9 +336,11 @@ export function ransomPaidSentence(world: WorldState, event: SimEvent, chronicle
   if (credit.treasuryFactionId) {
     const factionName = world.factions[credit.treasuryFactionId]?.name ?? credit.treasuryFactionId;
     const factionText = chronicle ? `**${factionName}**` : factionName;
-    const treasury = `${credit.treasuryShare} to the ${factionText} treasury`;
-    if (leaderText) return `${payerText} paid ${paid} ransom: ${treasury} and ${credit.leaderShare} to ${leaderText}`;
-    return `${payerText} paid ${paid} ransom: ${treasury}`;
+    if (leaderText && credit.leaderShare > 0) {
+      const treasury = `${credit.treasuryShare} to the ${factionText} treasury`;
+      return `${payerText} paid ${paid} ransom: ${treasury} and ${credit.leaderShare} to ${leaderText}`;
+    }
+    return `${paid} went to the ${factionText} treasury`;
   }
   if (!leaderText) return null;
   return `${payerText} paid ${paid} ransom: ${credit.leaderShare} to ${leaderText}`;
@@ -409,7 +413,8 @@ export function releaseDebtNote(world: WorldState, characterId: string, events: 
 /**
  * The latest ransom credit the release line already names for this leader.
  *
- * It does not print the purse. A share of 0 is not income.
+ * It does not print the purse. A faction captor pays the treasury, so that
+ * release is not income. A share of 0 is not income either.
  */
 export function ransomIncomeNote(world: WorldState, characterId: string, events: SimEvent[] | undefined): string | null {
   if (!events) return null;
@@ -418,7 +423,7 @@ export function ransomIncomeNote(world: WorldState, characterId: string, events:
   for (const event of events) {
     if (event.type !== "captivity-released") continue;
     const credit = ransomCredit(event);
-    if (!credit || credit.leaderId !== characterId || credit.leaderShare <= 0) continue;
+    if (!credit || credit.treasuryFactionId || credit.leaderId !== characterId || credit.leaderShare <= 0) continue;
     if (latest && event.sequence < latest.sequence) continue;
     latest = event;
     share = credit.leaderShare;

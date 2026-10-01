@@ -30,16 +30,17 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `origin/main` at `f87beb5` (PR #72). This branch is `fix/readability-polish-3`.
-- **Last verified:** See the M34.3 entry. 308 tests. Tick-72 and tick-1200 hashes are unchanged. The blind playtest is not run.
-- **Gate status:** Tick-72 hashes stay `cb04ba5d…` / `bd7d8cc4…` / `20975bf4…` (8301, 8513, 8031). Recovery 572.
-- **Headline:** The check-in is the last 180 ticks. A witnessed battle, a capture, and a withheld refusal are plain sentences. Stored events are unchanged.
+- **Baseline:** `feature/ransom-to-treasury` from `e61aa98`. A faction ransom pays that treasury every cent. The leader receives 0.
+- **Last verified:** 309 tests. Tick-72 hashes are unchanged. Tick-1200 hashes moved. The blind playtest is not run.
+- **Gate status:** `./scripts/evaluate-milestone.sh ransom-to-treasury` passed. Tick-72 hashes stay `cb04ba5d…` / `bd7d8cc4…` / `20975bf4…` (8301, 8513, 8031). Recovery 572.
+- **Headline:** The coins a faction prisoner pays on release arrive in the captor treasury, and the party leader's purse does not move.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
+| Trade/order rows Mara can read should also use the display qualifier, e.g. 'Toma Reef (World Government)', matching the cards (from M34.3 playtest) | Readability | Open Era Engineer | Queued |
 | HIGHEST PRIORITY: add a player-visible reason line on battle-resolved when the player witnessed the battle, such as "outscore" or "nerve broke" | Readability | Cursor | **Fixed in M34.3.** The feed says why, from the payload. It does not say `outscore` or `nerve` |
 | With several attackers, the briefing says more than one captain "won at Crown Harbor" in the same tick while the panel still shows the other side | Readability | Cursor | **Fixed in M34.3.** Two wins on one tick name both captains and say the garrison was left standing |
 | A claim says the captain "accepted Crown Harbor's surrender", but the surrender block is written and consumed within one tick, so the player never saw an offer | Readability | Cursor | **Fixed in M34.3.** A claim taken on the next tick says the offer was not waiting. No same-tick consumption was found in 1,200 ticks |
@@ -127,6 +128,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-01 — Ransom to treasury
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/ransom-to-treasury` | **Commits:** this commit | **Type:** feature
+- **Changed** — A captor with a faction receives the whole paid ransom in that faction's treasury. The party leader receives 0. `leaderShare` stays on the `ransom` object as 0, and `leaderId` and `leaderMoney` are omitted. A captor with no faction still pays the leader every cent. The feed line for a faction captor is the whole amount and the treasury, for example `62.69 went to the World Government treasury.` `ransomIncomeNote` stays off that leader's card. The debt note and "The ransom line covers only the ransom." stay.
+- **Why** — Micah's ruling. The 50/50 split, including the odd cent to the treasury, no longer applies when the captor has a faction.
+- **Verified** — Base `e61aa98` is the parent. Node v24.21.0. `npm run typecheck` is clean. **309 tests.** `./scripts/evaluate-milestone.sh ransom-to-treasury` passed. Tick-72 hashes, before and after, are `cb04ba5d392d8b1c868cc97e54cb21b21ec171edd546bb70d0d7aba86cc69c11` (1847, 8301), `bd7d8cc44d5fa21022ecb8f8086e13dfbb9475eb025b5ae53f87e2991f90035c` (2718, 8513), `20975bf480e5aa11eeafe1ce39c36cf5ba0fa8e2d5de2bb5887a35d7b3aecc9f` (4096, 8031). Split recovery replayed 572 events. No `golden:update`. Tick-1200 before → after: hashes `dac1ee50de935be4ea4bd9499ee9f49fb738909f4032b327ebb52d367cca6ded` → `04215936a3693247f86b5297fd8865ea7fa70a7b31f7be98d410bc148e92c121`, `6adbadbb35c81126930e5b46d5e9233166d3f63a0726a95c68dda082f9b57f0c` → `a8c5e8b3664957d013ed8f38d2bcd28fa635d5ce226167b4541f20e9047fe345`, `e4d66a14a2455d693cf659082b13c2558d01315f3a1dee39fd14422fce56066c` → `59a2599f61429a5c57b1d20728267c9b136100a5e066e3c4f38c4109a7a3c242`. Events 162392 → 164313, 165428 → 165434, 162285 → 164691. Captures 16 → 12, 10 → 8, 16 → 6. Releases 16 → 12, 8 → 8, 12 → 6. Release records 10 → 8, 7 → 7, 8 → 6. The first diverging event on each seed is the first `captivity-released` (sequences 13680, 18482, 10683). The leader purse then changes a later decision (Pax Ash at ticks 140, 981, and 96). The counts match the pre-split campaign. The treasuries are higher than those pre-split totals by the whole paid ransom, 827.65 / 789.88 / 530.71. Leader credits are 0. Blind playtest [ransom-to-treasury-001](docs/playtests/ransom-to-treasury-001.md) is written and not run. The expected values were read through `GET /api/state` on `127.0.0.1:4317`.
+- **Left open** — The blind session is not run. Seed 1847 tick 902 does not release Dax Pike; the 62.69 figure is a constructed fixture. No seeded release has a null captor faction. Question 24 in the questions file still says 50/50.
+- **Links** — [playtest ransom-to-treasury-001](docs/playtests/ransom-to-treasury-001.md) (not run), [ransom split](docs/design/ransom-split.md)
 
 ### 2026-09-29 — M34.3: Readability polish 3
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `fix/readability-polish-3` | **Commits:** `4ef629a` (the sentences). This commit records the notes and the unread plan. | **Type:** fix

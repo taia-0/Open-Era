@@ -1,6 +1,8 @@
 # Treasury spending
 
-**Status: Open.** Design note. Do not build this yet. Question 24 in [owner questions](owner-questions.md) is still recorded there as settled 50/50. The owner has changed that: a faction ransom goes entirely to the captor's faction treasury. This note supersedes that split. The questions file is unchanged.
+**Status: Open.** Design note. The allowance and the ruler's spend are not built. Question 24 in [owner questions](owner-questions.md) is still recorded there as settled 50/50. The questions file is unchanged.
+
+**Correction (2026-10-01).** The ransom routing in slice 1 is built. A faction captor's treasury receives the whole payment, `leaderShare` is 0, and `leaderId` and `leaderMoney` are omitted. The measured 1200-tick hashes below are the 50/50 campaign. The new baseline is the addendum in [ransom split](ransom-split.md).
 
 Runs below are `createPrototypeWorld` plus `runTick`, no player commands, seeds 1847 / 2718 / 4096, 1200 ticks, on this tree (`f87beb5`), Node v24.21.0, ICU 78.3. Tick numbers on events are the `tick` field. A figure at tick 72 or tick 1200 is the world after that many `runTick` calls. `npm test` passed, 301 tests, including the golden pin and its recovery replay of 572 events. The harness was local and was not committed.
 

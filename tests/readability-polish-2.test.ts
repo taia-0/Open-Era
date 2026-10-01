@@ -166,9 +166,9 @@ test("seed 1847 shows the release debt and the ransom credit the line already st
   assert.equal(sable.name, "Sable Morrow");
   assert.equal(sableCard.debts, null);
   assert.equal(sableCard.releaseDebtNote, "Owes 103.21 from the release at Cinder Key.");
-  assert.equal(paxCard.money, 51.58);
-  assert.equal(paxCard.ransomIncomeNote, "Received 6.7 from Sable Morrow's ransom at Cinder Key.");
-  assert.equal(String(paxCard.ransomIncomeNote).includes("51.58"), false);
+  assert.equal(paxCard.money, 44.88);
+  assert.equal(paxCard.ransomIncomeNote, null);
+  assert.equal(String(paxCard.money).includes("6.7"), false);
 
   const at902 = runTicks(createPrototypeWorld(1847), 902);
   const before = stateHash(at902.state);
@@ -176,42 +176,36 @@ test("seed 1847 shows the release debt and the ransom credit the line already st
   const dax = at902.state.characters["character-20"];
   const daxCard = projectCharacter(at902.state, maraLater, dax, at902.events);
   const maraCard = projectCharacter(at902.state, maraLater, maraLater, at902.events);
-  assert.equal(daxCard.money, null);
-  assert.equal(daxCard.debts, null);
-  assert.equal(daxCard.releaseDebtNote, "Owes 380.67 from the release at Glassport.");
-  assert.equal(maraCard.money, 504.36);
-  assert.equal(maraCard.ransomIncomeNote, "Received 31.34 from Dax Pike's ransom at Glassport.");
+  assert.equal(dax.captivity, null);
+  assert.equal(daxCard.releaseDebtNote, null);
+  assert.equal(maraCard.money, 0);
+  assert.equal(maraCard.ransomIncomeNote, null);
   assert.equal(stateHash(at902.state), before);
 });
 
-test("seed 1847 tick 901 separates the ransom from the Crown Harbor tax", () => {
-  const run = runTicks(createPrototypeWorld(1847), 902);
+test("seed 1847 tick 118 separates the ransom from the Crown Harbor tax", () => {
+  const run = runTicks(createPrototypeWorld(1847), 119);
   const before = stateHash(run.state);
-  const release = run.events.find((event) => event.sequence === 118405);
-  const travel = run.events.find((event) => event.sequence === 118498);
-  const upkeep = run.events.find((event) => event.sequence === 118398);
-  const harbor = run.events.find((event) => event.sequence === 118400);
-  const worked = run.events.find((event) => event.sequence === 118525);
-  assert.ok(release && travel && upkeep && harbor && worked);
-  const line = "Dax Pike was released from Glassport. 62.69 was paid and 380.67 was recorded as debt. Loyalty fell. Dax Pike paid 62.69 ransom: 31.35 to the World Government treasury and 31.34 to Mara Vane. The ransom line covers only the ransom.";
+  const release = run.events.find((event) => event.sequence === 13680);
+  const upkeep = run.events.find((event) => event.sequence === 13673);
+  const harbor = run.events.find((event) => event.sequence === 13675);
+  const traded = run.events.find((event) => event.sequence === 13701);
+  assert.ok(release && upkeep && harbor && traded);
+  const line = "Sable Morrow was released from Cinder Key. 13.4 was paid and 103.21 was recorded as debt. Loyalty fell. 13.4 went to the Free Tide Compact treasury. The ransom line covers only the ransom.";
   const [releaseRow] = projectEventFeed(run.state, "character-01", [release]);
   assert.equal(releaseRow?.payloadWithheld, true);
   assert.equal(releaseRow?.data, null);
   assert.equal(releaseRow?.summary, line);
   assert.deepEqual(releaseRow?.details, captivityReleasedParts(run.state, release));
   assert.deepEqual(releaseRow?.details, [
-    "Dax Pike was released from Glassport.",
-    "62.69 was paid and 380.67 was recorded as debt.",
+    "Sable Morrow was released from Cinder Key.",
+    "13.4 was paid and 103.21 was recorded as debt.",
     "Loyalty fell.",
-    "Dax Pike paid 62.69 ransom: 31.35 to the World Government treasury and 31.34 to Mara Vane.",
+    "13.4 went to the Free Tide Compact treasury.",
     "The ransom line covers only the ransom.",
   ]);
-
-  const [travelRow] = projectEventFeed(run.state, "character-01", [travel]);
-  assert.equal(travel.type, "travel-progressed");
-  assert.equal(travel.actorId, "character-20");
-  assert.equal(travelRow?.payloadWithheld, true);
-  assert.equal(travelRow?.summary, "Dax Pike continued toward Cinder Key.");
+  assert.equal(String(line).includes("29.01"), false);
+  assert.equal(String(line).includes("Pax Ash"), false);
 
   const [cinder] = projectEventFeed(run.state, "character-01", [upkeep]);
   const [crown] = projectEventFeed(run.state, "character-01", [harbor]);
@@ -220,12 +214,11 @@ test("seed 1847 tick 901 separates the ransom from the Crown Harbor tax", () => 
   assert.equal(crown?.summary, "Crown Harbor kept its stores.");
   assert.equal(crown?.payloadWithheld, false);
 
-  const [taxRow] = projectEventFeed(run.state, "character-01", [worked]);
-  assert.equal(worked.type, "worked");
+  const [taxRow] = projectEventFeed(run.state, "character-01", [traded]);
+  assert.equal(traded.type, "market-trade");
   assert.equal(taxRow?.payloadWithheld, true);
   assert.equal(taxRow?.data, null);
-  assert.equal(taxRow?.summary, "Iris Vale worked at Crown Harbor. Tax of 2.3 went to the treasury.");
-  assert.equal(String(taxRow?.summary).includes("16.46"), false);
-  assert.equal(String(taxRow?.summary).includes("139.32"), false);
+  assert.equal(taxRow?.summary, "Toma Reef (World Government) traded at Crown Harbor. Tax of 29.01 went to the treasury.");
+  assert.equal(String(taxRow?.summary).includes("13.4"), false);
   assert.equal(stateHash(run.state), before);
 });
