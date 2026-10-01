@@ -1,6 +1,6 @@
 # Treasury balance
 
-**Status: Open.** Study only. The 18-a-day rule is unchanged.
+**Status: Implemented.** The study below chose the balance share and is unchanged. The addendum at the end is the baseline after that rule, and after escrow refunds return to their source.
 
 Free Tide's treasury starts at 2,800 and, on the three standard 200-day runs, is empty or nearly empty from the first month or two through day 200. World Government starts at 18,000 and ends between 9,409.93 and 11,080.89. Mates other than the commander may draw 18 a day; the commander draws with no cap; the purse pays the rest of a bill. Shrinking that 18 when the treasury is already short, cutting it to 6, raising Free Tide's tax, and tying the draw to yesterday's income all still leave Free Tide near empty at day 200, because the commander spends the coins the mates no longer take. The decision in this note: keep 18 as the full daily draw, and shrink it only when the treasury cannot pay 18 to every free mate.
 
@@ -130,3 +130,58 @@ Free Tide's 543.04 on the tax run is a late jump: that seed is at 0 at tick 1100
 ## Recommendation
 
 Use the balance share. Eighteen remains the draw whenever the treasury can pay it, which is the whole run for World Government and the opening weeks for Free Tide. The flat 6 piles coins in the government's treasury and still leaves Free Tide under 50. The tax increase is spent as it arrives. Tying the cap to yesterday's income does keep 18 as a ceiling, and it also pays a solvent faction less than 18, so the government's treasury grows while Free Tide still finishes under 75. None of the four puts a standing fund back in Free Tide's treasury while the commander can spend what the mates leave.
+
+## Addendum, 2026-10-01 — the share is in the world
+
+Measured on `feature/treasury-balance` against `97aea49` (main after PR #80), Node v24.21.0, ICU 78.3. No commands. Seeds 1847 / 2718 / 4096. A balance at 72 or 1200 is the world after that many `runTick` calls. The study tables above are the old 18-a-day rule. This addendum is the baseline after the share.
+
+The mate's cap is `min(18, treasury / mates)`, checked on each quote. Mates are the free faction members who are not the holder. Captives are not free. The holder is not a mate. People at sea are. The acting commander is a mate. The share is `floor` of whole cents, then `min` with 1800 cents, so mates times the share cannot exceed the treasury. Zero mates or a treasury of 0 yields 0. A stored remainder is clamped down to the current share. Omitted remainder means the current share. A refund does not put the treasury part back into today's allowance.
+
+### 72 ticks
+
+The state hashes, the event counts, and the end treasuries do not move. Recovery still replays 600 events.
+
+| Seed | State hash | Events | Captures | WG treasury | FT treasury |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 1847 | `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` | 8413 | 0 | 17559.72 | 1116.46 |
+| 2718 | `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` | 8456 | 0 | 17840.4 | 1153.7 |
+| 4096 | `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` | 8261 | 1 | 17512.28 | 1589.26 |
+
+Refusals at 72 are 6 / 6 / 4. No releases and no release records. Allowance drawn 3468 / 3730 / 3498. Holder drawn 848.4 / 468.96 / 329.94. Purse drawn 14448.09 / 15552.27 / 15690.91. Those figures match the old run. `npm run golden:update` does not change `tests/fixtures/golden-hashes.json`.
+
+### 1200 ticks
+
+| Seed | Old hash | New hash | Old events | New events |
+| ---: | --- | --- | ---: | ---: |
+| 1847 | `0ea6c604f68a9a871a41bb3d3915367e905c24df676e7642bd510408966a7ab5` | `90dacc2dfcd199ab720ade191bd3fdf8742632a36f19216bd53ce0e3a3294fef` | 164191 | 160268 |
+| 2718 | `04c55c0b09ce004d847867885498616b2bf80fa112690c4a48578a96caf22268` | `226bf6257a86b233d197bd77747a10fe64b33dd7ac1e94bc27c11ff3ddf50cd8` | 160835 | 161850 |
+| 4096 | `09b04e93142c9f9460ffbd913d6e4e65bc41b8b71392bc0f17a32502050f9f03` | `30e9994387b2c9a2d8c0e16e27042797599188a105992cb7a9f8d2e924a8b0a6` | 164657 | 162459 |
+
+The first differing event on each seed is a Free Tide mate whose quote no longer pays a flat 18.
+
+- Seed 1847, sequence 13353, tick 113, `character-upkeep`, Bram Tern (`character-22`). A passage of 3. Old: `treasuryDrawn` 3, `purseDrawn` 0, `allowanceRemaining` 6, `factionTreasury` 20.38, `characterMoney` 910.66. New: `treasuryDrawn` 2.92, `purseDrawn` 0.08, `allowanceRemaining` 0, `factionTreasury` 20.46, `characterMoney` 910.58. The treasury before that draw is 23.38. Eight free mates make the share `floor(2338 / 8) / 100` = 2.92. The purse pays the other 0.08.
+- Seed 2718, sequence 46274, tick 378, `market-trade`, Zara Gale (`character-17`). The bill is 30.06 either way. Old: `treasuryDrawn` 18, `purseDrawn` 12.06, `allowanceRemaining` 0, `factionTreasury` 76.81, `characterMoney` 227.83. New: `treasuryDrawn` 13.54, `purseDrawn` 16.52, `allowanceRemaining` 0, `factionTreasury` 81.27, `characterMoney` 223.37. The first field that differs is `characterMoney`. The cause is the same: the treasury part of that bill is the share, not 18.
+- Seed 4096, sequence 12610, tick 108, `character-upkeep`, Bram Tern (`character-22`). Both sides still draw 3 from the treasury and 0 from the purse. `factionTreasury` stays 125.76 and `characterMoney` stays 1379.98. `allowanceRemaining` is 15 under the flat cap and 13.09 under the share. The treasury before the draw is 128.76. Eight free mates make the share 16.09, so a passage of 3 leaves 13.09.
+
+| Seed | Captures | Releases | Release records | Refusals | Allowance | Holder | Purse | Escrow refunds |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1847 old | 9 | 9 | 7 | 6 | 40961.83 | 5351.59 | 198380.38 | 0 |
+| 1847 new | 14 | 13 | 8 | 6 | 36297.29 | 9554.41 | 197821.09 | 0 |
+| 2718 old | 15 | 13 | 9 | 6 | 42011.56 | 4584.81 | 182733.80 | 0 |
+| 2718 new | 11 | 11 | 7 | 6 | 37478.57 | 6478.40 | 187379.70 | 0 |
+| 4096 old | 4 | 3 | 3 | 4 | 43044.28 | 4600.95 | 212269.33 | 0 |
+| 4096 new | 8 | 8 | 7 | 4 | 38178.09 | 9480.44 | 200651.97 | 0 |
+
+Allowance is `treasuryDrawn` on an event that stores `allowanceRemaining`. Holder is `treasuryDrawn` with no remainder. Combined draws are 46313.42 / 46596.37 / 47645.23 old and 45851.70 / 43956.97 / 47658.53 new. Refusals stay 6 / 6 / 4 because every refusal is inside the first 72 ticks. Escrow refunds are 0 on these runs. Nothing offers a contract unless a player does, so the refund-to-source rule does not move a headless hash. It is covered by `tests/treasury-balance.test.ts`.
+
+Counts move because the share changes purses, and the holder spends coins the mates no longer take. Free Tide holder draws go from 5330.59 / 4566.81 / 4600.95 to 9542.41 / 6466.40 / 9480.44. World Government's minimum treasury on the new runs is 13105.21 / 14863.93 / 12574.01, still above 12 mates times 18, so that faction's cap stays 18. Its allowance total still changes, because the history after the first Free Tide shortfall is a different campaign. Later battles, captures, and releases follow that campaign. They are a consequence of the share.
+
+Free Tide still drains. It still reaches 0. Ticks ending at or below 0 are 5 / 28 / 10, down from 256 / 92 / 256. The first of those state ticks is 117 / 597 / 188, against 115 / 386 / 187 before. End treasuries:
+
+| Seed | WG before | WG after | FT before | FT after |
+| ---: | ---: | ---: | ---: | ---: |
+| 1847 | 11080.89 | 13149.10 | 1.23 | 24.88 |
+| 2718 | 9409.93 | 14874.12 | 12.98 | 7.91 |
+| 4096 | 10438.69 | 12600.45 | 0 | 41.76 |
+
+None of those Free Tide endings is a standing fund. The uncommitted study harness on `deba318` reported 24.48 / 6.65 / 3.21. This run is a different implementation of the same sentence, and seed 4096 ends higher. The conclusion is the same one the study stated: the commander spends what the mates leave, and Free Tide still finishes near empty.
