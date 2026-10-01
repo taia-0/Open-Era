@@ -4,6 +4,8 @@
 
 **Correction (2026-10-01).** The ransom routing in slice 1 is built. A faction captor's treasury receives the whole payment, `leaderShare` is 0, and `leaderId` and `leaderMoney` are omitted. The measured 1200-tick hashes below are the 50/50 campaign. The new baseline is the addendum in [ransom split](ransom-split.md).
 
+**Addendum (2026-10-01, slice 3).** Spending is built. A member draws the daily allowance from the treasury, then the purse. The free command holder draws the treasury with no cap. The census and the new hashes are in the addendum at the end of this note. Player `source: "purse"` is still slice 4.
+
 **Correction (allowance projection).** Slice 2 does not write `allowanceRemaining` onto the character and does not draw coins. Own-faction rows show the cap, 18. The remaining figure is omitted while nothing has been drawn that day. Omitted means full, the same rule as section 3. The free command holder is uncapped. The acting commander keeps 18. A rival's cap, remaining, and treasury balance stay null. A line that names a treasury whose balance that reader cannot see says the balance is not visible to you, and does not print the number.
 
 Runs below are `createPrototypeWorld` plus `runTick`, no player commands, seeds 1847 / 2718 / 4096, 1200 ticks, on this tree (`f87beb5`), Node v24.21.0, ICU 78.3. Tick numbers on events are the `tick` field. A figure at tick 72 or tick 1200 is the world after that many `runTick` calls. `npm test` passed, 301 tests, including the golden pin and its recovery replay of 572 events. The harness was local and was not committed.
@@ -158,3 +160,47 @@ Each default is what the slice plan uses. None of them blocks the note.
 7. **May Mara pay from her own purse instead?** Default: yes, by `source: "purse"`. The ordinary command draws the treasury.
 8. **Who sees the balance, the draws, and the allowances?** Default: her faction sees the treasury, the draws, and each remaining allowance. A rival sees none of the three. The rival still sees who holds the seat.
 9. **Do wages, sale proceeds, and battle loot move into the treasury?** Default: no. Tax on work and on sales already does.
+
+## Addendum (2026-10-01) — slice 3 spending
+
+Measured on `feature/treasury-spending` against `fcf0ca9`, Node v24.21.0, ICU 78.3, no player commands. The old 72-tick hashes are the fixture before this slice. The old 1200-tick hashes are the ransom-split baseline. `purseDrawn` did not exist on the old log, so the old labeled purse total is 0. Captures are `character-captured`. Releases are `captivity-released`. Release records are characters who still hold `releaseSighting` at the end of the run. Allowance drawn is `treasuryDrawn` on events that also store `allowanceRemaining`. Holder drawn is `treasuryDrawn` on events that do not. Refusals are `standing-order-refused`. They did not change.
+
+The first differing event on every seed, at 72 ticks and at 1200, is a recruit on tick 0. The quote is 96. The allowance pays 18 and the purse pays 78, so `characterMoney` is 18 higher than the old purse-only debit. `factionTreasury` on that event is 17982, the World Government opening of 18000 minus 18. `allowanceRemaining` is 0. Nothing before that event differs.
+
+| Seed | Sequence | Actor | Old `characterMoney` | New `characterMoney` |
+| ---: | ---: | --- | ---: | ---: |
+| 1847 | 26 | Sable Morrow (`character-04`) at Glassport | 164 | 182 |
+| 2718 | 64 | Kessa Calder (`character-10`) at Verdant Cay | 21 | 39 |
+| 4096 | 33 | Jun Marrow (`character-05`) at Crown Harbor | 13 | 31 |
+
+The first event whose type changes is a consequence of that draw. The purse is 18 higher, so a later choice succeeds that the old purse refused.
+
+| Seed | Sequence | Tick | Old | New |
+| ---: | ---: | ---: | --- | --- |
+| 1847 | 746 | 6 | Kessa Calder `worked` at Verdant Cay | Kessa Calder `recruited` |
+| 2718 | 215 | 1 | Kessa Calder `worked` at Verdant Cay | Kessa Calder `recruited` |
+| 4096 | 284 | 2 | Jun Marrow `worked` at Crown Harbor | Jun Marrow `travel-started` |
+
+Those choices move battles. That is why the capture and release counts change. The 72-tick log has no release on either side.
+
+### 72 ticks
+
+| Seed | Old hash | New hash | Events | Captures | Treasury drawn | Allowance | Holder | Purse drawn | Refusals | World Government | Free Tide |
+| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 1847 | `cb04ba5d392d8b1c868cc97e54cb21b21ec171edd546bb70d0d7aba86cc69c11` | `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` | 8301 → 8413 | 1 → 0 | 4316.4 (719 draws) | 3468 | 848.4 | 14448.09 | 6 | 19741.96 → 17559.72 | 3267.77 → 1116.46 |
+| 2718 | `bd7d8cc44d5fa21022ecb8f8086e13dfbb9475eb025b5ae53f87e2991f90035c` | `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` | 8513 → 8456 | 1 → 0 | 4198.96 (709) | 3730 | 468.96 | 15552.27 | 6 | 19615.14 → 17840.4 | 3460.72 → 1153.7 |
+| 4096 | `20975bf480e5aa11eeafe1ce39c36cf5ba0fa8e2d5de2bb5887a35d7b3aecc9f` | `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` | 8031 → 8261 | 3 → 1 | 3827.94 (653) | 3498 | 329.94 | 15690.91 | 4 | 19902.94 → 17512.28 | 3248.06 → 1589.26 |
+
+Split recovery on seed 1847, cut at world tick 47, replays the events stamped 42 through 46. That is the span after the day-boundary snapshot at world tick 42. The old replay is 572 events. The new replay is 600. The extra 28 events are in that span: the higher purses afford more recruits and trades.
+
+### 1200 ticks
+
+The first event is the same recruit as the 72-tick run. Counts below are old → new.
+
+| Seed | Old hash | New hash | Events | Captures | Releases | Release records | Treasury drawn | Allowance | Holder | Purse drawn | Refusals | World Government | Free Tide |
+| ---: | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 1847 | `04215936a3693247f86b5297fd8865ea7fa70a7b31f7be98d410bc148e92c121` | `0ea6c604f68a9a871a41bb3d3915367e905c24df676e7642bd510408966a7ab5` | 164313 → 164191 | 12 → 9 | 12 → 9 | 8 → 7 | 46313.42 (6703 draws) | 40961.83 | 5351.59 | 198380.38 | 6 | 43826 → 11080.89 | 14064.58 → 1.23 |
+| 2718 | `a8c5e8b3664957d013ed8f38d2bcd28fa635d5ce226167b4541f20e9047fe345` | `04c55c0b09ce004d847867885498616b2bf80fa112690c4a48578a96caf22268` | 165434 → 160835 | 8 → 15 | 8 → 13 | 7 → 9 | 46596.37 (6968) | 42011.56 | 4584.81 | 182733.8 | 6 | 41769.12 → 9409.93 | 15123.57 → 12.98 |
+| 4096 | `59a2599f61429a5c57b1d20728267c9b136100a5e066e3c4f38c4109a7a3c242` | `09b04e93142c9f9460ffbd913d6e4e65bc41b8b71392bc0f17a32502050f9f03` | 164691 → 164657 | 6 → 4 | 6 → 3 | 6 → 3 | 47645.23 (7218) | 43044.28 | 4600.95 | 212269.33 | 4 | 46132.91 → 10438.69 | 13275.44 → 0 |
+
+Event totals move because the extra affordable actions, and the battles that follow them, add and remove rows. The treasuries end lower because member allowances and the holder's uncapped draws subtract, while tax and ransom still credit the same treasuries. Free Tide ends near empty on these three runs. `standing-order-refused` stays 6, 6, and 4.
