@@ -2,7 +2,7 @@ import { assessStandingOrder, garrisonConfidenceLabel } from "../sim/agency.ts";
 import { commandHolderId, factionPower, partyPower, partyPowerFromTroops, round } from "../sim/state.ts";
 import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder, SupplyContract, TravelState, WorldState } from "../sim/types.ts";
 import { projectAllowance } from "./allowance.ts";
-import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, skillsWithheldNote, summaryStaysWhenWithheld } from "./wording.ts";
+import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, skillsWithheldNote, summaryStaysWhenWithheld, treasuryDrawSentence } from "./wording.ts";
 
 /**
  * Decides what a player may legitimately know about the rest of the world.
@@ -164,9 +164,13 @@ function withoutHiddenTreasury(world: WorldState, commander: Character, event: S
     && ransomFaction !== null
     && ransomFaction !== commander.factionId;
   const settlementFaction = event.settlementId ? world.settlements[event.settlementId]?.factionId ?? null : null;
+  // A buy records the spender's treasury. A sale still records the port's.
+  const drawn = typeof record.treasuryDrawn === "number" && record.treasuryDrawn > 0;
+  const actorFaction = event.actorId ? world.characters[event.actorId]?.factionId ?? null : null;
+  const treasuryFaction = drawn ? actorFaction : settlementFaction;
   const hideTop = typeof record.factionTreasury === "number"
-    && typeof settlementFaction === "string"
-    && settlementFaction !== commander.factionId;
+    && typeof treasuryFaction === "string"
+    && treasuryFaction !== commander.factionId;
   if (!hideRansom && !hideTop) return data;
   const copy: Record<string, unknown> = { ...record };
   if (hideTop) delete copy.factionTreasury;
@@ -804,8 +808,8 @@ export function projectCharacter(
     /** Which figure the seat reads. The commander's own card only. */
     loyaltyNote: isSelf ? loyaltyNoteFor(character, round(character.personality.loyalty + (character.loyaltyAdjustment ?? 0), 3)) : null,
     /**
-     * Own faction only. The cap is 18 per day. Remaining is omitted while full,
-     * because nothing has been drawn. The free holder is uncapped. A rival is null.
+     * Own faction only. The cap is 18 per day. Remaining is omitted while full.
+     * A draw below the cap stores the figure. The free holder is uncapped. A rival is null.
      */
     ...projectAllowance(world, commander, character),
     partyPower: condition ? partyPower(character) : null,
@@ -951,7 +955,9 @@ export function projectEvent(
   const raw = `${actor}: ${event.type.replaceAll("-", " ")}`;
   let summary = richSummary === raw ? publicFeedSentence(world, event) : richSummary;
   if (!visible && !summaryStaysWhenWithheld(event.type)) {
-    summary = ownedPortTaxSentence(world, commander.factionId, event) ?? publicFeedSentence(world, event);
+    summary = ownedPortTaxSentence(world, commander.factionId, event)
+      ?? treasuryDrawSentence(world, commander.factionId, event)
+      ?? publicFeedSentence(world, event);
   }
   if (event.type.startsWith("standing-order-") || event.type === "market-trade") {
     summary = qualifyCollidingNames(world, summary);

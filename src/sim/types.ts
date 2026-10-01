@@ -576,6 +576,14 @@ export interface Character {
    * read it. A paid release and an escape do not write it. No event carries it.
    */
   loyaltyAdjustment?: number;
+  /**
+   * Coins left of today's treasury allowance. Omitted while it equals the cap,
+   * one day of passage. Omitted means full. The `tick-advanced` reducer deletes
+   * it on a day boundary, so unused allowance does not carry. A capped member's
+   * spend event carries the new absolute. The free command holder has no cap
+   * and does not store this.
+   */
+  allowanceRemaining?: number;
   controller: CharacterController;
   goals: CharacterGoal[];
   activeGoalId: string | null;

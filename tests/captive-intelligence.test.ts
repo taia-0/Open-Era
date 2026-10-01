@@ -361,42 +361,43 @@ test("a stale port belief warns, and the person row does not.", () => {
   assert.equal(warning.title, "Intelligence is stale");
 });
 
-test("Mina Vale's hold on seed 2718 matches the note.", () => {
-  const world = createPrototypeWorld(2718);
-  runTicks(world, 72);
+test("Mina Vale's hold on seed 1847 matches the note.", () => {
+  // Treasury spending moved this capture off seed 2718 tick 72.
+  const world = createPrototypeWorld(1847);
+  runTicks(world, 137);
   const mara = world.characters["character-01"];
   const mina = world.characters["character-15"];
-  assert.equal(world.tick, 72);
+  assert.equal(world.tick, 137);
   assert.equal(mara.locationId, "crown-harbor");
   assert.equal(mara.travel, null);
   assert.equal(mina.locationId, "crown-harbor");
   assert.equal(mina.troops.count, 0);
   assert.equal(partyPower(mina), 0);
-  assert.equal(mina.captivity?.scatteredTroops.count, 12);
-  assert.equal(mina.captivity?.capturedTick, 71);
+  assert.equal(mina.captivity?.scatteredTroops.count, 8);
+  assert.equal(mina.captivity?.capturedTick, 136);
   assert.equal(mina.captivity?.captorFactionId, "world-government");
 
   const seen = row(world, mara, mina);
   assert.ok(seen);
-  assert.equal(seen.troops, 12);
-  assert.equal(seen.partyPower, 60.244);
+  assert.equal(seen.troops, 8);
+  assert.equal(seen.partyPower, 53.348);
   assert.equal(seen.leadership, 25);
-  assert.equal(seen.observedTick, 71);
+  assert.equal(seen.observedTick, 136);
   assert.equal(seen.ageTicks, 1);
   assert.equal(seen.confidence, 1);
   assert.equal(seen.source, "direct");
   assert.equal(seen.settlementId, "crown-harbor");
-  assert.deepEqual(seen.ports, []);
+  assert.equal(seen.portsNote, null);
+  assert.equal("garrisonEstimate" in seen, false);
   const encoded = JSON.stringify(seen);
   assert.equal(encoded.includes("110.08"), false);
-  assert.equal(encoded.includes("\"garrisonEstimate\""), false);
 
   const hash = stateHash(world);
   projectCharacter(world, mara, mina);
   assert.equal(stateHash(world), hash);
 
   runTicks(world, 84);
-  assert.equal(world.tick, 156);
+  assert.equal(world.tick, 221);
   assert.equal(mina.captivity, null);
   assert.equal(row(world, mara, mina), null);
   const projected = projectCharacter(world, mara, mina);
@@ -406,9 +407,9 @@ test("Mina Vale's hold on seed 2718 matches the note.", () => {
   assert.equal(projected.releaseSighting, null);
   assert.equal(mara.releaseSighting, undefined);
   assert.equal(mina.travel?.fromId, "crown-harbor");
-  assert.equal(mina.travel?.toId, "glassport");
-  assert.equal(mina.travel?.remainingTicks, 2);
-  assert.equal(mina.travel?.totalTicks, 3);
+  assert.equal(mina.travel?.toId, "cinder-key");
+  assert.equal(mina.travel?.remainingTicks, 4);
+  assert.equal(mina.travel?.totalTicks, 5);
 
   const release = projectCharacter(world, mina, mina).releaseSighting as {
     settlementId: string;
@@ -422,16 +423,21 @@ test("Mina Vale's hold on seed 2718 matches the note.", () => {
   assert.equal(release.settlementId, "crown-harbor");
   assert.equal(release.factionId, "world-government");
   assert.equal(release.captorFactionId, "world-government");
-  assert.equal(release.garrison, 208);
-  assert.equal(release.observedTick, 155);
+  assert.equal(release.garrison, 153);
+  assert.equal(release.observedTick, 220);
   assert.equal(release.ageTicks, 1);
   assert.deepEqual(
     release.parties.map((party) => [party.characterId, party.troops, party.partyPower]),
     [
-      ["character-01", 75, 211.051],
-      ["character-08", 31, 107.672],
-      ["character-24", 107, 159.331],
-      ["character-29", 90, 137.275],
+      ["character-01", 80, 195.017],
+      ["character-06", 35, 88.984],
+      ["character-07", 42, 94.151],
+      ["character-12", 34, 85.902],
+      ["character-20", 0, 0],
+      ["character-24", 91, 147.45],
+      ["character-25", 108, 175.984],
+      ["character-27", 16, 69.437],
+      ["character-29", 36, 104.86],
     ],
   );
 });
@@ -489,25 +495,28 @@ function recoverThrough(seed: number, splitAt: number, through: number, characte
   }
 }
 
-test("Sable Morrow's release at tick 119 recovers from the tick 114 snapshot", () => {
-  const live = runTicks(createPrototypeWorld(1847), 119).state;
-  const sable = live.characters["character-04"];
-  assert.equal(sable.name, "Sable Morrow");
-  assert.equal(sable.captivity, null);
-  assert.equal(sable.releaseSighting?.observedTick, 118);
-  const split = recoverThrough(1847, 114, 119, "character-04");
+test("Mara Calder's release at tick 204 recovers from the tick 198 snapshot", () => {
+  // Treasury spending moved Sable Morrow's tick 118 release. Mara Calder's release is the replay check now.
+  const live = runTicks(createPrototypeWorld(1847), 204).state;
+  const calder = live.characters["character-21"];
+  assert.equal(calder.name, "Mara Calder");
+  assert.equal(calder.captivity, null);
+  assert.equal(calder.releaseSighting?.observedTick, 203);
+  assert.equal(calder.releaseSighting?.garrison, 151);
+  const split = recoverThrough(1847, 198, 204, "character-21");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));
-  assert.deepEqual(split.rebuiltRecord, sable.releaseSighting);
+  assert.deepEqual(split.rebuiltRecord, calder.releaseSighting);
 });
 
-test("Mina Vale's release recovers from the tick 72 snapshot", () => {
-  const live = runTicks(createPrototypeWorld(2718), 156).state;
+test("Mina Vale's release recovers from the tick 137 snapshot", () => {
+  // Treasury spending moved her release off seed 2718. Seed 1847 tick 220 is the same recovery.
+  const live = runTicks(createPrototypeWorld(1847), 221).state;
   const mina = live.characters["character-15"];
   assert.equal(mina.name, "Mina Vale");
-  assert.equal(mina.releaseSighting?.observedTick, 155);
-  assert.equal(mina.releaseSighting?.garrison, 208);
-  const split = recoverThrough(2718, 72, 156, "character-15");
+  assert.equal(mina.releaseSighting?.observedTick, 220);
+  assert.equal(mina.releaseSighting?.garrison, 153);
+  const split = recoverThrough(1847, 137, 221, "character-15");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));
   assert.deepEqual(split.rebuiltRecord, mina.releaseSighting);

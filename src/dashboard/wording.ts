@@ -717,7 +717,26 @@ export function passageUpkeepSentence(world: WorldState, event: SimEvent): strin
   const left = event.data.characterMoney;
   if (typeof passage !== "number" || typeof left !== "number") return null;
   const actor = characterName(world, event.actorId, "Someone");
+  const drawn = event.data.treasuryDrawn;
+  if (typeof drawn === "number" && drawn > 0) {
+    return `${actor} paid ${passage} passage. ${drawn} came from the treasury. ${left} left.`;
+  }
   return `${actor} paid ${passage} passage. ${left} left.`;
+}
+
+/**
+ * A treasury draw the reader's own faction is allowed to see.
+ *
+ * Same shape as the port-tax sentence: who paid, and how much left the treasury.
+ * Cargo, motives, and the purse stay out. A rival, and a draw of zero, return null.
+ */
+export function treasuryDrawSentence(world: WorldState, readerFactionId: string | null, event: SimEvent): string | null {
+  if (!readerFactionId || !event.actorId) return null;
+  const actor = world.characters[event.actorId];
+  if (!actor || actor.factionId !== readerFactionId) return null;
+  const drawn = event.data.treasuryDrawn;
+  if (typeof drawn !== "number" || drawn <= 0) return null;
+  return `${characterName(world, event.actorId, "Someone")} drew ${drawn} from the treasury.`;
 }
 
 /**

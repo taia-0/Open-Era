@@ -1,7 +1,8 @@
 import { openStandingOrder } from "./agency.ts";
 import { openSupplyContract } from "./contracts.ts";
 import { applyEvent, clamp, marketPrice, round, settlementClaimAvailableTo } from "./state.ts";
-import { MARKET_DEPTH_FRACTION, marketDepth, provisionResupplyTarget, quotedPassage, tradeAmounts, tradeQuote } from "./engine.ts";
+import { resolveQuotedSpend, spendableAmount } from "./allowance.ts";
+import { MARKET_DEPTH_FRACTION, marketDepth, PASSAGE_COST_PER_TICK, provisionResupplyTarget, quotedPassage, tradeAmounts, tradeQuote } from "./engine.ts";
 import type {
   OrderDirective,
   PlayerAction,
@@ -410,8 +411,10 @@ function validateCharacterAction(
   }
   if (request.action === "recruit") {
     // Named separately, because "money and arms" left a player unable to tell
-    // which of the two it was missing.
-    if (character.money < 30) return reject("insufficient-money", `Recruitment costs 30 money; the character holds ${character.money}`);
+    // which of the two it was missing. The gate is still 30. A member covers it
+    // from the allowance and then the purse. The holder covers it from the treasury.
+    // The sentence still names the purse, which is the short-purse refusal.
+    if (spendableAmount(world, character, PASSAGE_COST_PER_TICK) < 30) return reject("insufficient-money", `Recruitment costs 30 money; the character holds ${character.money}`);
     if (settlement.stocks.arms < 2) return reject("no-arms", `Recruitment needs 2 arms here; the settlement holds ${settlement.stocks.arms}`);
   }
   // The price the accepted order will be filled at, if this is a trade. Captured
@@ -445,15 +448,16 @@ function validateCharacterAction(
     acceptedCapped = uncapped > depth;
     const gross = tradeAmounts(quantity, price, 0, "buy").gross;
     const held = round(character.money, 2);
-    if (character.money < gross) {
+    if (!resolveQuotedSpend(world, character, gross, PASSAGE_COST_PER_TICK).ok) {
       return reject(
         "insufficient-money",
         `${quantity} provisions costs ${gross} at ${price} each; the character holds ${held}`,
       );
     }
     // Two money is the minimum balance, not the price. A purse that can pay a
-    // smaller bill and still sits under 2 is refused with both numbers.
-    if (character.money < 2) {
+    // smaller bill and still sits under 2 is refused with both numbers. The
+    // figure is now what this character can spend, and the sentence still names the purse.
+    if (spendableAmount(world, character, PASSAGE_COST_PER_TICK) < 2) {
       return reject(
         "insufficient-money",
         `Buying provisions needs at least 2 money; ${quantity} provisions costs ${gross} at ${price} each and the character holds ${held}`,
@@ -899,7 +903,7 @@ function validateOfferContract(
       return reject("no-change", "The offer does not change the contract");
     }
     const due = round(price - open.escrow, 2);
-    if (due > 0 && round(buyer.money, 2) < due) {
+    if (due > 0 && !resolveQuotedSpend(world, buyer, due, PASSAGE_COST_PER_TICK).ok) {
       return reject("insufficient-money", `Raising the price to ${price} needs ${due} more; the character holds ${round(buyer.money, 2)}`);
     }
     const command: PlayerCommand = {
@@ -923,7 +927,7 @@ function validateOfferContract(
   )) {
     return reject("contract-already-queued", "An offer to this carrier is already queued");
   }
-  if (round(buyer.money, 2) < price) {
+  if (!resolveQuotedSpend(world, buyer, price, PASSAGE_COST_PER_TICK).ok) {
     return reject("insufficient-money", `The contract price is ${price}; the character holds ${round(buyer.money, 2)}`);
   }
   const command: PlayerCommand = {

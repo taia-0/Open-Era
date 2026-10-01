@@ -485,6 +485,22 @@ function resourcesFrom(data: Record<string, unknown>, key: string): Resources {
   return data[key] as Resources;
 }
 
+/**
+ * Write a treasury draw that the event recorded.
+ *
+ * `factionTreasury` is the buyer's treasury after the draw, and only when
+ * `treasuryDrawn` is greater than zero. `allowanceRemaining` is the capped
+ * member's new absolute. Absent fields leave the world as it was, so an old
+ * event grows neither a draw nor an allowance.
+ */
+function applyTreasuryDraw(world: WorldState, actor: Character, data: Record<string, unknown>): void {
+  if (typeof data.allowanceRemaining === "number") actor.allowanceRemaining = data.allowanceRemaining;
+  const drawn = data.treasuryDrawn;
+  if (typeof drawn === "number" && drawn > 0 && actor.factionId && typeof data.factionTreasury === "number") {
+    world.factions[actor.factionId].treasury = data.factionTreasury;
+  }
+}
+
 function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrder {
   const recipient = event.targetId ? world.characters[event.targetId] : undefined;
   const order = recipient?.standingOrders.find((candidate) => candidate.id === event.data.orderId);
@@ -673,6 +689,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (event.type === "character-upkeep" && typeof event.data.characterMoney === "number") {
         actor.money = event.data.characterMoney;
       }
+      if (event.type === "character-upkeep") applyTreasuryDraw(world, actor, event.data);
       if (event.type === "travel-progressed" && actor.travel) {
         actor.travel.remainingTicks = event.data.remainingTicks as number;
       }
@@ -734,9 +751,14 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       actor.money = event.data.characterMoney as number;
       actor.cargo = resourcesFrom(event.data, "characterCargo");
       settlement.stocks = resourcesFrom(event.data, "settlementStocks");
-      if (settlement.factionId) {
-        world.factions[settlement.factionId].treasury = event.data.factionTreasury as number;
+      // A sale still records the port faction's treasury after tax. A buy records
+      // the buyer's treasury only when a draw moved it (`applyTreasuryDraw`).
+      // Older buy events repeat the port treasury unchanged and carry no draw,
+      // so leaving that write out does not move an old treasury.
+      if (event.data.direction === "sold" && settlement.factionId && typeof event.data.factionTreasury === "number") {
+        world.factions[settlement.factionId].treasury = event.data.factionTreasury;
       }
+      applyTreasuryDraw(world, actor, event.data);
       break;
     case "worked":
       if (!actor || !settlement) throw new Error("Work event is missing an entity");
@@ -751,6 +773,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       actor.money = event.data.characterMoney as number;
       actor.troops.count = event.data.troopCount as number;
       settlement.stocks = resourcesFrom(event.data, "settlementStocks");
+      applyTreasuryDraw(world, actor, event.data);
       break;
     case "battle-started": {
       const battle = event.data.battle as WorldState["activeBattles"][string];
@@ -869,6 +892,11 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
     case "tick-advanced":
       world.tick = event.data.nextTick as number;
       world.rngState = event.data.rngState as number;
+      // The next tick is a new world day. Unused allowance does not carry.
+      // Deleting an absent field is a no-op, so an old log does not grow one.
+      if (world.ticksPerDay > 0 && world.tick % world.ticksPerDay === 0) {
+        for (const character of Object.values(world.characters)) delete character.allowanceRemaining;
+      }
       break;
     case "metrics-recorded":
       break;
@@ -886,6 +914,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       const carrier = world.characters[contract.carrierId];
       if (buyer && typeof event.data.buyerMoney === "number") buyer.money = event.data.buyerMoney;
       if (carrier && typeof event.data.carrierMoney === "number") carrier.money = event.data.carrierMoney;
+      if (buyer) applyTreasuryDraw(world, buyer, event.data);
       if (event.type === "contract-fulfilled") {
         const shelf = world.settlements[contract.destinationId];
         if (!shelf || !carrier) throw new Error("Contract fulfilment is missing a shelf or a carrier");

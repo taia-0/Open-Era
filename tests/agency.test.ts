@@ -691,7 +691,8 @@ test("a carrier already at sea refuses under the travel gate and the escrow retu
   assert.equal(contract.status, "offered");
   assert.equal(contract.escrow, 30);
   assert.equal(contract.settled, false);
-  assert.equal(mara.money, 78);
+  // The holder draws the escrow from the treasury. The purse stays 108.
+  assert.equal(mara.money, 108);
   assert.equal(offered.events.some((event) => event.type === "contract-refused"), false);
   assert.equal(offered.events.some((event) => event.type === "contract-accepted"), false);
 
@@ -717,11 +718,12 @@ test("a carrier already at sea refuses under the travel gate and the escrow retu
   });
   assert.equal(refusal.data.travelTicks, 2);
   assert.equal(refusal.data.escrow, 0);
-  assert.equal(refusal.data.buyerMoney, 108);
+  // The refund of the treasury-funded 30 credits the purse.
+  assert.equal(refusal.data.buyerMoney, 138);
   assert.equal(world.contracts?.[contract.id].status, "refused");
   assert.equal(world.contracts?.[contract.id].settled, true);
   assert.equal(world.contracts?.[contract.id].escrow, 0);
-  assert.equal(mara.money, 108);
+  assert.equal(mara.money, 138);
   assert.equal(
     judged.events.filter((event) => event.type === "contract-refused").length,
     1,
@@ -734,7 +736,7 @@ test("a carrier already at sea refuses under the travel gate and the escrow retu
 
   const again = runTick(world);
   assert.equal(again.events.some((event) => event.type === "contract-refused"), false);
-  assert.equal(mara.money, 108);
+  assert.equal(mara.money, 138);
 });
 
 test("scoring a contract always has a positive cost basis", () => {
@@ -853,7 +855,8 @@ test("fulfilling a delivery of 10 adds 10 provisions to Crown Harbor, pays the c
   assert.equal(contract.status, "offered");
   assert.equal(contract.escrow, 18);
   assert.equal(contract.settled, false);
-  assert.equal(mara.money, 90);
+  // The holder draws the escrow from the treasury. The purse stays 108.
+  assert.equal(mara.money, 108);
   assert.equal(offered.events.some((event) => event.type === "contract-accepted"), false);
   assert.equal(offered.events.some((event) => event.type === "contract-fulfilled"), false);
 
@@ -870,10 +873,10 @@ test("fulfilling a delivery of 10 adds 10 provisions to Crown Harbor, pays the c
   assert.ok(accepted);
   assert.ok(fulfilled);
   const shelf = upkeep ? (upkeep.data.stocks as { provisions: number }).provisions : shelfBefore;
-  assert.equal(accepted.data.buyerMoney, 90);
+  assert.equal(accepted.data.buyerMoney, 108);
   assert.equal(accepted.data.carrierMoney, carrierMoney);
   assert.equal(accepted.data.escrow, 18);
-  assert.equal(fulfilled.data.buyerMoney, 90);
+  assert.equal(fulfilled.data.buyerMoney, 108);
   assert.equal(fulfilled.data.carrierMoney, round(carrierMoney + 18, 2));
   assert.equal(fulfilled.data.escrow, 0);
   assert.equal(
@@ -887,7 +890,7 @@ test("fulfilling a delivery of 10 adds 10 provisions to Crown Harbor, pays the c
   assert.equal(world.contracts?.[contract.id].status, "fulfilled");
   assert.equal(world.contracts?.[contract.id].settled, true);
   assert.equal(world.contracts?.[contract.id].escrow, 0);
-  assert.equal(mara.money, 90);
+  assert.equal(mara.money, 108);
   assert.equal(
     landed.events.filter((event) => event.type === "market-trade" && event.data.contractId !== undefined).length,
     0,
@@ -938,11 +941,12 @@ test("a passed deadline returns the escrow and writes the defeat deltas", () => 
   assert.equal(contract.status, "breached");
   assert.equal(contract.escrow, 0);
   assert.equal(contract.settled, true);
-  assert.equal(breached.data.buyerMoney, 108);
+  // The refund of a treasury-funded escrow credits the purse.
+  assert.equal(breached.data.buyerMoney, 126);
   assert.equal(breached.data.carrierMoney, carrierMoney);
   assert.equal(breached.data.escrow, 0);
   assert.equal(breached.data.carrierCargo, undefined);
-  assert.equal(mara.money, 108);
+  assert.equal(mara.money, 126);
   assert.ok(Math.abs(zara.cargo.provisions - cargo) < 1, "the grain stays aboard");
   assert.equal(judged.events.some((event) => event.type === "contract-fulfilled"), false);
   assert.equal(
