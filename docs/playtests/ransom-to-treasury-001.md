@@ -179,6 +179,164 @@ There is no row whose summary contains `62.69` or `31.34` or `Mara Vane` as a ra
 
 ## Session
 
+One process. Seed 1847. No commands. Node `v24.21.0`. `git rev-parse HEAD` before the first request: `90cb6ac64eaff48d12735ce0c03ce1ba28bbc235`.
+
+`GET /api/health` was HTTP 200 `{"ok":true,"tick":0,"events":0}`.
+
+### Checkpoint 1 — Sable Morrow, state tick 119
+
+`POST /api/advance` `{"ticks":119}` was HTTP 200. `ticksAdvanced` 119. `attentionUpdated` false. Advance `tick` 119. Advance `day` `19.83`.
+
+`GET /api/state?limit=200`. State `tick` 119. State `day` `19.83`.
+
+Sequence 13680 is on this page. `type` `captivity-released`. `actorId` `character-04`. `tick` 118. `payloadWithheld` true. `data` null.
+
+Summary, exact:
+
+`Sable Morrow was released from Cinder Key. 13.4 was paid and 103.21 was recorded as debt. Loyalty fell. 13.4 went to the Free Tide Compact treasury. The ransom line covers only the ransom.`
+
+`details`, in order:
+
+1. `Sable Morrow was released from Cinder Key.`
+2. `13.4 was paid and 103.21 was recorded as debt.`
+3. `Loyalty fell.`
+4. `13.4 went to the Free Tide Compact treasury.`
+5. `The ransom line covers only the ransom.`
+
+The summary does not contain `Pax Ash`. It does not contain `6.7`.
+
+Briefing `event:13680`. Title `A captain was released`. Summary that same sentence.
+
+Sable Morrow, `character-04`: `releaseDebtNote` is `Owes 103.21 from the release at Cinder Key.` `ransomIncomeNote` is null.
+
+Pax Ash, `character-14`: `locationId` `glassport`. `money` `44.88`. `ransomIncomeNote` is null.
+
+Mara Vane: `party.locationId` `crown-harbor`. `party.hold.money` `108`. Her card `ransomIncomeNote` is null.
+
+Factions: `world-government` `treasury` `21553.01`. `free-tide` `treasury` null.
+
+### Checkpoint 2 — Dax Pike at state tick 276
+
+From tick 119, `POST /api/advance` `{"ticks":144}` was HTTP 200. `ticksAdvanced` 144. `attentionUpdated` false. `tick` 263. `day` `43.83`.
+
+`POST /api/advance` `{"ticks":13}` was HTTP 200. `ticksAdvanced` 13. `attentionUpdated` false. `tick` 276. `day` `46`.
+
+`GET /api/state?limit=200`. State `tick` 276. State `day` 46.
+
+Dax Pike, `character-20`:
+
+- `locationId` is `glassport`.
+- `money` is null.
+- `captivity` is null.
+- `releaseDebtNote` is null.
+- `ransomIncomeNote` is null.
+
+Mara: `party.locationId` `crown-harbor`. `party.hold.money` `108`. `ransomIncomeNote` null.
+
+`world-government` `treasury` `27003.33`. `free-tide` `treasury` null.
+
+The newest page sequences are 33255 through 33454. Sequence 13680 is not on it. Briefing `event:13680` is still there, with the sentence from checkpoint 1.
+
+`GET /api/state?limit=200&beforeSequence=13880` returns sequence 13680, `type` `captivity-released`, `payloadWithheld` true, `data` null, that same summary.
+
+### Checkpoint 3 — Mara's release, state ticks 678 and 679
+
+From tick 276:
+
+1. `{"ticks":144}` → `ticksAdvanced` 144. `attentionUpdated` false. `tick` 420. `day` `70`.
+2. `{"ticks":144}` → `ticksAdvanced` 144. `attentionUpdated` false. `tick` 564. `day` `94`.
+3. `{"ticks":144}` → `ticksAdvanced` 31. `attentionUpdated` true. `tick` 595. `day` `99.17`.
+
+At state tick 595, `party.hold.money` is `108`. `world-government` `treasury` is `34008.89`. The check-in title `A captain is held captive.` is present (`captivity:594`). Two release rows are in the check-in:
+
+- Sequence 74786. `Jun Marrow was released from Glassport. 133.37 was paid and 317.15 was recorded as debt. Loyalty fell. 133.37 went to the Free Tide Compact treasury. The ransom line covers only the ransom.`
+- Sequence 74787. `Lio Crow was released from Glassport. 126.63 was paid and 0 was recorded as debt. 126.63 went to the Free Tide Compact treasury. The ransom line covers only the ransom.`
+
+Neither summary names a person as the recipient.
+
+From tick 595, `{"ticks":83}` → `ticksAdvanced` 83. `attentionUpdated` false. `tick` 678. `day` `113`.
+
+`GET /api/state?limit=200` at tick 678:
+
+- `party.hold.money` is `108`.
+- `party.locationId` is `crown-harbor`.
+- Mara `captivity.settlementId` is `crown-harbor`. `mandatoryReleaseTick` is `678`.
+- `ransomIncomeNote` is null.
+- `world-government` `treasury` is `35829.94`.
+- `free-tide` `treasury` is null.
+- Pax Ash `money` is `19.3` at `crown-harbor`. `ransomIncomeNote` is null.
+
+`POST /api/advance` `{"ticks":1}` was HTTP 200. `tick` 679. `day` `113.17`. `ticksAdvanced` 1. `attentionUpdated` true.
+
+`GET /api/state?limit=200`. Sequence 88540 is on this page. `type` `captivity-released`. `actorId` `character-01`. `tick` 678. `payloadWithheld` false. `data` is present.
+
+`data.ransom.treasuryShare` is `108`. `data.ransom.leaderShare` is `0`. `data.ransom.treasuryFactionId` is `free-tide`. `data.ransom.factionTreasury` is `9617.88`. `data.ransom` has no `leaderId` and no `leaderMoney`. `data.terms.moneyPaid` is `108`. `data.terms.debtValue` is `72.25`. `data.characterMoney` is `0`.
+
+Summary, exact:
+
+`Mara Vane was released from Crown Harbor. 108 was paid and 72.25 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.`
+
+`details`, in order:
+
+1. `Mara Vane was released from Crown Harbor.`
+2. `108 was paid and 72.25 was recorded as debt.`
+3. `Loyalty fell.`
+4. `108 went to the Free Tide Compact treasury.`
+5. `The ransom line covers only the ransom.`
+6. `Mara Vane holds the seat of World Government again.`
+
+Briefing `event:88540`. Title `A captain was released`. Summary that same sentence.
+
+Mara's card:
+
+- `money` is `0`.
+- `captivity` is null.
+- `releaseDebtNote` is `Owes 72.25 from the release at Crown Harbor.`
+- `ransomIncomeNote` is null.
+- `debts[0].remainingValue` is `72.25`.
+
+`party.hold.money` is `0`. `party.locationId` is null.
+
+`world-government` `treasury` is `35832.28`.
+
+The same page, sequence 88634, `type` `worked`, summary:
+
+`Dax Pike worked at Glassport. Tax of 2.34 went to the treasury.`
+
+The ransom line says `108` and does not say `2.34`. `free-tide` `treasury` is null. Pax's `money` is null, and his `ransomIncomeNote` is null.
+
+### Checkpoint 4 — state ticks 901 and 902
+
+From tick 679, `{"ticks":144}` → `ticksAdvanced` 144. `attentionUpdated` false. `tick` 823. `day` `137.17`.
+
+`{"ticks":78}` → `ticksAdvanced` 78. `attentionUpdated` false. `tick` 901. `day` `150.17`.
+
+`GET /api/state?limit=200` at tick 901:
+
+- Dax Pike `locationId` `glassport`. `money` `7.89`. `captivity` null. `releaseDebtNote` null. `ransomIncomeNote` null.
+- Mara `money` `0`. `locationId` `verdant-cay`. `captivity` null. `ransomIncomeNote` null. `releaseDebtNote` null. `debts[0].remainingValue` `72.25`.
+- `party.hold.money` `0`.
+- `world-government` `treasury` `39187.07`.
+- `free-tide` `treasury` null.
+- The newest page has no `captivity-released` for Dax. The check-in release is sequence 109819: `Rook Tern was released from Glassport. 113.08 was paid and 292.08 was recorded as debt. Loyalty fell. 113.08 went to the Free Tide Compact treasury. The ransom line covers only the ransom.`
+
+`POST /api/advance` `{"ticks":1}` → `ticksAdvanced` 1. `attentionUpdated` false. `tick` 902. `day` `150.33`.
+
+`GET /api/state?limit=200` at tick 902:
+
+- Dax Pike `money` is `7.89`. `captivity` is null. `ransomIncomeNote` is null.
+- Mara `money` is `0`. `ransomIncomeNote` is null.
+- `world-government` `treasury` is `39187.07`.
+- The newest page has no Dax Pike release.
+
+No summary on that page contains `62.69` or `31.34`. The only summary that names Mara Vane is `Mara Vane's upkeep was recorded.` She is not named as a ransom recipient.
+
 ## Findings
 
+The hypothesis held. Each faction release read in this session names the treasury and the whole amount paid. None names a person as the recipient. `ransomIncomeNote` is null on Sable, Pax, Mara, and Dax at every tick read. Debt wording and `Loyalty fell` stay on Sable, Jun, Mara, and Rook, where a debt was recorded. Lio's line records `0` debt and does not say `Loyalty fell`. The tick-679 ransom line says `108` and does not say `2.34`. Sequence 88634 names `Tax of 2.34`, and the World Government treasury moves from `35829.94` to `35832.28`. Free Tide `treasury` on `factions` stays null. Dax Pike is not released at tick 902. His money stays `7.89`. Mara's purse stays `0`.
+
+No mismatch.
+
 ## Verdict
+
+PROMOTE
