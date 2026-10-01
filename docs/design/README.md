@@ -26,6 +26,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Captivity debts](captivity-debts.md) — Open / proposal: the unpaid ransom comes out of the prisoner's purse, up to one day's wages, on each world day
 - [Ransom split](ransom-split.md) — Built: a faction captor's treasury receives the whole ransom. A factionless leader still receives all of it. The 2026-10-01 addendum supersedes the 50/50 split
 - [Treasury spending](treasury-spending.md) — Open / proposal: a faction ransom goes entirely to the treasury, and the command holder spends it while other members spend a daily allowance
+- [Treasury balance](treasury-balance.md) — Open / study: Free Tide's treasury empties under the 18-a-day draw, and the measured next step keeps 18 unless the treasury cannot pay it
 - [Political layer](political-layer.md) — Built in M30: the person who already issues a faction's orders is named in command, and a captive commander's seat is covered until release
 - [Loyalty drift](loyalty-drift.md) — Open / proposal: loyalty falls by 0.04 when a release leaves the ransom unpaid, and nothing else reads that change except who covers the seat
 - [Loyalty scar remeasure](loyalty-scar-remeasure.md) — Open / remeasure: with the dock rule patched on and M30's cover sort live, a −0.04 unpaid-release scar does not rename a cover or move the 72-tick fixture
