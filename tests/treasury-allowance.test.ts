@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { allowanceCap, drawQuotedBill, projectAllowance } from "../src/dashboard/allowance.ts";
+import { treasuryDrawSentence } from "../src/dashboard/wording.ts";
 import { projectCharacter, projectFactions } from "../src/dashboard/visibility.ts";
 import { dashboardState, fullEventFeed, projectEventFeed } from "../src/dashboard/view-model.ts";
 import { runTicks } from "../src/sim/engine.ts";
@@ -12,7 +13,7 @@ function card(world: WorldState, reader: Character, character: Character) {
   return projectCharacter(world, reader, character) as {
     id: string;
     name: string;
-    allowanceCap: number | null;
+    allowanceCap: number | string | null;
     allowanceRemaining?: number | null;
     allowanceUncapped: boolean | null;
     allowanceRole: string | null;
@@ -45,11 +46,11 @@ test("seed 1847 shows a full allowance at the day boundary and mid-day, and omit
   assert.equal(bramCard.allowanceOnDayBoundary, true);
   assert.equal(bramCard.allowanceDayStart, 0);
   assert.equal(bramCard.allowanceResetsOnTick, 6);
-  assert.equal(bramCard.allowanceNote, null);
+  assert.equal(bramCard.allowanceNote, "none spent today");
   assert.equal("allowanceRemaining" in bramCard, false);
 
   const holder = card(opened, mara, mara);
-  assert.equal(holder.allowanceCap, null);
+  assert.equal(holder.allowanceCap, "no cap");
   assert.equal(holder.allowanceRemaining, null);
   assert.equal(holder.allowanceUncapped, true);
   assert.equal(holder.allowanceRole, "holder");
@@ -85,6 +86,9 @@ test("seed 1847 shows a full allowance at the day boundary and mid-day, and omit
   if ("allowanceRemaining" in mid) {
     assert.equal(typeof mid.allowanceRemaining, "number");
     assert.ok((mid.allowanceRemaining ?? 18) < 18);
+    assert.equal(mid.allowanceNote, null);
+  } else {
+    assert.equal(mid.allowanceNote, "none spent today");
   }
 });
 
@@ -102,11 +106,12 @@ test("a Free Tide reader sees none of World Government's allowance or balance", 
   const own = card(world, pax, pax);
   assert.equal(own.allowanceUncapped, true);
   assert.equal(own.allowanceRole, "holder");
-  assert.equal(own.allowanceCap, null);
+  assert.equal(own.allowanceCap, "no cap");
   const mate = card(world, pax, world.characters["character-15"]);
   assert.equal(mate.allowanceCap, 18);
   assert.equal(mate.allowanceRole, "member");
   assert.equal("allowanceRemaining" in mate, false);
+  assert.equal(mate.allowanceNote, "none spent today");
   const factions = projectFactions(world, pax) as Array<{ id: string; treasury: number | null; treasuryNote: string | null }>;
   assert.equal(factions.find((faction) => faction.id === "world-government")?.treasury, null);
   assert.equal(factions.find((faction) => faction.id === "world-government")?.treasuryNote, "not visible to you");
@@ -141,7 +146,7 @@ test("seed 1847 tick 710 binds the acting commander and does not uncap the capti
   assert.equal(cover.allowanceResetsOnTick, 714);
   // Nothing has been drawn for Jun today, so the remainder stays omitted.
   assert.equal("allowanceRemaining" in cover, false);
-  assert.equal(cover.allowanceNote, null);
+  assert.equal(cover.allowanceNote, "none spent today");
   const asPax = card(world, world.characters["character-14"], jun);
   assert.equal(asPax.allowanceRole, null);
   assert.equal(asPax.allowanceCap, null);
@@ -249,10 +254,43 @@ test("a quoted bill draws the allowance in whole cents, then the purse, or refus
   const member = projectAllowance(world, world.characters["character-01"], world.characters["character-02"]);
   assert.equal(member.allowanceCap, 18);
   assert.equal("allowanceRemaining" in member, false);
+  assert.equal(member.allowanceNote, "none spent today");
   world.factions["world-government"].actingCommanderId = "character-05";
   const bound = projectAllowance(world, world.characters["character-01"], world.characters["character-05"]);
   assert.equal(bound.allowanceRole, "acting-commander");
   assert.equal(bound.allowanceUncapped, false);
   assert.equal(bound.allowanceCap, 18);
   delete world.factions["world-government"].actingCommanderId;
+});
+
+test("seed 1847 sequence 26 names the purse share recorded on the event", () => {
+  const run = runTicks(createPrototypeWorld(1847), 1);
+  const stored = run.events.find((event) => event.sequence === 26);
+  assert.ok(stored);
+  assert.equal(stored.actorId, "character-04");
+  assert.equal(stored.data.treasuryDrawn, 18);
+  assert.equal(stored.data.purseDrawn, 78);
+  const before = stateHash(run.state);
+  const [row] = projectEventFeed(run.state, "character-01", [stored]);
+  assert.equal(row?.payloadWithheld, true);
+  assert.equal(row?.data, null);
+  assert.equal(row?.summary, "Sable Morrow drew 18 from the treasury and paid 78 from their purse.");
+  const [rival] = projectEventFeed(run.state, "character-14", [stored]);
+  assert.equal(rival?.summary, "Sable Morrow recruited at Glassport.");
+  assert.equal(rival?.data, null);
+  assert.equal(
+    treasuryDrawSentence(run.state, "world-government", {
+      sequence: 0,
+      tick: 0,
+      type: "recruited",
+      actorId: "character-01",
+      data: { treasuryDrawn: 12, purseDrawn: 0 },
+    }),
+    "Mara Vane drew 12 from the treasury.",
+  );
+  assert.equal(treasuryDrawSentence(run.state, "free-tide", stored), null);
+  const sable = card(run.state, run.state.characters["character-14"], run.state.characters["character-04"]);
+  assert.equal(sable.allowanceCap, null);
+  assert.equal(sable.allowanceNote, null);
+  assert.equal(stateHash(run.state), before);
 });

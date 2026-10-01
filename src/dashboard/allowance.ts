@@ -47,6 +47,7 @@ export function projectAllowance(
   if (holderId === character.id && character.captivity === null) {
     return {
       ...hidden,
+      allowanceCap: "no cap",
       allowanceUncapped: true,
       allowanceRole: "holder",
     };
@@ -74,6 +75,6 @@ export function projectAllowance(
     allowanceOnDayBoundary: world.tick % world.ticksPerDay === 0,
     allowanceDayStart: dayStart,
     allowanceResetsOnTick: dayStart + world.ticksPerDay,
-    allowanceNote: null,
+    allowanceNote: showRemaining ? null : "none spent today",
   };
 }
