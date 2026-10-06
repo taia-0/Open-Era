@@ -30,10 +30,10 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/treasury-balance` from `97aea49`. A mate's daily cap is `min(18, treasury / free mates)`. Escrow refunds return to their source. Tick-72 hashes are unchanged. Tick-1200 hashes moved.
-- **Last verified:** 350 tests. Recovery replays 600. Free Tide still reaches 0.
-- **Gate status:** `./scripts/evaluate-milestone.sh treasury-balance` passed. The blind plan is not run.
-- **Headline:** The share shrinks only when the treasury cannot pay 18 to every free mate. A cancelled escrow does not raise the holder's purse.
+- **Baseline:** `fix/action-executed-count` from `d21822e`. The player-action-executed line names the count when the paired result already stores one. Tick-72 and tick-1200 hashes are unchanged.
+- **Last verified:** 358 tests. Recovery replays 600.
+- **Gate status:** `./scripts/evaluate-milestone.sh action-executed-count` passed. The blind plan is not run.
+- **Headline:** A recruit the reader can see names the count and the payer on the executed line as well as the recruit line.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
@@ -42,7 +42,7 @@ Git remains the complete history. This file exists for three things git does not
 | --- | --- | --- | --- |
 | Design question: own-faction officers' money is hidden at sea / when not co-located (visibility.ts:63-65, :110, :733). The Lead ruled this is correct for now; revisit only by design. | Design | Open Era Lead | open question |
 | Escrow refund: a treasury-paid escrow should refund to the treasury (or split back by source), not the purse. Hold until the balance decision so we re-baseline once. | Treasury | Open Era Engineer | **Fixed** on `feature/treasury-balance`. Cancel, refusal, breach, and a price cut return `escrowFromTreasury` to the treasury and `escrowFromPurse` to the purse. Today's allowance is not restored. The holder's purse no longer rises on cancel |
-| Wording: the player-action-executed line names the count. | Wording | Open Era Engineer | queued, after the balance branch |
+| Wording: the player-action-executed line names the count. | Wording | Open Era Engineer | **Fixed** on `fix/action-executed-count`. The line names the action and the count from the paired result. A visible recruit also names the cost and the payer. A rival and a withheld row stay `carried out an action.` |
 | Projection polish: show 'none spent today' when allowanceRemaining is omitted | Projection | Open Era Engineer | **Fixed** on `feature/treasury-source`. An own-faction capped officer with no `allowanceRemaining` has `allowanceNote` `none spent today`. A stored remainder above 0 leaves the note null. A rival note stays null. Remainder 0 reads `cap used` on `fix/treasury-wording` |
 | Projection polish: show 'no cap' instead of a blank cap for the uncapped holder | Projection | Open Era Engineer | **Fixed** on `feature/treasury-source`. The free holder's `allowanceCap` is `no cap`. A captive holder stays null, with `Cannot spend while held.` A rival cap stays null |
 | Trade/order rows Mara can read should also use the display qualifier, e.g. 'Toma Reef (World Government)', matching the cards (from M34.3 playtest) | Readability | Open Era Engineer | **Fixed** on `feature/treasury-allowance`. Sequence 43 reads `Toma Reef (World Government) accepted the trade supplies order.` The stored summary stays `Toma Reef accepted the trade supplies order.` |
@@ -133,6 +133,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-06 — Player-action-executed count
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `fix/action-executed-count` | **Commits:** recorded after this commit is written | **Type:** wording
+- **Changed** — The `player-action-executed` line names the action and the count when the paired result already stores them. A recruit the reader can see is `Mara Vane: recruited 8 at Crown Harbor for 96 from the purse`, `Mara Vane: recruited 8 at Crown Harbor for 96 from the treasury`, or `Sable Morrow: recruited 8 at Glassport for 96: 18 from the treasury and 78 from the purse`. The recruit sentence keeps its period and the same numbers. A provision buy is `Mara Vane: bought 12 provisions at Crown Harbor for 17.64 from the purse`. A goods buy is `Mara Vane: bought 2 medicine at Crown Harbor for 34.54 from the purse`. A voyage is `Mara Vane: traveled 4 ticks to Glassport`, with no coin cost and no payer. A rest, and a recruit whose pair has no count, stay `Mara Vane carried out an action.` A rival and a withheld mate stay on that public line, with `data` null. The resolved line stays `Mara Vane: action executed`.
+- **Why** — The recruit sentence already named the count. The executed line still said the action was carried out.
+- **Verified** — Base `d21822e`. Node v24.21.0, ICU 78.3. `npm run typecheck` is clean. **358 tests.** `./scripts/evaluate-milestone.sh action-executed-count` passed. Recovery replays 600, before and after. No `golden:update`. 72-tick before and after: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261). 1200-tick before and after: `90dacc2dfcd199ab720ade191bd3fdf8742632a36f19216bd53ce0e3a3294fef` / `226bf6257a86b233d197bd77747a10fe64b33dd7ac1e94bc27c11ff3ddf50cd8` / `30e9994387b2c9a2d8c0e16e27042797599188a105992cb7a9f8d2e924a8b0a6`. Events 160268 / 161850 / 162459. Dashboard HTTP on `127.0.0.1:4317`, seed 1847, three processes, Mara Vane. Purse: sequence 1 `Command queued for Mara Vane: recruit at Crown Harbor (from the purse)`; sequence 10 `Mara Vane: recruited 8 at Crown Harbor for 96 from the purse`; sequence 11 `Mara Vane recruited 8 at Crown Harbor for 96 from the purse.`; sequence 12 `Mara Vane: action executed`. Money 12, troops 88, treasury 17947.16. Treasury, source omitted: sequence 1 names the treasury; sequence 10 `Mara Vane: recruited 8 at Crown Harbor for 96 from the treasury`; sequence 11 the same with a period. Money 108, treasury 17851.16. Buy: sequence 1 `Command queued for Mara Vane: 12 provisions at 1.47 each, 17.64 total`; sequence 10 `Mara Vane: bought 12 provisions at Crown Harbor for 17.64 from the purse`; sequence 11 `Mara Vane bought 12 provisions at Crown Harbor for 17.64 (1.47 each).` Money 90.36. Sequences 158 and 178 are `Jun Ash recruited at Crown Harbor.` and `Orin Frost recruited at Crown Harbor.`, both `data` null. Blind playtest [action-executed-count-001](docs/playtests/action-executed-count-001.md) is not run.
+- **Left open** — The blind session is not run. Own-faction money at sea stays null. A passage has no coin cost on the paired `travel-started` (`src/sim/engine.ts:2794`). The charge is a later `character-upkeep` (`src/sim/engine.ts:560`). The executed line names the tick count only.
+- **Links** — [playtest action-executed-count-001](docs/playtests/action-executed-count-001.md) (unread)
 
 ### 2026-10-01 — Treasury balance share
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/treasury-balance` | **Commits:** `adbc731` (the share, the refund, and the tests). This commit records the divergence and the unread plan. | **Type:** Behavior

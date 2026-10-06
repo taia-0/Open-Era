@@ -29,6 +29,7 @@ import {
   eventBriefingTitle,
   qualifyCollidingNames,
   passageUpkeepSentence,
+  executedActionSentence,
   publicFeedSentence,
   queuedCommandSentence,
   recruitDetailSentence,
@@ -121,6 +122,8 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
         return `${actor} bought ${event.data.quantity} provisions for ${event.data.gross} (${event.data.unitPrice} each)`;
       }
       return `${actor}: ${String(event.data.outcome).replaceAll("-", " ")}`;
+    case "player-action-executed":
+      return executedActionSentence(world, event, events) ?? publicFeedSentence(world, event);
     case "player-command-failed":
       return `${actor}'s command failed: ${event.data.reason}`;
     case "standing-order-issued":
