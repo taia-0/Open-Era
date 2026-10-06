@@ -775,6 +775,105 @@ export function recruitDetailSentence(world: WorldState, event: SimEvent): strin
 }
 
 /**
+ * The player-action-executed line, when the paired result already stores a count.
+ *
+ * The recruit, the buy, and the voyage are recorded on the next event for this
+ * officer, before the command resolves. This sentence reads that pair. It does
+ * not add a sim field. A recruit uses the same count, cost, and payer as
+ * `recruitDetailSentence`, with a colon after the name and no extra period, so
+ * the two lines cannot disagree. A buy uses the quantity, the good, and the
+ * gross already on `market-trade`. A voyage uses `totalTicks` on
+ * `travel-started`. The coin cost of a passage is not on that event: each sea
+ * tick writes it later, on `character-upkeep`. Missing count returns null, and
+ * the public line stays `{name} carried out an action.`
+ *
+ * A rival and any withheld row never keep this sentence. `projectEvent`
+ * replaces it when the payload is withheld.
+ */
+export function executedActionSentence(world: WorldState, event: SimEvent, siblings?: SimEvent[]): string | null {
+  if (event.type !== "player-action-executed") return null;
+  const action = event.data.action;
+  const actor = characterName(world, event.actorId, "Someone");
+  if (action === "recruit") {
+    const paired = pairedResult(event, siblings, "recruited");
+    const quantity = paired ? numberOrNull(paired.data.quantity) : null;
+    if (!paired || quantity === null) return null;
+    const at = atPlace(world, paired.settlementId ?? event.settlementId);
+    return `${actor}: recruited ${quantity}${at}${recordedPayer(paired.data)}`;
+  }
+  if (action === "buy-provisions" || action === "buy-resource" || action === "sell-resource") {
+    const paired = pairedResult(event, siblings, "market-trade");
+    if (!paired) return null;
+    const quantity = numberOrNull(paired.data.quantity);
+    const resource = typeof paired.data.resource === "string" ? paired.data.resource : null;
+    const direction = paired.data.direction;
+    const bought = action === "sell-resource" ? direction === "sold" : direction === "bought";
+    if (quantity === null || !resource || !bought) return null;
+    const verb = direction === "sold" ? "sold" : "bought";
+    const at = atPlace(world, paired.settlementId ?? event.settlementId);
+    return `${actor}: ${verb} ${quantity} ${resource}${at}${recordedPayer(paired.data)}`;
+  }
+  if (action === "travel") {
+    const paired = pairedResult(event, siblings, "travel-started");
+    const travel = paired ? travelRecord(paired.data.travel) : null;
+    if (!travel || travel.totalTicks === null) return null;
+    const destination = settlementName(world, travel.toId ?? event.targetId, "the destination");
+    return `${actor}: traveled ${travel.totalTicks} ticks to ${destination}`;
+  }
+  return null;
+}
+
+/**
+ * Cost and payer already stored on the paired result.
+ *
+ * Same words as the recruit sentence. Both shares, then treasury only, then
+ * the purse. No recorded payer leaves the cost off, so a line that cannot say
+ * who paid does not invent a side.
+ */
+function recordedPayer(data: Record<string, unknown>): string {
+  const cost = numberOrNull(data.cost) ?? numberOrNull(data.gross);
+  if (cost === null) return "";
+  const treasury = numberOrNull(data.treasuryDrawn) ?? 0;
+  const purse = numberOrNull(data.purseDrawn) ?? 0;
+  if (treasury > 0 && purse > 0) {
+    return ` for ${cost}: ${treasury} from the treasury and ${purse} from the purse`;
+  }
+  if (treasury > 0) return ` for ${cost} from the treasury`;
+  if (purse > 0) return ` for ${cost} from the purse`;
+  return "";
+}
+
+function atPlace(world: WorldState, settlementId: string | undefined): string {
+  if (!settlementId) return "";
+  return ` at ${settlementName(world, settlementId, settlementId)}`;
+}
+
+function pairedResult(event: SimEvent, siblings: SimEvent[] | undefined, type: string): SimEvent | null {
+  if (!siblings) return null;
+  const commandId = event.data.commandId;
+  const ordered = siblings
+    .filter((candidate) => candidate.sequence > event.sequence)
+    .sort((left, right) => left.sequence - right.sequence);
+  for (const candidate of ordered) {
+    if (
+      (candidate.type === "player-command-resolved" || candidate.type === "player-command-failed") &&
+      candidate.data.commandId === commandId
+    ) {
+      break;
+    }
+    if (candidate.actorId === event.actorId && candidate.type === type) return candidate;
+  }
+  return null;
+}
+
+function travelRecord(value: unknown): { toId?: string; totalTicks: number | null } | null {
+  if (!value || typeof value !== "object") return null;
+  const travel = value as { toId?: unknown; totalTicks?: unknown };
+  const toId = typeof travel.toId === "string" ? travel.toId : undefined;
+  return { toId, totalTicks: numberOrNull(travel.totalTicks) };
+}
+
+/**
  * A withheld recruit the reader's own faction may already see a treasury draw on.
  *
  * A rival stays null. A purse-only row stays null. Both keep the public
