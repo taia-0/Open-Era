@@ -28,6 +28,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Treasury spending](treasury-spending.md) — Open / proposal: a faction ransom goes entirely to the treasury, and the command holder spends it while other members spend a daily allowance
 - [Treasury balance](treasury-balance.md) — Open / study: Free Tide's treasury empties under the 18-a-day draw, and the measured next step keeps 18 unless the treasury cannot pay it
 - [Political layer](political-layer.md) — Built in M30: the person who already issues a faction's orders is named in command, and a captive commander's seat is covered until release
+- [Leader tax](leader-tax.md) — Open / design brief: the free command holder sets the faction tax rate; the rate is already stored, and the first slice leaves autonomous leaders on the scenario constant
 - [Loyalty drift](loyalty-drift.md) — Open / proposal: loyalty falls by 0.04 when a release leaves the ransom unpaid, and nothing else reads that change except who covers the seat
 - [Loyalty scar remeasure](loyalty-scar-remeasure.md) — Open / remeasure: with the dock rule patched on and M30's cover sort live, a −0.04 unpaid-release scar does not rename a cover or move the 72-tick fixture
 - [Autonomous orders](autonomous-orders.md) — Open / proposal: Free Tide does not mint protect orders after tick 0; once a report has closed, the four-day sketch accepts the next one and rewrites the first 72 ticks
