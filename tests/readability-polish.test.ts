@@ -275,17 +275,17 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
   );
 });
 
-test("seed 1847 at tick 705 names Verdant Cay while she is held", () => {
-  // Treasury spending moved the hold off tick 595.
-  const result = runTicks(createPrototypeWorld(1847), 705);
+test("seed 1847 at tick 1037 names Verdant Cay while she is held", () => {
+  // Treasury spending moved the hold off tick 595. The balance share moved the unreachable Verdant Cay line to tick 1037.
+  const result = runTicks(createPrototypeWorld(1847), 1037);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
     day: number;
     party: { resupply: { settlementId: string; provisions: number; price: number; reachable: boolean; travelTicks: number | null } | null };
     briefing: { items: Array<{ id: string; summary: string; settlementId: string | null }> };
   };
-  assert.equal(result.state.tick, 705);
-  assert.equal(view.day, 117.5);
+  assert.equal(result.state.tick, 1037);
+  assert.equal(view.day, 172.83);
   assert.equal(commander.captivity?.settlementId, "crown-harbor");
   assert.equal(commander.locationId, "crown-harbor");
   const starving = view.briefing.items.find((item) => item.id === "provision:critical");
@@ -305,12 +305,12 @@ test("seed 1847 at tick 705 names Verdant Cay while she is held", () => {
   assert.equal(resupply.travelTicks, null);
 });
 
-test("seed 1847 at tick 789 shows only the rounded scarred loyalty", () => {
-  // Treasury spending moved the loyalty scar off tick 679.
-  const world = runTicks(createPrototypeWorld(1847), 789).state;
+test("seed 1847 at tick 1120 shows only the rounded scarred loyalty", () => {
+  // Treasury spending moved the loyalty scar off tick 679. The balance share moved it to tick 1120.
+  const world = runTicks(createPrototypeWorld(1847), 1120).state;
   const commander = commanderOf(world);
   const card = projectCharacter(world, commander, commander);
-  assert.equal(world.tick, 789);
+  assert.equal(world.tick, 1120);
   assert.equal(commander.captivity, null);
   assert.equal(commander.loyaltyAdjustment, -0.04);
   assert.equal(card.loyalty, 0.768);
@@ -324,14 +324,30 @@ test("seed 1847 at tick 789 shows only the rounded scarred loyalty", () => {
   assert.equal(String(card.loyaltyNote).includes("0.767927391717676"), false);
 });
 
-test("Dax Pike at tick 172 says he named no ports, and 59 are held by World Government", () => {
-  // Treasury spending moved the empty port list off Mina Vale at tick 72. Dax Pike's hold is that list now.
-  const world = runTicks(createPrototypeWorld(1847), 172).state;
-  const before = stateHash(world);
+test("a constructed empty port list says the captive named no ports", () => {
+  // The balance share moved the seeded empty list. No co-located captive with an empty port list remains through tick 1200 on seed 1847, so the wording is checked on a constructed hold.
+  const world = createPrototypeWorld(1847);
   const mara = commanderOf(world);
   const dax = world.characters["character-20"];
   assert.equal(dax.name, "Dax Pike");
-  assert.equal(world.tick, 172);
+  mara.locationId = "crown-harbor";
+  mara.travel = null;
+  mara.captivity = null;
+  dax.locationId = "crown-harbor";
+  dax.travel = null;
+  dax.knowledge = {};
+  dax.troops = { ...dax.troops, count: 0 };
+  dax.captivity = {
+    captorFactionId: "world-government",
+    settlementId: "crown-harbor",
+    capturedTick: 171,
+    mandatoryReleaseTick: 255,
+    cause: "major-defeat",
+    displayedRisk: "low",
+    scatteredTroops: { count: 59, experience: dax.troops.experience, discipline: dax.troops.discipline },
+    releaseDestinationId: "glassport",
+  };
+  const before = stateHash(world);
   const card = projectCharacter(world, mara, dax);
   const intel = card.captiveIntel as {
     troops: number;

@@ -1913,7 +1913,68 @@ function writeContractRelationships(
   }
 }
 
-/** Return the escrow to the buyer and close the contract. Does nothing if it already settled. */
+/**
+ * Where the escrow coins sit.
+ *
+ * A contract that predates the split has neither field. That escrow returns
+ * to the purse, which is what the old events did.
+ */
+function escrowParts(contract: SupplyContract): { treasury: number; purse: number } {
+  if (contract.escrowFromTreasury === undefined && contract.escrowFromPurse === undefined) {
+    return { treasury: 0, purse: round(contract.escrow, 2) };
+  }
+  return {
+    treasury: round(contract.escrowFromTreasury ?? 0, 2),
+    purse: round(contract.escrowFromPurse ?? 0, 2),
+  };
+}
+
+/**
+ * Take `amount` back out of an escrow.
+ *
+ * The purse portion was drawn second, so a partial cut returns it first.
+ * A full refund returns both parts. Neither part can go negative.
+ */
+function takeEscrowRefund(treasury: number, purse: number, amount: number): {
+  treasuryRefunded: number;
+  purseRefunded: number;
+  treasuryLeft: number;
+  purseLeft: number;
+} {
+  const amountCents = Math.max(0, Math.round(amount * 100));
+  const purseCents = Math.max(0, Math.round(purse * 100));
+  const treasuryCents = Math.max(0, Math.round(treasury * 100));
+  const fromPurse = Math.min(purseCents, amountCents);
+  const fromTreasury = Math.min(treasuryCents, amountCents - fromPurse);
+  return {
+    purseRefunded: round(fromPurse / 100, 2),
+    treasuryRefunded: round(fromTreasury / 100, 2),
+    purseLeft: round((purseCents - fromPurse) / 100, 2),
+    treasuryLeft: round((treasuryCents - fromTreasury) / 100, 2),
+  };
+}
+
+/**
+ * Purse credit and, when coins go back to a faction, the treasury absolute.
+ * Does not restore `allowanceRemaining`.
+ */
+function creditEscrowRefund(
+  world: WorldState,
+  buyer: Character,
+  treasuryRefunded: number,
+  purseRefunded: number,
+): { buyerMoney: number; factionTreasury?: number } {
+  const buyerMoney = round(buyer.money + purseRefunded, 2);
+  if (treasuryRefunded > 0 && buyer.factionId) {
+    return {
+      buyerMoney,
+      factionTreasury: round(world.factions[buyer.factionId].treasury + treasuryRefunded, 2),
+    };
+  }
+  return { buyerMoney };
+}
+
+/** Return each escrow part to its source and close the contract. Does nothing if it already settled. */
 function refundEscrow(
   world: WorldState,
   events: SimEvent[],
@@ -1926,10 +1987,15 @@ function refundEscrow(
   if (contract.settled) return null;
   const parties = contractParties(world, contract);
   if (!parties) return null;
+  const parts = escrowParts(contract);
+  const refund = takeEscrowRefund(parts.treasury, parts.purse, contract.escrow);
+  const credit = creditEscrowRefund(world, parties.buyer, refund.treasuryRefunded, refund.purseRefunded);
   const next: SupplyContract = {
     ...contract,
     status,
     escrow: 0,
+    escrowFromTreasury: 0,
+    escrowFromPurse: 0,
     settled: true,
     observedTick: world.tick,
   };
@@ -1938,10 +2004,15 @@ function refundEscrow(
     events,
     type,
     next,
-    round(parties.buyer.money + contract.escrow, 2),
+    credit.buyerMoney,
     parties.carrier.money,
     actorId,
-    extra,
+    {
+      ...extra,
+      treasuryRefunded: refund.treasuryRefunded,
+      purseRefunded: refund.purseRefunded,
+      ...(credit.factionTreasury !== undefined ? { factionTreasury: credit.factionTreasury } : {}),
+    },
   );
   return world.contracts?.[contract.id] ?? next;
 }
@@ -2002,15 +2073,39 @@ function resolveContractCommand(
     }
     const due = round(command.price - existing.escrow, 2);
     const contractSource: SpendSource = command.source === "purse" ? "purse" : "default";
-    const raised = due > 0 ? resolveQuotedSpend(world, commander, due, PASSAGE_COST_PER_TICK, contractSource) : null;
-    if (raised && !raised.ok) {
-      emit(world, events, {
-        type: "player-command-failed",
-        actorId: commander.id,
-        targetId: carrier.id,
-        data: { commandId: command.id, reason: "the offerer can no longer cover the escrow" },
-      });
-      return;
+    const parts = escrowParts(existing);
+    let buyerMoney = round(commander.money, 2);
+    let escrowFromTreasury = parts.treasury;
+    let escrowFromPurse = parts.purse;
+    let moneyExtra: Record<string, unknown> = {};
+    if (due > 0) {
+      const raised = resolveQuotedSpend(world, commander, due, PASSAGE_COST_PER_TICK, contractSource);
+      if (!raised.ok) {
+        emit(world, events, {
+          type: "player-command-failed",
+          actorId: commander.id,
+          targetId: carrier.id,
+          data: { commandId: command.id, reason: "the offerer can no longer cover the escrow" },
+        });
+        return;
+      }
+      buyerMoney = raised.characterMoney;
+      escrowFromTreasury = round(parts.treasury + raised.treasuryDrawn, 2);
+      escrowFromPurse = round(parts.purse + raised.purseDrawn, 2);
+      moneyExtra = { ...spendData(raised), characterMoney: raised.characterMoney };
+    } else if (due < 0) {
+      // A price cut returns the purse portion first, then the treasury portion.
+      // Today's allowance is not restored.
+      const refund = takeEscrowRefund(parts.treasury, parts.purse, round(-due, 2));
+      escrowFromTreasury = refund.treasuryLeft;
+      escrowFromPurse = refund.purseLeft;
+      const credit = creditEscrowRefund(world, commander, refund.treasuryRefunded, refund.purseRefunded);
+      buyerMoney = credit.buyerMoney;
+      moneyExtra = {
+        treasuryRefunded: refund.treasuryRefunded,
+        purseRefunded: refund.purseRefunded,
+        ...(credit.factionTreasury !== undefined ? { factionTreasury: credit.factionTreasury } : {}),
+      };
     }
     const next: SupplyContract = {
       ...existing,
@@ -2018,6 +2113,8 @@ function resolveContractCommand(
       destinationId: command.destinationId,
       price: command.price,
       escrow: command.price,
+      escrowFromTreasury,
+      escrowFromPurse,
       deadlineTick: command.expiresTick,
       revision: existing.revision + 1,
       observedTick: world.tick,
@@ -2027,10 +2124,10 @@ function resolveContractCommand(
       events,
       "contract-amended",
       next,
-      raised && raised.ok ? raised.characterMoney : round(commander.money - due, 2),
+      buyerMoney,
       carrier.money,
       commander.id,
-      { commandId: command.id, ...(raised && raised.ok ? { ...spendData(raised), characterMoney: raised.characterMoney } : {}) },
+      { commandId: command.id, ...moneyExtra },
     );
     emit(world, events, {
       type: "player-command-resolved",
@@ -2060,6 +2157,8 @@ function resolveContractCommand(
     destinationId: command.destinationId,
     price: command.price,
     escrow: command.price,
+    escrowFromTreasury: escrow.treasuryDrawn,
+    escrowFromPurse: escrow.purseDrawn,
     settled: false,
     deadlineTick: command.expiresTick,
     issuedTick: world.tick,
@@ -2171,6 +2270,8 @@ function resolveContractOutcomes(world: WorldState, events: SimEvent[]): void {
       ...contract,
       status: "fulfilled",
       escrow: 0,
+      escrowFromTreasury: 0,
+      escrowFromPurse: 0,
       settled: true,
       observedTick: world.tick,
     };

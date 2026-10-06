@@ -874,14 +874,18 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   assert.equal(cheap.status, "offered");
   const beforeRefuse = round(refuseBuyer.money + refuseCarrier.money + cheap.escrow, 2);
   const refuseTick = runTick(refused);
-  assertEscrowConserved(refuseTick.events, beforeRefuse);
+  // The treasury part leaves the purse-and-escrow sum.
+  assertEscrowConserved(refuseTick.events, round(beforeRefuse - 8, 2));
   const refusal = refuseTick.events.find((event) => event.type === "contract-refused");
   assert.ok(refusal);
   assert.equal(refusal.data.gate, "score");
   assert.equal(refusal.data.score, 0.197);
   assert.equal(refusal.data.escrow, 0);
-  // A refused offer refunds the treasury draw into the purse.
-  assert.equal(refuseBuyer.money, 116);
+  // The treasury-funded 8 returns to the treasury. The purse stays 108.
+  // It used to be credited to the purse, which raised the buyer to 116 and kept the purse-and-escrow sum flat.
+  assert.equal(refusal.data.treasuryRefunded, 8);
+  assert.equal(refusal.data.purseRefunded, 0);
+  assert.equal(refuseBuyer.money, 108);
   assert.equal(Object.values(refused.contracts ?? {})[0].status, "refused");
   assert.equal(
     refuseTick.events.filter((event) =>
@@ -901,10 +905,22 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   const open = Object.values(expired.contracts ?? {})[0];
   const beforeBreach = round(expireBuyer.money + expireCarrier.money + open.escrow, 2);
   const breachTick = runTick(expired);
-  assertEscrowConserved(breachTick.events, beforeBreach);
+  // Acceptance still holds the escrow. The breach returns the treasury part, so that
+  // event's purse-and-escrow sum drops by 18. Adding the treasury refund back
+  // keeps the coins accounted for. The purse used to rise to 126 instead.
+  for (const event of breachTick.events.filter((candidate) => candidate.type.startsWith("contract-"))) {
+    const sum = round(
+      Number(event.data.buyerMoney) +
+        Number(event.data.carrierMoney) +
+        Number(event.data.escrow) +
+        Number(event.data.treasuryRefunded ?? 0),
+      2,
+    );
+    assert.equal(sum, beforeBreach, event.type);
+  }
   assert.equal(Object.values(expired.contracts ?? {})[0].status, "breached");
   assert.equal(Object.values(expired.contracts ?? {})[0].settled, true);
-  assert.equal(expireBuyer.money, 126);
+  assert.equal(expireBuyer.money, 108);
   const later = runTick(expired);
   assert.equal(later.events.some((event) => event.type.startsWith("contract-")), false);
 });

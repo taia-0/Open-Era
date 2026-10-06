@@ -335,8 +335,10 @@ export type SupplyContractStatus =
 
 /**
  * A paid provisions delivery. The price sits on `escrow`, in neither purse and
- * in no treasury, from the moment the offer is applied until it is paid or
- * returned exactly once.
+ * in no treasury, from the moment the offer is applied until it is paid to the
+ * carrier or returned exactly once. A return sends `escrowFromTreasury` back
+ * to the faction treasury and `escrowFromPurse` back to the purse. It does
+ * not restore today's allowance.
  */
 export interface SupplyContract {
   id: string;
@@ -347,7 +349,16 @@ export interface SupplyContract {
   destinationId: string;
   price: number;
   escrow: number;
-  /** True after the escrow has been paid to the carrier or returned to the buyer. */
+  /**
+   * Coins of `escrow` that came from the buyer's faction treasury. The rest
+   * is `escrowFromPurse`. Both are set on a new offer, including when one of
+   * them is 0. Absent on a contract from before the split, which returns the
+   * whole escrow to the purse.
+   */
+  escrowFromTreasury?: number;
+  /** Coins of `escrow` that came from the buyer's purse. */
+  escrowFromPurse?: number;
+  /** True after the escrow has been paid to the carrier or returned to its sources. */
   settled: boolean;
   deadlineTick: number;
   issuedTick: number;
@@ -592,11 +603,13 @@ export interface Character {
    */
   loyaltyAdjustment?: number;
   /**
-   * Coins left of today's treasury allowance. Omitted while it equals the cap,
-   * one day of passage. Omitted means full. The `tick-advanced` reducer deletes
-   * it on a day boundary, so unused allowance does not carry. A capped member's
-   * spend event carries the new absolute. The free command holder has no cap
-   * and does not store this.
+   * Coins left of today's treasury allowance. The cap is the balance share,
+   * `min(18, treasury / free mates)`, read on each quote. Omitted while it
+   * equals that cap. Omitted means full. The `tick-advanced` reducer deletes
+   * it on a day boundary, so unused allowance does not carry and the next
+   * quote reads the share again. A capped member's spend event carries the
+   * new absolute. The free command holder has no cap and does not store this.
+   * A refunded escrow does not write this field.
    */
   allowanceRemaining?: number;
   controller: CharacterController;

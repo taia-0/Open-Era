@@ -64,9 +64,9 @@ test("seed 1847 at state tick 12 agrees the routine digest with completed orders
   assert.equal(single.summary, "1 routine order update: 1 completed. No command decision is required.");
 });
 
-test("seed 1847 Mina Vale at tick 137 rounds the held troop figures", () => {
-  // Treasury spending moved her capture off seed 2718 tick 72.
-  const run = runTicks(createPrototypeWorld(1847), 137);
+test("seed 1847 Mina Vale at tick 138 rounds the held troop figures", () => {
+  // Treasury spending moved her capture off seed 2718 tick 72. The balance share moved it to tick 137.
+  const run = runTicks(createPrototypeWorld(1847), 138);
   const before = stateHash(run.state);
   const mina = run.state.characters["character-15"];
   const mara = run.state.characters["character-01"];
@@ -82,7 +82,7 @@ test("seed 1847 Mina Vale at tick 137 rounds the held troop figures", () => {
   assert.equal(troops.discipline, round(mina.troops.discipline, 3));
   assert.equal(
     card.troopsNote,
-    "0 with Mina Vale; 8 held by World Government. The experience and discipline are the troops now held by World Government.",
+    "0 with Mina Vale; 7 held by World Government. The experience and discipline are the troops now held by World Government.",
   );
   const scattered = (card.captivity as { scatteredTroops: { experience: number; discipline: number } }).scatteredTroops;
   assert.equal(scattered.experience, 0.231);
@@ -146,12 +146,13 @@ test("briefing titles on a held captain and on returned troops are sentences", (
   const returns = returnedRun.events.filter((event) => event.type === "scattered-troops-returned");
   assert.deepEqual(returns.map((event) => event.tick), [209, 215]);
 
-  const held = runTicks(createPrototypeWorld(2718), 760);
+  // The balance share moved the held-captain check-in off tick 760.
+  const held = runTicks(createPrototypeWorld(2718), 793);
   assert.equal(held.state.characters["character-01"].captivity?.settlementId, "crown-harbor");
   const heldView = dashboardState(held.state, held.events, fullEventFeed(held.events)) as {
     briefing: { items: Array<{ id: string; title: string }> };
   };
-  const captivity = heldView.briefing.items.find((item) => item.id === "captivity:759");
+  const captivity = heldView.briefing.items.find((item) => item.id === "captivity:792");
   assert.ok(captivity);
   assert.equal(captivity.title, "A captain is held captive.");
 });
@@ -168,43 +169,51 @@ test("the loyalty note uses plain words and only the rounded figure", () => {
 });
 
 test("seed 1847 shows the release debt and the ransom credit the line already states", () => {
-  // Treasury spending moved the debt line from Sable Morrow at tick 119 to Jun Marrow at tick 889.
-  const at889 = runTicks(createPrototypeWorld(1847), 889);
-  const mara = at889.state.characters["character-01"];
-  const jun = at889.state.characters["character-05"];
-  const pax = at889.state.characters["character-14"];
-  const junCard = projectCharacter(at889.state, mara, jun, at889.events);
-  const paxCard = projectCharacter(at889.state, mara, pax, at889.events);
-  assert.equal(jun.name, "Jun Marrow");
-  assert.equal(junCard.debts, null);
-  assert.equal(junCard.releaseDebtNote, "Owes 463.86 from the release at Cinder Key.");
-  assert.equal(paxCard.money, null);
+  // Treasury spending moved the debt line from Sable Morrow at tick 119. The balance share moved it to Bram Quill at tick 771.
+  const at772 = runTicks(createPrototypeWorld(1847), 772);
+  const mara = at772.state.characters["character-01"];
+  const bram = at772.state.characters["character-02"];
+  const pax = at772.state.characters["character-14"];
+  const bramCard = projectCharacter(at772.state, mara, bram, at772.events);
+  const paxCard = projectCharacter(at772.state, mara, pax, at772.events);
+  assert.equal(bram.name, "Bram Quill");
+  assert.equal(bramCard.debts, null);
+  assert.equal(bramCard.releaseDebtNote, "Owes 302.99 from the release at Cinder Key.");
+  assert.equal(paxCard.money, 2969.91);
   assert.equal(paxCard.ransomIncomeNote, null);
 
   const at902 = runTicks(createPrototypeWorld(1847), 902);
   const before = stateHash(at902.state);
   const maraLater = at902.state.characters["character-01"];
+  const esme = at902.state.characters["character-19"];
   const dax = at902.state.characters["character-20"];
+  const esmeCard = projectCharacter(at902.state, maraLater, esme, at902.events);
   const daxCard = projectCharacter(at902.state, maraLater, dax, at902.events);
   const maraCard = projectCharacter(at902.state, maraLater, maraLater, at902.events);
+  assert.equal(esme.name, "Esme Dusk");
+  assert.equal(esme.captivity, null);
+  assert.equal(
+    esmeCard.releaseDebtNote,
+    "Owes 114.93 from the release at Crown Harbor. Owes 51.5 from the release at Crown Harbor. Owes 82.83 from the release at Crown Harbor.",
+  );
   assert.equal(dax.captivity, null);
-  assert.equal(daxCard.releaseDebtNote, "Owes 71.86 from the release at Crown Harbor.");
-  assert.equal(maraCard.money, 0);
+  assert.equal(daxCard.releaseDebtNote, null);
+  assert.equal(maraCard.money, 108);
   assert.equal(maraCard.ransomIncomeNote, null);
   assert.equal(stateHash(at902.state), before);
 });
 
-test("seed 1847 tick 203 separates the ransom from the Crown Harbor tax", () => {
-  // Treasury spending moved the release off tick 118. The tax line is still a different event.
+test("seed 1847 tick 203 separates the ransom from the Glassport work tax", () => {
+  // Treasury spending moved the release off tick 118. The balance share moved the old Crown Harbor market-trade tax. The ransom and the tax are still different events.
   const run = runTicks(createPrototypeWorld(1847), 204);
   const before = stateHash(run.state);
-  const release = run.events.find((event) => event.sequence === 23651);
-  const upkeep = run.events.find((event) => event.sequence === 23646);
-  const harbor = run.events.find((event) => event.sequence === 23648);
-  const traded = run.events.find((event) => event.sequence === 23680);
+  const release = run.events.find((event) => event.sequence === 23519);
+  const upkeep = run.events.find((event) => event.sequence === 23512);
+  const harbor = run.events.find((event) => event.sequence === 23516);
+  const traded = run.events.find((event) => event.sequence === 23583);
   assert.ok(release && upkeep && harbor && traded);
   const mara = run.state.characters["character-01"];
-  const line = "Mara Calder was released from Crown Harbor. 62.98 was paid and 0 was recorded as debt. 62.98 went to the World Government treasury. The ransom line covers only the ransom.";
+  const line = "Mara Calder was released from Crown Harbor. 72.91 was paid and 0 was recorded as debt. 72.91 went to the World Government treasury. The ransom line covers only the ransom.";
   const [releaseRow] = projectEventFeed(run.state, "character-01", [release]);
   assert.equal(releaseRow?.payloadWithheld, true);
   assert.equal(releaseRow?.data, null);
@@ -212,11 +221,11 @@ test("seed 1847 tick 203 separates the ransom from the Crown Harbor tax", () => 
   assert.deepEqual(releaseRow?.details, captivityReleasedParts(run.state, release, false, mara));
   assert.deepEqual(releaseRow?.details, [
     "Mara Calder was released from Crown Harbor.",
-    "62.98 was paid and 0 was recorded as debt.",
-    "62.98 went to the World Government treasury.",
+    "72.91 was paid and 0 was recorded as debt.",
+    "72.91 went to the World Government treasury.",
     "The ransom line covers only the ransom.",
   ]);
-  assert.equal(String(line).includes("29.01"), false);
+  assert.equal(String(line).includes("2.34"), false);
   assert.equal(String(line).includes("Pax Ash"), false);
 
   const [cinder] = projectEventFeed(run.state, "character-01", [upkeep]);
@@ -227,10 +236,10 @@ test("seed 1847 tick 203 separates the ransom from the Crown Harbor tax", () => 
   assert.equal(glass?.payloadWithheld, false);
 
   const [taxRow] = projectEventFeed(run.state, "character-01", [traded]);
-  assert.equal(traded.type, "market-trade");
+  assert.equal(traded.type, "worked");
   assert.equal(taxRow?.payloadWithheld, true);
   assert.equal(taxRow?.data, null);
-  assert.equal(taxRow?.summary, "Toma Reef (World Government) traded at Crown Harbor. Tax of 29.01 went to the treasury.");
-  assert.equal(String(taxRow?.summary).includes("62.98"), false);
+  assert.equal(taxRow?.summary, "Dax Pike worked at Glassport. Tax of 2.34 went to the treasury.");
+  assert.equal(String(taxRow?.summary).includes("72.91"), false);
   assert.equal(stateHash(run.state), before);
 });
