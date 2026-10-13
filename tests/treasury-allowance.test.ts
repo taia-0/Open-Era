@@ -120,12 +120,12 @@ test("a Free Tide reader sees none of World Government's allowance or balance", 
   assert.equal(stateHash(world), before);
 });
 
-test("seed 2718 tick 792 binds the acting commander and does not uncap the captive holder", () => {
+test("seed 2718 tick 1002 binds the acting commander and does not uncap the captive holder", () => {
   // Treasury spending moved Mara's capture. The balance share moved the cover to tick 1036.
-  // The autonomous Free Tide step, first at tick 384 on seed 2718, moved the cover to Iris Stone at tick 792.
-  const run = runTicks(createPrototypeWorld(2718), 792);
+  // The headless World Government step at tick 216 on seed 2718 moved the cover to Iris Stone at tick 1002.
+  const run = runTicks(createPrototypeWorld(2718), 1002);
   const world = run.state;
-  assert.equal(world.tick, 792);
+  assert.equal(world.tick, 1002);
   const mara = world.characters["character-01"];
   const iris = world.characters["character-06"];
   assert.equal(iris.name, "Iris Stone");
@@ -143,8 +143,8 @@ test("seed 2718 tick 792 binds the acting commander and does not uncap the capti
   assert.equal(cover.allowanceUncapped, false);
   assert.equal(cover.allowanceCap, 18);
   assert.equal(cover.allowanceOnDayBoundary, true);
-  assert.equal(cover.allowanceDayStart, 792);
-  assert.equal(cover.allowanceResetsOnTick, 798);
+  assert.equal(cover.allowanceDayStart, 1002);
+  assert.equal(cover.allowanceResetsOnTick, 1008);
   // Nothing has been drawn for Iris today, so the remainder stays omitted.
   assert.equal("allowanceRemaining" in cover, false);
   assert.equal(cover.allowanceNote, "none spent today");
@@ -182,19 +182,19 @@ test("seed 1847 sequence 43 qualifies Toma Reef on the order row Mara can read",
   assert.equal(stateHash(run.state), before);
 });
 
-test("seed 1847 tick 702 hides the Free Tide balance and keeps the paid amount", () => {
+test("seed 1847 tick 691 hides the Free Tide balance and keeps the paid amount", () => {
   // Treasury spending moved the first Free Tide ransom Mara can read.
   // The balance share moved that line to Bram Quill. The autonomous Free Tide step, first at tick 120, moved it to Jun Marrow.
-  // The paid amount stays. The balance does not.
-  const run = runTicks(createPrototypeWorld(1847), 702);
+  // The headless World Government step at tick 432 moved the paid amount. The balance does not.
+  const run = runTicks(createPrototypeWorld(1847), 691);
   const world = run.state;
-  assert.equal(world.tick, 702);
-  const release = run.events.find((event) => event.sequence === 91186);
+  assert.equal(world.tick, 691);
+  const release = run.events.find((event) => event.sequence === 89642);
   assert.ok(release);
   const balance = (release.data.ransom as { factionTreasury: number }).factionTreasury;
-  assert.equal(balance, 33.04);
+  assert.equal(balance, 161.03);
   const before = stateHash(world);
-  const line = "Jun Marrow was released from Glassport. 14.65 was paid and 528.49 was recorded as debt. Loyalty fell. 14.65 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
+  const line = "Jun Marrow was released from Glassport. 50.24 was paid and 390.95 was recorded as debt. Loyalty fell. 50.24 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
   const [maraRow] = projectEventFeed(world, "character-01", [release]);
   assert.equal(maraRow?.payloadWithheld, true);
   assert.equal(maraRow?.data, null);
@@ -205,7 +205,7 @@ test("seed 1847 tick 702 hides the Free Tide balance and keeps the paid amount",
   assert.equal(paxRow?.data, null);
   assert.equal(
     paxRow?.summary,
-    "Jun Marrow was released from Glassport. 14.65 was paid and 528.49 was recorded as debt. Loyalty fell. 14.65 went to the Free Tide Compact treasury. The ransom line covers only the ransom.",
+    "Jun Marrow was released from Glassport. 50.24 was paid and 390.95 was recorded as debt. Loyalty fell. 50.24 went to the Free Tide Compact treasury. The ransom line covers only the ransom.",
   );
   assert.equal(String(paxRow?.summary).includes(String(balance)), false);
   assert.equal(String(paxRow?.summary).includes("not visible to you"), false);
@@ -216,8 +216,8 @@ test("seed 1847 tick 702 hides the Free Tide balance and keeps the paid amount",
   const tide = view.factions.find((faction) => faction.id === "free-tide");
   assert.equal(tide?.treasury, null);
   assert.equal(tide?.treasuryNote, "not visible to you");
-  assert.equal(view.events.find((event) => event.sequence === 91186)?.summary, line);
-  assert.equal(view.events.find((event) => event.sequence === 91186)?.data, null);
+  assert.equal(view.events.find((event) => event.sequence === 89642)?.summary, line);
+  assert.equal(view.events.find((event) => event.sequence === 89642)?.data, null);
   assert.equal(stateHash(world), before);
 });
 

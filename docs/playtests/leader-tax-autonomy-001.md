@@ -18,7 +18,7 @@ Bind `127.0.0.1:4317`.
 
 ## Hypothesis and ambition
 
-**Milestone hypothesis:** A free holder who is not the player steps that faction's tax rate by one cent on world tick 24, 48, 72, and so on. The step is down when a port the faction holds is at or under stability 55, and up when no held port is that low and the treasury cannot cover one day of passage for every free mate. The same rate writes nothing. Mara Vane's rate is never stepped. She is the player holder. Free Tide's holder, Pax Ash, is not.
+**Milestone hypothesis:** A free holder who is not the player steps that faction's tax rate by one cent on world tick 24, 48, 72, and so on. The step is down when a port the faction holds is at or under stability 55, and up when no held port is that low and the treasury cannot cover one day of passage for every free mate. The same rate writes nothing. This dashboard is a live session. Mara Vane's rate is never stepped here. She is the player holder, and the live session does not choose for her. Free Tide's holder, Pax Ash, is not the player, so his rate can move.
 
 **Player ambition:** Mara Vane issues no order and reads whether anyone else changes a rate, and whether her own rate moves on its own.
 
@@ -73,7 +73,7 @@ World tick 120 is a clock tick. Pax Ash is the free holder of Free Tide. The low
 
 The player does not see Free Tide's treasury or the mate count. The visible proof is the faction row, `taxRateSetTick`, and the withheld sentence.
 
-Mara Vane's rate stays 0.14, and `taxRateSetTick` stays null, because the step does not write a human holder's rate. No `tax-rate-set` in this plan has `actorId` `character-01` or `targetId` `world-government`.
+Mara Vane's rate stays 0.14, and `taxRateSetTick` stays null, on every read in this live session. No `tax-rate-set` in this plan has `actorId` `character-01` or `targetId` `world-government`. A row that shows World Government at 0.14 with `taxRateSetTick` null is the check that her rate was not chosen for her.
 
 ## Recommendation
 

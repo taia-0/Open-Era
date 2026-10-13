@@ -275,20 +275,20 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
   );
 });
 
-test("seed 2718 at tick 792 names Verdant Cay while she is held", () => {
+test("seed 2718 at tick 1002 names Verdant Cay while she is held", () => {
   // Treasury spending moved the hold off tick 595. The balance share moved the unreachable Verdant Cay line to tick 1037.
-  // The autonomous Free Tide step, first at tick 384 on seed 2718, moved Mara's hold. Seed 1847 does not capture her through tick 1200.
-  const result = runTicks(createPrototypeWorld(2718), 792);
+  // The headless World Government step at tick 216 on seed 2718 moved Mara's hold to tick 1001.
+  const result = runTicks(createPrototypeWorld(2718), 1002);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
     day: number;
     party: { resupply: { settlementId: string; provisions: number; price: number; reachable: boolean; travelTicks: number | null } | null };
     briefing: { items: Array<{ id: string; summary: string; settlementId: string | null }> };
   };
-  assert.equal(result.state.tick, 792);
-  assert.equal(view.day, 132);
+  assert.equal(result.state.tick, 1002);
+  assert.equal(view.day, 167);
   assert.equal(commander.captivity?.settlementId, "crown-harbor");
-  assert.equal(commander.captivity?.capturedTick, 791);
+  assert.equal(commander.captivity?.capturedTick, 1001);
   assert.equal(commander.locationId, "crown-harbor");
   const starving = view.briefing.items.find((item) => item.id === "provision:critical");
   assert.ok(starving);
@@ -307,13 +307,13 @@ test("seed 2718 at tick 792 names Verdant Cay while she is held", () => {
   assert.equal(resupply.travelTicks, null);
 });
 
-test("seed 2718 at tick 876 shows only the rounded scarred loyalty", () => {
+test("seed 2718 at tick 1086 shows only the rounded scarred loyalty", () => {
   // Treasury spending moved the loyalty scar off tick 679. The balance share moved it to tick 1120.
-  // The autonomous Free Tide step, first at tick 384 on seed 2718, moved Mara's scar. Seed 1847 does not scar her through tick 1200.
-  const world = runTicks(createPrototypeWorld(2718), 876).state;
+  // The headless World Government step at tick 216 on seed 2718 moved Mara's scar to the release at tick 1085.
+  const world = runTicks(createPrototypeWorld(2718), 1086).state;
   const commander = commanderOf(world);
   const card = projectCharacter(world, commander, commander);
-  assert.equal(world.tick, 876);
+  assert.equal(world.tick, 1086);
   assert.equal(commander.captivity, null);
   assert.equal(commander.loyaltyAdjustment, -0.04);
   assert.equal(card.loyalty, 0.835);

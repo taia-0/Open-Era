@@ -145,13 +145,13 @@ function freeCommandHolder(world: WorldState, factionId: string): Character | nu
 }
 
 /**
- * One cent a free non-player holder would apply on this tick, or null.
+ * One cent a free holder would apply on this tick, or null.
  *
- * The clock is tick `t > 0` with `t % 24 === 0`. A human holder is skipped:
- * she uses `set-tax-rate`, and this step never writes her rate. A missing
- * `taxRateSetTick` means the rate has never changed. A tick still inside
- * `taxRateSetTick + 24` waits. The same rate emits nothing; the caller
- * treats null as no event.
+ * The clock is tick `t > 0` with `t % 24 === 0`. Every free holder is
+ * eligible, including a human one. A live session drops her afterward; this
+ * function does not. A missing `taxRateSetTick` means the rate has never
+ * changed. A tick still inside `taxRateSetTick + 24` waits. The same rate
+ * emits nothing; the caller treats null as no event.
  *
  * Pressed is the live lowest stability among ports the faction holds, in
  * thousandths, at or under the claim floor of 55. Short is the allowance
@@ -164,7 +164,7 @@ export function autonomousTaxStep(world: WorldState, factionId: string): Autonom
   const faction = world.factions[factionId];
   if (!faction) return null;
   const holder = freeCommandHolder(world, factionId);
-  if (!holder || holder.controller.kind === "human") return null;
+  if (!holder) return null;
   const setTick = faction.taxRateSetTick;
   if (setTick !== undefined && world.tick < setTick + TAX_RATE_COOLDOWN_TICKS) return null;
 

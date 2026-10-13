@@ -3226,17 +3226,28 @@ function metrics(world: WorldState): Record<string, unknown> {
 }
 
 /**
- * Free non-player holders step the rate on the 24-tick clock, after player
- * commands, factions in id order. A player set on this tick is already on
- * `taxRateSetTick`, so the step waits. A human holder is not a writer.
- * The event is the same `tax-rate-set` the command emits, without a command id.
+ * Options for one tick. Absent means a headless run: every free holder
+ * chooses a rate. A live dashboard session sets `liveSession` and skips a
+ * holder whose controller is human. The flag stays off `WorldState`.
  */
-function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[]): void {
+export interface TickOptions {
+  liveSession?: boolean;
+}
+
+/**
+ * Free holders step the rate on the 24-tick clock, after player commands,
+ * factions in id order. A player set on this tick is already on
+ * `taxRateSetTick`, so the step waits. A live session skips a human holder.
+ * A headless run does not. The event is the same `tax-rate-set` the command
+ * emits, without a command id.
+ */
+function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSession: boolean): void {
   if (world.tick <= 0 || world.tick % TAX_RATE_COOLDOWN_TICKS !== 0) return;
   const factionIds = Object.keys(world.factions).sort((left, right) => left.localeCompare(right));
   for (const factionId of factionIds) {
     const step = autonomousTaxStep(world, factionId);
     if (!step) continue;
+    if (liveSession && world.characters[step.holderId]?.controller.kind === "human") continue;
     emit(world, events, {
       type: "tax-rate-set",
       actorId: step.holderId,
@@ -3251,13 +3262,13 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[]): void {
   }
 }
 
-export function runTick(world: WorldState): TickResult {
+export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
   const rng = new DeterministicRng(world.rngState);
   const events: SimEvent[] = [];
 
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
-  chooseAutonomousTaxRates(world, events);
+  chooseAutonomousTaxRates(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
   processCaptivityDeadlines(world, events, rng);
@@ -3358,10 +3369,10 @@ export function runTick(world: WorldState): TickResult {
   return { state: world, events };
 }
 
-export function runTicks(world: WorldState, count: number): { state: WorldState; events: SimEvent[] } {
+export function runTicks(world: WorldState, count: number, options: TickOptions = {}): { state: WorldState; events: SimEvent[] } {
   const events: SimEvent[] = [];
   for (let index = 0; index < count; index += 1) {
-    events.push(...runTick(world).events);
+    events.push(...runTick(world, options).events);
   }
   return { state: world, events };
 }

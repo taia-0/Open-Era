@@ -14,10 +14,11 @@ import { autonomousTaxStep } from "../src/sim/tax-rate.ts";
 import type { SimEvent, WorldState } from "../src/sim/types.ts";
 
 /**
- * Slice 3. A free non-player holder steps the faction rate one cent on the
- * 24-tick clock, down when a held port is at or under 55, up when the
- * treasury cannot pay every free mate a day of passage. A human holder is
- * never the writer. The acting commander is not the writer.
+ * Slice 3. A free holder steps the faction rate one cent on the 24-tick
+ * clock, down when a held port is at or under 55, up when the treasury
+ * cannot pay every free mate a day of passage. A headless run includes a
+ * human holder. A live session skips her. The acting commander is not the
+ * writer.
  */
 
 const PLAYER = "prototype-player";
@@ -147,12 +148,15 @@ test("the clock is every 24 ticks after tick 0, and a recent set waits", () => {
   assert.equal(autonomousTaxStep(world, "free-tide"), null);
 });
 
-test("a human holder and a captive holder do not step, and the cover does not inherit it", () => {
+test("the rule includes a human holder, and a captive holder stays out", () => {
   const human = clockWorld();
   press(human, "world-government", 10);
   human.factions["world-government"].treasury = 0;
   assert.equal(human.characters["character-01"].controller.kind, "human");
-  assert.equal(autonomousTaxStep(human, "world-government"), null);
+  const step = autonomousTaxStep(human, "world-government");
+  assert.equal(step?.holderId, "character-01");
+  assert.equal(step?.taxRate, 0.13);
+  assert.equal(step?.previousTaxRate, 0.14);
 
   const captive = clockWorld();
   forceCapture(captive, "character-14");
@@ -164,7 +168,7 @@ test("a human holder and a captive holder do not step, and the cover does not in
   assert.equal(autonomousTaxStep(captive, "free-tide"), null);
 });
 
-test("the step is emitted after upkeep, writes the rate, and leaves the player faction alone", () => {
+test("the step is emitted after upkeep and writes the rate", () => {
   const world = createPrototypeWorld(1847);
   runTicks(world, 24);
   assert.equal(world.tick, 24);
@@ -172,8 +176,6 @@ test("the step is emitted after upkeep, writes the rate, and leaves the player f
   assert.equal(world.factions["world-government"].taxRate, 0.14);
   press(world, "free-tide", 90);
   world.factions["free-tide"].treasury = 1;
-  press(world, "world-government", 10);
-  world.factions["world-government"].treasury = 0;
 
   const tick = runTick(world);
   const sets = tick.events.filter((event) => event.type === "tax-rate-set");
@@ -202,7 +204,6 @@ test("a player set on the clock tick lands first and the autonomous step waits",
   runTicks(world, 24);
   const queued = submitCommand(world, { playerId: PLAYER, type: "set-tax-rate", taxRate: 0.2 });
   assert.equal(queued.ok, true);
-  world.characters["character-01"].controller = { kind: "autonomous" };
   press(world, "world-government", 10);
 
   const tick = runTick(world);
@@ -214,10 +215,10 @@ test("a player set on the clock tick lands first and the autonomous step waits",
   assert.equal(world.factions["world-government"].taxRateSetTick, 24);
 });
 
-test("factions step in id order", () => {
+test("factions step in id order, and a headless run includes the human holder", () => {
   const world = createPrototypeWorld(1847);
   runTicks(world, 24);
-  world.characters["character-01"].controller = { kind: "autonomous" };
+  assert.equal(world.characters["character-01"].controller.kind, "human");
   press(world, "free-tide", 40);
   press(world, "world-government", 40);
   const tick = runTick(world);
@@ -227,6 +228,48 @@ test("factions step in id order", () => {
   assert.equal(sets[1].data.taxRate, 0.13);
   assert.equal(sets[0].actorId, "character-14");
   assert.equal(sets[1].actorId, "character-01");
+});
+
+test("a live session skips the human holder", () => {
+  const world = createPrototypeWorld(1847);
+  runTicks(world, 24);
+  press(world, "world-government", 10);
+  world.factions["world-government"].treasury = 0;
+  const tick = runTick(world, { liveSession: true });
+  assert.equal(tick.events.some((event) => event.type === "tax-rate-set" && event.targetId === "world-government"), false);
+  assert.equal(world.factions["world-government"].taxRate, 0.14);
+  assert.equal(Object.hasOwn(world.factions["world-government"], "taxRateSetTick"), false);
+
+  const headless = createPrototypeWorld(1847);
+  runTicks(headless, 24);
+  press(headless, "world-government", 10);
+  headless.factions["world-government"].treasury = 0;
+  const chosen = runTick(headless);
+  const set = chosen.events.find((event) => event.type === "tax-rate-set" && event.targetId === "world-government");
+  assert.ok(set);
+  assert.equal(set.actorId, "character-01");
+  assert.equal(set.data.taxRate, 0.13);
+  assert.equal(Object.hasOwn(set.data, "commandId"), false);
+  assert.equal(headless.factions["world-government"].taxRate, 0.13);
+});
+
+test("seed 2718 lets Mara choose at tick 216 in a headless run and not in a live session", () => {
+  const headless = runTicks(createPrototypeWorld(2718), 217);
+  const set = headless.events.find((event) => event.type === "tax-rate-set" && event.targetId === "world-government");
+  assert.ok(set);
+  assert.equal(set.tick, 216);
+  assert.equal(set.sequence, 25812);
+  assert.equal(set.actorId, "character-01");
+  assert.equal(set.data.taxRate, 0.13);
+  assert.equal(set.data.previousTaxRate, 0.14);
+  assert.equal(Object.hasOwn(set.data, "commandId"), false);
+  assert.equal(headless.state.factions["world-government"].taxRate, 0.13);
+  assert.equal(headless.state.factions["world-government"].taxRateSetTick, 216);
+
+  const live = runTicks(createPrototypeWorld(2718), 217, { liveSession: true });
+  assert.equal(live.events.some((event) => event.type === "tax-rate-set" && event.actorId === "character-01"), false);
+  assert.equal(live.state.factions["world-government"].taxRate, 0.14);
+  assert.equal(Object.hasOwn(live.state.factions["world-government"], "taxRateSetTick"), false);
 });
 
 test("a captive holder emits nothing on the clock tick", () => {

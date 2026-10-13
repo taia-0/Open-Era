@@ -148,13 +148,13 @@ test("briefing titles on a held captain and on returned troops are sentences", (
   assert.deepEqual(returns.map((event) => event.tick), [209, 215]);
 
   // The balance share moved the held-captain check-in off tick 760.
-  const held = runTicks(createPrototypeWorld(2718), 793);
+  // The headless World Government step at tick 216 on seed 2718 moved Mara's hold to tick 1001.
+  const held = runTicks(createPrototypeWorld(2718), 1002);
   assert.equal(held.state.characters["character-01"].captivity?.settlementId, "crown-harbor");
   const heldView = dashboardState(held.state, held.events, fullEventFeed(held.events)) as {
     briefing: { items: Array<{ id: string; title: string }> };
   };
-  // The autonomous Free Tide step, first at tick 384 on seed 2718, moved the capture tick.
-  const captivity = heldView.briefing.items.find((item) => item.id === "captivity:791");
+  const captivity = heldView.briefing.items.find((item) => item.id === "captivity:1001");
   assert.ok(captivity);
   assert.equal(captivity.title, "A captain is held captive.");
 });
@@ -173,6 +173,7 @@ test("the loyalty note uses plain words and only the rounded figure", () => {
 test("seed 1847 shows the release debt and the ransom credit the line already states", () => {
   // Treasury spending moved the debt line from Sable Morrow at tick 119. The balance share moved it to Bram Quill at tick 771.
   // The autonomous Free Tide step, first at tick 120 on seed 1847, moved it to Jun Marrow at Glassport.
+  // The headless World Government step at tick 432 changed the unpaid amount.
   const at702 = runTicks(createPrototypeWorld(1847), 702);
   const mara = at702.state.characters["character-01"];
   const jun = at702.state.characters["character-05"];
@@ -181,21 +182,23 @@ test("seed 1847 shows the release debt and the ransom credit the line already st
   const paxCard = projectCharacter(at702.state, mara, pax, at702.events);
   assert.equal(jun.name, "Jun Marrow");
   assert.equal(junCard.debts, null);
-  assert.equal(junCard.releaseDebtNote, "Owes 528.49 from the release at Glassport.");
-  assert.equal(paxCard.money, 1680.28);
+  assert.equal(junCard.releaseDebtNote, "Owes 390.95 from the release at Glassport.");
+  assert.equal(pax.locationId, "glassport");
+  assert.equal(pax.money, 1691.75);
+  assert.equal(paxCard.money, null);
   assert.equal(paxCard.ransomIncomeNote, null);
 
   const at902 = runTicks(createPrototypeWorld(1847), 902);
   const before = stateHash(at902.state);
   const maraLater = at902.state.characters["character-01"];
-  const kessa = at902.state.characters["character-10"];
+  const mina = at902.state.characters["character-15"];
   const dax = at902.state.characters["character-20"];
-  const kessaCard = projectCharacter(at902.state, maraLater, kessa, at902.events);
+  const minaCard = projectCharacter(at902.state, maraLater, mina, at902.events);
   const daxCard = projectCharacter(at902.state, maraLater, dax, at902.events);
   const maraCard = projectCharacter(at902.state, maraLater, maraLater, at902.events);
-  assert.equal(kessa.name, "Kessa Calder");
-  assert.equal(kessa.captivity, null);
-  assert.equal(kessaCard.releaseDebtNote, "Owes 342.95 from the release at Cinder Key.");
+  assert.equal(mina.name, "Mina Vale");
+  assert.equal(mina.captivity, null);
+  assert.equal(minaCard.releaseDebtNote, "Owes 53.04 from the release at Crown Harbor.");
   assert.equal(dax.captivity, null);
   assert.equal(daxCard.releaseDebtNote, null);
   assert.equal(maraCard.money, 108);

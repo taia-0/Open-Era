@@ -147,8 +147,9 @@ test("seed 1847 names both captains and does not say each one took the port", ()
     event.type === "battle-resolved" && event.tick === 438 && event.settlementId === "glassport",
   );
   const sharedFeed = projectEventFeed(shared.state, "character-01", wins);
-  const junShared = sharedFeed.find((row) => row.sequence === 54720);
-  const vale = sharedFeed.find((row) => row.sequence === 54737);
+  // The headless World Government step at tick 432 shifted these sequences by one.
+  const junShared = sharedFeed.find((row) => row.sequence === 54721);
+  const vale = sharedFeed.find((row) => row.sequence === 54738);
   assert.equal(
     junShared?.summary,
     "Jun Marrow won the fight at Glassport on a higher score, after morale gave out. 2 captains won a fight here on this tick: Jun Marrow, Vale Drake. This fight left the garrison standing. A surrender was offered.",
@@ -169,8 +170,9 @@ test("seed 1847 names both captains and does not say each one took the port", ()
 test("seed 1847 tick 438 says morale gave out, and does not say nerve broke", () => {
   // Treasury spending moved this fight off tick 594. The balance share moved it to Crown Harbor on tick 671.
   // The autonomous Free Tide step, first at tick 120 on seed 1847, moved it to Glassport on tick 438.
+  // The headless World Government step at tick 432 shifted the sequence by one.
   const run = runTicks(createPrototypeWorld(1847), 439);
-  const battle = run.events.find((event) => event.sequence === 54720);
+  const battle = run.events.find((event) => event.sequence === 54721);
   assert.ok(battle);
   assert.equal(battle.type, "battle-resolved");
   assert.equal(battle.tick, 438);

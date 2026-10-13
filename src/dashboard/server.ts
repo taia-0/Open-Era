@@ -158,7 +158,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         let attentionUpdated = false;
         const produced: SimEvent[] = [];
         for (let index = 0; index < ticks; index += 1) {
-          const result = runTick(world);
+          const result = runTick(world, { liveSession: true });
           const conversationEvents = await resolveDueReplies(world, dialogueProvider);
           const tickEvents = [...result.events, ...conversationEvents];
           store.appendTick(tickEvents, world);
