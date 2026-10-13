@@ -1,6 +1,6 @@
 # Money at sea
 
-**Status: Open / design brief.** Nothing in this note is in the tree. The census is a local readout of the baseline tape. Each writing rule was applied by a local harness, measured alone, and restored.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). Nothing in this note is in the tree. The census is a local readout of the baseline tape. Each writing rule was applied by a local harness, measured alone, and restored.
 
 Checked on `origin/main` at `5107d7811abf87ed5775c9f774a29845ea046d72` (PR #115). Node v24.21.0, ICU 78.3. `npm test` passed, 439 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the current 1200-tick baseline:
 
@@ -184,3 +184,11 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 8. **What does the shortfall do to loyalty and morale?** Default: the scar that is already stored, and no morale write. Scarred releases are 10, 3, and 5. Finn Frost ends at 0.242 and Mina Vale at 0.231. The release event does not assign morale. A missed later day still passes with no mark. Negotiation does not bargain this tape: the payment stays `min(purse, demand)`, and a counter was not run. The feed sentence already states the coins paid, the debt, and that loyalty fell. The stored debt row stays on the debtor. A news ledger that drops the amount was not run.
 
 9. **What moves the hash?** Default: slice 1 stays on the baseline table, tick 72 `86507558d49cee305c5f663e1699aacc19d66356ce518d4c32ac1e07085d8687`, `c6268c398c5b8a674a1bef8a675cd74c747392e3fb767a67e1ebd8bc1a4143f6`, and `d62ab7f9c9e840b55c012fb1d8f2fe6929a61359178b4daf7b5eb10cbf7bca95`, with 8426, 8335, and 8266 events, and tick 1200 `9c22f0fe85a923526bc94f2f840a722d7d758509f35dd8422b9247e1c03750ac`, `5169b16f45f28edfde3b6e8f230652ba40651b5e336d9225992ea1606e901688`, and `ec5ec0af8d0adb1586b1022f8acdc2ce85f948348e069f67ca4847e9510ce4da`, with 164969, 164659, and 164118 events. Slice 4 stays on that tick-72 fixture and moves tick 1200. Slice 2 moves both horizons. Slice 3 leaves seed 1847 on the tick-72 fixture and moves the other two hashes without changing their event counts. No new draw on the wage. The raid and the capture write purses and treasuries, and the later world follows.
+
+## Ruling
+
+The Lead has ruled.
+
+The defaults in section 9 are accepted. The Lead accepted every default with no exceptions. The day's-wage collector is the build slice. Purse seizure stays out entirely and is not scaled down. Whole-purse capture is rejected.
+
+Slice 2 does not land. Slice 3 does not land. Slice 4 does. The 72-tick fixture stays. Tick 1200 moves. The collector's hashes are the wage table in section 7.
