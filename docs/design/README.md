@@ -34,7 +34,8 @@ These documents capture the decisions made during the initial design conversatio
 - [Leader tax](leader-tax.md) — Open / design brief: the free command holder sets the faction tax rate; the rate is already stored, and the first slice leaves autonomous leaders on the scenario constant
 - [Secession](secession.md) — Open / design brief: a settlement owner declares the break; garrison and local characters follow from tax, stability, provisions, and loyalty, and nothing rebels on its own
 - [Offices](offices.md) — Open / design brief: the free command holder appoints a port governor, the secession read uses that governor, and a stipend is paid only when the treasury's headroom covers it. The roster addendum is ruled: three posts, no treasurer or admiral, and a breakaway appoints nobody
-- [Income](income.md) — Open / design brief: Free Tide is short from tick 113, 377, and 109, and the measured repair is a 0.05 levy on work and sales while a governor is seated
+- [Income](income.md) — Ruled: the 0.05 governor levy stands on its own. No pay-first order, no reserve floor, and the surplus-only draw was not run
+- [Money at sea](money-at-sea.md) — Open / design brief: the purse sails with the ship, a raid does not take the coin on the dock, and a ransom that is only partly paid stays owed
 - [Alliances](alliances.md) — Open / design brief: two factions ally or break from a shared enemy, raid losses, treasury, and port proximity, and a pact is not forced to restore balance
 - [Aging](aging.md) — Ruled: a year is 180 ticks and the run stays 1200, death draws use a side stream, and the other defaults in the brief stand
 - [Progression](progression.md) — Ruled: every default stands, and the skill step ships first with a fixture re-pin
