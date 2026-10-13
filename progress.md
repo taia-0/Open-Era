@@ -154,8 +154,10 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
 - **Verified** — Base `f02ed4ec30e1f10e5a2c59789cdd705c205dc869`. Node v24.21.0. No `golden:update`. `npm test` is 456 pass and 0 fail. `npm run typecheck` is clean. `./scripts/evaluate-milestone.sh batch1-polish` passed, including recovery. The continuous 72-tick seed 1847 hash and the split at tick 47 plus 25 ticks match: `86507558d49cee305c5f663e1699aacc19d66356ce518d4c32ac1e07085d8687`. Recovery replayed 600 events. 72 ticks: `86507558` / `c6268c39` / `d62ab7f9`, events 8426 / 8335 / 8266. 1200 ticks, headless, no commands: `7314d632250b133a87b114668d8d972d65733734a17503fa02496747dc496fb7` (1847, 163059), `b7015fced2f2b04e86e0877142aad82ae4f0b4ea5c54e66e2651edea33581d3e` (2718, 165135), `7f0f865b7686a6e479e45b65406b1adc3b49326e0dd354f199b62bcd60bac214` (4096, 168755). None of those hashes moved.
 
   Dashboard HTTP on `127.0.0.1:4317`, seed 1847, `prototype-player`, live session, no command. Sequence 13380 is `Mina Vale's upkeep was recorded.` and does not contain `Pay was short`. Her card at tick 114 still says pay is short. No upkeep row through the tick-977 advance adds the short-pay clause for Mara: she holds World Government, and Mina is Free Tide. The tick-175 advance has `Finn Frost left Free Tide Compact.` and `Bram Tern left Free Tide Compact.`, both with `data` null. Sequence 107676 is `Corin Hale paid toward a debt to Free Tide Compact.`, `data` null. Sequence 124572 is `Mina Vale paid 15.26 toward a debt to World Government.`, `payloadWithheld` false, because World Government is the creditor. The plan is [batch1-polish-001](docs/playtests/batch1-polish-001.md).
+
+  Blind operator, separate from the readings above. HEAD `1f1081854d547775ba752d3cc38ffaca55802ded` before the first request. Node v24.21.0, ICU 78.3. Seed 1847, one process, no command. `beforeSequence` omitted. Every checkpoint in [batch1-polish-001](docs/playtests/batch1-polish-001.md) matched. Verdict `PROMOTE`.
 - **Left open** — A separate operator has not run the blind plan.
-- **Links** — [batch1-polish-001](docs/playtests/batch1-polish-001.md)
+- **Links** — [batch1-polish-001](docs/playtests/batch1-polish-001.md) (`PROMOTE` at `1f10818`)
 
 ### 2026-10-13 — Batch 1: a day's wage, the short-pay term, and desertion
 
