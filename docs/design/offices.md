@@ -16,7 +16,7 @@ Runs are `createPrototypeWorld` plus `runTick`, no player commands. A figure at 
 
 ## Summary
 
-The new office is port governor, one per settlement a faction holds. Command stays the seat that already issues standing orders. The reporting officer stays a briefing job. The free command holder appoints the governor and may remove them. The acting commander does neither, and does not set the tax, issue orders, or declare. The governor's command, in this brief, is the secession declaration. Their income is a stipend of 18 a day, paid only when the treasury still covers 18 for every free mate and 18 for every seat. Their influence on the tax is the gate already written in [secession](secession.md): a holding rate above 0.15 is what opens the declaration. They do not write `taxRate`. Patronage moves the scarred loyalty by 0.04, the step the unpaid-release scar already uses, in the other direction. It was not resimulated.
+The new office is port governor, one per settlement a faction holds. Command stays the seat that already issues standing orders. The reporting officer stays a briefing job. The free command holder appoints the governor and may remove them. The acting commander does neither, and does not set the tax, issue orders, or declare. The governor's command, in this brief, is the secession declaration. Their income is a stipend of 18 a day, paid only when the treasury still covers 18 for every free mate and 18 for every seat. Their influence on the tax is the gate already written in [secession](secession.md): a holding rate above 0.15 is what opens the declaration. They do not write `taxRate`. Patronage moves the scarred loyalty by 0.04, the step the unpaid-release scar already uses, in the other direction. The resimulation is [Patronage resimulation](#patronage-resimulation).
 
 On today's rates the secession gate stays shut, with or without a governor. Under the [leader tax](leader-tax.md) slice 3 rule, floor 55, the owner-gate spells stay 15, 7, and 9. The ticks inside those spells where the declarer is present, free, and not the command holder fall from 160, 99, and 212 to 137, 50, and 155 if the declarer is the sticky governor. The governor is often away. This slice does not hold them on the dock.
 
@@ -86,7 +86,7 @@ No scripted revolt. A dominant faction keeps its governors for as long as it hol
 
 Patronage uses the scar's step in the other direction. On appointment, the scarred reading rises by 0.04. On removal, it falls by 0.04. The write is `round(clamp(value, 0.05, 0.98), 3)`, the same clamp as the scar. The stored field is `patronageAdjustment`, omitted at 0, so a removal does not erase an unpaid-release scar and a scar does not erase a patronage. The cover sort and the secession follow line add both. The other loyalty reads stay on the seed.
 
-The step was applied as a readout at the moment of each governor's first seating. It was not written into the world, and the 1200-tick run was not repeated with it.
+The step was applied as a readout at the moment of each governor's first seating. That pass did not write the field. The run that stores it is [Patronage resimulation](#patronage-resimulation).
 
 | Seed | Distinct governors | Already at or above 0.75 | Cross 0.75 | Stay under 0.75 |
 | ---: | ---: | ---: | ---: | ---: |
@@ -241,7 +241,7 @@ At tick 1200, baseline rates, three ports owned on every seed. Pax Ash owns Glas
 | 2 | `appoint-governor` and `remove-governor`, the reducer, and `office-appointed`. `governorId` omitted until an appointment. No autonomous caller. A headless run never queues the command. | Neutral, for the same reason a headless run emits no `tax-rate-set`. A session that appoints moves the state hash on that tick. That session was not run. |
 | 3 | The autonomous appointment in section 2. The event carries the governor id. The reducer writes `governorId`. | Moves the 72-tick fixture. The opening ports receive a governor at state tick 0, which is inside the window. The new hash was not measured. |
 | 4 | The stipend. Eighteen per seat per day, drawn only when headroom covers every seat, else 0. The mates' cap is unchanged. | Moves the 72-tick fixture. Opening headroom is 17784 and 2656, so the first day can pay. The new hash was not measured. |
-| 5 | Patronage. `patronageAdjustment` of one 0.04 step on appointment, and the reverse on removal. The cover sort and the secession follow line add it. Work, goals, and obedience stay on the seed. | Moves the 72-tick fixture on the same tick as slice 3, because the opening governors are named at state tick 0. The crossings in section 4 are a readout. The run with the field stored was not hashed. |
+| 5 | Patronage. `patronageAdjustment` of one 0.04 step on appointment, and the reverse on removal. The cover sort and the secession follow line add it. Work, goals, and obedience stay on the seed. | Moves the 72-tick fixture. The opening governors are named at state tick 0. Event counts stay 8413, 8456, and 8261. The hashes are in [Patronage resimulation](#patronage-resimulation). |
 | 6 | The secession declarer is the governor. `ownerId` stays the claimant. No governor means nobody declares. | Neutral on today's rates: the gate is 0 spells with either declarer, so a walker emits nothing. Under slice 3 the full-gate port-ticks change as in section 5. Those declarations were not emitted, and that hash was not measured. |
 
 Slice 3 should not ship as a silent rewrite of the fixture. The Lead can keep slices 1 and 2, which leave the golden file where it is, and take the autonomous appointment in a later change that regenerates the fixture on Node v24.21.0, ICU 78.3.
@@ -262,8 +262,78 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 
 6. **How does the office bear on the tax?** Default: it does not write `taxRate`. The free holder remains the only writer. The acting commander still does not set it. The influence is the gate. A rate above 0.15 is what lets this governor declare. A rate at or under it leaves the gate shut, which is the whole of the baseline.
 
-7. **How does patronage move loyalty?** Default: one step of 0.04 on appointment, and the reverse on removal, stored as `patronageAdjustment`, added by the cover sort and the secession follow line. The other loyalty reads stay on the seed. The step was not resimulated. It crosses 0.75 for Jun Marrow and Niko Wren on 1847, for nobody on 2718, and for Sable Morrow on 4096.
+7. **How does patronage move loyalty?** Default: one step of 0.04 on appointment, and the reverse on removal, stored as `patronageAdjustment`, added by the cover sort and the secession follow line. The other loyalty reads stay on the seed. The resimulation kept the step. It crosses 0.75 for Jun Marrow and Niko Wren on 1847, for nobody on 2718, and for Sable Morrow on 4096. Under the slice 3 rule the same step also lifts a scarred Iris Stone on 4096. No governor-full spell loses a follower.
 
 8. **Does a governor who sails get replaced?** Default: no. The seat is sticky, and this slice does not change travel. That is why the full gate shrinks. Renaming the governor every state from whoever is anchored, the dock column, gives 183, 99, and 231 full port-ticks. That rule was measured and is not the default.
 
 9. **Does a captive or absent governor get a deputy?** Default: no. The command seat already has the acting commander, and that cover does not appoint, remove, or declare. The governor's seat waits. [Game vision](game-vision.md) says offices continue through deputies while a human officeholder is away. Mara's command seat is that case. A deputy for the governor waits until the Lead asks for one.
+
+## Patronage resimulation
+
+The 0.04 step was written onto the world and the 1200-tick run was repeated. The harness was local and was not left in the tree. Checked on `1535ad80122467078f370fd5cb4ade0e34ce577a`. Node v24.21.0, ICU 78.3. `npm test` passed, 374 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events. The 1200-tick baseline matched the table at the top of this note.
+
+While a character holds a governor seat, `patronageAdjustment` is `round(clamp(base + 0.04, 0.05, 0.98) − base, 3)`, omitted at 0. `base` is `personality.loyalty + (loyaltyAdjustment ?? 0)`. Clearing the seat deletes the field. That is the full 0.04 in reverse when the ceiling did not bind. When the ceiling binds, the stored step is smaller than 0.04, and deletion drops the reading by that smaller step. The appointment sort still uses `base` only, which is the sort in section 2. The cover sort adds the field. The dock sort, work, goals, and obedience stay on the seed. Secession was not emitted. The follow line was read beside the run.
+
+On today's rates the ordered event identity matches the baseline: type, tick, actor, settlement, and target. The cover sort never names a different mate. Seatings are 26, 27, and 33. Distinct governors are 13, 13, and 13. The first-seating crossings are the ones in section 4: Jun Marrow, 0.73 to 0.77, Crown Harbor at state tick 0, and again on later seatings; Niko Wren, 0.74 to 0.78, Glassport at state tick 423; Sable Morrow, 0.739 to 0.779, Cinder Key at state tick 45. Seed 2718 still crosses nobody.
+
+Faction members are the 22 characters with a faction. Quartiles are the linear index `(n − 1) * p` on the follow reading at state tick 1200, then rounded to 3 decimals. "Below" is a reading under 0.75. Member-states are those 22 on each of the 1201 states, 26422.
+
+| Seed | Without patronage | With patronage | Below at tick 1200 | Member-states below | Lifted, states |
+| ---: | --- | --- | --- | --- | --- |
+| 1847 | 0.322 / 0.538 / 0.687 / 0.781 / 0.971 | 0.322 / 0.547 / 0.687 / 0.781 / 0.971 | 14 and 14 | 16814 → 15959 | Jun Marrow 808, Niko Wren 47 |
+| 2718 | 0.307 / 0.496 / 0.612 / 0.829 / 0.978 | 0.307 / 0.496 / 0.612 / 0.831 / 0.98 | 12 and 12 | 14412 → 14412 | none |
+| 4096 | 0.271 / 0.508 / 0.639 / 0.75 / 0.979 | 0.271 / 0.508 / 0.639 / 0.75 / 0.98 | 16 and 16 | 19216 → 19213 | Sable Morrow 3 |
+
+At tick 1200 the headcount under 0.75 does not move: the governors then seated are already outside the band, or the step does not reach 0.75. On 1847 the seated readings are Bram Quill 0.804 → 0.844, Kessa Calder 0.539 → 0.579, and Zara Gale 0.838 → 0.878. On 2718 they are Iris Stone 0.79 → 0.83, Esme Dusk 0.784 → 0.824, and Corin Hale 0.978 → 0.98. On 4096 they are Iris Stone 0.766 → 0.806, Rook Tern 0.979 → 0.98, and Corin Hale 0.825 → 0.865. By faction, the tick-1200 counts under 0.75 are World Government 9, 8, and 9 of 13, and Free Tide 5, 4, and 7 of 9, with or without the step. The distinct members who are under 0.75 on at least one state stay 14, 12, and 16. The step lifts a seated governor for some of those states. It does not remove them from the set, because they are under the line again once the seat is cleared.
+
+The ceiling binds on Mara Calder for 326 states (1847), Corin Hale for 166 states (2718), and Rook Tern for 279 states (4096). At tick 1200 the stored steps on that ceiling are Corin Hale 0.002 and Rook Tern 0.001.
+
+### Slice 3, with the governor reading secession
+
+The same field was stored on the slice 3 world: graded drift, floor 55, both free holders stepping. That world without the field reproduces the addendum hashes: `28866eb80bd48798c78791dd8f0c4093b9ffecfb8009421db7dd2c109d4f1e47` (161658), `712b60edc75c313f17e774951f43aa84fcd487fbc29c422215cd602b19665be8` (161613), and `b0ac72fe452697010e58570136737e4dd8ed12770a2e86863bfdaa76ee07e114` (162327). With the field stored, the ordered event identity still matches that world. Ending rates stay 0.08 / 0.16, 0.11 / 0.16, and 0.14 / 0.17.
+
+The gate is unchanged by the step. Owner broad port-ticks stay 246, 103, and 333, in 15, 7, and 9 spells. Owner full stays 160, 99, and 212, in 12, 5, and 7 spells. Governor broad stays 214, 103, and 281, in 15, 7, and 9 spells. Governor full stays 137, 50, and 155, in 13, 5, and 7 spells. Unowned governor-full port-ticks: 0.
+
+Followers are counted at the first governor-full state of each ownership spell, with the governor as the declarer. The sums are 12, 2, and 12 with the step and 12, 2, and 12 without it. Viable spells, at least one follower, are 8, 2, and 5 either way. No governor-full state loses a follower. The people the step lifts are the declarer, or they are not on that dock. Jun Marrow is lifted for 606 states and Niko Wren for 185, both on 1847. Seed 2718 lifts nobody. On 4096 Sable Morrow is lifted for 297 states and Iris Stone, scarred to 0.726 and seated at Cinder Key at state tick 902, for 85. Iris returns to 0.766 while the seat is held.
+
+Quartiles on that world, without the step and with it:
+
+| Seed | Without | With | Below at tick 1200 | Member-states below |
+| ---: | --- | --- | --- | --- |
+| 1847 | 0.322 / 0.548 / 0.662 / 0.781 / 0.971 | 0.322 / 0.548 / 0.669 / 0.781 / 0.971 | 15 and 15 | 16851 → 16060 |
+| 2718 | 0.307 / 0.497 / 0.592 / 0.829 / 0.978 | 0.347 / 0.497 / 0.592 / 0.829 / 0.98 | 12 and 12 | 14412 → 14412 |
+| 4096 | 0.271 / 0.508 / 0.639 / 0.741 / 0.899 | 0.271 / 0.535 / 0.639 / 0.742 / 0.899 | 17 and 17 | 19895 → 19513 |
+
+The 2718 minimum moves because Niko Wren is seated at tick 1200, 0.307 to 0.347, which is still under 0.75. By faction the tick-1200 counts are World Government 10, 8, and 10 of 13, and Free Tide 5, 4, and 7 of 9, either way. Seatings on this world are 33, 26, and 25. Distinct governors are 15, 15, and 12. The ceiling binds on Iris Stone for 234 states (1847) and Corin Hale for 151 states (2718). Seed 4096 does not hit it. At tick 1200 Corin Hale's stored step is 0.002.
+
+The cover sort names a different mate once. On seed 4096, at state tick 818, World Government's cover is Toma Reef (`character-07`) instead of Iris Stone (`character-06`). The event log does not move. Seeds 1847 and 2718 keep the slice 3 cover on every state.
+
+No desertion event and no defection event exist under `src/`. `factionId` at tick 1200 matches tick 0 for all 30 characters, on the baseline, on today's rates with the field stored, and on the slice 3 world with the field stored. Battle defeats stay the battle result. They are not a faction change.
+
+### Hash
+
+Storing the seat, with no patronage field, already moves the hash. Event counts stay on the baseline.
+
+| Seed | Tick 72 | Events | Tick 1200 | Events |
+| ---: | --- | ---: | --- | ---: |
+| 1847 | `8d91d0072b011a2616cd427165019687d194ea244706bd1cf97bb527d74dd074` | 8413 | `18a43b6fe9072e57efe6b13b3f6dfce5af74622123161adfd897399b8441b02e` | 160268 |
+| 2718 | `23d8fb8b703fca6d97afeffc51e009ffa7651242545a8777389e293083a2a98e` | 8456 | `88e629280e6078d88c6301f836fb5ffa3145854f1d8a7fececbf333d620a155c` | 161850 |
+| 4096 | `b29cf4d14c33bc0ab66ee99d5c625bc12dfcfbdb78ee25ff4a9625e2fe3b0760` | 8261 | `2ff153dd845d01e590bafaf48ff1aca9aaa59bb82248cced3b60d51ea21c7b63` | 162459 |
+
+Storing the 0.04 field on top of the seat moves the hash again. Event counts still stay on the baseline. Tick 72 is inside the fixture window because the opening seats are named at state tick 0.
+
+| Seed | Tick 72 | Events | Tick 1200 | Events |
+| ---: | --- | ---: | --- | ---: |
+| 1847 | `8f07459913647d163c54c338e9a8b983435c8f0b4d5a717c023a8e0e9950cb1f` | 8413 | `87c2297dd9b97f3e4e68acffa31882a5f9d464081f0310974dd94f29f26733bd` | 160268 |
+| 2718 | `c6782bc81a9702c353a58e2e3fe3eaeac3b40fdd53560774820fb1bc741b3591` | 8456 | `d42121ddcceb7879f90cd8561a4bcfd7a8ae19864daa975adaa98846431ddf67` | 161850 |
+| 4096 | `f2b22ad821e01d371354416ad290786879f0040079b46abbbdc6a44b53c4c4c1` | 8261 | `33cdaba3d762b0499404667fc52451028fd3eb5d10763f3df76055ac351ab317` | 162459 |
+
+On the slice 3 world the first `tax-rate-set` is still outside 72 ticks, so tick 72 with the field stored is the same three hashes as the table above. Tick 1200 moves off the addendum hashes. Event counts stay 161658, 161613, and 162327.
+
+| Seed | Tick 1200 with the field | Events |
+| ---: | --- | ---: |
+| 1847 | `8dd0eede9526ed9e032ae338b32fc0f7f4981ad7bb86436f8266fd9aac937697` | 161658 |
+| 2718 | `a640895d448e284601758f8c34bff757852817713b102ec3f4972364512aa886` | 161613 |
+| 4096 | `3ce72c067ac47182d868137c79b9228b0a76dc5bed0d5f17c9d30028dd052437` | 162327 |
+
+**The step should stand.** It is the scar's step, in the other direction. On these seeds it lifts seated governors across 0.75 and does not change who follows a declaration, how many spells open, or the event log. The hash moves because the field is stored. A larger step was not run.
