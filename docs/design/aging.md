@@ -304,3 +304,11 @@ The 72-tick state hash stayed on the fixture for every seed. No death has an eve
 Tick 1200 event counts are 159664, 156271, and 159974. Ending treasuries are World Government 13652.48, 14355.47, and 13799.49, and Free Tide 12.3, 45.66, and 150.72. Those match the check-in row in section 6. Replay of each log through `applyEvent` matched the live state hash.
 
 The chance from 80 to 120 is the accepted rule and was not remeasured here. Its roll stays on the side stream, stored only on the killing event. The tick rng stays the wrong stream.
+
+## Ruling, fixed death only
+
+The Lead has ruled again. Aging is a fixed death at age 120 only, with no per-tick chance. The chance from 80 to 120 does not land. `character-aged` does not land. The personal-power penalty does not land.
+
+This is the 1–2 deaths that ruling promised, at a year of 180 ticks: 1, 2, and 1. The names are the check-in row above. Tick 1080, Lio Crow (`character-12`), World Government, on 1847. Tick 180, Lio Crow (`character-12`), World Government, and tick 720, Esme Dusk (`character-19`), Free Tide, on 2718. Tick 540, Kessa Dusk (`character-30`), unaffiliated, on 4096. Each stored age is 120. The run draws nothing.
+
+The batch 2 stack that killed 13, 5, and 8 used a side-stream per-tick chance on top of the certain death at 120. That stack is superseded. The remeasure is in [build order](build-order.md).
