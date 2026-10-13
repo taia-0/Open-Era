@@ -1,6 +1,8 @@
 import { assessStandingOrder, garrisonConfidenceLabel } from "../sim/agency.ts";
 import { commandHolderId, factionPower, partyPower, partyPowerFromTroops, round } from "../sim/state.ts";
 import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder, SupplyContract, TravelState, WorldState } from "../sim/types.ts";
+import { PASSAGE_COST_PER_TICK } from "../sim/engine.ts";
+import { shortPayMember } from "../sim/allowance.ts";
 import { projectAllowance } from "./allowance.ts";
 import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
 
@@ -768,6 +770,14 @@ export function projectCharacter(
       : null,
     health: condition ? round(character.health, 1) : null,
     morale: condition ? round(character.morale, 1) : null,
+    /**
+     * Present when this card already shows morale and the mate's cap is under
+     * a day's passage. The holder is not a mate. A rival who is not alongside
+     * stays null, with the morale figure.
+     */
+    payNote: condition && shortPayMember(world, character, PASSAGE_COST_PER_TICK)
+      ? "Pay is short, so morale loses 0.5 on upkeep."
+      : null,
     sailors: condition ? character.sailors : null,
     troops: condition ? projectTroopFigures(character.troops) : null,
     /**

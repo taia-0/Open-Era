@@ -190,8 +190,9 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     }
     case "character-upkeep": {
       const passage = passageUpkeepSentence(world, event);
-      if (passage) return passage;
-      return publicFeedSentence(world, event);
+      const base = passage ?? publicFeedSentence(world, event);
+      if (event.data.shortPay === true) return `${base} Pay was short, and morale lost 0.5.`;
+      return base;
     }
     case "scattered-troops-returned":
       return `${event.data.returning} scattered troops returned to ${actor}`;

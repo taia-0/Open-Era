@@ -23,7 +23,7 @@ import {
   reviewPlan,
 } from "./agency.ts";
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
-import { resolvePassageCharge, resolveQuotedSpend, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
+import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
 import { autonomousSecessionReady, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import {
@@ -578,7 +578,10 @@ function upkeepCharacter(
   cargo.provisions = round(cargo.provisions - consumed);
   const shortage = round(demand - consumed);
   const troopLoss = shortage > 0 ? Math.min(character.troops.count, Math.floor(shortage * 0.5)) : 0;
-  const morale = clamp(character.morale - shortage * 2.4 - (traveling ? 0.03 : 0) + (shortage === 0 ? 0.04 : 0), 0, 100);
+  const hungerAndTravel = clamp(character.morale - shortage * 2.4 - (traveling ? 0.03 : 0) + (shortage === 0 ? 0.04 : 0), 0, 100);
+  // A short mate loses 0.5 after those terms. The holder is not a mate. No draw.
+  const shortPay = shortPayMember(world, character, PASSAGE_COST_PER_TICK);
+  const morale = shortPay ? clamp(hungerAndTravel - 0.5, 0, 100) : hungerAndTravel;
   const health = clamp(character.health - shortage * 0.8, 1, 100);
   // Provisions burn at the same rate at sea and at anchor. The passage charge
   // is the part that does not: a voyage has to be worth the money it costs,
@@ -596,6 +599,7 @@ function upkeepCharacter(
       shortage,
       cargo,
       morale: round(morale),
+      ...(shortPay ? { shortPay: true } : {}),
       health: round(health),
       troopCount: character.troops.count - troopLoss,
       troopLoss,
