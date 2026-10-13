@@ -46,25 +46,19 @@ function asString(value: unknown): string | null {
 }
 
 /**
- * A character is directly observed when the commander shares its location with
- * neither party travelling, or when it stands inside a settlement the commander's
- * faction controls. The second clause mirrors the standard the settlement
- * projection already applies to owned territory.
+ * A character is directly observed when the commander shares its settlement
+ * and neither party is travelling. A port the commander's faction holds does
+ * not count. Standing in Crown Harbor does not read a rival anchored in
+ * Glassport. A ship at sea is not co-located, because this test requires
+ * `travel === null` on both sides.
  */
-function isDirectlyObserved(world: WorldState, commander: Character, character: Character): boolean {
-  if (
+function isDirectlyObserved(_world: WorldState, commander: Character, character: Character): boolean {
+  return (
     commander.travel === null &&
     character.travel === null &&
     commander.locationId !== null &&
     commander.locationId === character.locationId
-  ) {
-    return true;
-  }
-  if (character.locationId === null || commander.factionId === null) return false;
-  // A party under way is at sea, so the port it departed is not where it is.
-  if (character.travel !== null) return false;
-  const settlement = world.settlements[character.locationId];
-  return Boolean(settlement && settlement.factionId === commander.factionId);
+  );
 }
 
 export function characterVisibilityTier(
@@ -694,6 +688,7 @@ export function projectCharacter(
 ): Record<string, unknown> {
   const intelligence = characterIntelligence(world, commander, character);
   const isSelf = intelligence.tier === "self";
+  const sameFaction = commander.factionId !== null && character.factionId === commander.factionId;
   const condition = intelligence.conditionExact;
   const capability = intelligence.capabilityExact;
 
@@ -729,7 +724,13 @@ export function projectCharacter(
     controller: character.controller,
     factionId: character.factionId,
     locationId: character.locationId,
-    travel: character.travel,
+    /**
+     * The viewer's own course, and a faction mate's course. A rival and an
+     * unaffiliated ship stay null. `locationId` stays, so a docked rival is
+     * still on the map. A sea sighting still reads the world's travel for a
+     * leg the commander is actually on.
+     */
+    travel: isSelf || sameFaction ? character.travel : null,
     money: condition ? round(character.money, 2) : null,
     cargo: condition ? character.cargo : null,
     /**

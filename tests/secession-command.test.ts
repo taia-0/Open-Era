@@ -7,6 +7,7 @@ import { runTick, runTicks } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { secessionDeclaredSentence } from "../src/dashboard/wording.ts";
 import {
+  autonomousFactionName,
   buildSecessionDeclaration,
   secessionFollowerIds,
   SECESSION_FACTION_COLOR,
@@ -278,7 +279,43 @@ test("an omitted builder name is Free plus the port, and an unpressed port store
   assert.equal(accepted.ok, true);
   runTick(world);
   assert.equal(harbor.garrison, 0);
-  assert.equal(world.factions[`secession-${mara(world).id}-crown-harbor-0`].name, "Mara Vane");
+  assert.equal(world.factions[`secession-${mara(world).id}-crown-harbor-0`].name, "Free Crown Harbor");
+});
+
+test("an omitted player name is Free plus the port, and a taken name takes the next roman suffix", () => {
+  const world = createPrototypeWorld(1847);
+  ownCrownHarbor(world);
+  const harbor = world.settlements["crown-harbor"];
+  assert.equal(autonomousFactionName(world, harbor), "Free Crown Harbor");
+  const accepted = submitCommand(world, { playerId: PLAYER, type: "declare-secession", settlementId: "crown-harbor" });
+  assert.equal(accepted.ok, true);
+  const tick = runTick(world);
+  const declared = tick.events.find((event) => event.type === "secession-declared");
+  assert.ok(declared);
+  const faction = declared.data.faction as { id: string; name: string };
+  assert.equal(faction.name, "Free Crown Harbor");
+  assert.equal(world.factions[faction.id].name, "Free Crown Harbor");
+
+  const taken = createPrototypeWorld(1847);
+  ownCrownHarbor(taken);
+  taken.factions["already-free"] = {
+    id: "already-free",
+    name: "Free Crown Harbor",
+    color: "#111111",
+    treasury: 0,
+    taxRate: 0.08,
+  };
+  assert.equal(autonomousFactionName(taken, taken.settlements["crown-harbor"]), "Free Crown Harbor II");
+  const again = submitCommand(taken, { playerId: PLAYER, type: "declare-secession", settlementId: "crown-harbor" });
+  assert.equal(again.ok, true);
+  const second = runTick(taken);
+  const renamed = second.events.find((event) => event.type === "secession-declared");
+  assert.ok(renamed);
+  const suffix = renamed.data.faction as { id: string; name: string };
+  assert.equal(suffix.name, "Free Crown Harbor II");
+  assert.equal(taken.factions[suffix.id].name, "Free Crown Harbor II");
+  assert.equal(taken.factions["already-free"].name, "Free Crown Harbor");
+  assert.equal(taken.settlements[harbor.id].factionId, suffix.id);
 });
 
 test("a player declaration keeps the name the player gives", () => {

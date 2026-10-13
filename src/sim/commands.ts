@@ -99,7 +99,7 @@ export type CommandRequest =
       playerId: string;
       type: "declare-secession";
       settlementId: string;
-      /** Omitted, the owner's name is used when the command runs. */
+      /** Omitted, the faction is "Free" plus the port, with a roman suffix when that name is taken. */
       name?: string;
     };
 
@@ -262,7 +262,7 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
         contractId: "required for cancel-contract",
         taxRate: `required for set-tax-rate; an absolute rate from ${COMMAND_LIMITS.taxRate.min.toFixed(2)} to ${COMMAND_LIMITS.taxRate.max.toFixed(2)} in steps of ${COMMAND_LIMITS.taxRate.step.toFixed(2)}. Only the free command holder may set it. Cooldown is ${COMMAND_LIMITS.taxRate.cooldownTicks} ticks. A repeat of the current rate is refused. The faction is the player's`,
         settlementId: "required for declare-secession; the port the owner is standing on. The character must be that port's owner, a member of the holding faction, anchored there, and not captive. A neutral port is refused. The tax and stability gate is not required",
-        name: "optional for declare-secession; the new faction's name. Omitted, the owner's name is used. An empty name is refused",
+        name: "optional for declare-secession; the new faction's name. Omitted, the faction is \"Free\" plus the port, with a roman suffix when that name is taken. An empty name is refused",
         source: "optional on character-action and offer-contract; \"purse\" pays the purse and skips the allowance. Omitted, the free command holder draws the treasury and a member draws the allowance, then the purse",
       },
       failure: "any 4xx body is { ok: false, code, error }; `code` is stable, `error` is human prose",

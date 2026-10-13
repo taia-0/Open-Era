@@ -212,7 +212,7 @@ test("a character outside the commander's observation exposes identity only", ()
   stranger.captivity = null;
   stranger.troops = { ...stranger.troops, count: liveTroops };
 
-  // A different leg is still not a meeting. The course is already public.
+  // A different leg is still not a meeting. The course is not on this card.
   commander.locationId = null;
   commander.travel = { fromId: "cinder-key", toId: "verdant-cay", totalTicks: 4, remainingTicks: 4 };
   stranger.locationId = null;

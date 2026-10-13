@@ -301,7 +301,9 @@ test("seed 1847 at state tick 276 shows the releases so far, and tick 902 does n
   assert.equal(view.tick, 276);
   assert.equal(view.day, 46);
   const card = view.characters.find((character) => character.id === "character-20");
-  assert.equal(card?.money, 826.73);
+  // Stored purse stays 826.73. Mara is in Crown Harbor, so Glassport is not
+  // co-located. The card keeps the port and withholds the purse.
+  assert.equal(card?.money, null);
   assert.equal(card?.locationId, "glassport");
   assert.equal(card?.captivity, null);
   assert.equal(view.party.hold.money, 108);

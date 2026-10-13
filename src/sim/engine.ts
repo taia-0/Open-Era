@@ -2406,10 +2406,11 @@ function processPlayerCommands(
         continue;
       }
       const settlement = world.settlements[command.settlementId];
-      // An omitted player name stays the owner's. The builder's own fallback
-      // is the autonomous "Free <port>" name, and the walker passes nothing.
-      const ownerName = settlement.ownerId ? world.characters[settlement.ownerId]?.name : undefined;
-      const declared = buildSecessionDeclaration(world, settlement, command.name ?? ownerName);
+      // An omitted player name uses the builder's fallback, the same
+      // "Free <port>" name an autonomous declaration uses, including the
+      // roman suffix when that name is already taken. A name the player
+      // passed is stored as given. The walker passes nothing.
+      const declared = buildSecessionDeclaration(world, settlement, nameProvided ? command.name : undefined);
       emit(world, events, {
         type: "secession-declared",
         actorId: commander.id,
