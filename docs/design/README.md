@@ -24,6 +24,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Autonomous provisioning](autonomous-provisioning.md) — Open / proposal: the 16% depth cap does not stop captains emptying a small port, and a reserve that they cannot buy below makes the crews hungrier
 - [Contracts](contracts.md) — Open / proposal: a paid provisions delivery the sim would enforce, once a standing order is one job rather than two. The addendum measures captains offering that haul on their own
 - [Contract refusals](contract-refusals.md) — Open / diagnosis: on the batch 2 pin the 56.25 haul is refused because the margin is already capped, and the offer asks the lowest id
+- [Contract fulfilment](contract-fulfilment.md) — Open / design: a carrier who accepts buys the short provisions and sails before the deadline, and a breach names the cause
 - [Order confirmation](order-confirmation.md) — Open / proposal: a completion report closes when its issuer signs it, or after a day when nobody can
 - [Captivity debts](captivity-debts.md) — Open / proposal: the unpaid ransom comes out of the prisoner's purse, up to one day's wages, on each world day
 - [Ransom split](ransom-split.md) — Built: a faction captor's treasury receives the whole ransom. A factionless leader still receives all of it. The 2026-10-01 addendum supersedes the 50/50 split
