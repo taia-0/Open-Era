@@ -79,7 +79,7 @@ function moraleCarrier(morale: number, character: Character): Character {
   return { ...character, morale };
 }
 
-test("the pay term is on the mate's own upkeep line and on a co-located card", () => {
+test("the pay term is on the mate's own upkeep line and off a rival's co-located card", () => {
   const world: WorldState = createPrototypeWorld(1847);
   world.factions["free-tide"].treasury = 0;
   const commander = world.characters[world.players["prototype-player"].characterId];
@@ -94,7 +94,7 @@ test("the pay term is on the mate's own upkeep line and on a co-located card", (
   commander.travel = null;
 
   const card = projectCharacter(world, commander, mate) as { morale: number | null; payNote: string | null };
-  assert.equal(card.payNote, "Pay is short, so morale loses 0.5 on upkeep.");
+  assert.equal(card.payNote, null);
   assert.notEqual(card.morale, null);
   const holderCard = projectCharacter(world, commander, world.characters[holderId]) as { payNote: string | null };
   world.characters[holderId].locationId = "crown-harbor";
@@ -122,4 +122,51 @@ test("the pay term is on the mate's own upkeep line and on a co-located card", (
   assert.equal(bystander.payloadWithheld, true);
   assert.equal(bystander.summary, `${mate.name}'s upkeep was recorded.`);
   assert.equal(String(bystander.summary).includes("0.5"), false);
+});
+
+test("the pay note is on the member's card and the holder's, and off a mate's and a rival's", () => {
+  const world = createPrototypeWorld(1847);
+  world.factions["free-tide"].treasury = 0;
+  const holderId = commandHolderId(world, "free-tide");
+  assert.ok(holderId);
+  const holder = world.characters[holderId];
+  const member = Object.values(world.characters)
+    .filter((character) => character.factionId === "free-tide" && character.id !== holderId && !character.captivity)
+    .sort((left, right) => left.id.localeCompare(right.id))[0];
+  assert.ok(member);
+  const mate = Object.values(world.characters)
+    .filter((character) => character.factionId === "free-tide" && character.id !== holderId && character.id !== member.id && !character.captivity)
+    .sort((left, right) => left.id.localeCompare(right.id))[0];
+  const rival = world.characters[world.players["prototype-player"].characterId];
+  assert.ok(mate);
+  assert.equal(rival.factionId === "free-tide", false);
+  assert.equal(shortPayMember(world, member, PASSAGE_COST_PER_TICK), true);
+  assert.equal(shortPayMember(world, holder, PASSAGE_COST_PER_TICK), false);
+
+  const note = "Pay is short, so morale loses 0.5 on upkeep.";
+  const own = projectCharacter(world, member, member) as { payNote: string | null };
+  assert.equal(own.payNote, note);
+
+  member.locationId = "cinder-key";
+  member.travel = null;
+  holder.locationId = "crown-harbor";
+  holder.travel = null;
+  const heldFromAfar = projectCharacter(world, holder, member) as { morale: number | null; payNote: string | null };
+  assert.equal(heldFromAfar.morale, null);
+  assert.equal(heldFromAfar.payNote, note);
+
+  mate.locationId = "cinder-key";
+  mate.travel = null;
+  const alongsideMate = projectCharacter(world, mate, member) as { morale: number | null; payNote: string | null };
+  assert.notEqual(alongsideMate.morale, null);
+  assert.equal(alongsideMate.payNote, null);
+
+  rival.locationId = "cinder-key";
+  rival.travel = null;
+  const alongsideRival = projectCharacter(world, rival, member) as { morale: number | null; payNote: string | null };
+  assert.notEqual(alongsideRival.morale, null);
+  assert.equal(alongsideRival.payNote, null);
+
+  const holderOwn = projectCharacter(world, holder, holder) as { payNote: string | null };
+  assert.equal(holderOwn.payNote, null);
 });
