@@ -135,6 +135,33 @@ export function round(value: number, digits = 3): number {
   return Math.round(value * factor) / factor;
 }
 
+/**
+ * One use of a skill. Closes 0.1% of the gap to 100, rounded to 3 decimals.
+ * The result never passes 100. The feeding event stores this absolute.
+ * `applyEvent` copies it. This does not draw.
+ */
+export function practicedSkill(skill: number): number {
+  return round(Math.min(100, skill + (100 - skill) * 0.001), 3);
+}
+
+/**
+ * Copy skill absolutes the feeding event already stored.
+ *
+ * A missing field leaves that skill. An older event, and a sea tick or a
+ * battle phase, carry none of these, so they do not practice. Copying the
+ * stored number does not draw and does not take another step.
+ */
+function copyPracticedSkills(
+  actor: Character,
+  data: Record<string, unknown>,
+  keys: readonly (keyof Character["skills"])[],
+): void {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === "number") actor.skills[key] = value;
+  }
+}
+
 export function distanceBetween(
   world: WorldState,
   fromId: string,
@@ -770,6 +797,8 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!actor) throw new Error("Travel event has no actor");
       actor.travel = { ...(event.data.travel as NonNullable<Character["travel"]>) };
       actor.locationId = null;
+      // Navigation is fixed on this voyage. The next one reads the new absolute.
+      copyPracticedSkills(actor, event.data, ["navigation"]);
       break;
     case "arrived":
       if (!actor) throw new Error("Arrival event has no actor");
@@ -797,6 +826,8 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (settlement.factionId) {
         world.factions[settlement.factionId].treasury = event.data.factionTreasury as number;
       }
+      // Pay was computed from the skills before this step.
+      copyPracticedSkills(actor, event.data, ["leadership", "trade"]);
       break;
     case "recruited":
       if (!actor || !settlement) throw new Error("Recruitment event is missing an entity");
@@ -907,6 +938,8 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.stocks = resourcesFrom(event.data, "settlementStocks");
       settlement.surrender = event.data.surrender as Settlement["surrender"];
       if (typeof event.data.battleId === "string") delete world.activeBattles[event.data.battleId];
+      // This fight already used the old strategy and leadership.
+      copyPracticedSkills(actor, event.data, ["strategy", "leadership"]);
       break;
     case "settlement-surrender-declined":
       if (!actor || !settlement) throw new Error("Settlement surrender decline event is missing an entity");

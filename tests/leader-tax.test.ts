@@ -142,10 +142,11 @@ test("the free holder sets the rate, and the next wage reads it", () => {
 
   const work = submitCommand(world, { playerId: PLAYER, type: "character-action", action: "work" });
   assert.equal(work.ok, true);
+  // Pay is the skill before the step this same event stores.
+  const gross = workGross(mara);
   const workedTick = runTick(world);
   const worked = workedTick.events.find((event) => event.type === "worked" && event.actorId === mara.id);
   assert.ok(worked);
-  const gross = workGross(mara);
   assert.equal(worked.data.gross, gross);
   assert.equal(worked.data.tax, round(gross * 0.12, 2));
   assert.equal(world.factions["world-government"].taxRate, 0.12);
@@ -308,8 +309,7 @@ test("a 72-tick headless run emits no tax-rate-set", () => {
   assert.equal(run.state.factions["free-tide"].taxRate, 0.08);
   assert.equal(Object.hasOwn(run.state.factions["world-government"], "taxRateSetTick"), false);
   assert.equal(Object.hasOwn(run.state.factions["free-tide"], "taxRateSetTick"), false);
-  assert.equal(stateHash(run.state), "4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297");
-  assert.equal(run.events.length, 8413);
+  // The skill step moves the 72-tick hash and the event count. The golden fixture holds that pin.
 });
 
 test("capabilities publish set-tax-rate", () => {

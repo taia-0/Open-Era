@@ -37,6 +37,7 @@ import {
   resourcePrice,
   partyPower,
   retainGround,
+  practicedSkill,
   round,
   splitRansom,
   settlementClaimAvailableTo,
@@ -155,6 +156,22 @@ export function localResourceUse(
 /** Gross pay for one tick of `work`, before the local sales-and-work tax. */
 export function workGross(character: Character): number {
   return round(10 + character.skills.leadership * 0.08 + character.skills.trade * 0.07, 2);
+}
+
+/**
+ * The new absolutes for the skills this action practices.
+ *
+ * Read before the event is applied, so the action itself still uses the old
+ * skills. `worked` practices leadership and trade. `travel-started` practices
+ * navigation. `battle-resolved` practices strategy and leadership.
+ */
+function practicedSkillData(
+  character: Character,
+  keys: readonly (keyof Character["skills"])[],
+): Record<string, number> {
+  const data: Record<string, number> = {};
+  for (const key of keys) data[key] = practicedSkill(character.skills[key]);
+  return data;
 }
 
 function cloneResources(resources: Resources): Resources {
@@ -1115,6 +1132,7 @@ function resolveImmediateBattle(
       settlementStocks,
       surrender,
       phases: 1,
+      ...practicedSkillData(character, ["strategy", "leadership"]),
     },
   });
   emitCombatObservation(world, character, settlement.id, events, "immediate post-battle assessment");
@@ -1209,6 +1227,7 @@ function completeMajorBattle(
       settlementStocks,
       surrender,
       phases: battle.phase,
+      ...practicedSkillData(character, ["strategy", "leadership"]),
     },
   });
   recordBattleConsequences(world, character, settlement, events, attackerWon);
@@ -2896,6 +2915,7 @@ function resolveDecision(
             ...(source === "purse" ? { source: "purse" as const } : {}),
           },
           reason: chosen.reason,
+          ...practicedSkillData(character, ["navigation"]),
         },
       });
       break;
@@ -3045,6 +3065,7 @@ function resolveDecision(
           characterMoney: round(character.money + gross - taxation.tax, 2),
           factionTreasury: taxation.treasury,
           morale: round(clamp(character.morale - 0.35, 0, 100)),
+          ...practicedSkillData(character, ["leadership", "trade"]),
         },
       });
       break;

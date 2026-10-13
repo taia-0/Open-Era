@@ -626,7 +626,7 @@ test("a garrison age equals the world tick minus the tick the player is shown", 
   assert.equal(verdant.intelligence.ageTicks, world.tick - verdant.intelligence.observedTick);
 
   const glass = shown("glassport");
-  assert.equal(glass.garrison, 122);
+  assert.equal(glass.garrison, 86);
   assert.ok(glass.garrisonIntelligence);
   assert.ok(glass.intelligence);
   assert.equal(glass.garrisonIntelligence.source, "owned");
