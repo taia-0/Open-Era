@@ -275,53 +275,56 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
   );
 });
 
-test("seed 1847 at tick 1037 names Verdant Cay while she is held", () => {
+test("seed 2718 at tick 792 names Verdant Cay while she is held", () => {
   // Treasury spending moved the hold off tick 595. The balance share moved the unreachable Verdant Cay line to tick 1037.
-  const result = runTicks(createPrototypeWorld(1847), 1037);
+  // The autonomous Free Tide step, first at tick 384 on seed 2718, moved Mara's hold. Seed 1847 does not capture her through tick 1200.
+  const result = runTicks(createPrototypeWorld(2718), 792);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
     day: number;
     party: { resupply: { settlementId: string; provisions: number; price: number; reachable: boolean; travelTicks: number | null } | null };
     briefing: { items: Array<{ id: string; summary: string; settlementId: string | null }> };
   };
-  assert.equal(result.state.tick, 1037);
-  assert.equal(view.day, 172.83);
+  assert.equal(result.state.tick, 792);
+  assert.equal(view.day, 132);
   assert.equal(commander.captivity?.settlementId, "crown-harbor");
+  assert.equal(commander.captivity?.capturedTick, 791);
   assert.equal(commander.locationId, "crown-harbor");
   const starving = view.briefing.items.find((item) => item.id === "provision:critical");
   assert.ok(starving);
   assert.equal(starving.settlementId, "verdant-cay");
   assert.equal(
     starving.summary,
-    "The hold is empty and 0.256 provisions per tick cannot be found. That costs health 0.205 per tick. Morale is already 0, so the shortage does not lower it. Morale gains nothing while the shortage lasts, so it will not recover on its own. Crown Harbor has no provisions to sell. Verdant Cay sells provisions, and you cannot reach it while you are held.",
+    "The hold is empty and 0.192 provisions per tick cannot be found. That costs health 0.154 per tick. Morale is already 0, so the shortage does not lower it. Morale gains nothing while the shortage lasts, so it will not recover on its own. Crown Harbor has no provisions to sell. Verdant Cay sells provisions, and you cannot reach it while you are held.",
   );
   assert.equal(starving.summary.includes("No market you could still reach sells provisions"), false);
   const resupply = view.party.resupply;
   assert.ok(resupply);
   assert.equal(resupply.settlementId, "verdant-cay");
-  assert.equal(resupply.provisions, 269);
-  assert.equal(resupply.price, 1.18);
+  assert.equal(resupply.provisions, 375);
+  assert.equal(resupply.price, 0.83);
   assert.equal(resupply.reachable, false);
   assert.equal(resupply.travelTicks, null);
 });
 
-test("seed 1847 at tick 1120 shows only the rounded scarred loyalty", () => {
+test("seed 2718 at tick 876 shows only the rounded scarred loyalty", () => {
   // Treasury spending moved the loyalty scar off tick 679. The balance share moved it to tick 1120.
-  const world = runTicks(createPrototypeWorld(1847), 1120).state;
+  // The autonomous Free Tide step, first at tick 384 on seed 2718, moved Mara's scar. Seed 1847 does not scar her through tick 1200.
+  const world = runTicks(createPrototypeWorld(2718), 876).state;
   const commander = commanderOf(world);
   const card = projectCharacter(world, commander, commander);
-  assert.equal(world.tick, 1120);
+  assert.equal(world.tick, 876);
   assert.equal(commander.captivity, null);
   assert.equal(commander.loyaltyAdjustment, -0.04);
-  assert.equal(card.loyalty, 0.768);
+  assert.equal(card.loyalty, 0.835);
   assert.equal(
     card.loyaltyNote,
-    "The seat reads 0.768. That rounded figure is the one the seat uses.",
+    "The seat reads 0.835. That rounded figure is the one the seat uses.",
   );
   assert.equal(/\d+\.\d{4,}/.test(String(card.loyaltyNote)), false);
-  assert.equal(commander.personality.loyalty, 0.807927391717676);
-  assert.equal(String(card.loyaltyNote).includes("0.807927391717676"), false);
-  assert.equal(String(card.loyaltyNote).includes("0.767927391717676"), false);
+  assert.equal(commander.personality.loyalty, 0.8748733401228673);
+  assert.equal(String(card.loyaltyNote).includes("0.8748733401228673"), false);
+  assert.equal(String(card.loyaltyNote).includes("0.8348733401228673"), false);
 });
 
 test("a constructed empty port list says the captive named no ports", () => {

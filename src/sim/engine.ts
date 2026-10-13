@@ -24,7 +24,7 @@ import {
 } from "./agency.ts";
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
 import { resolvePassageCharge, resolveQuotedSpend, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
-import { taxDrift, taxRateCommandRefusal } from "./tax-rate.ts";
+import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
 import {
   applyEvent,
   captorPartyLeader,
@@ -3225,12 +3225,39 @@ function metrics(world: WorldState): Record<string, unknown> {
   return { day: round(world.tick / world.ticksPerDay, 2), factions: factionMetrics, totalStocks };
 }
 
+/**
+ * Free non-player holders step the rate on the 24-tick clock, after player
+ * commands, factions in id order. A player set on this tick is already on
+ * `taxRateSetTick`, so the step waits. A human holder is not a writer.
+ * The event is the same `tax-rate-set` the command emits, without a command id.
+ */
+function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[]): void {
+  if (world.tick <= 0 || world.tick % TAX_RATE_COOLDOWN_TICKS !== 0) return;
+  const factionIds = Object.keys(world.factions).sort((left, right) => left.localeCompare(right));
+  for (const factionId of factionIds) {
+    const step = autonomousTaxStep(world, factionId);
+    if (!step) continue;
+    emit(world, events, {
+      type: "tax-rate-set",
+      actorId: step.holderId,
+      targetId: factionId,
+      data: {
+        factionId,
+        taxRate: step.taxRate,
+        previousTaxRate: step.previousTaxRate,
+        taxRateSetTick: world.tick,
+      },
+    });
+  }
+}
+
 export function runTick(world: WorldState): TickResult {
   const rng = new DeterministicRng(world.rngState);
   const events: SimEvent[] = [];
 
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
+  chooseAutonomousTaxRates(world, events);
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
   processCaptivityDeadlines(world, events, rng);

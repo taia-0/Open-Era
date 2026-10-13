@@ -220,48 +220,51 @@ test("the prisoner is not the party leader of their own ransom", () => {
   );
 });
 
-test("Bram Quill's release is visible to the prisoner and the captor", () => {
-  // Treasury spending moved Sable Morrow's tick 118 release. The balance share moved the Free Tide credit to Bram Quill. It still does not pay Pax's purse.
+test("Jun Marrow's release is visible to the prisoner and the captor", () => {
+  // Treasury spending moved Sable Morrow's tick 118 release. The balance share moved the Free Tide credit to Bram Quill.
+  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved it to Jun Marrow at Glassport. It still does not pay Pax's purse.
   const world = createPrototypeWorld(1847);
   const events: SimEvent[] = [];
   let tideBefore = 0;
   let paxBefore = 0;
-  for (let index = 0; index < 772; index += 1) {
-    if (world.tick === 771) {
+  for (let index = 0; index < 702; index += 1) {
+    if (world.tick === 701) {
       tideBefore = world.factions["free-tide"].treasury;
       paxBefore = world.characters["character-14"].money;
     }
     events.push(...runTick(world).events);
   }
-  const release = events.find((event) => event.sequence === 99850);
+  const release = events.find((event) => event.sequence === 91186);
   assert.ok(release);
   assert.equal(release.type, "captivity-released");
-  assert.equal(release.tick, 771);
+  assert.equal(release.tick, 701);
   const ransom = release.data.ransom as {
     treasuryShare: number;
     leaderShare: number;
     factionTreasury: number;
     leaderMoney: number;
   };
-  assert.equal(ransom.treasuryShare, 129.67);
+  assert.equal(ransom.treasuryShare, 14.65);
   assert.equal(ransom.leaderShare, 0);
   assert.equal((release.data.ransom as { leaderId?: string }).leaderId, undefined);
-  assert.equal(round(ransom.treasuryShare + ransom.leaderShare, 2), 129.67);
-  assert.equal(ransom.factionTreasury, round(tideBefore + 129.67, 2));
-  assert.equal(ransom.factionTreasury, 159.48);
-  assert.equal(world.characters["character-14"].money, 2969.91);
-  assert.notEqual(world.characters["character-14"].money, round(paxBefore + 129.67, 2));
+  assert.equal(round(ransom.treasuryShare + ransom.leaderShare, 2), 14.65);
+  assert.equal(tideBefore, 18.39);
+  assert.equal(paxBefore, 1680.28);
+  assert.equal(ransom.factionTreasury, round(tideBefore + 14.65, 2));
+  assert.equal(ransom.factionTreasury, 33.04);
+  assert.equal(world.characters["character-14"].money, 1680.28);
+  assert.notEqual(world.characters["character-14"].money, round(paxBefore + 14.65, 2));
   assert.equal(ransomIncomeNote(world, "character-14", [release]), null);
-  const line = "Bram Quill was released from Cinder Key. 129.67 was paid and 302.99 was recorded as debt. Loyalty fell. 129.67 went to the Free Tide Compact treasury. The ransom line covers only the ransom.";
-  const hiddenLine = "Bram Quill was released from Cinder Key. 129.67 was paid and 302.99 was recorded as debt. Loyalty fell. 129.67 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
-  const chronicle = "**Bram Quill** was released from **Cinder Key** under mandatory terms. 129.67 was paid and 302.99 was recorded as debt. Loyalty fell. 129.67 went to the **Free Tide Compact** treasury. The ransom line covers only the ransom.";
+  const line = "Jun Marrow was released from Glassport. 14.65 was paid and 528.49 was recorded as debt. Loyalty fell. 14.65 went to the Free Tide Compact treasury. The ransom line covers only the ransom.";
+  const hiddenLine = "Jun Marrow was released from Glassport. 14.65 was paid and 528.49 was recorded as debt. Loyalty fell. 14.65 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
+  const chronicle = "**Jun Marrow** was released from **Glassport** under mandatory terms. 14.65 was paid and 528.49 was recorded as debt. Loyalty fell. 14.65 went to the **Free Tide Compact** treasury. The ransom line covers only the ransom.";
   assert.equal(captivityReleasedSentence(world, release), line);
   assert.equal(captivityReleasedChronicle(world, release), chronicle);
-  for (const readerId of ["character-02", "character-14", "character-01"]) {
+  for (const readerId of ["character-05", "character-14", "character-01"]) {
     const [row] = projectEventFeed(world, readerId, [release]);
     assert.equal(row?.summary, readerId === "character-14" ? line : hiddenLine, readerId);
   }
-  const [prisoner] = projectEventFeed(world, "character-02", [release]);
+  const [prisoner] = projectEventFeed(world, "character-05", [release]);
   const [captor] = projectEventFeed(world, "character-14", [release]);
   assert.equal(prisoner?.payloadWithheld, false);
   assert.equal((prisoner?.data as { ransom: { leaderShare: number; factionTreasury?: number } }).ransom.leaderShare, 0);
@@ -271,18 +274,19 @@ test("Bram Quill's release is visible to the prisoner and the captor", () => {
 });
 
 test("seed 1847 at state tick 276 shows the releases so far, and tick 902 does not release Dax Pike", () => {
-  // The balance share moved Dax Pike's old release. He is not captured in this window. The feed is the three releases that did happen.
+  // The balance share moved Dax Pike's old release. He is not captured in this window.
+  // The autonomous Free Tide step, first at tick 120 on seed 1847, left two releases in this window.
   const early = runTicks(createPrototypeWorld(1847), 276);
   assert.equal(early.state.tick, 276);
   const daxEarly = early.state.characters["character-20"];
   assert.equal(daxEarly.name, "Dax Pike");
   assert.equal(daxEarly.captivity, null);
   assert.equal(daxEarly.locationId, "glassport");
-  assert.equal(daxEarly.money, 538.23);
+  assert.equal(daxEarly.money, 826.73);
   const calder = early.state.characters["character-21"];
   assert.equal(calder.captivity, null);
-  assert.equal(calder.locationId, "glassport");
-  assert.equal(calder.money, 509.81);
+  assert.equal(calder.locationId, "cinder-key");
+  assert.equal(calder.money, 183.54);
   const view = dashboardState(early.state, early.events, fullEventFeed(early.events)) as {
     tick: number;
     day: number;
@@ -295,24 +299,22 @@ test("seed 1847 at state tick 276 shows the releases so far, and tick 902 does n
   assert.equal(view.tick, 276);
   assert.equal(view.day, 46);
   const card = view.characters.find((character) => character.id === "character-20");
-  assert.equal(card?.money, 538.23);
+  assert.equal(card?.money, 826.73);
   assert.equal(card?.locationId, "glassport");
   assert.equal(card?.captivity, null);
   assert.equal(view.party.hold.money, 108);
   assert.equal(view.party.locationId, "crown-harbor");
-  assert.equal(view.factions.find((faction) => faction.id === "world-government")?.treasury, 17857.79);
+  assert.equal(view.factions.find((faction) => faction.id === "world-government")?.treasury, 19040.81);
   assert.equal(view.factions.find((faction) => faction.id === "free-tide")?.treasury, null);
-  const esmeLine = "Esme Dusk was released from Crown Harbor. 0 was paid and 114.93 was recorded as debt. Loyalty fell. 0 went to the World Government treasury. The ransom line covers only the ransom.";
-  const minaLine = "Mina Vale was released from Crown Harbor. 5.31 was paid and 41.7 was recorded as debt. Loyalty fell. 5.31 went to the World Government treasury. The ransom line covers only the ransom.";
-  const calderLine = "Mara Calder was released from Crown Harbor. 72.91 was paid and 0 was recorded as debt. 72.91 went to the World Government treasury. The ransom line covers only the ransom.";
+  const minaLine = "Mina Vale was released from Crown Harbor. 7.87 was paid and 53.04 was recorded as debt. Loyalty fell. 7.87 went to the World Government treasury. The ransom line covers only the ransom.";
+  const calderLine = "Mara Calder was released from Crown Harbor. 47.24 was paid and 0 was recorded as debt. 47.24 went to the World Government treasury. The ransom line covers only the ransom.";
   const feedRelease = view.events.filter((event) => event.type === "captivity-released");
-  assert.deepEqual(feedRelease.map((event) => event.sequence), [29431, 25615, 23519]);
-  assert.equal(feedRelease[0]?.summary, esmeLine);
-  assert.equal(feedRelease[1]?.summary, minaLine);
-  assert.equal(feedRelease[2]?.summary, calderLine);
+  assert.deepEqual(feedRelease.map((event) => event.sequence), [25917, 23726]);
+  assert.equal(feedRelease[0]?.summary, minaLine);
+  assert.equal(feedRelease[1]?.summary, calderLine);
   assert.equal(feedRelease[0]?.payloadWithheld, true);
-  assert.equal(view.briefing.items.find((item) => item.id === "event:29431")?.title, "A captain was released");
-  assert.equal(view.briefing.items.find((item) => item.id === "event:29431")?.summary, esmeLine);
+  assert.equal(view.briefing.items.find((item) => item.id === "event:25917")?.title, "A captain was released");
+  assert.equal(view.briefing.items.find((item) => item.id === "event:25917")?.summary, minaLine);
 
   const world = createPrototypeWorld(1847);
   for (let index = 0; index < 901; index += 1) runTick(world);
@@ -322,8 +324,8 @@ test("seed 1847 at state tick 276 shows the releases so far, and tick 902 does n
   assert.equal(world.tick, 902);
   assert.equal(tick.events.some((event) => event.type === "captivity-released"), false);
   assert.equal(world.characters["character-01"].money, 108);
-  assert.equal(world.characters["character-20"].locationId, "cinder-key");
-  assert.equal(world.characters["character-20"].money, 22.74);
+  assert.equal(world.characters["character-20"].locationId, "glassport");
+  assert.equal(world.characters["character-20"].money, 23.78);
   assert.equal(world.characters["character-20"].captivity, null);
 });
 

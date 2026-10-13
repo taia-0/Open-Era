@@ -376,6 +376,7 @@ test("passage is read off the upkeep row, and morale at 0 drops the morale cost"
 
 test("Mina Vale's capture on seed 1847 names World Government beside the captor row", () => {
   // Treasury spending moved this capture off seed 2718 tick 72. The balance share moved it to tick 137.
+  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved the troop count.
   const result = runTicks(createPrototypeWorld(1847), 138);
   const world = result.state;
   const mara = world.characters["character-01"];
@@ -390,25 +391,25 @@ test("Mina Vale's capture on seed 1847 names World Government beside the captor 
     portsNote: string | null;
   };
   assert.equal(intel.leadership, 25);
-  assert.equal(intel.troops, 7);
-  assert.equal(intel.partyPower, 52.59);
+  assert.equal(intel.troops, 9);
+  assert.equal(intel.partyPower, 54.105);
   assert.equal(intel.ports.length, 2);
   assert.equal(intel.portsNote, null);
   assert.equal((card.troops as { count: number }).count, 0);
-  assert.equal(card.troopsNote, "0 with Mina Vale; 7 held by World Government. The experience and discipline are the troops now held by World Government.");
+  assert.equal(card.troopsNote, "0 with Mina Vale; 9 held by World Government. The experience and discipline are the troops now held by World Government.");
   assert.equal(card.skillsNote, null);
   const held = card.captivity as { cause: string; causeLabel: string | null };
   assert.equal(held.cause, "major-defeat");
   assert.equal(held.causeLabel, null);
   assert.equal(projectCharacter(world, mina, mina).captiveIntel, null);
 
-  const capture = result.events.find((item) => item.sequence === 16104);
+  const capture = result.events.find((item) => item.sequence === 16112);
   assert.ok(capture);
   assert.equal(capture.type, "character-captured");
   assert.equal(capture.tick, 137);
   assert.equal(capture.actorId, "character-15");
   assert.equal(capture.targetId, "world-government");
-  const sentence = "World Government took Mina Vale at Crown Harbor after major defeat. 7 troops were taken, power 52.59.";
+  const sentence = "World Government took Mina Vale at Crown Harbor after major defeat. 9 troops were taken, power 54.105.";
   const [row] = projectEventFeed(world, mara.id, [capture]);
   assert.equal(row?.payloadWithheld, true);
   assert.equal(row?.data, null);
@@ -416,7 +417,7 @@ test("Mina Vale's capture on seed 1847 names World Government beside the captor 
   const view = dashboardState(world, result.events, fullEventFeed(result.events)) as {
     briefing: { items: Array<{ id: string; title: string; summary: string }> };
   };
-  const briefing = view.briefing.items.find((item) => item.id === "event:16104");
+  const briefing = view.briefing.items.find((item) => item.id === "event:16112");
   assert.equal(briefing?.title, "A captain was taken");
   assert.equal(briefing?.summary, sentence);
   assert.equal(
@@ -445,6 +446,7 @@ test("a captor row that already shows leadership does not say the skill is withh
 
 test("Mina Vale's release at event tick 221 keeps the paid line beside her prison record", () => {
   // Treasury spending moved her release off seed 2718 tick 155. The balance share moved it to tick 221.
+  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved the sequence, the garrison, and the amounts.
   const result = runTicks(createPrototypeWorld(1847), 222);
   const world = result.state;
   const mara = world.characters["character-01"];
@@ -457,15 +459,15 @@ test("Mina Vale's release at event tick 221 keeps the paid line beside her priso
   const remembered = own.releaseSighting as { settlementId: string; observedTick: number; garrison: number };
   assert.equal(remembered.settlementId, "crown-harbor");
   assert.equal(remembered.observedTick, 221);
-  assert.equal(remembered.garrison, 168);
+  assert.equal(remembered.garrison, 174);
   assert.equal(projectCharacter(world, mara, mina).releaseSighting, null);
   assert.equal(projectCharacter(world, mara, mina).captiveIntel, null);
 
-  const release = result.events.find((item) => item.sequence === 25615);
+  const release = result.events.find((item) => item.sequence === 25917);
   assert.ok(release);
   assert.equal(release.type, "captivity-released");
   assert.equal(release.tick, 221);
-  const sentence = "Mina Vale was released from Crown Harbor. 5.31 was paid and 41.7 was recorded as debt. Loyalty fell. 5.31 went to the World Government treasury. The ransom line covers only the ransom.";
+  const sentence = "Mina Vale was released from Crown Harbor. 7.87 was paid and 53.04 was recorded as debt. Loyalty fell. 7.87 went to the World Government treasury. The ransom line covers only the ransom.";
   const [maraRow] = projectEventFeed(world, mara.id, [release]);
   assert.equal(maraRow?.payloadWithheld, true);
   assert.equal(maraRow?.data, null);
@@ -474,46 +476,50 @@ test("Mina Vale's release at event tick 221 keeps the paid line beside her priso
   assert.equal(ownRow?.payloadWithheld, false);
   assert.equal(
     ownRow?.summary,
-    "Mina Vale was released from Crown Harbor. 5.31 was paid and 41.7 was recorded as debt. Loyalty fell. 5.31 went to the World Government treasury. The balance is not visible to you. The ransom line covers only the ransom.",
+    "Mina Vale was released from Crown Harbor. 7.87 was paid and 53.04 was recorded as debt. Loyalty fell. 7.87 went to the World Government treasury. The balance is not visible to you. The ransom line covers only the ransom.",
   );
   assert.equal((ownRow?.data as { ransom: { factionTreasury?: number } }).ransom.factionTreasury, undefined);
   const view = dashboardState(world, result.events, fullEventFeed(result.events)) as {
     briefing: { items: Array<{ id: string; summary: string }> };
   };
-  assert.equal(view.briefing.items.find((item) => item.id === "event:25615")?.summary, sentence);
+  assert.equal(view.briefing.items.find((item) => item.id === "event:25917")?.summary, sentence);
   assert.equal(
     captivityReleasedChronicle(world, release),
-    "**Mina Vale** was released from **Crown Harbor** under mandatory terms. 5.31 was paid and 41.7 was recorded as debt. Loyalty fell. 5.31 went to the **World Government** treasury. The ransom line covers only the ransom.",
+    "**Mina Vale** was released from **Crown Harbor** under mandatory terms. 7.87 was paid and 53.04 was recorded as debt. Loyalty fell. 7.87 went to the **World Government** treasury. The ransom line covers only the ransom.",
   );
   assert.equal(stateHash(world), before);
 });
 
-test("Bram Quill's release at state tick 772 says loyalty fell beside his prison record", () => {
+test("Jun Marrow's release at state tick 702 says loyalty fell beside his prison record", () => {
   // Treasury spending moved Sable Morrow's tick 118 release. The balance share moved the debt line to Bram Quill at tick 771.
-  const result = runTicks(createPrototypeWorld(1847), 772);
+  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved it to Jun Marrow at Glassport on tick 701. Bram Quill is not captured.
+  const result = runTicks(createPrototypeWorld(1847), 702);
   const world = result.state;
   const mara = world.characters["character-01"];
-  const bram = world.characters["character-02"];
-  assert.equal(world.tick, 772);
-  assert.equal(bram.name, "Bram Quill");
-  assert.equal(bram.captivity, null);
-  assert.equal(bram.releaseSighting?.observedTick, 771);
-  assert.equal(bram.releaseSighting?.settlementId, "cinder-key");
+  const jun = world.characters["character-05"];
+  assert.equal(world.tick, 702);
+  assert.equal(jun.name, "Jun Marrow");
+  assert.equal(jun.captivity, null);
+  assert.equal(jun.loyaltyAdjustment, -0.04);
+  assert.equal(jun.releaseSighting?.observedTick, 701);
+  assert.equal(jun.releaseSighting?.settlementId, "glassport");
   const before = stateHash(world);
-  const own = projectCharacter(world, bram, bram);
-  assert.equal((own.releaseSighting as { garrison: number }).garrison, 6);
-  assert.equal(projectCharacter(world, mara, bram).releaseSighting, null);
+  const own = projectCharacter(world, jun, jun);
+  assert.equal((own.releaseSighting as { garrison: number; factionId: string; captorFactionId: string }).garrison, 5);
+  assert.equal((own.releaseSighting as { factionId: string }).factionId, "world-government");
+  assert.equal((own.releaseSighting as { captorFactionId: string }).captorFactionId, "free-tide");
+  assert.equal(projectCharacter(world, mara, jun).releaseSighting, null);
 
-  const release = result.events.find((item) => item.sequence === 99850);
+  const release = result.events.find((item) => item.sequence === 91186);
   assert.ok(release);
   assert.equal(release.type, "captivity-released");
-  assert.equal(release.tick, 771);
-  const sentence = "Bram Quill was released from Cinder Key. 129.67 was paid and 302.99 was recorded as debt. Loyalty fell. 129.67 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
+  assert.equal(release.tick, 701);
+  const sentence = "Jun Marrow was released from Glassport. 14.65 was paid and 528.49 was recorded as debt. Loyalty fell. 14.65 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
   const [maraRow] = projectEventFeed(world, mara.id, [release]);
   assert.equal(maraRow?.payloadWithheld, true);
   assert.equal(maraRow?.data, null);
   assert.equal(maraRow?.summary, sentence);
-  const [ownRow] = projectEventFeed(world, bram.id, [release]);
+  const [ownRow] = projectEventFeed(world, jun.id, [release]);
   assert.equal(ownRow?.payloadWithheld, false);
   assert.equal(ownRow?.summary, sentence);
   assert.equal(
@@ -523,10 +529,10 @@ test("Bram Quill's release at state tick 772 says loyalty fell beside his prison
   const view = dashboardState(world, result.events, fullEventFeed(result.events)) as {
     briefing: { items: Array<{ id: string; summary: string }> };
   };
-  assert.equal(view.briefing.items.find((item) => item.id === "event:99850")?.summary, sentence);
+  assert.equal(view.briefing.items.find((item) => item.id === "event:91186")?.summary, sentence);
   assert.equal(
     captivityReleasedChronicle(world, release),
-    "**Bram Quill** was released from **Cinder Key** under mandatory terms. 129.67 was paid and 302.99 was recorded as debt. Loyalty fell. 129.67 went to the **Free Tide Compact** treasury. The ransom line covers only the ransom.",
+    "**Jun Marrow** was released from **Glassport** under mandatory terms. 14.65 was paid and 528.49 was recorded as debt. Loyalty fell. 14.65 went to the **Free Tide Compact** treasury. The ransom line covers only the ransom.",
   );
   assert.equal(stateHash(world), before);
 });
