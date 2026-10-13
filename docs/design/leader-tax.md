@@ -403,3 +403,9 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 4. **Does the ration line in the last 24 ticks press the rate too?** Default: no. The rule reads the live lowest stability. The drift-only control already has Crown Harbor under its line for 788 / 582 / 907 ticks.
 
 5. **Does Mara's seat run it?** Default: a live session skips a holder whose `controller.kind` is `"human"`. She uses `set-tax-rate`. A headless run lets every free holder choose, including her, and the hashes above are that run. The live exclusion was not given its own 1200-tick hashes. On floor 55 the first set is outside the 72-tick window on every seed, so that fixture stays either way. The acting commander runs it in neither case.
+
+## Ruling: a faction with no port
+
+The Lead has ruled.
+
+A faction that holds no port freezes its rate. The autonomous step does not raise the rate and does not lower it until that faction holds a port again. A short treasury does not step the rate up while the faction is landless. A press does not step it down either: there is no held port to read. The tax clock still arrives. It emits nothing. The step resumes on the first clock after the faction holds a port. The remeasure is in [build order](build-order.md).

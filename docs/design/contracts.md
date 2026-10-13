@@ -327,3 +327,5 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 The Lead has ruled.
 
 The payout is 56.25, the premium priced from the empty shelf. Ten units at the live price, 45, is rejected. Every contract that price accepted was breached, 6, 4, and 7, so the haul is dead content. The other numbered defaults stand. One autonomous captain of the faction that holds the shelf offers, the lowest id who can pay, one offer per shelf per tick. The carrier is the lowest id who passes `carrierBlocked`, and `candidates[0]` answers. The deadline is `max(travelTicks + 1, 2)`, never past 720. Free Tide pays by the quoted spend already in the tree. The offer moves the hash from its first event tick. Seed 2718 moves inside the 72-tick fixture, and that move is accepted. Slice 4 is the slice that explains it.
+
+A later ruling. The shelf is `stocks.provisions < 1`. That is the `buy-provisions` gate this note counted and did not write. Question 6 records that a writer on stock under 1 was not run. It builds with the 56.25 offer in batch 2. The empty-shelf gate `stocks.provisions <= 0` is not the offer. The remeasure is in [build order](build-order.md).
