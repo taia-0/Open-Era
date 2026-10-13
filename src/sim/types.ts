@@ -14,6 +14,12 @@ export interface Faction {
   treasury: number;
   taxRate: number;
   /**
+   * Tick of the last `tax-rate-set`. Absent until the first set, so a headless
+   * world hashes as it did before the command existed. The cooldown reads it.
+   * A missing tick means the rate has never been changed.
+   */
+  taxRateSetTick?: number;
+  /**
    * Who covers the seat while the command holder is captive.
    * Absent, not null, once that holder is free. The holder is not stored here.
    */
@@ -572,6 +578,15 @@ export type PlayerCommand =
       type: "cancel-contract";
       characterId: string;
       contractId: string;
+    }
+  | {
+      id: string;
+      playerId: string;
+      issuedTick: number;
+      type: "set-tax-rate";
+      factionId: string;
+      /** Absolute rate on the one-cent grid, from 0.00 through 0.30. */
+      taxRate: number;
     };
 
 export interface Character {

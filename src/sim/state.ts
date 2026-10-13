@@ -577,6 +577,17 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
         (command) => command.id !== event.data.commandId,
       );
       break;
+    case "tax-rate-set": {
+      const factionId = String(event.data.factionId ?? event.targetId ?? "");
+      const faction = world.factions[factionId];
+      if (!faction) throw new Error(`Tax-rate event has no faction: ${factionId}`);
+      if (typeof event.data.taxRate !== "number") throw new Error("Tax-rate event has no rate");
+      faction.taxRate = event.data.taxRate;
+      faction.taxRateSetTick = typeof event.data.taxRateSetTick === "number"
+        ? event.data.taxRateSetTick
+        : event.tick;
+      break;
+    }
     case "standing-order-issued": {
       const recipient = event.targetId ? world.characters[event.targetId] : undefined;
       if (!recipient) throw new Error("Standing order has no recipient");

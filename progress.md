@@ -30,16 +30,18 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `fix/action-executed-count` from `d21822e`. The player-action-executed line names the count when the paired result already stores one. Tick-72 and tick-1200 hashes are unchanged.
-- **Last verified:** 358 tests. Recovery replays 600.
-- **Gate status:** `./scripts/evaluate-milestone.sh action-executed-count` passed. The blind plan is not run.
-- **Headline:** A recruit the reader can see names the count and the payer on the executed line as well as the recruit line.
+- **Baseline:** `feature/leader-tax` from `c2a812d`. The free command holder sets the faction tax rate. Tick-72 and tick-1200 hashes are unchanged.
+- **Last verified:** 368 tests. Recovery replays 600.
+- **Gate status:** `./scripts/evaluate-milestone.sh leader-tax` passed. The blind plan is not run.
+- **Headline:** Mara can set World Government's tax rate. A headless run does not.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
+| Leader tax slice 2: once every 24 ticks, a free autonomous holder whose treasury cannot pay 18 to every free mate steps the rate up by 0.01, and never down. The cover does not run it. | Design | Open Era Engineer | Open. Slice 1 does not write it. Expected to move the 1200-tick hashes once Free Tide goes short |
+| Leader tax slice 3: subtract the destination rate inside `travelCandidates` and `bestTradeResource`. | Design | Open Era Engineer | Open. Slice 1 does not write it. Expected to move the 72-tick hashes |
 | Design question: own-faction officers' money is hidden at sea / when not co-located (visibility.ts:63-65, :110, :733). The Lead ruled this is correct for now; revisit only by design. | Design | Open Era Lead | open question |
 | Escrow refund: a treasury-paid escrow should refund to the treasury (or split back by source), not the purse. Hold until the balance decision so we re-baseline once. | Treasury | Open Era Engineer | **Fixed** on `feature/treasury-balance`. Cancel, refusal, breach, and a price cut return `escrowFromTreasury` to the treasury and `escrowFromPurse` to the purse. Today's allowance is not restored. The holder's purse no longer rises on cancel |
 | Wording: the player-action-executed line names the count. | Wording | Open Era Engineer | **Fixed** on `fix/action-executed-count`. The line names the action and the count from the paired result. A visible recruit also names the cost and the payer. A rival and a withheld row stay `carried out an action.` |
@@ -133,6 +135,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-13 — Leader tax, the free holder's rate
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/leader-tax` | **Commits:** `deae157` (the command, the reducer, and the tests). This commit adds the unread plan and this entry. | **Type:** Behavior
+- **Changed** — `set-tax-rate` is a player command. The body is `playerId`, `type`, and an absolute `taxRate`. The faction is the player's. Only the free command holder is accepted. A member and the acting commander are `not-command-holder`. A captive holder is `character-captive`, the gate `submitCommand` already runs. A repeat of the live rate is `tax-rate-unchanged` and does not start the cooldown. A value outside 0.00–0.30, or off the 0.01 step, is `invalid-tax-rate`. A set sooner than 24 ticks after `taxRateSetTick` is `tax-rate-cooldown`. The accepted command queues. The next tick emits `tax-rate-set` with `factionId`, `taxRate`, `previousTaxRate`, and `taxRateSetTick`. The reducer writes that absolute rate onto the faction and stores the tick. `taxRateSetTick` is omitted until that write. `projectFactions` publishes `taxRate` and `taxRateSetTick` (null when absent) on every row, including a rival. Treasury and power stay hidden. The queued line is `Command queued for Mara Vane: set tax rate to 12%`. The confirmation is `Mara Vane set the World Government tax rate to 12%.` `WorldState.version` stays 5. No autonomous writer.
+- **Why** — The rate was stored and already public, and nothing in `src/` wrote it after setup. The free holder is the first writer. Slices 2 and 3 stay out.
+- **Verified** — Base `c2a812d`. Node v24.21.0, ICU 78.3. `npm run typecheck` is clean. **368 tests.** `./scripts/evaluate-milestone.sh leader-tax` passed. Recovery replays 600, before and after. No `golden:update`. 72-tick before and after: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261). 1200-tick before and after: `90dacc2dfcd199ab720ade191bd3fdf8742632a36f19216bd53ce0e3a3294fef` / `226bf6257a86b233d197bd77747a10fe64b33dd7ac1e94bc27c11ff3ddf50cd8` / `30e9994387b2c9a2d8c0e16e27042797599188a105992cb7a9f8d2e924a8b0a6`. Events 160268 / 161850 / 162459. A 72-tick headless run has zero `tax-rate-set` events. Dashboard HTTP on `127.0.0.1:4317`, seed 1847, Mara Vane. Tick 0 rates 0.14 and 0.08, both `taxRateSetTick` null, Free Tide treasury null. HTTP 202, sequence 1 `Command queued for Mara Vane: set tax rate to 12%`. After one tick, sequence 10 `Mara Vane set the World Government tax rate to 12%.`, row `taxRate` 0.12, `taxRateSetTick` 0. An immediate 0.20 is HTTP 400 `tax-rate-cooldown`, and the row does not change. At tick 24 the same 0.12 is `tax-rate-unchanged`. `-0.01`, `0.31`, and `0.125` are `invalid-tax-rate`. `0.20` is HTTP 202, and at tick 25 the row is 0.2 with `taxRateSetTick` 24. The regency cover was not reached on this seat. Blind playtest [leader-tax-001](docs/playtests/leader-tax-001.md) on this tree, Node v24.21.0, ICU 78.3, seed 1847, one process, Mara Vane, started from `6020cad`: **PROMOTE**. Every status, code, summary, `taxRate`, and `taxRateSetTick` matched. Free Tide stayed 0.08 with treasury and power null. Each refusal left the row and `eventPage.total` unchanged. `actingCommanderId` stayed null through tick 25.
+- **Left open** — The blind session is not run. Slice 2 (the autonomous step) and slice 3 (merchants subtract the destination rate) are not built. Own-faction money at sea stays null.
+- **Links** — [playtest leader-tax-001](docs/playtests/leader-tax-001.md) (PROMOTE), [leader tax](docs/design/leader-tax.md)
 
 ### 2026-10-06 — Player-action-executed count
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `fix/action-executed-count` | **Commits:** `197db08` (the sentences, the tests, and the unread plan). This commit records that SHA. | **Type:** wording
