@@ -4,7 +4,7 @@ import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder
 import { PASSAGE_COST_PER_TICK } from "../sim/engine.ts";
 import { shortPayMember } from "../sim/allowance.ts";
 import { projectAllowance } from "./allowance.ts";
-import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, SHORT_PAY_UPKEEP_LINE, shortPayUpkeepVisible, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
+import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, SHORT_PAY_CARD_LINE, SHORT_PAY_UPKEEP_LINE, shortPayAudience, shortPayUpkeepVisible, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
 
 /**
  * Decides what a player may legitimately know about the rest of the world.
@@ -771,12 +771,13 @@ export function projectCharacter(
     health: condition ? round(character.health, 1) : null,
     morale: condition ? round(character.morale, 1) : null,
     /**
-     * Present when this card already shows morale and the mate's cap is under
-     * a day's passage. The holder is not a mate. A rival who is not alongside
-     * stays null, with the morale figure.
+     * The member themself, and the holder of that member's faction. A mate
+     * who is neither, and every rival, stays null, even in the same port
+     * where morale is on the card. The holder is not a mate, so that card
+     * stays null. The same audience reads the upkeep clause.
      */
-    payNote: condition && shortPayMember(world, character, PASSAGE_COST_PER_TICK)
-      ? "Pay is short, so morale loses 0.5 on upkeep."
+    payNote: shortPayMember(world, character, PASSAGE_COST_PER_TICK) && shortPayAudience(world, commander, character.id)
+      ? SHORT_PAY_CARD_LINE
       : null,
     sailors: condition ? character.sailors : null,
     troops: condition ? projectTroopFigures(character.troops) : null,

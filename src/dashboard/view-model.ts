@@ -37,6 +37,7 @@ import {
   queuedCommandSentence,
   SHORT_PAY_UPKEEP_LINE,
   shortPayUpkeepVisible,
+  timeStoppedSentence,
   secessionDeclaredSentence,
   secessionSuccessorClause,
   recruitDetailSentence,
@@ -822,6 +823,24 @@ export interface EventFeedPage {
   limitMax: number;
   /** Page size applied when the client does not request one. */
   limitDefault: number;
+}
+
+/**
+ * The advance sentence when this call stopped early.
+ *
+ * Null when nothing stopped the clock. The sentence is the first line of the
+ * feed row for that event, so the response and the feed name the same cause.
+ */
+export function advancePauseNote(
+  world: WorldState,
+  commanderId: string,
+  events: SimEvent[],
+  stopping: SimEvent | undefined,
+): string | null {
+  if (!stopping) return null;
+  const row = projectEventFeed(world, commanderId, events).find((item) => item.sequence === stopping.sequence);
+  const summary = row && typeof row.summary === "string" ? row.summary : null;
+  return timeStoppedSentence(summary);
 }
 
 /**

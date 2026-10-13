@@ -392,7 +392,8 @@
       element.textContent = message;
       element.className = "toast show" + (error ? " error" : "");
       window.clearTimeout(toast.timer);
-      toast.timer = window.setTimeout(function () { element.className = "toast"; }, 2600);
+      var hold = message.indexOf("Time stopped.") === 0 ? 8000 : 2600;
+      toast.timer = window.setTimeout(function () { element.className = "toast"; }, hold);
     }
     async function api(path, options) {
       var response = await fetch(path, options);
@@ -432,7 +433,7 @@
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body)
         });
-        toast(result.command ? "Command queued" : result.thread ? "Conversation created" : result.message ? "Message sent" : result.itemId ? "Briefing item acknowledged" : Object.hasOwn(result, "characterId") ? "Reporting route updated" : "World advanced", false);
+        toast(result.pauseNote ? result.pauseNote : result.command ? "Command queued" : result.thread ? "Conversation created" : result.message ? "Message sent" : result.itemId ? "Briefing item acknowledged" : Object.hasOwn(result, "characterId") ? "Reporting route updated" : "World advanced", false);
         await refresh();
       } catch (error) {
         toast(error.message, true);
@@ -878,6 +879,7 @@
         (item.health == null || item.morale == null
           ? '<div class="empty">Condition is not observable from here.</div>'
           : meter("Health", item.health, item.health < 45) + meter("Morale", item.morale, item.morale < 40)) +
+        (item.payNote ? '<div class="subtle">' + esc(item.payNote) + "</div>" : "") +
         "<h3>Current ambition</h3>" +
         (item.activeGoal || item.plan
           ? '<div class="stat"><strong>' + esc(item.activeGoal ? item.activeGoal.label : "Player-defined") + "</strong><div class=\"subtle\">" + esc(item.plan ? item.plan.reason : "No autonomous plan") + "</div></div>"
@@ -987,6 +989,7 @@
       byId("condition").innerHTML =
         meter("Health", c.health, c.health < 45) +
         meter("Morale", c.morale, c.morale < 40) +
+        (c.payNote ? '<div class="subtle">' + esc(c.payNote) + "</div>" : "") +
         '<div><span class="subtle">Status</span><strong>' + esc(c.captivity ? "Captive" : c.travel ? c.travel.remainingTicks + " travel ticks" : c.troopRecovery ? c.troopRecovery.remaining + " troops returning" : "Ready") + "</strong></div>";
       byId("pending").textContent = world.pendingCommands.length
         ? world.pendingCommands.length + " command(s) queued"

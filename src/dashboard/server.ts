@@ -23,7 +23,7 @@ import { round } from "../sim/state.ts";
 import { WorldStore, EVENT_FEED_PAGE_DEFAULT, EVENT_FEED_PAGE_LIMIT } from "../sim/persistence.ts";
 import { createPrototypeWorld } from "../sim/scenario.ts";
 import type { SimEvent, WorldState } from "../sim/types.ts";
-import { CHECK_IN_EVENT_CAP, CHECK_IN_TICKS, dashboardState, FEED_OMITTED_TYPES, projectEventFeed, type DashboardRefusal } from "./view-model.ts";
+import { advancePauseNote, CHECK_IN_EVENT_CAP, CHECK_IN_TICKS, dashboardState, FEED_OMITTED_TYPES, projectEventFeed, type DashboardRefusal } from "./view-model.ts";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const page = readFileSync(resolve(moduleDirectory, "index.html"), "utf8");
@@ -157,6 +157,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         let ticksAdvanced = 0;
         let combatUpdated = false;
         let attentionUpdated = false;
+        let stoppingEvent: SimEvent | undefined;
         const produced: SimEvent[] = [];
         for (let index = 0; index < ticks; index += 1) {
           const result = runTick(world, { liveSession: true });
@@ -165,15 +166,20 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           store.appendTick(tickEvents, world);
           produced.push(...tickEvents);
           ticksAdvanced += 1;
-          combatUpdated = result.events.some((event) =>
+          const combatEvent = result.events.find((event) =>
             event.actorId === playerCharacterId &&
             (event.type === "battle-phase-resolved" || event.type === "battle-retreated" || event.type === "battle-resolved")
           );
-          attentionUpdated = result.events.some((event) =>
+          const attentionEvent = result.events.find((event) =>
             event.actorId === playerCharacterId &&
             (event.type === "character-captured" || event.type === "captivity-escaped" || event.type === "captivity-released")
           );
-          if (combatUpdated || attentionUpdated) break;
+          combatUpdated = combatEvent !== undefined;
+          attentionUpdated = attentionEvent !== undefined;
+          if (combatUpdated || attentionUpdated) {
+            stoppingEvent = attentionEvent ?? combatEvent;
+            break;
+          }
         }
         const commandedBattle = Object.values(world.activeBattles).find((battle) => battle.attackerId === playerCharacterId);
         json(response, 200, {
@@ -184,6 +190,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           combatUpdated,
           attentionUpdated,
           pausedForBattle: Boolean(commandedBattle),
+          pauseNote: advancePauseNote(world, playerCharacterId, produced, stoppingEvent),
           // The events this request produced, projected through the same
           // visibility path as the feed, so a step needs no follow-up read.
           eventSequence: world.nextEventSequence - 1,
