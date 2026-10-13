@@ -857,6 +857,8 @@ export function projectFactions(world: WorldState, commander: Character): Record
         // A faction's tax is public in a way its treasury is not: every sale in
         // its ports pays it, and a merchant has to know the rate before sailing.
         taxRate: faction.taxRate,
+        /** Absent until the first set. Null on the row, including a rival's. */
+        taxRateSetTick: faction.taxRateSetTick ?? null,
         power: owned ? factionPower(world, faction.id) : null,
         intelligence: {
           exact: owned,

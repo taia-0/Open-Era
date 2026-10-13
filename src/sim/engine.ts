@@ -24,6 +24,7 @@ import {
 } from "./agency.ts";
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
 import { resolvePassageCharge, resolveQuotedSpend, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
+import { taxRateCommandRefusal } from "./tax-rate.ts";
 import {
   applyEvent,
   captorPartyLeader,
@@ -2337,6 +2338,39 @@ function processPlayerCommands(
         type: "player-command-failed",
         actorId: commander.id,
         data: { commandId: command.id, reason: "Only an escape attempt is available while the character is captive" },
+      });
+      continue;
+    }
+
+    if (command.type === "set-tax-rate") {
+      const refusal = taxRateCommandRefusal(world, commander, command.taxRate, command.id);
+      if (refusal || !commander.factionId) {
+        emit(world, events, {
+          type: "player-command-failed",
+          actorId: commander.id,
+          targetId: command.factionId,
+          data: { commandId: command.id, reason: refusal?.error ?? "Only the free command holder may set this faction's tax rate." },
+        });
+        continue;
+      }
+      const faction = world.factions[command.factionId];
+      emit(world, events, {
+        type: "tax-rate-set",
+        actorId: commander.id,
+        targetId: command.factionId,
+        data: {
+          commandId: command.id,
+          factionId: command.factionId,
+          taxRate: command.taxRate,
+          previousTaxRate: faction.taxRate,
+          taxRateSetTick: world.tick,
+        },
+      });
+      emit(world, events, {
+        type: "player-command-resolved",
+        actorId: commander.id,
+        targetId: command.factionId,
+        data: { commandId: command.id, outcome: "tax-rate-set", taxRate: command.taxRate },
       });
       continue;
     }

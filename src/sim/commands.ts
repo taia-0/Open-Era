@@ -2,6 +2,7 @@ import { openStandingOrder } from "./agency.ts";
 import { openSupplyContract } from "./contracts.ts";
 import { applyEvent, clamp, marketPrice, round, settlementClaimAvailableTo } from "./state.ts";
 import { resolveQuotedSpend, spendRole, spendableAmount, type SpendSource } from "./allowance.ts";
+import { parseTaxRate, TAX_RATE_COOLDOWN_TICKS, TAX_RATE_MAX, TAX_RATE_MIN, TAX_RATE_STEP, taxRateCommandRefusal } from "./tax-rate.ts";
 import { MARKET_DEPTH_FRACTION, marketDepth, PASSAGE_COST_PER_TICK, provisionResupplyTarget, quotedPassage, tradeAmounts, tradeQuote } from "./engine.ts";
 import type {
   Character,
@@ -86,6 +87,12 @@ export type CommandRequest =
       type: "cancel-contract";
       characterId: string;
       contractId: string;
+    }
+  | {
+      playerId: string;
+      type: "set-tax-rate";
+      /** Absolute rate from 0.00 to 0.30 in steps of 0.01. The faction is the player's. */
+      taxRate: number;
     };
 
 export type CommandSubmission =
@@ -108,6 +115,8 @@ export const COMMAND_LIMITS = {
    * published so a client can refuse an over-sized request before sending it.
    */
   tradeQuantity: { min: 1, max: 200 },
+  /** Absolute faction tax the free command holder may name. */
+  taxRate: { min: TAX_RATE_MIN, max: TAX_RATE_MAX, step: TAX_RATE_STEP, cooldownTicks: TAX_RATE_COOLDOWN_TICKS },
 } as const;
 
 export type CapabilityTarget = "settlement" | "faction" | "current-settlement" | "none";
@@ -199,6 +208,7 @@ export const COMMAND_TYPES: readonly string[] = [
   "escape-captivity",
   "offer-contract",
   "cancel-contract",
+  "set-tax-rate",
 ];
 
 /**
@@ -241,6 +251,7 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
         price: "required for offer-contract; the escrow taken from the offerer when the offer is applied",
         destinationId: "required for offer-contract; the settlement shelf that receives the provisions",
         contractId: "required for cancel-contract",
+        taxRate: `required for set-tax-rate; an absolute rate from ${COMMAND_LIMITS.taxRate.min.toFixed(2)} to ${COMMAND_LIMITS.taxRate.max.toFixed(2)} in steps of ${COMMAND_LIMITS.taxRate.step.toFixed(2)}. Only the free command holder may set it. Cooldown is ${COMMAND_LIMITS.taxRate.cooldownTicks} ticks. A repeat of the current rate is refused. The faction is the player's`,
         source: "optional on character-action and offer-contract; \"purse\" pays the purse and skips the allowance. Omitted, the free command holder draws the treasury and a member draws the allowance, then the purse",
       },
       failure: "any 4xx body is { ok: false, code, error }; `code` is stable, `error` is human prose",
@@ -368,6 +379,8 @@ function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
       ? world.activeBattles[command.battleId]?.settlementId
       : command.type === "escape-captivity"
         ? world.characters[player.characterId]?.captivity?.settlementId
+      : command.type === "set-tax-rate"
+        ? command.factionId
       : command.characterId;
   const event: SimEvent = {
     sequence: world.nextEventSequence,
@@ -1004,6 +1017,27 @@ function contractMutationPending(world: WorldState, contractId: string): boolean
   );
 }
 
+function validateSetTaxRate(
+  world: WorldState,
+  request: Extract<CommandRequest, { type: "set-tax-rate" }>,
+): CommandSubmission {
+  const player = world.players[request.playerId];
+  const character = world.characters[player.characterId];
+  const parsed = parseTaxRate(request.taxRate);
+  if (!parsed.ok) return parsed;
+  const refusal = taxRateCommandRefusal(world, character, parsed.taxRate);
+  if (refusal) return refusal;
+  const command: PlayerCommand = {
+    id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
+    playerId: player.id,
+    issuedTick: world.tick,
+    type: "set-tax-rate",
+    factionId: character.factionId!,
+    taxRate: parsed.taxRate,
+  };
+  return { ok: true, command, event: acceptedEvent(world, command) };
+}
+
 function validateCancelContract(
   world: WorldState,
   request: Extract<CommandRequest, { type: "cancel-contract" }>,
@@ -1055,6 +1089,7 @@ export function submitCommand(world: WorldState, request: CommandRequest): Comma
   if (request.type === "cancel-order") return validateOrderCancellation(world, request);
   if (request.type === "offer-contract") return validateOfferContract(world, request);
   if (request.type === "cancel-contract") return validateCancelContract(world, request);
+  if (request.type === "set-tax-rate") return validateSetTaxRate(world, request);
   // Without this, an unrecognised `type` fell through to order cancellation and
   // was reported as "The order recipient is unknown", because the request also
   // carried no `characterId`. A playtest lost time to exactly that.
