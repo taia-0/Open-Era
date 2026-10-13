@@ -745,6 +745,24 @@ export function debtRepaidSentence(world: WorldState, event: SimEvent, withAmoun
 /** The short-pay clause on a character-upkeep row. The 0.5 is the morale term. */
 export const SHORT_PAY_UPKEEP_LINE = "Pay was short, so morale fell by 0.5.";
 
+/** The short-pay clause on a character card. The 0.5 is the morale term. */
+export const SHORT_PAY_CARD_LINE = "Pay is short, so morale loses 0.5 on upkeep.";
+
+/**
+ * The member themself, or the holder of that member's faction.
+ *
+ * A mate who is neither, and every rival, is not in this set. The holder is
+ * the character `commandHolderId` names. A factionless subject is visible
+ * only to themself.
+ */
+export function shortPayAudience(world: WorldState, reader: Character | undefined, subjectId: string | undefined): boolean {
+  if (!reader || !subjectId) return false;
+  if (reader.id === subjectId) return true;
+  const factionId = world.characters[subjectId]?.factionId;
+  if (!factionId) return false;
+  return commandHolderId(world, factionId) === reader.id;
+}
+
 /**
  * Who may read the short-pay clause.
  *
@@ -753,11 +771,24 @@ export const SHORT_PAY_UPKEEP_LINE = "Pay was short, so morale fell by 0.5.";
  * also reads it. A mate who is neither, and every rival, does not.
  */
 export function shortPayUpkeepVisible(world: WorldState, reader: Character | undefined, event: SimEvent): boolean {
-  if (!reader || event.type !== "character-upkeep" || event.data.shortPay !== true || !event.actorId) return false;
-  if (reader.id === event.actorId) return true;
-  const factionId = world.characters[event.actorId]?.factionId;
-  if (!factionId) return false;
-  return commandHolderId(world, factionId) === reader.id;
+  if (event.type !== "character-upkeep" || event.data.shortPay !== true || !event.actorId) return false;
+  return shortPayAudience(world, reader, event.actorId);
+}
+
+/**
+ * Why accelerated time stopped, as one sentence on the advance response.
+ *
+ * The cause is the first sentence of the feed row that stopped the clock.
+ * The rest of that row stays in the feed. A missing summary still says that
+ * time stopped.
+ */
+export function timeStoppedSentence(summary: string | null): string {
+  if (!summary || summary.trim().length === 0) return "Time stopped.";
+  const trimmed = summary.trim();
+  const end = trimmed.indexOf(". ");
+  const first = end === -1 ? trimmed : trimmed.slice(0, end + 1);
+  const body = first.endsWith(".") ? first : `${first}.`;
+  return `Time stopped. ${body}`;
 }
 
 /** The upkeep row already stores the passage. Null when this upkeep was not a voyage. */

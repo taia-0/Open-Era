@@ -335,6 +335,7 @@ test("accelerated time pauses at a player battle phase", async () => {
       attentionUpdated: boolean;
       pausedForBattle: boolean;
       eventSequence: number;
+      pauseNote: string | null;
       events: Array<{ type: string; payloadWithheld: boolean; data: unknown }>;
     };
     assert.deepEqual(advanceShape(advanceBody), {
@@ -346,6 +347,7 @@ test("accelerated time pauses at a player battle phase", async () => {
       attentionUpdated: false,
       pausedForBattle: true,
     });
+    assert.match(advanceBody.pauseNote ?? "", /^Time stopped\. /);
     // A step reports what it produced rather than forcing a follow-up read, and
     // everything it reports must already be redacted.
     assert.ok(advanceBody.events.length > 0, "advance must report the events that occurred");
@@ -405,6 +407,7 @@ test("accelerated time pauses when mandatory captivity release changes player st
       attentionUpdated: boolean;
       pausedForBattle: boolean;
       eventSequence: number;
+      pauseNote: string | null;
       events: unknown[];
     };
     assert.deepEqual(advanceShape(advanceBody), {
@@ -416,6 +419,7 @@ test("accelerated time pauses when mandatory captivity release changes player st
       attentionUpdated: true,
       pausedForBattle: false,
     });
+    assert.equal(advanceBody.pauseNote, "Time stopped. Mara Vane was released from Cinder Key.");
     assert.ok(advanceBody.events.length > 0, "advance must report the events that occurred");
     const state = await (await fetch(`${base}/api/state`)).json() as {
       captivity: { active: unknown };

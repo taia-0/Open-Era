@@ -326,3 +326,27 @@ test("a market with no report says so instead of drawing zero stocks as fact", (
   assert.doesNotMatch(section, /resource-row/, "an unreported market must not render stocks as fact");
   assert.doesNotMatch(html, /Trade here/, "a market the commander is not standing in must not offer a trade board");
 });
+
+test("a character card shows the pay note when the projection includes one", () => {
+  const state = projectedState();
+  const renderer = rendererFor(state);
+  const characters = state.characters as Array<Record<string, any>>;
+  const [template] = characters;
+  const note = "Pay is short, so morale loses 0.5 on upkeep.";
+  const card = {
+    ...template,
+    id: "short-card",
+    name: "Mina Vale",
+    payNote: note,
+    standingOrders: [],
+    activeOrderAssessment: null,
+    relationship: null,
+    activeGoal: null,
+    plan: null,
+    troopsNote: null,
+    captiveIntel: null,
+    releaseSighting: null,
+  };
+  assert.match(renderer.characterInspector(card), /Pay is short, so morale loses 0\.5 on upkeep\./);
+  assert.doesNotMatch(renderer.characterInspector({ ...card, payNote: null }), /Pay is short/);
+});

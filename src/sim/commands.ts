@@ -281,6 +281,9 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
     advance: {
       path: "POST /api/advance",
       body: { ticks: `optional ${COMMAND_LIMITS.advancedTicksPerRequest.min}..${COMMAND_LIMITS.advancedTicksPerRequest.max}, defaults to 1` },
+      response: {
+        pauseNote: "a sentence when this call stopped early for a battle, or for a capture, an escape, or a release of the player. Null when the call ran the ticks it was given. It is \"Time stopped.\" plus the first sentence of the feed row that stopped the clock",
+      },
     },
     // These four routes existed and worked but were missing from this contract,
     // which claims to publish the whole surface. A playtest read the omission as
