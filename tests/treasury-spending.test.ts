@@ -5,7 +5,9 @@ import { projectCharacter } from "../src/dashboard/visibility.ts";
 import { PASSAGE_COST_PER_TICK, runTick, runTicks } from "../src/sim/engine.ts";
 import { submitCommand } from "../src/sim/commands.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
+import { transplantGovernorSeats } from "../src/sim/governor.ts";
 import { applyEvent, stateHash } from "../src/sim/state.ts";
+import { applySilentTickStart } from "../src/sim/tick-start.ts";
 import type { Character, WorldState } from "../src/sim/types.ts";
 
 const PLAYER = "prototype-player";
@@ -50,12 +52,14 @@ test("a member draws the allowance, then the purse", () => {
   assert.equal(recruited.data.purseDrawn, 6);
   assert.equal(recruited.data.allowanceRemaining, 0);
   assert.equal(recruited.data.characterMoney, 6);
-  assert.equal(recruited.data.factionTreasury, treasuryBefore - 18);
+  assert.equal(recruited.data.factionTreasury, treasuryBefore - 36 - 18);
   assert.equal(world.characters[bram.id].money, purseBefore - 6);
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
   // Later spends in the same tick move the treasury again. The event holds this draw.
 
   const replay = before;
+  transplantGovernorSeats(world, replay);
+  applySilentTickStart(replay);
   for (const event of result.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
   assert.equal(replay.characters[bram.id].allowanceRemaining, 0);
@@ -85,7 +89,7 @@ test("the free command holder draws the treasury without a cap", () => {
   assert.equal(recruited.data.treasuryDrawn, 96);
   assert.equal(recruited.data.purseDrawn, 0);
   assert.equal(recruited.data.characterMoney, 0);
-  assert.equal(recruited.data.factionTreasury, treasuryBefore - 96);
+  assert.equal(recruited.data.factionTreasury, treasuryBefore - 36 - 96);
   assert.equal("allowanceRemaining" in recruited.data, false);
   assert.equal(world.characters[mara.id].money, 0);
   assert.equal("allowanceRemaining" in world.characters[mara.id], false);
@@ -109,7 +113,7 @@ test("the acting commander stays on the allowance", () => {
   assert.ok(recruited);
   assert.equal(recruited.data.treasuryDrawn, 18);
   assert.equal(recruited.data.purseDrawn, 6);
-  assert.equal(recruited.data.factionTreasury, treasuryBefore - 18);
+  assert.equal(recruited.data.factionTreasury, treasuryBefore - 36 - 18);
   assert.equal(world.characters[bram.id].money, 6);
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
   const row = projectCharacter(world, world.characters["character-01"], world.characters[bram.id]);
@@ -142,7 +146,7 @@ test("the daily reset drops unused allowance and does not carry it", () => {
   assert.ok(recruited);
   assert.equal(recruited.data.treasuryDrawn, 18);
   assert.equal(recruited.data.purseDrawn, 6);
-  assert.equal(recruited.data.factionTreasury, treasuryBefore - 18);
+  assert.equal(recruited.data.factionTreasury, treasuryBefore - 36 - 18);
   assert.equal(bram.money, 6);
   assert.equal(bram.allowanceRemaining, 0);
 });
@@ -227,9 +231,11 @@ test("passage spends allowance first, then the purse, and replay keeps it", () =
   assert.equal(upkeep.data.characterMoney, 0);
   assert.equal(world.characters[bram.id].money, 0);
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
-  assert.equal(upkeep.data.factionTreasury, treasuryBefore - 2);
+  assert.equal(upkeep.data.factionTreasury, treasuryBefore - 36 - 2);
 
   const replay = before;
+  transplantGovernorSeats(world, replay);
+  applySilentTickStart(replay);
   for (const event of result.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
 });
@@ -258,7 +264,7 @@ test("contract escrow draws the allowance, then the purse", () => {
   assert.equal(offered.data.buyerMoney, 3);
   assert.equal(offered.data.characterMoney, 3);
   assert.equal(offered.data.allowanceRemaining, 0);
-  assert.equal(offered.data.factionTreasury, treasuryBefore - 18);
+  assert.equal(offered.data.factionTreasury, treasuryBefore - 36 - 18);
   assert.equal(world.characters[bram.id].money, 3);
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
 });

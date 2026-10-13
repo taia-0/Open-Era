@@ -86,10 +86,10 @@ test("a faction ransom pays the treasury the whole amount and the leader nothing
   assert.equal(round(ransom.treasuryShare + ransom.leaderShare, 2), 58.13);
   assert.equal(ransom.leaderId, undefined);
   assert.equal(ransom.leaderMoney, undefined);
-  assert.equal(ransom.factionTreasury, round(treasuryBefore + 58.13, 2));
-  assert.equal(ransom.factionTreasury, 18058.13);
+  assert.equal(ransom.factionTreasury, round(treasuryBefore - 36 + 58.13, 2));
+  assert.equal(ransom.factionTreasury, 18022.13);
   applyEvent(snapshot, release);
-  assert.equal(snapshot.factions["world-government"].treasury, 18058.13);
+  assert.equal(snapshot.factions["world-government"].treasury, 18022.13);
   assert.equal(snapshot.characters["character-01"].money, leaderBefore);
   assert.equal(snapshot.characters["character-01"].money, 108);
   assert.equal(snapshot.characters["character-04"].money, 0);
@@ -112,7 +112,7 @@ test("a ransom of one cent pays the treasury and nothing to the leader", () => {
   assert.equal(ransom.leaderId, undefined);
   assert.equal(round(ransom.treasuryShare + ransom.leaderShare, 2), 0.01);
   applyEvent(snapshot, release);
-  assert.equal(snapshot.factions["world-government"].treasury, 18000.01);
+  assert.equal(snapshot.factions["world-government"].treasury, 17964.01);
   assert.equal(snapshot.characters["character-01"].money, 108);
   assert.equal(ransomIncomeNote(world, "character-01", [release]), null);
   assert.equal(
@@ -209,7 +209,7 @@ test("the prisoner is not the party leader of their own ransom", () => {
   applyEvent(snapshot, release);
   assert.equal(snapshot.characters["character-01"].money, 0);
   assert.equal(snapshot.characters["character-05"].money, junBefore);
-  assert.equal(snapshot.factions["world-government"].treasury, 18010);
+  assert.equal(snapshot.factions["world-government"].treasury, 17974);
   assert.equal(
     captivityReleasedSentence(world, release).includes("Jun Marrow"),
     false,
@@ -337,11 +337,11 @@ test("a constructed Glassport release pays Dax Pike's 62.69 entirely to the Worl
   assert.equal(ransom.leaderShare, 0);
   assert.equal(ransom.leaderId, undefined);
   assert.equal(ransom.leaderMoney, undefined);
-  assert.equal(ransom.factionTreasury, 18062.69);
-  assert.equal(round(treasuryBefore + 62.69, 2), 18062.69);
+  assert.equal(ransom.factionTreasury, 18026.69);
+  assert.equal(round(treasuryBefore - 36 + 62.69, 2), 18026.69);
   applyEvent(snapshot, release);
   assert.equal(snapshot.characters["character-01"].money, maraBefore);
-  assert.equal(snapshot.factions["world-government"].treasury, 18062.69);
+  assert.equal(snapshot.factions["world-government"].treasury, 18026.69);
   assert.equal(snapshot.characters["character-20"].money, 0);
   assert.equal(world.characters["character-01"].money, maraBefore);
   // Allowance draws in this tick move the treasury after the ransom credit.

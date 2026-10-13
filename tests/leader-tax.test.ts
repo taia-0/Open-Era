@@ -148,7 +148,7 @@ test("the free holder sets the rate, and the next wage reads it", () => {
   const worked = workedTick.events.find((event) => event.type === "worked" && event.actorId === mara.id);
   assert.ok(worked);
   assert.equal(worked.data.gross, gross);
-  assert.equal(worked.data.tax, round(gross * 0.12, 2));
+  assert.equal(worked.data.tax, round(round(gross * 0.12, 2) + round(gross * 0.05, 2), 2));
   assert.equal(world.factions["world-government"].taxRate, 0.12);
 });
 
@@ -301,15 +301,18 @@ test("replay and recovery reproduce the set", () => {
   }
 });
 
-test("a 72-tick headless run emits no tax-rate-set", () => {
+test("the levy moves the first autonomous tax set to tick 48", () => {
   const run = runTicks(createPrototypeWorld(1847), 72);
   const sets = run.events.filter((event: SimEvent) => event.type === "tax-rate-set");
-  assert.equal(sets.length, 0);
-  assert.equal(run.state.factions["world-government"].taxRate, 0.14);
+  assert.equal(sets.length, 1);
+  assert.equal(sets[0].tick, 48);
+  assert.equal(sets[0].actorId, "character-01");
+  assert.equal(sets[0].data.taxRate, 0.13);
+  assert.equal(sets[0].data.previousTaxRate, 0.14);
+  assert.equal(run.state.factions["world-government"].taxRate, 0.13);
+  assert.equal(run.state.factions["world-government"].taxRateSetTick, 48);
   assert.equal(run.state.factions["free-tide"].taxRate, 0.08);
-  assert.equal(Object.hasOwn(run.state.factions["world-government"], "taxRateSetTick"), false);
   assert.equal(Object.hasOwn(run.state.factions["free-tide"], "taxRateSetTick"), false);
-  // The skill step moves the 72-tick hash and the event count. The golden fixture holds that pin.
 });
 
 test("capabilities publish set-tax-rate", () => {

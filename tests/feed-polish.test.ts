@@ -94,7 +94,7 @@ test("a goods buy and a sale name the live hold of that good", () => {
   assert.equal(sellLines.some((line) => line.startsWith("player-action-executed|")), false);
   assert.equal(sellLines.some((line) => line.startsWith("player-command-resolved|")), false);
   assert.ok(sellLines.includes(
-    "market-trade|Mara Vane sold 2 arms at Crown Harbor (hold now 1). Tax of 0.91 went to the treasury.",
+    "market-trade|Mara Vane sold 2 arms at Crown Harbor (hold now 1). Tax of 1.24 went to the treasury.",
   ));
 });
 
@@ -121,7 +121,7 @@ test("recruit, work, rest, and travel each keep the result sentence", () => {
   assert.equal(submitCommand(workWorld, { playerId: PLAYER, type: "character-action", action: "work" }).ok, true);
   const worked = runTick(workWorld);
   assert.deepEqual(lines(workWorld, worker.id, worked.events).filter((line) => line.startsWith("worked|") || line.includes("player-")), [
-    "worked|Mara Vane worked at Crown Harbor. Tax of 2.82 went to the treasury.",
+    "worked|Mara Vane worked at Crown Harbor. Tax of 3.83 went to the treasury.",
   ]);
 
   const restWorld = createPrototypeWorld(1847);

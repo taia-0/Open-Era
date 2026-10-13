@@ -29,9 +29,17 @@ function market(world: WorldState, commander: WorldState["characters"][string]) 
  * this is the contract: if the panel's arithmetic and the boundary's ever part
  * ways, these tests fail rather than a player paying a different price.
  */
-function panelTotal(quantity: number, unitPrice: number, taxRate: number, direction: "buy" | "sell"): number {
+function panelTotal(
+  quantity: number,
+  unitPrice: number,
+  taxRate: number,
+  direction: "buy" | "sell",
+  levyRate = 0,
+): number {
   const gross = Math.round(quantity * unitPrice * 100) / 100;
-  const tax = direction === "sell" ? Math.round(gross * taxRate * 100) / 100 : 0;
+  const base = direction === "sell" ? Math.round(gross * taxRate * 100) / 100 : 0;
+  const levy = direction === "sell" ? Math.round(gross * levyRate * 100) / 100 : 0;
+  const tax = Math.round((base + levy) * 100) / 100;
   return Math.round((gross - tax) * 100) / 100;
 }
 
@@ -85,7 +93,7 @@ test("the price the panel quotes is the price the boundary pays, selling", () =>
   assert.equal(submitted.ok, true);
   runTick(world);
   const earned = Number((commander.money - before).toFixed(2));
-  assert.equal(earned, panelTotal(8, quote.price, here.market.taxRate, "sell"), "the money received must be the total the panel prints");
+  assert.equal(earned, panelTotal(8, quote.price, here.market.taxRate, "sell", here.market.levyRate), "the money received must be the total the panel prints");
   if (here.market.taxRate > 0) {
     assert.ok(earned < panelTotal(8, quote.price, 0, "buy"), "a taxed sale must net less than the board price");
   }
@@ -291,7 +299,7 @@ test("the market block describes the market, not the commander standing in it", 
   // Nothing the commander owns may appear inside the market block.
   assert.deepEqual(
     Object.keys(here.market).sort(),
-    ["expiresTick", "quotedTick", "resources", "settlementId", "taxAppliesTo", "taxRate"],
+    ["expiresTick", "levyRate", "quotedTick", "resources", "settlementId", "taxAppliesTo", "taxRate"],
     "the market block must carry market facts only",
   );
   for (const ownerField of ["money", "load", "free", "capacity", "provisionsReserve"]) {

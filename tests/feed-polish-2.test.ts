@@ -153,8 +153,8 @@ test("Breakwater's line says the treasury starts empty, and the breakdown is the
   );
   assert.equal(line?.data?.faction?.treasury, 0);
   const breakwater = view.factions.find((faction) => faction.name === "Breakwater");
-  assert.equal(breakwater?.treasury, 2.69);
-  assert.equal(breakwater?.treasuryLine, "Tax income 2.69, spending 0, over the last 180 ticks.");
+  assert.equal(breakwater?.treasury, 2.19);
+  assert.equal(breakwater?.treasuryLine, "Tax income 2.19, spending 0, over the last 180 ticks.");
   const rival = view.factions.find((faction) => faction.id === "free-tide");
   assert.equal(rival?.treasuryLine, null);
 });
@@ -205,7 +205,7 @@ test("an autonomous secession with no successor ends with no leader yet", () => 
   const world = createPrototypeWorld(1847);
   const declared: SimEvent[] = [];
   let siblings: SimEvent[] = [];
-  for (let index = 0; index < 700; index += 1) {
+  for (let index = 0; index < 900; index += 1) {
     const tick = runTick(world, { liveSession: true });
     const rows = tick.events.filter((event) => event.type === "secession-declared");
     if (rows.length > 0) {
@@ -214,13 +214,13 @@ test("an autonomous secession with no successor ends with no leader yet", () => 
       break;
     }
   }
-  assert.equal(world.tick, 495);
+  assert.equal(world.tick, 894);
   assert.equal(declared.length, 1);
-  assert.equal(declared[0]?.tick, 494);
+  assert.equal(declared[0]?.tick, 893);
   const view = projectEventFeed(world, "character-01", declared, siblings);
   assert.equal(
-    view.find((row) => row.settlementId === "glassport")?.summary,
-    "Mina Vale declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)",
+    view.find((row) => row.settlementId === "crown-harbor")?.summary,
+    "Esme Dusk declared Crown Harbor separate from Free Tide Compact. Free Crown Harbor starts with an empty treasury. (no leader yet)",
   );
   assert.equal(view.every((row) => row.payloadWithheld === true && row.data === null), true);
   assert.equal(declared.every((event) => event.data.successorId === null), true);

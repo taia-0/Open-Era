@@ -1,3 +1,4 @@
+import { beginGovernorLevy, endGovernorLevy, governorLevyRate } from "./governor.ts";
 import { applySilentTickStart } from "./tick-start.ts";
 import { DeterministicRng } from "./rng.ts";
 import {
@@ -463,9 +464,14 @@ export function tradeAmounts(
   unitPrice: number,
   taxRate: number,
   direction: "buy" | "sell",
+  levyRate = 0,
 ): { gross: number; tax: number; net: number } {
   const gross = round(quantity * unitPrice, 2);
-  const tax = direction === "sell" ? round(gross * taxRate, 2) : 0;
+  // The faction rate and the governor levy each round to a cent, then add.
+  // A buy is not taxed and pays no levy.
+  const tax = direction === "sell"
+    ? round(round(gross * taxRate, 2) + round(gross * levyRate, 2), 2)
+    : 0;
   return { gross, tax, net: round(gross - tax, 2) };
 }
 
@@ -526,7 +532,8 @@ export function tradeQuote(
 
   const quantity = round(Math.max(0, Math.min(requested, maxQuantity)), 3);
   const taxRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
-  const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction);
+  const levyRate = governorLevyRate(world, settlement.id);
+  const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction, levyRate);
 
   // Named so a refusal can say which limit was reached rather than only that one
   // was. A partial fill the player did not ask for is the defect this replaces.
@@ -917,7 +924,8 @@ function tradeTax(world: WorldState, settlementId: string, gross: number): { tax
   const settlement = world.settlements[settlementId];
   if (!settlement.factionId) return { tax: 0, treasury: 0 };
   const faction = world.factions[settlement.factionId];
-  const tax = round(gross * faction.taxRate, 2);
+  const levyRate = governorLevyRate(world, settlementId);
+  const tax = round(round(gross * faction.taxRate, 2) + round(gross * levyRate, 2), 2);
   return { tax, treasury: round(faction.treasury + tax, 2) };
 }
 
@@ -2992,7 +3000,8 @@ function resolveDecision(
       const quantity = round(Math.max(0, Math.min(chosen.quantity ?? 0, limit)), 3);
       if (quantity <= 0) break;
       const taxRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
-      const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction);
+      const levyRate = governorLevyRate(world, settlement.id);
+      const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction, levyRate);
       const characterCargo = cloneResources(character.cargo);
       const settlementStocks = cloneResources(settlement.stocks);
       characterCargo[resource] = round(characterCargo[resource] + (direction === "buy" ? quantity : -quantity));
@@ -3424,10 +3433,20 @@ function resolveMorningDesertion(world: WorldState, events: SimEvent[], notices:
 }
 
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+  const notices = applySilentTickStart(world);
+  beginGovernorLevy(world);
+  try {
+    return runTickBody(world, options, notices);
+  } finally {
+    endGovernorLevy(world);
+  }
+}
+
+function runTickBody(world: WorldState, options: TickOptions, notices: ReturnType<typeof applySilentTickStart>): TickResult {
   const rng = new DeterministicRng(world.rngState);
   const events: SimEvent[] = [];
 
-  resolveMorningDesertion(world, events, applySilentTickStart(world));
+  resolveMorningDesertion(world, events, notices);
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   chooseAutonomousTaxRates(world, events, options.liveSession === true);

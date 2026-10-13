@@ -253,20 +253,20 @@ test("a live session skips the human holder", () => {
   assert.equal(headless.factions["world-government"].taxRate, 0.13);
 });
 
-test("seed 2718 lets Mara choose at tick 216 in a headless run and not in a live session", () => {
-  const headless = runTicks(createPrototypeWorld(2718), 217);
+test("seed 1847 lets Mara choose at tick 48 in a headless run and not in a live session", () => {
+  const headless = runTicks(createPrototypeWorld(1847), 49);
   const set = headless.events.find((event) => event.type === "tax-rate-set" && event.targetId === "world-government");
   assert.ok(set);
-  assert.equal(set.tick, 120);
-  assert.equal(set.sequence, 13865);
+  assert.equal(set.tick, 48);
+  assert.equal(set.sequence, 5574);
   assert.equal(set.actorId, "character-01");
   assert.equal(set.data.taxRate, 0.13);
   assert.equal(set.data.previousTaxRate, 0.14);
   assert.equal(Object.hasOwn(set.data, "commandId"), false);
   assert.equal(headless.state.factions["world-government"].taxRate, 0.13);
-  assert.equal(headless.state.factions["world-government"].taxRateSetTick, 120);
+  assert.equal(headless.state.factions["world-government"].taxRateSetTick, 48);
 
-  const live = runTicks(createPrototypeWorld(2718), 217, { liveSession: true });
+  const live = runTicks(createPrototypeWorld(1847), 49, { liveSession: true });
   assert.equal(live.events.some((event) => event.type === "tax-rate-set" && event.actorId === "character-01"), false);
   assert.equal(live.state.factions["world-government"].taxRate, 0.14);
   assert.equal(Object.hasOwn(live.state.factions["world-government"], "taxRateSetTick"), false);
@@ -336,24 +336,24 @@ test("recovery replays an autonomous set", () => {
       set = tick.events.find((event) => event.type === "tax-rate-set");
     }
     assert.ok(set);
-    assert.equal(set.tick, 120);
-    assert.equal(set.sequence, 14184);
-    assert.equal(set.targetId, "free-tide");
-    assert.equal(set.actorId, "character-14");
-    assert.equal(set.data.taxRate, 0.09);
-    assert.equal(set.data.previousTaxRate, 0.08);
-    assert.equal(set.data.taxRateSetTick, 120);
+    assert.equal(set.tick, 48);
+    assert.equal(set.sequence, 5574);
+    assert.equal(set.targetId, "world-government");
+    assert.equal(set.actorId, "character-01");
+    assert.equal(set.data.taxRate, 0.13);
+    assert.equal(set.data.previousTaxRate, 0.14);
+    assert.equal(set.data.taxRateSetTick, 48);
     assert.equal(Object.hasOwn(set.data, "commandId"), false);
-    assert.equal(world.tick, 121);
-    assert.equal(world.factions["free-tide"].taxRate, 0.09);
-    assert.equal(world.factions["world-government"].taxRate, 0.14);
+    assert.equal(world.tick, 49);
+    assert.equal(world.factions["world-government"].taxRate, 0.13);
+    assert.equal(world.factions["free-tide"].taxRate, 0.08);
     const liveHash = stateHash(world);
     const recovered = store.recover();
     assert.ok(recovered.replayedEvents > 0);
     assert.equal(stateHash(recovered.state), liveHash);
-    assert.equal(recovered.state.factions["free-tide"].taxRate, world.factions["free-tide"].taxRate);
-    assert.equal(recovered.state.factions["free-tide"].taxRateSetTick, set.tick);
-    assert.equal(Object.hasOwn(recovered.state.factions["world-government"], "taxRateSetTick"), false);
+    assert.equal(recovered.state.factions["world-government"].taxRate, world.factions["world-government"].taxRate);
+    assert.equal(recovered.state.factions["world-government"].taxRateSetTick, set.tick);
+    assert.equal(Object.hasOwn(recovered.state.factions["free-tide"], "taxRateSetTick"), false);
   } finally {
     store.close();
     rmSync(directory, { recursive: true, force: true });
