@@ -283,3 +283,53 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 6. **Can a rival read the rate?** Default: yes. It is already on the faction row and on the settlement panel. Treasury and power stay hidden. The rate is not copied onto the knowledge record.
 
 7. **Does Free Tide's empty treasury block the lever?** Default: no. The lever says who is paid. It does not leave a standing fund while the holder is uncapped. A fund would be a spending rule. The treasury-balance note kept that holder uncapped, and this sweep agrees with that result.
+
+## Addendum: tax and stability (slice 2)
+
+The Lead's later ruling is the slice order this section uses. Slice 1 stays the command, the `tax-rate-set` event, and `taxRateSetTick`. That command is not in this tree: nothing under `src/` writes `taxRate` after `createPrototypeWorld`. Slice 2 is the drift. Slice 3 is the autonomous choice, and it may lower the rate as well as raise it. The drift reads the rate already stored on the faction. A headless run still emits no `tax-rate-set`.
+
+The drift applies to each settlement whose `factionId` is set, on the stability write inside `produceSettlements`. The holder is whoever holds the port on that tick, so a claim starts the new rate on the next peaceful upkeep. A neutral port adds zero. An active battle still skips the settlement, which is the existing cadence: every peaceful upkeep, six in a world day that stays peaceful. The Lead has ruled this drift graded. The flat `0.03` above `0.15` is withdrawn. The threshold stays `0.15`. A rate at or below it subtracts zero. There is no separate recovery for a low rate.
+
+Above the threshold the subtraction is `0.03` per band of `0.05`. The count is integer hundredths: `bands = ceil((rate*100 - 15) / 5)` when `rate > 0.15`, and `0` otherwise, with `rate*100` taken as the nearest integer. `taxDrift` is `bands * 0.03`. Rates `0.16` through `0.20` subtract `0.03`, `0.21` through `0.25` subtract `0.06`, and `0.26` through `0.30` subtract `0.09`.
+
+It sits in the expression the upkeep already rounds, after the same clamp to 0–100, at the same 3 digits:
+
+```text
+stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0) - taxDrift
+```
+
+Immediate battles still subtract 12 or 3, and a phase still subtracts 4 or 1, on their own events. The claim floor of 55 is unchanged. One band cancels the fed `+ 0.03`, and at uniform `0.20` Crown Harbor ends at 55 on every seed. Two bands leave a net `−0.03` on a fed tick, and three bands leave a net `−0.06`, so those endings sit below the floor. A shortage still subtracts `shortage * 0.35`.
+
+Measured on `6aec8f6750311a206e3479dd952e583bdcf85c3b`, whose simulation is `c2a812d8c3c3280931069db00f92839c1dd2f6fe`, Node v24.21.0, ICU 78.3, after `npm test` passed 358 tests. The harness was local and was not left in the tree. Seeds 1847 / 2718 / 4096. Production is the stock added on `settlement-produced`, four goods, at 2 decimals. Stability samples are the state after each tick. Crown Harbor's penalized provisions fall under the ration of 5 below stability `69.696`. Ticks at or below 30 are the surrender line while the garrison is still 15 or more. The scenario baseline already spends 788 / 582 / 907 ticks under that production line. No run in this grid emits `settlement-shortage`. Verdant Cay stays neutral, ends at 100, and its production stays `23250.80` (`23250.79` on the graded `0.30` seed 4096 row).
+
+Hash-neutral. Scenario rates `0.14` / `0.08`, uniform `0.15`, and uniform `0.04` sit at or below the threshold, so drift upkeeps are 0. Each graded run matches its unpatched same-rate run on the full state hash and the event count, at 72 ticks and at 1200. The scenario pair is the fixture in the tables above: 72-tick `4ea893a4` / `d376ad02` / `ac780b39` (8413 / 8456 / 8261) and 1200-tick `90dacc2d` / `226bf625` / `30e99943` (160268 / 161850 / 162459). Uniform `0.04` at 1200 ticks is the both-0.04 row above. Uniform `0.15` is its own unpatched world: 72-tick `f87f8b518abae0bb0a0118ab361d3426fc98c825b478669d166fce9212538b96` / `493c36b8a6aa8acec8f9313c48b1c00d98e57134caf7a7e6926dfc4bfae2004b` / `e3b7d0951ee69e6cc2a9ff4f17d13602d1a8c89abccf79c1ff566acc3f67f630` (8429 / 8497 / 8363) and 1200-tick `d39a6d3e0839135f1597168fcf70df040a548527e7797decceb6502a2abb12c6` / `ad8050ed024308232228dd0edd0d37faf628fee0a1cf0574284a8c0eac5e1dc5` / `cdefc6dcf74a51bb8df653dcff38a1abf5c06793cc4e6bb5fba6ff2d260861ff` (161637 / 163916 / 164794).
+
+At uniform `0.20` the subtraction is one band, `0.03`. The 72-tick hashes are `d769fad93ec13e6d8433c4dbd9312d823f2dc587d8d9e59ad18de6e0fa32fe8c` / `3eadce5cb55c4219307c84696e870dfd0896c77e67cc5a4bb4f3af2f8d60c168` / `9944405fed3c7775dcb0912278fdcf1e197820a7f38cfed79cf9d7a960f2998d` (8410 / 8520 / 8419; deltas 0 / 0 / −41) and the 1200-tick hashes are `b673a14b4f778ed274f49bf07d28155450da002fc190dc587b0acfa408640383` / `59b64c2c2f1b5688864e271999460927ee9bb74c38f92b07ae8dda1d61791097` / `32a33d81903c304c2ad88f9e84fdbef0d40ac5a6fbf4c405c5b9cdfc36ecc7ea` (159357 / 162646 / 161975; deltas −3028 / −3652 / +310).
+
+At uniform `0.25` the subtraction is two bands, `0.06`. The 72-tick hashes are `a8d6e0ff75778d9fe75f02c431bb1caf2b1eaa6b425d5e6776a65fc631d7fa60` / `a8547302d4f090be869ce6dc51e4130d73b4aec1f38dc2c8ea0bb3a19093e159` / `42f276f8ebab118f7ad723f182ed773d67f56f9adf92a77a5a2f25fd2e625014` (8145 / 8460 / 8424; deltas +3 / −45 / −7) and the 1200-tick hashes are `bf9beaff143b1597f0eeffe18a313f7a11591819f5d52afbb1ee6afe871776ce` / `f41237b9d09bfa43d700582608a0ce226af792202ef18a3043dd8619a0b450a9` / `12312cc5076146cb645a4a83393684c1cc8e5d445e973c9aa59ad00622ae8cca` (156588 / 161537 / 161793; deltas −5237 / −1510 / −1446).
+
+At uniform `0.30` the subtraction is three bands, `0.09`. The 72-tick hashes are `91348423ece8820956dfc7fd15e339114517d42ee26beb132bd61391b0ee031f` / `c1fc6d7f051b2bd8de2d007709360330954c9a2a3aea8843e82e94a736c508b4` / `34cf73cefc7c0d5189c31bb2ccee9881a49d70fea34aecb170669a9201b534e8` (8260 / 8269 / 8242; deltas −2 / +11 / −77) and the 1200-tick hashes are `158ed308d86962f5debe8c4899f0f6a08283642eca2fb577ad612fe499668403` / `57a5c8f08054ffab72f10f0aca8fd5473eca8d36a6435d7e1153f628ac7fcd1a` / `3868ddf29139794ee6bba628224246ee8b17316610496c7e18159338b16f50f8` (163978 / 162059 / 163912; deltas +907 / +1293 / −1537). Crown Harbor's production against the unpatched same-rate run changes by −25.07 / −117.97 / −13.04 at `0.20`, −197.56 / −609.54 / −235.69 at `0.25`, and −712.89 / −705.39 / −2199.04 at `0.30`. The `0.30` seed 4096 case is the outlier on the unpatched side: that port stays at 100 (minimum 80.61, production 22130.23) until the three-band drift pulls it down.
+
+Slice 3 weighs a cost the flat rule did not grade. Work tax plus sale tax, each graded band against the graded band below it:
+
+From `0.15` to `0.20`, World Government gains 8402.14 / 8372.15 / 10651.49 and Free Tide gains 9456.34 / 9956.63 / 5229.43. Crown Harbor's minimum goes 36.72 → 10, 87.06 → 28, 32.32 → 33. Ticks under `69.696` change by +149 / +952 / +25, from 732 / 0 / 1069. Ticks at or below 30 change by +12 / +1 / 0. Production changes by −289.83 / −2369.05 / −59.73. Seed 2718 spends a healthy port: ending stability 99.09 falls to 55, and the production line goes from 0 ticks under it to 952.
+
+From `0.20` to `0.25`, World Government gains 9971.86 / 9424.66 / 10629.35 and Free Tide gains 5604.64 / 3652.60 / 6316.64. Minimums go 10 → 8.75, 28 → 0, 33 → 29.24. Ticks under the production line change by +10 / −6 / +23. Ticks at or below 30 change by +27 / +59 / +1. Production changes by −24.50 / +199.57 / −188.87. On 2718 that production rise comes with a minimum of 0 and 60 ticks at or below 30. Free Tide's gain on that seed is 3652.60.
+
+From `0.25` to `0.30`, World Government gains 7380.11 / 2909.53 / 11089.71 and Free Tide gains 9230.81 / 12843.92 / 9814.37. Minimums go 8.75 → 0, 0 → 1.84, 29.24 → 22. Ticks under the production line change by +128 / +99 / −23. Ticks at or below 30 change by +221 / −45 / +2. Production changes by −508.53 / −422.03 / −42.48. World Government on 2718 gains 2909.53, the smallest step in the grid, against 99 more ticks under the ration line and 422.03 less production, with the minimum already on the floor. Seed 1847 spends 260 ticks at or below 30, up from 39.
+
+Lowering is sometimes worth it. Every step in this grid still raises work-plus-sale tax on both factions, so a holder who is pricing the treasury keeps the higher band. A holder who is pricing the port sometimes prefers the lower one. Staying at `0.15` leaves seed 2718's Crown Harbor at an ending 99.09. At `0.20` that port ends at 55 with a minimum of 28, and at `0.25` the minimum is 0. Stopping at `0.25` leaves World Government's thinnest step, 2909.53 on 2718, untaken, and leaves seed 1847 at 39 ticks at or below 30. The campaign moves with the rate, so these are measured differences between uniform rates. They are the comparisons a one-step autonomous rule would be choosing among.
+
+Crown Harbor under the graded drift, threshold `0.15`. Tax is work plus sale. Prod Δ is against the unpatched same-rate run.
+
+| Rate | Seed | End | Min | Ticks <69.696 | Ticks ≤30 | Prod Δ | WG treasury | WG tax | FT treasury | FT tax |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.20 | 1847 | 55 | 10 | 881 | 12 | −25.07 | 25523.78 | 35455.69 | 64.17 | 31278.88 |
+| 0.20 | 2718 | 55 | 28 | 952 | 1 | −117.97 | 24698.14 | 36052.40 | 658.64 | 29770.25 |
+| 0.20 | 4096 | 55 | 33 | 1094 | 0 | −13.04 | 25650.68 | 35871.40 | 161.82 | 26554.02 |
+| 0.25 | 1847 | 54.76 | 8.75 | 891 | 39 | −197.56 | 34563.69 | 45427.55 | 5001.01 | 36883.52 |
+| 0.25 | 2718 | 53.29 | 0 | 946 | 60 | −609.54 | 34286.73 | 45477.06 | 821.76 | 33422.85 |
+| 0.25 | 4096 | 53.08 | 29.24 | 1117 | 1 | −235.69 | 33548.05 | 46500.75 | 1544.52 | 32870.66 |
+| 0.30 | 1847 | 51.82 | 0 | 1019 | 260 | −712.89 | 43102.34 | 52807.66 | 13315.36 | 46114.33 |
+| 0.30 | 2718 | 53.74 | 1.84 | 1045 | 15 | −705.39 | 35978.44 | 48386.59 | 6904.04 | 46266.77 |
+| 0.30 | 4096 | 51.82 | 22 | 1094 | 3 | −2199.04 | 46737.85 | 57590.46 | 5818.10 | 42685.03 |
