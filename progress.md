@@ -30,9 +30,9 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/feed-polish` from `7274635`. One feed line per player action. Buys and sells name the live hold. An empty `beforeSequence` is no bound.
-- **Last verified:** unverified on this branch. The parent is 368 tests.
-- **Gate status:** `./scripts/evaluate-milestone.sh feed-polish` is not run yet.
+- **Baseline:** `feature/feed-polish` from `7274635`. One feed line per player action. Buys and sells name the live hold. An empty `beforeSequence` is no bound. Tick-72 and tick-1200 hashes are unchanged.
+- **Last verified:** 374 tests. Recovery replays 600.
+- **Gate status:** `./scripts/evaluate-milestone.sh feed-polish` passed.
 - **Headline:** A player action keeps its result sentence. A provision buy names the purse and the hold.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
@@ -137,11 +137,11 @@ Git remains the complete history. This file exists for three things git does not
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
 ### 2026-10-13 — Player feed, one line and the live hold
-- **Agent:** Cursor cloud agent | **Branch:** `feature/feed-polish` | **Commits:** this commit | **Type:** wording
+- **Agent:** Cursor cloud agent | **Branch:** `feature/feed-polish` | **Commits:** `1b910ca` (the feed, the tests). This commit records the gate. | **Type:** wording
 - **Changed** — The projected feed drops `player-action-executed` and `player-command-resolved`. The result sentence stays. A tax set stays `Mara Vane set the World Government tax rate to 12%.` and loses `Mara Vane: tax rate set`. A purse recruit stays `Mara Vane recruited 8 at Crown Harbor for 96 from the purse.` A provision buy becomes `Mara Vane bought 12 provisions at Crown Harbor for 17.64 from the purse (hold now 47.42).` A medicine buy becomes `Mara Vane bought 2 medicine at Crown Harbor for 34.54 from the purse (hold now 6).` A sale becomes `Mara Vane sold 2 arms at Crown Harbor (hold now 1). Tax of 0.91 went to the treasury.` Work, rest, and travel keep `worked`, `rested`, and `travel-started`. Queued lines and `player-command-failed` stay. `beforeSequence=` and a blank value are no bound. `beforeSequence=0` is still a bound. `src/sim` is unchanged.
 - **Why** — The executed and resolved rows repeated the result. The buy line did not say what the hold holds after the tick. An empty cursor was read as 0 and returned no events.
-- **Verified** — unverified. The focused feed tests passed under Node v22.14.0 before this commit. The Node 24.21.0 suite, the typecheck, the milestone gate, and the 1200-tick hashes are not run yet.
-- **Left open** — The gate and the 1200-tick hashes. The shelf and the price on a buy still move later in the tick. Own-faction money at sea stays null.
+- **Verified** — Base `7274635`. Node v24.21.0, ICU 78.3. `npm run typecheck` is clean. **374 tests.** `./scripts/evaluate-milestone.sh feed-polish` passed. Recovery replays 600. No `golden:update`. 72-tick hashes unchanged: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261). 1200-tick hashes unchanged: `90dacc2dfcd199ab720ade191bd3fdf8742632a36f19216bd53ce0e3a3294fef` / `226bf6257a86b233d197bd77747a10fe64b33dd7ac1e94bc27c11ff3ddf50cd8` / `30e9994387b2c9a2d8c0e16e27042797599188a105992cb7a9f8d2e924a8b0a6`. Events 160268 / 161850 / 162459.
+- **Left open** — The shelf and the price on a buy still move later in the tick. Own-faction money at sea stays null. The blind session is not run.
 - **Links** — None
 
 ### 2026-10-13 — Leader tax, the free holder's rate
