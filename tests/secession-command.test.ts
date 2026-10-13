@@ -220,7 +220,7 @@ test("a declaration founds the faction from the event and does not draw", () => 
   const line = view.events.find((event) => event.type === "secession-declared");
   assert.equal(
     line?.summary,
-    `Mara Vane declared Crown Harbor separate from World Government. ${successorName} takes the seat.`,
+    `Mara Vane declared Crown Harbor separate from World Government. Finn Frost starts with an empty treasury. ${successorName} takes the seat.`,
   );
   assert.equal(line?.payloadWithheld, false);
   assert.equal(line?.summary.includes("character-"), false);
@@ -241,7 +241,7 @@ test("a declaration founds the faction from the event and does not draw", () => 
   const rivalView = projectEvent(world, rival, declared, secessionDeclaredSentence(world, declared, "Mara Vane"));
   assert.equal(rivalView.payloadWithheld, true);
   assert.equal(rivalView.data, null);
-  assert.equal(rivalView.summary, "Mara Vane declared Crown Harbor separate from World Government.");
+  assert.equal(rivalView.summary, "Mara Vane declared Crown Harbor separate from World Government. Finn Frost starts with an empty treasury.");
   const mate = Object.values(world.characters).find((character) => character.factionId === "world-government");
   assert.ok(mate);
   const mateView = projectEvent(world, mate, declared, secessionDeclaredSentence(world, declared, "Mara Vane"));
@@ -249,7 +249,7 @@ test("a declaration founds the faction from the event and does not draw", () => 
   assert.ok(mateView.data);
   assert.equal(
     mateView.summary,
-    `Mara Vane declared Crown Harbor separate from World Government. ${successorName} takes the seat.`,
+    `Mara Vane declared Crown Harbor separate from World Government. Finn Frost starts with an empty treasury. ${successorName} takes the seat.`,
   );
 });
 

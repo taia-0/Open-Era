@@ -297,7 +297,9 @@ test("the player seat sees the sentence and the public rate, and not the payload
   const set = tick.events.find((event) => event.type === "tax-rate-set");
   assert.ok(set);
   const [row] = projectEventFeed(world, mara.id, [set]);
-  assert.equal(row.summary, "Pax Ash set the Free Tide Compact tax rate to 9%.");
+  assert.equal(row.summary, "Pax Ash raised the Free Tide Compact tax to 9% (treasury short).");
+  assert.equal(row.settlementId, null);
+  assert.equal(Object.hasOwn(row, "settlementId"), true);
   assert.equal(row.payloadWithheld, true);
   assert.equal(row.data, null);
   assert.equal(row.actorId, "character-14");

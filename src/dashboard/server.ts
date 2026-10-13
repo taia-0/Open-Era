@@ -23,7 +23,7 @@ import { round } from "../sim/state.ts";
 import { WorldStore, EVENT_FEED_PAGE_DEFAULT, EVENT_FEED_PAGE_LIMIT } from "../sim/persistence.ts";
 import { createPrototypeWorld } from "../sim/scenario.ts";
 import type { SimEvent, WorldState } from "../sim/types.ts";
-import { CHECK_IN_EVENT_CAP, CHECK_IN_TICKS, dashboardState, projectEventFeed } from "./view-model.ts";
+import { CHECK_IN_EVENT_CAP, CHECK_IN_TICKS, dashboardState, FEED_OMITTED_TYPES, projectEventFeed, type DashboardRefusal } from "./view-model.ts";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const page = readFileSync(resolve(moduleDirectory, "index.html"), "utf8");
@@ -97,6 +97,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
   }
 
   let mutation = Promise.resolve();
+  const refusals: DashboardRefusal[] = [];
   const server = createServer((request, response) => {
     mutation = mutation.then(async () => {
       const url = new URL(request.url ?? "/", "http://localhost");
@@ -125,16 +126,16 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         // The check-in looks back CHECK_IN_TICKS world ticks, not the newest
         // 5,000 events. The read is capped at CHECK_IN_EVENT_CAP. The feed
         // itself is still one explicit page.
-        const feedEvents = store.eventsPage(beforeSequence, limit);
+        const feedEvents = store.eventsPage(beforeSequence, limit, FEED_OMITTED_TYPES);
         const checkInMinTick = Math.max(0, world.tick - CHECK_IN_TICKS);
         json(response, 200, dashboardState(world, store.eventsSinceTick(checkInMinTick, CHECK_IN_EVENT_CAP), {
           events: feedEvents,
-          hasMore: feedEvents.length > 0 && store.countEventsBefore(feedEvents[0].sequence) > 0,
+          hasMore: feedEvents.length > 0 && store.countEventsBefore(feedEvents[0].sequence, FEED_OMITTED_TYPES) > 0,
           limit,
-          total: store.eventCount(),
+          total: store.eventCount(FEED_OMITTED_TYPES),
           limitMax: EVENT_FEED_PAGE_LIMIT,
           limitDefault: EVENT_FEED_PAGE_DEFAULT,
-        }));
+        }, beforeSequence === null ? refusals : []));
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/health") {
@@ -194,6 +195,16 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         const body = await requestBody(request) as CommandRequest;
         const result = submitCommand(world, body);
         if (!result.ok) {
+          const player = world.players[body.playerId];
+          const character = player ? world.characters[player.characterId] : undefined;
+          if (character) {
+            refusals.push({
+              tick: world.tick,
+              actorId: character.id,
+              summary: `${character.name}'s command failed: ${result.error}`,
+            });
+            if (refusals.length > 100) refusals.shift();
+          }
           json(response, 400, result);
           return;
         }

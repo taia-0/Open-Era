@@ -2,7 +2,7 @@ import { assessStandingOrder, garrisonConfidenceLabel } from "../sim/agency.ts";
 import { commandHolderId, factionPower, partyPower, partyPowerFromTroops, round } from "../sim/state.ts";
 import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder, SupplyContract, TravelState, WorldState } from "../sim/types.ts";
 import { projectAllowance } from "./allowance.ts";
-import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, skillsWithheldNote, summaryStaysWhenWithheld, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
+import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
 
 /**
  * Decides what a player may legitimately know about the rest of the world.
@@ -838,7 +838,12 @@ export function projectCharacter(
   };
 }
 
-export function projectFactions(world: WorldState, commander: Character): Record<string, unknown>[] {
+export function projectFactions(
+  world: WorldState,
+  commander: Character,
+  events?: SimEvent[],
+  window: { ticks: number; capped: boolean } = { ticks: 180, capped: false },
+): Record<string, unknown>[] {
   const ownFactionId = commander.factionId;
   return Object.values(world.factions)
     .sort((left, right) => left.id.localeCompare(right.id))
@@ -854,6 +859,14 @@ export function projectFactions(world: WorldState, commander: Character): Record
         treasury: owned ? faction.treasury : null,
         /** The balance, in words, when the number is withheld. Own faction leaves this null. */
         treasuryNote: owned ? null : "not visible to you",
+        /**
+         * Tax income against treasury draws over the check-in window.
+         * Null for a faction whose treasury this reader cannot see, and null
+         * when the caller did not pass the window's events.
+         */
+        treasuryLine: owned && events
+          ? treasuryBreakdownLine(world, faction.id, events, window.ticks, window.capped)
+          : null,
         // A faction's tax is public in a way its treasury is not: every sale in
         // its ports pays it, and a merchant has to know the rate before sailing.
         taxRate: faction.taxRate,
@@ -983,7 +996,9 @@ export function projectEvent(
     type: event.type,
     actorId: event.actorId,
     targetId: event.targetId,
-    settlementId: event.settlementId,
+    // A tax-rate set has no port. The key is present and null, so a reader
+    // does not have to treat a missing key as a different value.
+    settlementId: event.type === "tax-rate-set" ? event.settlementId ?? null : event.settlementId,
     summary,
     details,
     data: visible ? withoutHiddenTreasury(world, commander, event) : null,

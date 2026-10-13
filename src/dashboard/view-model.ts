@@ -38,6 +38,7 @@ import {
   secessionSuccessorClause,
   recruitDetailSentence,
   settlementClaimedSentence,
+  taxRateSetSentence,
 } from "./wording.ts";
 
 /**
@@ -75,6 +76,22 @@ export const CHECK_IN_TICKS = 180;
 
 /** The store will not return more than this from one check-in read. */
 export const CHECK_IN_EVENT_CAP = CHECK_IN_READ_CAP;
+
+/**
+ * Stored event types the one-line feed does not return.
+ *
+ * A player action already has its result sentence. The executed and resolved
+ * rows repeat it. They keep their sequences in the log and are absent from
+ * `events`, `eventPage.count`, and `eventPage.total`.
+ */
+export const FEED_OMITTED_TYPES = ["player-action-executed", "player-command-resolved"] as const;
+
+/** A submit-time refusal. It is not a stored event and it does not move a hash. */
+export interface DashboardRefusal {
+  tick: number;
+  actorId: string;
+  summary: string;
+}
 
 /**
  * The check-in window: events in the last {@link CHECK_IN_TICKS} ticks, and
@@ -179,6 +196,8 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
       const clause = secessionSuccessorClause(world, event);
       return clause ? `${base} ${clause}` : base;
     }
+    case "tax-rate-set":
+      return taxRateSetSentence(world, event, actor, events);
     case "arrived":
       return `${actor} arrived at ${settlement}`;
     case "travel-started":
@@ -820,10 +839,67 @@ export function projectEventFeed(
   // A player action already has its result sentence (the tax set, the trade,
   // the recruit, the voyage). The executed and resolved rows repeat it.
   // Refusals and queued lines are not in this set.
-  const shown = events.filter((event) =>
-    event.type !== "player-action-executed" && event.type !== "player-command-resolved",
-  );
+  const shown = events.filter((event) => !FEED_OMITTED_TYPES.includes(event.type as typeof FEED_OMITTED_TYPES[number]));
   return shown.map((event) => projectEvent(world, commander, event, eventSummary(world, event, siblings, commander)));
+}
+
+/**
+ * The feed array and its page descriptor.
+ *
+ * `count` is the number of rows in `events`. That includes a dashboard-only
+ * refusal on the newest page. `total` is the stored events the projection
+ * keeps, which the server passes in already. `player-action-executed` and
+ * `player-command-resolved` are in neither, so a missing sequence is one of
+ * those rows and is not a hole in the page. `oldestSequence`, `newestSequence`,
+ * and `cursor` are stored sequences that are on this page. A refusal has no
+ * sequence and does not move the cursor.
+ */
+function eventFeed(
+  world: WorldState,
+  commanderId: string,
+  briefingEvents: SimEvent[],
+  feed: EventFeedPage,
+  refusals: DashboardRefusal[],
+): { events: Record<string, unknown>[]; eventPage: Record<string, unknown> } {
+  const projected = projectEventFeed(world, commanderId, feed.events, briefingEvents).reverse();
+  const refusalRows = [...refusals].reverse().map((refusal) => ({
+    sequence: null,
+    tick: refusal.tick,
+    day: round(refusal.tick / world.ticksPerDay, 2),
+    type: "command-refused",
+    actorId: refusal.actorId,
+    targetId: null,
+    settlementId: null,
+    summary: refusal.summary,
+    details: null,
+    data: null,
+    payloadWithheld: false,
+  }));
+  const events = [...refusalRows, ...projected];
+  const oldest = projected.at(-1);
+  const newest = projected[0];
+  return {
+    events,
+    /**
+     * How to page `events`. This is a page descriptor, not the feed itself: the
+     * events are under `events` above. It was called `eventFeed`, which read as
+     * though it contained them, and a playtest paged it for new events and got
+     * an empty result.
+     *
+     * `count` matches `events.length`. `total` matches the projected rows in
+     * the store, not the raw log. A sequence gap is an omitted action row.
+     */
+    eventPage: {
+      count: events.length,
+      limit: feed.limit,
+      total: feed.total,
+      hasMore: feed.hasMore,
+      oldestSequence: oldest?.sequence ?? null,
+      newestSequence: newest?.sequence ?? null,
+      /** Pass as `beforeSequence` to read the next older page. */
+      cursor: oldest?.sequence ?? null,
+    },
+  };
 }
 
 /** Builds a feed page holding every supplied event. Convenient when the caller already holds a full set. */
@@ -1120,6 +1196,11 @@ export function dashboardState(
   world: WorldState,
   briefingEvents: SimEvent[],
   feed: EventFeedPage,
+  /**
+   * Submit-time refusals for the newest page. Older pages omit them.
+   * Oldest first. They are not stored.
+   */
+  refusals: DashboardRefusal[] = [],
 ): Record<string, unknown> {
   const player = Object.values(world.players)[0];
   const commander = world.characters[player.characterId];
@@ -1222,7 +1303,10 @@ export function dashboardState(
       } : null,
     },
     briefing: checkInBriefing(world, commander.id, briefingEvents),
-    factions: projectFactions(world, commander),
+    factions: projectFactions(world, commander, briefingEvents, {
+      ticks: CHECK_IN_TICKS,
+      capped: briefingEvents.length >= CHECK_IN_EVENT_CAP,
+    }),
     settlements: Object.values(world.settlements).map((settlement) => {
       const exact = settlement.factionId === commander.factionId;
       const knowledge = commander.knowledge[settlement.id];
@@ -1370,23 +1454,7 @@ export function dashboardState(
       .sort((left, right) => left.id.localeCompare(right.id))
       .map((character) => projectCharacter(world, commander, character, briefingEvents)),
     contracts: projectSupplyContracts(world, commander),
-    events: projectEventFeed(world, commander.id, feed.events, briefingEvents).reverse(),
-    /**
-     * How to page `events`. This is a page descriptor, not the feed itself: the
-     * events are under `events` above. It was called `eventFeed`, which read as
-     * though it contained them, and a playtest paged it for new events and got
-     * an empty result.
-     */
-    eventPage: {
-      count: feed.events.length,
-      limit: feed.limit,
-      total: feed.total,
-      hasMore: feed.hasMore,
-      oldestSequence: feed.events[0]?.sequence ?? null,
-      newestSequence: feed.events.at(-1)?.sequence ?? null,
-      /** Pass as `beforeSequence` to read the next older page. */
-      cursor: feed.events[0]?.sequence ?? null,
-    },
+    ...eventFeed(world, commander.id, briefingEvents, feed, refusals),
     conversations: {
       threads: Object.values(world.conversationThreads)
         .filter((thread) => thread.participantIds.includes(commander.id))
