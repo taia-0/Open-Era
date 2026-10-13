@@ -333,3 +333,73 @@ Crown Harbor under the graded drift, threshold `0.15`. Tax is work plus sale. Pr
 | 0.30 | 1847 | 51.82 | 0 | 1019 | 260 | −712.89 | 43102.34 | 52807.66 | 13315.36 | 46114.33 |
 | 0.30 | 2718 | 53.74 | 1.84 | 1045 | 15 | −705.39 | 35978.44 | 48386.59 | 6904.04 | 46266.77 |
 | 0.30 | 4096 | 51.82 | 22 | 1094 | 3 | −2199.04 | 46737.85 | 57590.46 | 5818.10 | 42685.03 |
+
+## Addendum: autonomous rate choice (slice 3)
+
+The free command holder chooses the faction's next rate. Slice 1 is already in this tree: `set-tax-rate`, the `tax-rate-set` reducer, and `taxRateSetTick`. Slice 2 is not. `produceSettlements` still has no tax term. The harness subtracted the graded drift above on each faction-held peaceful upkeep, then let the holder step the rate. The harness was local and was not left in the tree.
+
+Measured on `778f1e86251dfdefaec0e5f7706b5c04c4701a5c`, Node v24.21.0, ICU 78.3, after `npm test` passed 368 tests. Seeds 1847 / 2718 / 4096, 1200 ticks, no player commands. A drift-only control, choice off, reproduced the scenario hashes at 72 and at 1200, and Crown Harbor's 788 / 582 / 907 ticks under the ration line, minimum 18.37 / 43.03 / 33.01.
+
+The check is the slice 1 clock. On tick `t > 0` with `t % 24 === 0`, after player commands, walk factions by id. The writer is the free command holder: `spendRole` is `"holder"`. The acting commander is `"member"` and stays out. A captive holder stays out. A missing `taxRateSetTick` means the rate has never changed. A tick still inside `taxRateSetTick + 24` waits. The same-rate case emits nothing.
+
+The step is one cent. Rates are integer hundredths, clamped to `0` through `30`. A step of `0.05` would leave `0.14` for `0.19` and `0.16` for `0.11`, so the holder could not stop on `0.15`, the last rate with zero drift and a closed secession gate. Free Tide's floor-55 path sits on `0.15`, `0.16`, and `0.17`. The band step was not run.
+
+The press is the live lowest stability among ports the faction holds, in thousandths. The ration count is a result, kept off the rule. It is not a field on the world, and the drift-only control already spends 788 / 582 / 907 ticks under Crown Harbor's line, so a window of those ticks would press most checks. Treasury pressure is the allowance test in whole cents: `mates > 0` and `round(treasury * 100) < mates * 1800`. Eighteen is one day of passage. When the port is pressed and the treasury is short, the rate goes down. The other order was not run.
+
+```text
+cents = round(taxRate * 100)
+lowest = minimum of round(stability * 1000) over held ports
+pressed = a port is held and lowest <= floor * 1000
+short = mates > 0 and round(treasury * 100) < mates * 1800
+next = cents - 1    when pressed and cents > 0
+       cents + 1    when not pressed and short and cents < 30
+       cents        otherwise
+```
+
+Emit `tax-rate-set` only when `next !== cents`. The rate on the event is `next / 100`. The reducer writes that absolute. These runs let every free holder choose, including Mara Vane. Every event in the grid is hers (`character-01`) or Pax Ash's (`character-14`).
+
+The three floors are 55, 65, and 75. End is the rate at tick 1200. Range is the minimum and maximum end-of-tick rate. Mean is that rate averaged over the 1200 ticks. Sets is the number of `tax-rate-set` events. Low is the lowest stability among ports that faction holds at tick 1200. Crown min is Crown Harbor's lowest stability after any of those ticks. Under is how many of the 1200 ticks Crown Harbor's penalized provisions fall below its ration. Gate is port-ticks with an owner, a holding rate above 0.15, and stability at or below 55. Spells are ownership spells that contain at least one such tick.
+
+| Floor | Seed | WG end | WG range | WG mean | WG sets | WG treasury | WG low | FT end | FT range | FT mean | FT sets | FT treasury | FT low | Crown min | Under | Gate | Spells |
+| ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 55 | 1847 | 0.08 | 0.08–0.14 | 0.1046 | 6 | 8928.22 | 54.45 | 0.16 | 0.08–0.17 | 0.1464 | 32 | 32.65 | 55.72 | 41.39 | 816 | 246 | 15 |
+| 55 | 2718 | 0.11 | 0.11–0.14 | 0.1216 | 3 | 10797.01 | 55.78 | 0.16 | 0.08–0.17 | 0.1222 | 26 | 673.57 | 56.64 | 34.52 | 660 | 103 | 7 |
+| 55 | 4096 | 0.14 | 0.14–0.14 | 0.1400 | 0 | 14514.91 | 55.99 | 0.17 | 0.08–0.20 | 0.1552 | 37 | 34.02 | 55.66 | 33.07 | 865 | 333 | 9 |
+| 65 | 1847 | 0.00 | 0.00–0.14 | 0.0266 | 14 | 0.09 | 55.99 | 0.00 | 0.00–0.08 | 0.0160 | 8 | 0.00 | 56.08 | 39.59 | 370 | 0 | 0 |
+| 65 | 2718 | 0.03 | 0.00–0.14 | 0.0528 | 19 | 50.98 | 51.72 | 0.00 | 0.00–0.08 | 0.0210 | 12 | 0.00 | 55.81 | 49.53 | 45 | 0 | 0 |
+| 65 | 4096 | 0.00 | 0.00–0.14 | 0.0464 | 16 | 0.11 | 57.46 | 0.00 | 0.00–0.08 | 0.0096 | 12 | 0.00 | 57.25 | 75.08 | 0 | 0 | 0 |
+| 75 | 1847 | 0.00 | 0.00–0.14 | 0.0264 | 16 | 0.00 | 56.29 | 0.00 | 0.00–0.08 | 0.0080 | 12 | 0.00 | 56.68 | 41.71 | 687 | 0 | 0 |
+| 75 | 2718 | 0.00 | 0.00–0.14 | 0.0402 | 14 | 0.00 | 55.03 | 0.00 | 0.00–0.08 | 0.0100 | 8 | 0.00 | 55.27 | 31.54 | 403 | 0 | 0 |
+| 75 | 4096 | 0.00 | 0.00–0.14 | 0.0320 | 14 | 0.00 | 56.68 | 0.00 | 0.00–0.08 | 0.0072 | 8 | 0.00 | 56.47 | 24.13 | 1053 | 0 | 0 |
+
+**Recommend floor 55.** It is `CLAIM_STABILITY_FLOOR`, and it is the secession line. World Government only lowers, 6 / 3 / 0 times, and ends at 0.08 / 0.11 / 0.14 with the treasury still funded. On 4096 she never sets. Free Tide raises and lowers, 20 and 12, 17 and 9, 23 and 14, and ends at 0.16 / 0.16 / 0.17. Floors 65 and 75 end at 0.00, except World Government on 2718 at floor 65, which ends at 0.03. Those rates stay at or below the opening 0.14 and 0.08, so the gate count is 0. Free Tide's treasury on those six rows is 0.00. World Government ends at 0.09 / 50.98 / 0.11 on floor 65 and at 0.00 on floor 75. Floor 75 on seed 4096 spends 1053 ticks under the ration line, above the drift-only 907.
+
+Floor 55 does reach the gate, on every seed. Port-ticks 246 / 103 / 333, world ticks 221 / 103 / 331, spells 15 / 7 / 9. Owners on 1847: Bram Tern, Corin Hale, Finn Frost, Mina Vale, Pax Ash, Zara Gale. On 2718: Corin Hale, Mina Vale, Pax Ash, Zara Gale. On 4096: Corin Hale, Esme Dusk, Mara Calder, Mina Vale. Pax Ash accounts for one tick on each of the first two seeds. Of the gate port-ticks, 160 / 99 / 212 also have the owner present, free, in the holding faction, and not the command holder.
+
+Floor 55 leaves the 72-tick fixture where it is: `4ea893a4` / `d376ad02` / `ac780b39` (8413 / 8456 / 8261). The first `tax-rate-set` is tick 120 (Free Tide) on 1847, tick 216 (World Government) on 2718, and tick 120 (Free Tide) on 4096. The 1200-tick hashes move. Floor 65 fires inside the window, at tick 48, and the 72-tick counts become 8414 / 8457 / 8262. Floor 75 fires at tick 24, and those counts become 8416 / 8472 / 8242.
+
+| Floor | 72 ticks, 1847 | 2718 | 4096 |
+| --- | --- | --- | --- |
+| 55 | fixture, 8413 | fixture, 8456 | fixture, 8261 |
+| 65 | `ad1422af1cc77d3c250f5402c0b0e1749bdbe3f26575da0a76995b4f8bbef2d5` (8414) | `0793e263f93b9faf175292d76c6562d4b63da305fa4d3bc62593a127d46b74bf` (8457) | `f780c3abc599f2d6011990e601fa2aab950dcb484e90ea16914938f58024c105` (8262) |
+| 75 | `092a4a5d86df1653124681fa72b814c1d9ef785c4cd9b209ca2750a5ab94348c` (8416) | `424ae33687303b2dd16f3846c15cc56a6503f7efa4364c8306f723c4d87566ca` (8472) | `cb9efaa9d9742202da43faaa1336ae7f58a3f499da3d2e55f526c992d8313133` (8242) |
+
+| Floor | 1200 ticks, 1847 | 2718 | 4096 |
+| --- | --- | --- | --- |
+| 55 | `28866eb80bd48798c78791dd8f0c4093b9ffecfb8009421db7dd2c109d4f1e47` (161658) | `712b60edc75c313f17e774951f43aa84fcd487fbc29c422215cd602b19665be8` (161613) | `b0ac72fe452697010e58570136737e4dd8ed12770a2e86863bfdaa76ee07e114` (162327) |
+| 65 | `3fb634e902951dee7d30ffd16b1d4adf375c22e6f1480d9ec1036af5e03125bd` (158814) | `cf2ba73c9be2c11450b8fa6313f0153f2055b1dcde26e3dc80d621a86432696e` (164292) | `e894fa0e1d7bd35cb4ed9c95de1a0379c5c17ea451272c407b597baf09ad3fa4` (166045) |
+| 75 | `bf7107a2ad806ed491a462dca90114d2e480659e0a9ab99cd461edc38656f9d2` (161544) | `6703b74cd0ad65c1808480c2f800fed7dcd3f3d1a6c3c12d2b62bf0244571622` (165261) | `cc0288e235d37d31317291eb53a8636d674d1cb64a8725c304d639c14dbdd32c` (164493) |
+
+## Questions for the Lead
+
+The Lead rules on these against [game vision](game-vision.md). Defaults are what this brief would build. The table above is the headless reading, both seats choosing.
+
+1. **What is the step?** Default: one cent, `0.01`, clamped to `0.00`–`0.30`. The holder can stop on `0.15`. A band of `0.05` was not run.
+
+2. **Which floor presses the rate down?** Default: `55`. It is the claim floor and the secession line. Floors `65` and `75` drain the treasury on these seeds: Free Tide ends at 0.00, and World Government ends at 50.98 or below. The rate still rises when every held port is above the floor and the treasury cannot pay 18 to every free mate.
+
+3. **When the port is pressed and the treasury is short, which way does the cent go?** Default: down. The measured rule does that. Raising in that case was not run.
+
+4. **Does the ration line in the last 24 ticks press the rate too?** Default: no. The rule reads the live lowest stability. The drift-only control already has Crown Harbor under its line for 788 / 582 / 907 ticks.
+
+5. **Does Mara's seat run it?** Default: a live session skips a holder whose `controller.kind` is `"human"`. She uses `set-tax-rate`. A headless run lets every free holder choose, including her, and the hashes above are that run. The live exclusion was not given its own 1200-tick hashes. On floor 55 the first set is outside the 72-tick window on every seed, so that fixture stays either way. The acting commander runs it in neither case.
