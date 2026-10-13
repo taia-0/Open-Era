@@ -4,7 +4,7 @@ import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder
 import { PASSAGE_COST_PER_TICK } from "../sim/engine.ts";
 import { shortPayMember } from "../sim/allowance.ts";
 import { projectAllowance } from "./allowance.ts";
-import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
+import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, SHORT_PAY_UPKEEP_LINE, shortPayUpkeepVisible, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
 
 /**
  * Decides what a player may legitimately know about the rest of the world.
@@ -1020,8 +1020,12 @@ export function eventPayloadVisible(
   // The commander's own actions are entirely theirs.
   if (event.actorId === commander.id) return true;
 
-  // The creditor faction sees the installment. A bystander, including a mate
-  // of the debtor in the other faction, does not.
+  // The creditor side is the faction on targetId. Any member of that faction
+  // sees the installment, so the rich sentence can name the amount. The debtor
+  // side is the actor, already allowed above as their own action, not every
+  // member of the debtor's faction. A bystander, including a mate of the
+  // debtor in the other faction, does not see the amount. Their sentence names
+  // the creditor and leaves the figure out. `data` stays null for them.
   if (event.type === "debt-repaid" && commander.factionId !== null && commander.factionId === event.targetId) {
     return true;
   }
@@ -1106,6 +1110,12 @@ export function projectEvent(
   if (actorCharacter && characterIntelligence(world, commander, actorCharacter).capabilityExact) {
     const gain = skillGainSentence(world, event);
     if (gain && !summary.includes(gain)) summary = `${summary} ${gain}`;
+  }
+  // The holder's copy of a mate's upkeep keeps `data` null. The short-pay
+  // clause is still theirs, and the member's own row already carries it when
+  // the rich summary was built for them. A rival keeps the public line.
+  if (shortPayUpkeepVisible(world, commander, event) && !summary.includes(SHORT_PAY_UPKEEP_LINE)) {
+    summary = `${summary} ${SHORT_PAY_UPKEEP_LINE}`;
   }
   const details = event.type === "captivity-released" ? captivityReleasedParts(world, event, false, commander) : null;
   return {

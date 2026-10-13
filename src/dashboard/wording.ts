@@ -555,11 +555,11 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
     case "captivity-released":
       return `${actor} was released${at}.`;
     case "debt-repaid":
-      return `${actor} met a debt.`;
+      return debtRepaidSentence(world, event, false);
     case "character-deserted": {
       const previous = typeof event.data.previousFactionId === "string" ? event.data.previousFactionId : undefined;
-      const faction = previous ? world.factions[previous]?.name ?? previous : "a faction";
-      return `${actor} left ${faction}. The roll was ${event.data.roll}.`;
+      const faction = previous ? world.factions[previous]?.name ?? previous : target ?? "a faction";
+      return `${actor} left ${faction}.`;
     }
     case "captivity-escaped":
       return `${actor} escaped captivity${at}.`;
@@ -722,6 +722,42 @@ export function skillsWithheldNote(name: string, tier: string, source: string): 
 
 export function learnedInPortNote(place: string): string {
   return `Learned at ${place}. The hold and the purse are on this card because both ships are in port.`;
+}
+
+/**
+ * A debt payment.
+ *
+ * `withAmount` names the figure the debtor and the creditor faction already
+ * see. Everyone else gets the same sentence without that figure. The creditor
+ * is `targetId`, which the feed copies even when `data` is null.
+ */
+export function debtRepaidSentence(world: WorldState, event: SimEvent, withAmount: boolean): string {
+  const actor = event.actorId ? characterName(world, event.actorId, event.actorId) : "The world";
+  const creditorId = event.targetId;
+  const creditor = creditorId
+    ? world.factions[creditorId]?.name ?? world.characters[creditorId]?.name ?? world.settlements[creditorId]?.name ?? creditorId
+    : "a faction";
+  const paid = event.data.paid;
+  if (withAmount && typeof paid === "number") return `${actor} paid ${paid} toward a debt to ${creditor}.`;
+  return `${actor} paid toward a debt to ${creditor}.`;
+}
+
+/** The short-pay clause on a character-upkeep row. The 0.5 is the morale term. */
+export const SHORT_PAY_UPKEEP_LINE = "Pay was short, so morale fell by 0.5.";
+
+/**
+ * Who may read the short-pay clause.
+ *
+ * The member themself, when this viewer is the character the row is about:
+ * that is the person the viewer commands. The holder of that member's faction
+ * also reads it. A mate who is neither, and every rival, does not.
+ */
+export function shortPayUpkeepVisible(world: WorldState, reader: Character | undefined, event: SimEvent): boolean {
+  if (!reader || event.type !== "character-upkeep" || event.data.shortPay !== true || !event.actorId) return false;
+  if (reader.id === event.actorId) return true;
+  const factionId = world.characters[event.actorId]?.factionId;
+  if (!factionId) return false;
+  return commandHolderId(world, factionId) === reader.id;
 }
 
 /** The upkeep row already stores the passage. Null when this upkeep was not a voyage. */
