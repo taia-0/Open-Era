@@ -869,21 +869,24 @@ function settlementTaxRate(world: WorldState, factionId: string | null): number 
 /**
  * The secession readout on one settlement row.
  *
- * Own faction, including a port the commander is away from, already shows
- * the ground and the loyalty of the members who would be counted. Standing
+ * Own faction is the live holder. That row shows the readout wherever the
+ * commander is standing. A stored report can still name the viewer's faction
+ * after the port has changed hands; the readout does not follow that label,
+ * or a foreign port's people would be published under the old name. Standing
  * on another faction's port shows the ground, the owner gate, and whether
  * the garrison would follow. The follower counts stay null there, because
- * that faction's loyalty is not on the panel. Offshore, with no exact
- * record, the whole readout is null. Nothing is written onto the world.
+ * that faction's loyalty is not on the panel. Offshore, the whole readout is
+ * null. A neutral port is null even when the commander is standing on it,
+ * including the tax-open line. Nothing is written onto the world.
  */
 export interface SecessionPanelReadout {
   ownerId: string | null;
   ownerGate: boolean;
   followerCount: number | null;
-  garrisonFollows: boolean;
+  garrisonFollows: boolean | "none";
   taxOpen: {
     followerCount: number | null;
-    garrisonFollows: boolean;
+    garrisonFollows: boolean | "none";
   };
 }
 
@@ -894,9 +897,10 @@ function projectSecession(
   exact: boolean,
   coLocated: boolean,
 ): SecessionPanelReadout | null {
+  if (settlement.factionId === null) return null;
   if (!exact && !coLocated) return null;
   const readout: SecessionReadout = secessionReadout(world, settlement);
-  if (settlement.factionId === null || settlement.factionId === commander.factionId) return readout;
+  if (settlement.factionId === commander.factionId) return readout;
   return {
     ownerId: readout.ownerId,
     ownerGate: readout.ownerGate,

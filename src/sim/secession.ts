@@ -25,15 +25,20 @@ export interface SecessionReadout {
   ownerGate: boolean;
   /** Anchored members who would leave with the owner. The owner is not in this count. */
   followerCount: number;
-  /** The whole garrison follows, or none of it does. */
-  garrisonFollows: boolean;
+  /**
+   * The whole garrison follows, or none of it does.
+   * `"none"` is a garrison of 0: there is nothing to follow, so the panel
+   * says "no garrison" rather than "would follow".
+   */
+  garrisonFollows: boolean | "none";
   /**
    * The same two figures with the tax line treated as open. That press is the
-   * stand-in for a holding rate above 0.15. It is not stored.
+   * stand-in for a holding rate above 0.15. It is not stored. A garrison of 0
+   * is still `"none"` on this line.
    */
   taxOpen: {
     followerCount: number;
-    garrisonFollows: boolean;
+    garrisonFollows: boolean | "none";
   };
 }
 
@@ -88,11 +93,17 @@ export function ownerGatePasses(world: WorldState, settlement: Settlement): bool
   return true;
 }
 
+function actingCommanderId(world: WorldState, settlement: Settlement): string | null {
+  if (!settlement.factionId) return null;
+  return world.factions[settlement.factionId]?.actingCommanderId ?? null;
+}
+
 function wouldFollow(
   world: WorldState,
   settlement: Settlement,
   character: Character,
   holderId: string | null,
+  actingId: string | null,
   pressed: boolean,
 ): boolean {
   if (settlement.factionId === null) return false;
@@ -100,33 +111,47 @@ function wouldFollow(
   if (!anchored(character, settlement.id)) return false;
   if (character.factionId !== settlement.factionId) return false;
   if (holderId !== null && character.id === holderId) return false;
+  if (actingId !== null && character.id === actingId) return false;
   if (!(secessionLoyalty(character) < SECESSION_LOYALTY_LINE)) return false;
   if (pressed) return true;
   return character.cargo.provisions < provisionDemand(character);
 }
 
-function countFollowers(world: WorldState, settlement: Settlement, holderId: string | null, pressed: boolean): number {
-  const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
-  let count = 0;
-  for (const character of characters) {
-    if (wouldFollow(world, settlement, character, holderId, pressed)) count += 1;
-  }
-  return count;
+/** `"none"` when the stack is empty. A press does not invent a garrison. */
+export function garrisonReading(garrison: number, pressed: boolean): boolean | "none" {
+  if (garrison <= 0) return "none";
+  return pressed;
+}
+
+/**
+ * Character ids who would leave, in id order. The owner is not in the list.
+ * The command holder and the acting commander are not in it either.
+ */
+export function secessionFollowerIds(world: WorldState, settlement: Settlement, pressed: boolean): string[] {
+  const holderId = settlement.factionId === null ? null : commandHolderId(world, settlement.factionId);
+  const actingId = actingCommanderId(world, settlement);
+  return Object.values(world.characters)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .filter((character) => wouldFollow(world, settlement, character, holderId, actingId, pressed))
+    .map((character) => character.id);
+}
+
+function countFollowers(world: WorldState, settlement: Settlement, pressed: boolean): number {
+  return secessionFollowerIds(world, settlement, pressed).length;
 }
 
 /** Read who would leave. Does not write the world. */
 export function secessionReadout(world: WorldState, settlement: Settlement): SecessionReadout {
-  const holderId = settlement.factionId === null ? null : commandHolderId(world, settlement.factionId);
   const livePressed = settlementPressed(world, settlement, false);
   const openPressed = settlementPressed(world, settlement, true);
   return {
     ownerId: settlement.ownerId,
     ownerGate: ownerGatePasses(world, settlement),
-    followerCount: countFollowers(world, settlement, holderId, livePressed),
-    garrisonFollows: livePressed,
+    followerCount: countFollowers(world, settlement, livePressed),
+    garrisonFollows: garrisonReading(settlement.garrison, livePressed),
     taxOpen: {
-      followerCount: countFollowers(world, settlement, holderId, openPressed),
-      garrisonFollows: openPressed,
+      followerCount: countFollowers(world, settlement, openPressed),
+      garrisonFollows: garrisonReading(settlement.garrison, openPressed),
     },
   };
 }

@@ -30,17 +30,17 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/secession-1` from `c93507f`. The settlement panel reads the owner gate, how many characters would follow, and whether the garrison would follow. A second line treats the tax gate as open. Nothing is written onto the world or the event log.
-- **Last verified:** 397 tests. Recovery replays 600. Typecheck clean.
-- **Gate status:** `./scripts/evaluate-milestone.sh secession-1` passed on this tree. The blind plan is not run.
-- **Headline:** On seed 1847 Mara Vane can read the readout on a World Government port. At tick 72 Jun Marrow owns Cinder Key and the owner gate does not pass. A headless run still emits no secession.
+- **Baseline:** `feature/secession-2` from `cc6fd4d`. The slice 1 readout stays. A live own-faction port shows it wherever Mara is. A neutral port is `secession: null`. A garrison of 0 reads `none` and "no garrison." The acting commander does not follow. The command is not in this commit.
+- **Last verified:** 398 tests. Typecheck clean. The 72-tick golden fixture passed inside `npm test`.
+- **Gate status:** `./scripts/evaluate-milestone.sh secession-2` is not run on this commit.
+- **Headline:** On seed 1847 at tick 72 Glassport is Free Tide, owned by Finn Frost. Mara's report still says World Government, and the readout stays null because she is not standing there.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
-| Secession slice 1: a settlement-panel readout of the owner, the owner gate, how many characters would follow, and whether the garrison would follow. The tax-open line is a second figure. Not stored. | Behavior | Open Era Engineer | **Fixed** on `feature/secession-1`. Hash-neutral on the leader-tax-autonomy baseline |
+| Secession slice 1: a settlement-panel readout of the owner, the owner gate, how many characters would follow, and whether the garrison would follow. The tax-open line is a second figure. Not stored. | Behavior | Open Era Engineer | **Fixed** on `feature/secession-1`. The Lead's readout rulings are on `feature/secession-2`: live own-faction ports stay visible from afar, a neutral port is null, a garrison of 0 reads "no garrison", and the acting commander does not follow |
 | Secession slice 2: `declare-secession`, the reducer, and `secession-declared`. No autonomous caller. A headless run never queues the command. | Behavior | Open Era Engineer | Open. Slice 1 does not add the command |
 | Secession slice 3: the autonomous owner declares when the owner gate passes, the holder is not autonomous, the holding rate is above 0.15, and stability is at or below 55. | Behavior | Open Era Engineer | Open. Eligible spells on these seeds are 0 at the scenario rates. Do not ship a 0.10 line; it would move the 72-tick fixture |
 | Leader tax slice 2: graded stability drift. A holding rate above 0.15 subtracts 0.03 per 0.05 band on each peaceful upkeep. At or below 0.15 the drift is zero. | Behavior | Open Era Engineer | **Fixed** on `feature/leader-tax-stability`. Scenario rates 0.14 and 0.08 add nothing. Tick-72 and tick-1200 hashes are unchanged |
@@ -138,6 +138,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-13 — Secession readout rulings
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/secession-2` | **Commits:** this commit. | **Type:** Projection
+- **Changed** — The panel's own-faction test stays the live holder. A port that faction holds still shows the readout wherever the viewer is. Glassport at tick 72 on seed 1847 is not that case. A neutral port's `secession` is null, including while the viewer is standing there, so there is no tax-open line. `garrisonFollows` is `"none"` when the garrison is 0, and the panel says `no garrison.` The acting commander is left out of the follower count, with `commandHolderId`. A missing owner id still fails the gate. An unnamed command seat still does not block it. Nothing is written onto the world.
+- **Why** — The Lead's rulings on the slice 1 readout. The Glassport null in the blind run was the question those rulings opened on.
+- **Verified** — Base `cc6fd4d`. Node v24.21.0. `npm run typecheck` is clean. **398 tests.** The 72-tick golden fixture passed inside `npm test`. No `golden:update`. The 1200-tick hashes were not re-run on this commit. The readout writes no field and no event, so a headless run cannot move them. `./scripts/evaluate-milestone.sh secession-2` is not run yet.
+- **Left open** — Slice 2, the command and the event. Slice 3, the autonomous walker. The 1200-tick confirmation waits on the command commit, which must stay hash-neutral.
+- **Links** — [secession](docs/design/secession.md), [playtest secession-1-001](docs/playtests/secession-1-001.md)
 
 ### 2026-10-13 — Secession, panel readout
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/secession-1` | **Commits:** `0c88bb1` (the readout). This commit records that SHA. | **Type:** Projection
