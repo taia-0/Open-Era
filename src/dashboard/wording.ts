@@ -1,5 +1,5 @@
-import { commandHolderId } from "../sim/state.ts";
-import type { Character, Faction, SimEvent, WorldState } from "../sim/types.ts";
+import { commandHolderId, round } from "../sim/state.ts";
+import type { Character, Faction, ResourceKey, SimEvent, WorldState } from "../sim/types.ts";
 
 /**
  * Player-facing sentences. They are built when the state is read.
@@ -774,6 +774,68 @@ export function recruitDetailSentence(world: WorldState, event: SimEvent): strin
   if (treasury > 0) return `${actor} recruited ${quantity}${at} for ${cost} from the treasury.`;
   if (purse > 0) return `${actor} recruited ${quantity}${at} for ${cost} from the purse.`;
   return `${actor} recruited ${quantity}${at}.`;
+}
+
+/**
+ * The trade the player keeps. Buys name who paid. Buys and sells name the
+ * hold of that good as the state exposes it when the line is read, rounded
+ * to two decimals. The receipt's `characterCargo` is the fill before the rest
+ * of the tick, so it is not this figure.
+ */
+export function marketTradeSentence(
+  world: WorldState,
+  event: SimEvent,
+  actor: string,
+  settlement: string | null,
+): string {
+  const tax = typeof event.data.tax === "number" && event.data.tax > 0
+    ? ` Tax of ${event.data.tax} went to the treasury.`
+    : "";
+  const resource = typeof event.data.resource === "string" ? event.data.resource : "goods";
+  const quantity = event.data.quantity;
+  const hold = holdNow(world, event, resource);
+  const place = ` at ${settlement}`;
+  if (event.data.direction === "bought" && typeof event.data.gross === "number") {
+    return `${actor} bought ${quantity} ${resource}${place} for ${event.data.gross}${spendClause(event.data)}${hold}.${tax}`;
+  }
+  const direction = typeof event.data.direction === "string" ? event.data.direction : "traded";
+  return `${actor} ${direction} ${quantity} ${resource}${place}${hold}.${tax}`;
+}
+
+/**
+ * Who paid, already stored on the trade. Both shares, then treasury, then
+ * the purse. No recorded payer leaves this empty, so a sale does not invent
+ * a side.
+ */
+function spendClause(data: Record<string, unknown>): string {
+  const treasury = numberOrNull(data.treasuryDrawn) ?? 0;
+  const purse = numberOrNull(data.purseDrawn) ?? 0;
+  if (treasury > 0 && purse > 0) {
+    return `: ${treasury} from the treasury and ${purse} from the purse`;
+  }
+  if (treasury > 0) return " from the treasury";
+  if (purse > 0) return " from the purse";
+  return "";
+}
+
+function holdNow(world: WorldState, event: SimEvent, resource: string): string {
+  const key = resourceKey(resource);
+  if (!key) return "";
+  const actor = event.actorId ? world.characters[event.actorId] : undefined;
+  const live = actor ? actor.cargo[key] : null;
+  const amount = typeof live === "number" ? live : cargoAmount(event.data.characterCargo, key);
+  if (amount === null) return "";
+  return ` (hold now ${round(amount, 2)})`;
+}
+
+function resourceKey(value: string): ResourceKey | null {
+  if (value === "provisions" || value === "arms" || value === "medicine" || value === "shipMaterials") return value;
+  return null;
+}
+
+function cargoAmount(value: unknown, key: ResourceKey): number | null {
+  if (!value || typeof value !== "object") return null;
+  return numberOrNull((value as Record<string, unknown>)[key]);
 }
 
 /**

@@ -30,6 +30,7 @@ import {
   qualifyCollidingNames,
   passageUpkeepSentence,
   executedActionSentence,
+  marketTradeSentence,
   publicFeedSentence,
   queuedCommandSentence,
   recruitDetailSentence,
@@ -172,13 +173,8 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
       return `${actor} arrived at ${settlement}`;
     case "travel-started":
       return `${actor} departed for ${target}`;
-    case "market-trade": {
-      const tax = typeof event.data.tax === "number" && event.data.tax > 0 ? ` Tax of ${event.data.tax} went to the treasury.` : "";
-      if (event.data.direction === "bought" && typeof event.data.gross === "number") {
-        return `${actor} bought ${event.data.quantity} ${event.data.resource} at ${settlement} for ${event.data.gross} (${event.data.unitPrice} each).${tax}`;
-      }
-      return `${actor} ${event.data.direction} ${event.data.quantity} ${event.data.resource} at ${settlement}.${tax}`;
-    }
+    case "market-trade":
+      return marketTradeSentence(world, event, actor, settlement);
     case "worked": {
       const place = settlement ? ` at ${settlement}` : "";
       const tax = typeof event.data.tax === "number" && event.data.tax > 0 ? ` Tax of ${event.data.tax} went to the treasury.` : "";
@@ -811,7 +807,13 @@ export function projectEventFeed(
 ): Record<string, unknown>[] {
   const commander = world.characters[commanderId];
   const siblings = context ?? events;
-  return events.map((event) => projectEvent(world, commander, event, eventSummary(world, event, siblings, commander)));
+  // A player action already has its result sentence (the tax set, the trade,
+  // the recruit, the voyage). The executed and resolved rows repeat it.
+  // Refusals and queued lines are not in this set.
+  const shown = events.filter((event) =>
+    event.type !== "player-action-executed" && event.type !== "player-command-resolved",
+  );
+  return shown.map((event) => projectEvent(world, commander, event, eventSummary(world, event, siblings, commander)));
 }
 
 /** Builds a feed page holding every supplied event. Convenient when the caller already holds a full set. */

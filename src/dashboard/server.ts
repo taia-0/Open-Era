@@ -51,10 +51,15 @@ function json(response: ServerResponse, status: number, body: unknown): void {
   response.end(JSON.stringify(body));
 }
 
-/** Reads the event-feed cursor from a request. Returns "invalid" when unusable. */
+/**
+ * Reads the event-feed cursor from a request. Returns "invalid" when unusable.
+ *
+ * Missing and blank (`beforeSequence=`) are no bound: the newest page.
+ * `Number("")` is 0, and a bound of 0 is `sequence < 0`, which is an empty page.
+ */
 function parseEventCursor(url: URL): number | null | "invalid" {
   const raw = url.searchParams.get("beforeSequence");
-  if (raw === null) return null;
+  if (raw === null || raw.trim() === "") return null;
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed < 0) return "invalid";
   return parsed;
