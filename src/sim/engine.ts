@@ -24,7 +24,7 @@ import {
 } from "./agency.ts";
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
 import { resolvePassageCharge, resolveQuotedSpend, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
-import { taxRateCommandRefusal } from "./tax-rate.ts";
+import { taxDrift, taxRateCommandRefusal } from "./tax-rate.ts";
 import {
   applyEvent,
   captorPartyLeader,
@@ -286,7 +286,16 @@ function produceSettlements(world: WorldState, events: SimEvent[]): void {
     // on the way out has nothing to do on the way home. Provisions keep the
     // shortage path above; running out of timber is a price, not a garrison loss.
     const { stocks: afterConsumption, demand, consumed, shortage } = consumedStocks(settlement, stocks);
-    const stability = clamp(settlement.stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0), 0, 100);
+    // The holding rate on this tick. A neutral port adds zero. A claim, or a
+    // set that resolves later in this tick, starts on the next peaceful upkeep.
+    // Above 0.15 the graded drift is 0.03 per band of 0.05. At or below the
+    // threshold it is zero, and a low rate does not add a recovery.
+    const holdingRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
+    const stability = clamp(
+      settlement.stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0) - taxDrift(holdingRate),
+      0,
+      100,
+    );
     const garrisonLoss = shortage > 0 ? Math.min(settlement.garrison, Math.floor(shortage * 0.18)) : 0;
     const garrisonGain = garrisonRegrowth(settlement.population, settlement.garrison, world.tick, shortage);
     emit(world, events, {
