@@ -135,7 +135,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
           total: store.eventCount(FEED_OMITTED_TYPES),
           limitMax: EVENT_FEED_PAGE_LIMIT,
           limitDefault: EVENT_FEED_PAGE_DEFAULT,
-        }, beforeSequence === null ? refusals : []));
+        }, beforeSequence === null ? refusals : [], store.feedingCounts()));
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/health") {
