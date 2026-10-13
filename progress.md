@@ -30,10 +30,10 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/secession-3` from `f85d59a`. Slice 1 readout, slice 2 `declare-secession`, and the holder successor stay. An autonomous owner declares when the owner gate passes, the owner is not the command holder, the holding rate is above 0.15, and stability is at or below 55.
-- **Last verified:** 415 tests on `4222ffe`. Typecheck clean. `npm run golden:update` rewrote the 72-tick fixture and the file did not change. The Lead-approved 1200-tick baseline is `b302e1af` / `e81f5ba4` / `f6b6aea4`.
-- **Gate status:** `./scripts/evaluate-milestone.sh secession-2` passed on `2f4bd73`. `secession-3` passed on `4222ffe`.
-- **Headline:** Mara can declare a port she owns, and the old faction's seat passes to the cover. A headless run declares on its own once leader-tax autonomy lifts a holding rate above 0.15. On seed 1847 the first declaration is tick 438. The 72-tick fixture does not move. The Lead approved the new 1200-tick baseline and the no-successor refusal.
+- **Baseline:** `feature/feed-polish-2` from `4e715c4`. The secession walker stays. This branch changes dashboard sentences and the events page. It does not change the simulation.
+- **Last verified:** Unverified on this branch. The previous verification is 415 tests on `4222ffe`. The Lead-approved 1200-tick baseline is still `b302e1af` / `e81f5ba4` / `f6b6aea4`.
+- **Gate status:** `./scripts/evaluate-milestone.sh secession-3` passed on `4222ffe`. `feed-polish-2` is not run yet.
+- **Headline:** A refused command is a feed row. A queued voyage names both ports. The page count is the rows returned. The viewer's faction has an income line. A new faction's line says the treasury starts empty. An autonomous tax line says why. A tax set publishes `settlementId` null. An autonomous secession with no successor ends with ` (no leader yet)`.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
@@ -139,6 +139,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-13 — Feed polish, the refusal and the treasury line
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/feed-polish-2` | **Commits:** this commit. | **Type:** Wording
+- **Changed** — Eight dashboard readings. A submit-time HTTP 400 is also a `command-refused` row on the newest page, and the HTTP body is unchanged. A queued voyage names the port left and the port aimed at. `eventPage.count` is the rows returned, and `eventPage.total` excludes `player-action-executed` and `player-command-resolved`, which the page query drops before the limit. The viewer's faction has `treasuryLine` for tax, ransom, and treasury draws over the last 180 ticks. A declaration whose stored treasury is 0 says the faction starts empty. An autonomous tax line says `treasury short` on a rise and names the pressed port on a fall. A `tax-rate-set` row publishes `settlementId` null. An autonomous declaration with no successor ends with ` (no leader yet)`.
+- **Why** — The feed counted rows the projection had already dropped, a refusal vanished, and a new faction's 0 sat next to a same-tick 2.69 with no sentence saying which figure was the start. Autonomous tax and secession lines did not say why.
+- **Verified** — unverified
+- **Left open** — The blind playtest. There is no wage event, so the income line cannot name wages. Spending is `treasuryDrawn` minus `treasuryRefunded`, floored at 0. A window that hits the check-in cap says the older events were not loaded.
+- **Links** — [feed-polish-2-001](docs/playtests/feed-polish-2-001.md)
 
 ### 2026-10-13 — Secession, the approved 1200-tick baseline
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/secession-3` | **Commits:** this commit. | **Type:** Baseline

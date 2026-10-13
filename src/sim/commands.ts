@@ -275,7 +275,7 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
       },
       response: {
         events: "the page of visible events, newest first",
-        eventPage: "describes that page: count, limit, total, hasMore, oldestSequence, newestSequence, and the cursor to pass as beforeSequence",
+        eventPage: "describes that page. count is the rows in events, including a dashboard-only refusal on the newest page. total is the stored events the projection keeps. player-action-executed and player-command-resolved are in neither, so a gap in sequence numbers is one of those rows and is not a skipped page. A refusal is not stored, so it is not in total. oldestSequence, newestSequence, and cursor are stored sequences on this page",
       },
     },
     advance: {

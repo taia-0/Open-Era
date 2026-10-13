@@ -591,7 +591,8 @@
         '<span class="pill">Money <strong>' + fmt(c.money) + "</strong></span>" +
         '<span class="pill">Provisions <strong>' + fmt(c.cargo.provisions, 1) + "</strong></span>" +
         '<span class="pill">Lasts <strong>' + runway + "</strong></span>" +
-        '<span class="pill">Faction power <strong>' + fmt(f ? f.power : 0) + "</strong></span>";
+        '<span class="pill">Faction power <strong>' + fmt(f ? f.power : 0) + "</strong></span>" +
+        (f && f.treasuryLine ? '<span class="pill">' + esc(f.treasuryLine) + "</span>" : "");
     }
     function renderMap() {
       var islands = byId("islands");

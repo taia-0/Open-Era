@@ -1,4 +1,4 @@
-import { commandHolderId, round } from "../sim/state.ts";
+import { CLAIM_STABILITY_FLOOR, commandHolderId, round } from "../sim/state.ts";
 import type { Character, Faction, ResourceKey, SimEvent, WorldState } from "../sim/types.ts";
 
 /**
@@ -46,7 +46,7 @@ export function higherScoreClause(data: Record<string, unknown>): string {
  * `data` stays null. A decision, a contract, and an upkeep row are not in this set.
  */
 export function summaryStaysWhenWithheld(type: string): boolean {
-  return type === "character-captured" || type === "captivity-released" || type === "battle-resolved" || type === "settlement-claimed" || type === "secession-declared";
+  return type === "character-captured" || type === "captivity-released" || type === "battle-resolved" || type === "settlement-claimed" || type === "secession-declared" || type === "tax-rate-set";
 }
 
 /**
@@ -976,7 +976,33 @@ export function secessionDeclaredSentence(world: WorldState, event: SimEvent, ac
     ? event.data.previousFactionId
     : event.targetId;
   const faction = previousId ? world.factions[previousId]?.name ?? previousId : "the faction";
-  return `${actor} declared ${place} separate from ${faction}.`;
+  let sentence = `${actor} declared ${place} separate from ${faction}.`;
+  const founded = foundedFaction(event);
+  // The event stores the treasury at the declaration, which is 0. Tax later
+  // in the same tick can credit the faction row. The line says the start, so
+  // the row's later balance is not a second founding figure.
+  if (founded && founded.treasury === 0 && founded.name) {
+    sentence += ` ${founded.name} starts with an empty treasury.`;
+  }
+  // An autonomous declaration names no successor. The new seat stays unnamed.
+  // A holder who leaves names the successor in a separate clause.
+  if (event.type === "secession-declared" && !namedSuccessor(event)) {
+    sentence += " (no leader yet)";
+  }
+  return sentence;
+}
+
+function foundedFaction(event: SimEvent): { id: string; name: string; treasury: number } | null {
+  const faction = event.data.faction;
+  if (!faction || typeof faction !== "object") return null;
+  const record = faction as { id?: unknown; name?: unknown; treasury?: unknown };
+  if (typeof record.id !== "string" || typeof record.name !== "string") return null;
+  if (typeof record.treasury !== "number") return null;
+  return { id: record.id, name: record.name, treasury: record.treasury };
+}
+
+function namedSuccessor(event: SimEvent): boolean {
+  return typeof event.data.successorId === "string" && event.data.successorId.length > 0;
 }
 
 /**
@@ -991,12 +1017,89 @@ export function secessionSuccessorClause(world: WorldState, event: SimEvent): st
   return `${characterName(world, successorId, successorId)} takes the seat.`;
 }
 
-export function taxRateSetSentence(world: WorldState, event: SimEvent, actor: string): string {
+/**
+ * The confirmation line for a published tax-rate change.
+ *
+ * A player set keeps `{actor} set the {faction} tax rate to {percent}%.`
+ * An autonomous set, which has no `commandId`, names the direction and a
+ * public reason. A rise is the short-treasury step. A fall is the pressed
+ * port: the same-tick upkeep stability at or under 55, among ports that
+ * faction held when the step ran. The stability number stays off the line.
+ * When that upkeep is not in the sibling events, the line says unrest and
+ * does not guess a port from a later reading.
+ */
+export function taxRateSetSentence(
+  world: WorldState,
+  event: SimEvent,
+  actor: string,
+  siblings?: SimEvent[],
+): string {
   const rate = typeof event.data.taxRate === "number" ? event.data.taxRate : null;
-  const factionId = typeof event.data.factionId === "string" ? event.data.factionId : event.targetId;
+  const factionId = typeof event.data.factionId === "string" ? event.data.factionId : event.targetId ?? undefined;
   const faction = factionId ? world.factions[factionId]?.name ?? "the faction" : "the faction";
   if (rate === null) return `${actor} set the tax rate.`;
+  const previous = typeof event.data.previousTaxRate === "number" ? event.data.previousTaxRate : null;
+  const autonomous = !Object.prototype.hasOwnProperty.call(event.data, "commandId");
+  if (autonomous && previous !== null && previous !== rate) {
+    const verb = rate > previous ? "raised" : "lowered";
+    const reason = rate > previous ? "treasury short" : unrestReason(world, event, factionId, siblings);
+    return `${actor} ${verb} the ${faction} tax to ${Math.round(rate * 100)}% (${reason}).`;
+  }
   return `${actor} set the ${faction} tax rate to ${Math.round(rate * 100)}%.`;
+}
+
+function unrestReason(
+  world: WorldState,
+  event: SimEvent,
+  factionId: string | undefined,
+  siblings: SimEvent[] | undefined,
+): string {
+  if (!factionId) return "unrest";
+  const port = pressedPortName(world, event, factionId, siblings);
+  return port ? `unrest at ${port}` : "unrest";
+}
+
+/**
+ * The pressed port the autonomous step would have read.
+ *
+ * Ownership is the current map, walked back through later claims and
+ * declarations in the sibling list. Stability is the same-tick upkeep or
+ * shortage that ran before the set. The lowest thousandth at or under the
+ * claim floor wins. A tie takes the lower settlement id.
+ */
+function pressedPortName(
+  world: WorldState,
+  event: SimEvent,
+  factionId: string,
+  siblings: SimEvent[] | undefined,
+): string | null {
+  const owner = new Map<string, string | null>();
+  for (const settlement of Object.values(world.settlements)) owner.set(settlement.id, settlement.factionId);
+  const later = (siblings ?? [])
+    .filter((other) => other.sequence > event.sequence)
+    .sort((left, right) => right.sequence - left.sequence);
+  for (const other of later) applyOwnership(owner, other, "reverse");
+  let bestId: string | null = null;
+  let bestThousandths = Number.POSITIVE_INFINITY;
+  for (const [settlementId, holder] of owner) {
+    if (holder !== factionId) continue;
+    const upkeep = (siblings ?? []).find((other) =>
+      other.tick === event.tick &&
+      other.sequence < event.sequence &&
+      other.settlementId === settlementId &&
+      (other.type === "settlement-upkeep" || other.type === "settlement-shortage") &&
+      typeof other.data.stability === "number"
+    );
+    if (!upkeep) continue;
+    const thousandths = Math.round((upkeep.data.stability as number) * 1000);
+    if (thousandths > CLAIM_STABILITY_FLOOR * 1000) continue;
+    if (thousandths < bestThousandths || (thousandths === bestThousandths && (bestId === null || settlementId < bestId))) {
+      bestId = settlementId;
+      bestThousandths = thousandths;
+    }
+  }
+  if (!bestId) return null;
+  return world.settlements[bestId]?.name ?? bestId;
 }
 
 /**
@@ -1038,7 +1141,101 @@ export function queuedCommandSentence(
   const source = command.source === "purse" || command.source === "treasury" ? command.source : null;
   const place = settlement ?? berthName(world, event.actorId);
   if (!source || !place) return fallback;
+  if (command.action === "travel") {
+    const destinationId = typeof command.targetId === "string" ? command.targetId : null;
+    const destination = destinationId ? world.settlements[destinationId]?.name ?? null : null;
+    if (!destination) return fallback;
+    return `Command queued for ${actor}: travel from ${place} to ${destination} (from the ${source})`;
+  }
   return `Command queued for ${actor}: ${command.action} at ${place} (from the ${source})`;
+}
+
+/**
+ * Income and spending the viewer's own faction can already account for.
+ *
+ * Tax is `tax` on work and sales, attributed to the faction that held the
+ * port when the event was applied. Ransom is `ransom.treasuryShare` when
+ * `treasuryFactionId` is this faction. Spending is `treasuryDrawn` by a
+ * member, minus `treasuryRefunded` to that member. There is no wage event.
+ * Passage, buys, and recruits are the draws. The window is the check-in
+ * list the caller already loaded. A port taken before that list starts is
+ * already on the current map, so reversing the list's claims is enough.
+ * When the list was capped, the line says the older part was not loaded.
+ */
+export function treasuryBreakdownLine(
+  world: WorldState,
+  factionId: string,
+  events: SimEvent[],
+  windowTicks: number,
+  capped: boolean,
+): string {
+  const ordered = [...events].sort((left, right) => left.sequence - right.sequence);
+  const owner = new Map<string, string | null>();
+  for (const settlement of Object.values(world.settlements)) owner.set(settlement.id, settlement.factionId);
+  const member = new Map<string, string | null>();
+  for (const character of Object.values(world.characters)) member.set(character.id, character.factionId);
+  for (let index = ordered.length - 1; index >= 0; index -= 1) {
+    applyOwnership(owner, ordered[index], "reverse");
+    applyMembership(member, ordered[index], "reverse");
+  }
+  let tax = 0;
+  let ransom = 0;
+  let draws = 0;
+  let refunds = 0;
+  for (const event of ordered) {
+    if ((event.type === "worked" || event.type === "market-trade") && event.settlementId) {
+      const amount = numberOrNull(event.data.tax);
+      if (amount !== null && amount > 0 && owner.get(event.settlementId) === factionId) tax += amount;
+    }
+    const credit = event.type === "captivity-released" ? ransomCredit(event) : null;
+    if (credit && credit.treasuryFactionId === factionId && credit.treasuryShare > 0) ransom += credit.treasuryShare;
+    if (event.actorId && member.get(event.actorId) === factionId) {
+      const drawn = numberOrNull(event.data.treasuryDrawn);
+      const refunded = numberOrNull(event.data.treasuryRefunded);
+      if (drawn !== null && drawn > 0) draws += drawn;
+      if (refunded !== null && refunded > 0) refunds += refunded;
+    }
+    applyOwnership(owner, event, "forward");
+    applyMembership(member, event, "forward");
+  }
+  const spending = Math.max(0, draws - refunds);
+  const income = ransom > 0
+    ? `Tax income ${money(tax)}, ransom ${money(ransom)}`
+    : `Tax income ${money(tax)}`;
+  const cap = capped ? " Older events in that window were not loaded." : "";
+  return `${income}, spending ${money(spending)}, over the last ${windowTicks} ticks.${cap}`;
+}
+
+function money(value: number): string {
+  return String(round(value, 2));
+}
+
+function applyOwnership(owner: Map<string, string | null>, event: SimEvent, direction: "forward" | "reverse"): void {
+  if (!event.settlementId) return;
+  if (event.type === "settlement-claimed") {
+    const next = typeof event.data.factionId === "string" ? event.data.factionId : null;
+    const previous = typeof event.data.previousFactionId === "string" ? event.data.previousFactionId : null;
+    owner.set(event.settlementId, direction === "forward" ? next : previous);
+    return;
+  }
+  if (event.type !== "secession-declared") return;
+  const founded = foundedFaction(event);
+  const previous = typeof event.data.previousFactionId === "string" ? event.data.previousFactionId : null;
+  owner.set(event.settlementId, direction === "forward" ? founded?.id ?? null : previous);
+}
+
+function applyMembership(member: Map<string, string | null>, event: SimEvent, direction: "forward" | "reverse"): void {
+  if (event.type !== "secession-declared") return;
+  const founded = foundedFaction(event);
+  const previous = typeof event.data.previousFactionId === "string" ? event.data.previousFactionId : null;
+  const next = direction === "forward" ? founded?.id ?? null : previous;
+  const ownerId = typeof event.data.ownerId === "string" ? event.data.ownerId : event.actorId;
+  if (ownerId) member.set(ownerId, next);
+  const followers = event.data.followerIds;
+  if (!Array.isArray(followers)) return;
+  for (const followerId of followers) {
+    if (typeof followerId === "string") member.set(followerId, next);
+  }
 }
 
 function commandRecord(value: unknown): {
@@ -1052,6 +1249,7 @@ function commandRecord(value: unknown): {
   taxRate?: number;
   settlementId?: string;
   name?: string;
+  targetId?: string;
 } | null {
   if (!value || typeof value !== "object") return null;
   return value as {
@@ -1065,6 +1263,7 @@ function commandRecord(value: unknown): {
     taxRate?: number;
     settlementId?: string;
     name?: string;
+    targetId?: string;
   };
 }
 
