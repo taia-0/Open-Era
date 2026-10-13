@@ -30,18 +30,18 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/feed-polish` from `7274635`. One feed line per player action. Buys and sells name the live hold. An empty `beforeSequence` is no bound. Tick-72 and tick-1200 hashes are unchanged.
-- **Last verified:** 374 tests. Recovery replays 600.
-- **Gate status:** `./scripts/evaluate-milestone.sh feed-polish` passed.
-- **Headline:** A player action keeps its result sentence. A provision buy names the purse and the hold.
+- **Baseline:** `feature/leader-tax-stability` from `2e3c5d8`. A holding rate above 0.15 drifts stability down on each peaceful upkeep, 0.03 per 0.05 band. Scenario rates stay at or below the threshold. Tick-72 and tick-1200 hashes are unchanged.
+- **Last verified:** 379 tests. Recovery replays 600.
+- **Gate status:** `./scripts/evaluate-milestone.sh leader-tax-stability` passed. The blind plan is not run.
+- **Headline:** A rate above 0.15 lowers Crown Harbor and Glassport after the set. A headless run does not.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
-| Leader tax slice 2: once every 24 ticks, a free autonomous holder whose treasury cannot pay 18 to every free mate steps the rate up by 0.01, and never down. The cover does not run it. | Design | Open Era Engineer | Open. Slice 1 does not write it. Expected to move the 1200-tick hashes once Free Tide goes short |
-| Leader tax slice 3: subtract the destination rate inside `travelCandidates` and `bestTradeResource`. | Design | Open Era Engineer | Open. Slice 1 does not write it. Expected to move the 72-tick hashes |
+| Leader tax slice 2: graded stability drift. A holding rate above 0.15 subtracts 0.03 per 0.05 band on each peaceful upkeep. At or below 0.15 the drift is zero. | Behavior | Open Era Engineer | **Fixed** on `feature/leader-tax-stability`. Scenario rates 0.14 and 0.08 add nothing. Tick-72 and tick-1200 hashes are unchanged |
+| Leader tax slice 3: a free autonomous holder chooses the next rate, one cent, and may lower it as well as raise it. The cover does not run it. | Design | Open Era Engineer | Open. Slice 2 does not write it. Expected to move the 1200-tick hashes |
 | Design question: own-faction officers' money is hidden at sea / when not co-located (visibility.ts:63-65, :110, :733). The Lead ruled this is correct for now; revisit only by design. | Design | Open Era Lead | open question |
 | Escrow refund: a treasury-paid escrow should refund to the treasury (or split back by source), not the purse. Hold until the balance decision so we re-baseline once. | Treasury | Open Era Engineer | **Fixed** on `feature/treasury-balance`. Cancel, refusal, breach, and a price cut return `escrowFromTreasury` to the treasury and `escrowFromPurse` to the purse. Today's allowance is not restored. The holder's purse no longer rises on cancel |
 | Wording: the player-action-executed line names the count. | Wording | Open Era Engineer | **Fixed** on `fix/action-executed-count`. The line names the action and the count from the paired result. A visible recruit also names the cost and the payer. A rival and a withheld row stay `carried out an action.` |
@@ -135,6 +135,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-13 — Leader tax, graded stability drift
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/leader-tax-stability` | **Commits:** `31bc37d` (the drift and the band-edge tests). This commit adds the unread plan and this entry. | **Type:** Behavior
+- **Changed** — `produceSettlements` subtracts `taxDrift` on the stability write it already rounds. The holding rate is the faction that holds the port on that tick. A neutral port adds zero. An active battle still skips the settlement. Above 0.15, `bands = ceil((nearest hundredths - 15) / 5)` and the drift is `bands * 0.03`. Rates 0.16 through 0.20 subtract 0.03, 0.21 through 0.25 subtract 0.06, and 0.26 through 0.30 subtract 0.09. A rate at or below 0.15 subtracts zero. There is no recovery for a low rate. The expression is `stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0) - taxDrift`, then the same clamp to 0–100 and the same 3 digits. The set still resolves after upkeep, so the new rate starts on the next peaceful upkeep. No autonomous writer.
+- **Why** — The Lead ruled the drift graded. Scenario rates 0.14 and 0.08 sit at or below 0.15, so a headless run must stay on the existing hashes. Slice 3, the autonomous choice, stays out.
+- **Verified** — Base `2e3c5d8`, which contains `e87ba91`. Node v24.21.0, ICU 78.3. `npm run typecheck` is clean. **379 tests.** `./scripts/evaluate-milestone.sh leader-tax-stability` passed. Recovery replays 600. No `golden:update`. 72-tick hashes unchanged: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261). 1200-tick hashes unchanged: `90dacc2dfcd199ab720ade191bd3fdf8742632a36f19216bd53ce0e3a3294fef` / `226bf6257a86b233d197bd77747a10fe64b33dd7ac1e94bc27c11ff3ddf50cd8` / `30e9994387b2c9a2d8c0e16e27042797599188a105992cb7a9f8d2e924a8b0a6`. Events 160268 / 161850 / 162459. A headless run has zero `tax-rate-set` events at both lengths. Dashboard HTTP on `127.0.0.1`, seed 1847, Mara Vane. At tick 1 every rate still reads Crown Harbor 90.03 and Glassport 86.03. At tick 3 the bands are Crown Harbor / Glassport 90.06 / 86.09 at 0.15, 90.03 / 86.03 at 0.16 and 0.20, 90 / 85.97 at 0.21 and 0.25, and 89.97 / 85.91 at 0.26 and 0.30. Free Tide stays 0.08 with treasury and power null.
+- **Left open** — The blind session is not run. Slice 3 (autonomous rate choice, up or down) is not built. Own-faction money at sea stays null.
+- **Links** — [playtest leader-tax-stability-001](docs/playtests/leader-tax-stability-001.md), [leader tax](docs/design/leader-tax.md)
 
 ### 2026-10-13 — Player feed, one line and the live hold
 - **Agent:** Cursor cloud agent | **Branch:** `feature/feed-polish` | **Commits:** `1b910ca` (the feed, the tests). This commit records the gate. | **Type:** wording
