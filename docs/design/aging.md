@@ -1,6 +1,6 @@
 # Aging
 
-**Status: Open.** Design brief for the Lead. Nothing in this note is in the tree. The census is a local readout of the baseline tape. The resims were produced by a local harness and were not left in the tree.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). Nothing in this note is in the tree. The census is a local readout of the baseline tape. The resims were produced by a local harness and were not left in the tree.
 
 Checked on `origin/main` at `97fbbd4afbc3009537fc40af4a8e45cac18ea1bf` (PR #92). Node v24.21.0, ICU 78.3. `npm test` passed, 379 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A separate headless run reproduced the fixture and the 1200-tick baseline:
 
@@ -284,3 +284,23 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 8. **Who succeeds a governor?** Default: the offices rule. A dead governor has left the faction, so the seat clears. The acting commander does not appoint. A free living holder may seat someone later. No deputy is added for the governor. On the fixture-year vacant resim the governor deaths are Bram Quill at Glassport on 1847 and Esme Dusk at Cinder Key on 2718. The three deaths on 4096 are not governors.
 
 9. **What happens to the purse, the crew, and the ports?** Default: debts pay the creditor treasury first, in id order, up to the purse. The remainder stays on the body. Sailors and troops stay on the body. `partyPower` of a deceased character is 0. Scattered troops do not return. A captive is not released. Ports' `ownerId` becomes null. The owner-dead pointer stayed 0, and unowned port-ticks rose when a port was cleared. The crew is not added to a garrison. Inherit-to-cover moves the purse, the sailors, the troops, and the scattered count onto the successor and writes that successor as owner. On the day year that leaves Free Tide at 0.72, 75.65, and 2.38, against 385.47, 175.08, and 474.81 when the seat is left vacant. The full secession gate stays 0 on every resim. The open-tax readout is what moves.
+
+## Ruling
+
+The Lead has ruled.
+
+A year is 180 ticks. That is 30 world days, the check-in scale in section 1. The run length stays 1200 ticks. Death draws use a side RNG stream. Every other default in section 8 is accepted. The 2190-tick calendar is not the clock.
+
+Remeasured on `origin/main` at `c4969af8477e2ec16ca7c135d610cf1c03a33fb9` (PR #93), Node v24.21.0, ICU 78.3. `npm test` passed, 379 tests, including the 72-tick fixture and the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the 1200-tick baseline in the table above. The resim is span ages, a fixed death at 120, vacant succession, and a year of 180. It draws nothing. The harness was local and was not left in the tree.
+
+The 72-tick state hash stayed on the fixture for every seed. No death has an event tick under 72.
+
+| Seed | Deaths | Each death |
+| --- | ---: | --- |
+| 1847 | 1 | Tick 1080, Lio Crow (`character-12`), merchant, World Government. |
+| 2718 | 2 | Tick 180, Lio Crow (`character-12`), merchant, World Government. Tick 720, Esme Dusk (`character-19`), raider, Free Tide. |
+| 4096 | 1 | Tick 540, Kessa Dusk (`character-30`), steward, unaffiliated. |
+
+Tick 1200 event counts are 159664, 156271, and 159974. Ending treasuries are World Government 13652.48, 14355.47, and 13799.49, and Free Tide 12.3, 45.66, and 150.72. Those match the check-in row in section 6. Replay of each log through `applyEvent` matched the live state hash.
+
+The chance from 80 to 120 is the accepted rule and was not remeasured here. Its roll stays on the side stream, stored only on the killing event. The tick rng stays the wrong stream.
