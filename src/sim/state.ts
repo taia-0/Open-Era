@@ -455,6 +455,7 @@ export function actingCoverId(
   const ranked = Object.values(world.characters)
     .filter((character) =>
       character.factionId === factionId &&
+      !character.dead &&
       !excluded.has(character.id) &&
       character.captivity === null
     )
@@ -957,6 +958,35 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!actor) throw new Error("Desertion event has no actor");
       actor.factionId = null;
       break;
+    case "character-died": {
+      if (!actor) throw new Error("Death event has no actor");
+      actor.dead = true;
+      actor.money = event.data.characterMoney as number;
+      actor.sailors = event.data.sailors as number;
+      actor.troops = { ...(event.data.troops as Character["troops"]) };
+      actor.debts = [...(event.data.debts as Character["debts"])];
+      actor.factionId = null;
+      if (event.data.clearCaptivity === true) actor.captivity = null;
+      if (event.data.clearRecovery === true) actor.troopRecovery = null;
+      for (const portId of event.data.ports as string[]) {
+        const port = world.settlements[portId];
+        if (port) port.ownerId = null;
+      }
+      for (const row of event.data.treasuries as { factionId: string; treasury: number }[]) {
+        const faction = world.factions[row.factionId];
+        if (faction) faction.treasury = row.treasury;
+      }
+      for (const battleId of event.data.endBattleIds as string[]) delete world.activeBattles[battleId];
+      if (typeof event.data.commandFactionId === "string") {
+        const faction = world.factions[event.data.commandFactionId];
+        if (faction) {
+          const next = event.data.actingCommanderId;
+          if (typeof next === "string") faction.actingCommanderId = next;
+          else delete faction.actingCommanderId;
+        }
+      }
+      break;
+    }
     case "debt-repaid": {
       if (!actor) throw new Error("Debt repayment has no actor");
       const debtId = String(event.data.debtId ?? "");

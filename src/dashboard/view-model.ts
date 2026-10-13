@@ -88,7 +88,7 @@ export const CHECK_IN_EVENT_CAP = CHECK_IN_READ_CAP;
  * rows repeat it. They keep their sequences in the log and are absent from
  * `events`, `eventPage.count`, and `eventPage.total`.
  */
-export const FEED_OMITTED_TYPES = ["player-action-executed", "player-command-resolved"] as const;
+export const FEED_OMITTED_TYPES = ["player-action-executed", "player-command-resolved", "news-posted"] as const;
 
 /** A submit-time refusal. It is not a stored event and it does not move a hash. */
 export interface DashboardRefusal {

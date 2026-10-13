@@ -297,23 +297,26 @@ test("the panel shows the readout on an exact port and withholds it offshore", (
   assert.equal(typeof harborAway.secession.followerCount, "number");
 });
 
-test("Glassport at tick 72 is a foreign port under a stale World Government report", () => {
+test("Glassport at tick 72 is a World Government port the commander is standing away from", () => {
   const world = createPrototypeWorld(1847);
   runTicks(world, 72);
   const live = world.settlements["glassport"];
   const mara = world.characters["character-01"];
   assert.equal(mara.locationId, "crown-harbor");
-  assert.equal(live.factionId, "free-tide");
-  assert.equal(live.ownerId, "character-17");
+  assert.equal(live.factionId, "world-government");
+  assert.equal(live.ownerId, "character-11");
   assert.equal(mara.knowledge["glassport"].factionId, "world-government");
 
   const view = viewOf(world);
   const glass = view.settlements.find((settlement) => settlement.id === "glassport");
   const harbor = view.settlements.find((settlement) => settlement.id === "crown-harbor");
   const cinder = view.settlements.find((settlement) => settlement.id === "cinder-key");
-  assert.equal(glass?.secession, null);
+  const verdant = view.settlements.find((settlement) => settlement.id === "verdant-cay");
+  assert.ok(glass?.secession);
+  assert.equal(typeof glass.secession.followerCount, "number");
   assert.ok(harbor?.secession);
   assert.equal(typeof harbor.secession.followerCount, "number");
   assert.ok(cinder?.secession);
   assert.equal(typeof cinder.secession.followerCount, "number");
+  assert.equal(verdant?.secession, null);
 });

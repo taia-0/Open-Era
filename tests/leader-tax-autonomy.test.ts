@@ -149,7 +149,7 @@ test("the floor is 55 in thousandths, and the lowest held port is the one that c
   const landless = clockWorld();
   landless.settlements["cinder-key"].factionId = null;
   landless.factions["free-tide"].treasury = 1;
-  assert.equal(autonomousTaxStep(landless, "free-tide")?.taxRate, 0.09);
+  assert.equal(autonomousTaxStep(landless, "free-tide"), null);
 });
 
 test("the clock is every 24 ticks after tick 0, and a recent set waits", () => {

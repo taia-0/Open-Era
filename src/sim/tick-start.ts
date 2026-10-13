@@ -25,13 +25,24 @@ export function applySilentTickStart(world: WorldState): DesertionNotice[] {
  * applies that morning.
  */
 export function replayWithSilentStarts(state: WorldState, events: readonly SimEvent[]): void {
+  let index = 0;
   let atStart = events.length > 0;
-  for (const event of events) {
+  while (index < events.length) {
     if (atStart) {
+      // A death is the first event of its tick. Desertion, the seat, and the
+      // stipend read the world after it, and the log already contains it, so
+      // replay must not emit a second one.
+      while (index < events.length && events[index].type === "character-died") {
+        applyEvent(state, events[index]);
+        index += 1;
+      }
       applySilentTickStart(state);
       atStart = false;
+      continue;
     }
+    const event = events[index];
     applyEvent(state, event);
+    index += 1;
     if (event.type === "tick-advanced") atStart = true;
   }
 }

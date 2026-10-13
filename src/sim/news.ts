@@ -37,6 +37,7 @@ export function scarredFollowerIds(world: WorldState, settlementId: string): str
     .filter((character) => {
       if (character.locationId !== settlementId || character.travel !== null || character.captivity !== null) return false;
       if (character.dead) return false;
+      if (!settlement.factionId || character.factionId !== settlement.factionId) return false;
       if (holderId !== null && character.id === holderId) return false;
       if (actingId !== null && character.id === actingId) return false;
       if (seated !== null && character.id === seated) return false;

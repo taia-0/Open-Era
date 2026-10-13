@@ -55,6 +55,7 @@ function appointGovernor(world: WorldState, settlementId: string, factionId: str
   const holderId = commandHolderId(world, factionId);
   const ranked = Object.values(world.characters)
     .filter((character) =>
+      !character.dead &&
       character.factionId === factionId &&
       character.locationId === settlementId &&
       character.travel === null &&

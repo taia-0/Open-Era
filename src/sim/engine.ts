@@ -24,7 +24,8 @@ import {
   planActionBoost,
   reviewPlan,
 } from "./agency.ts";
-import { assessSupplyContract, contractRelationship } from "./contracts.ts";
+import { assessSupplyContract, contractRelationship, contractTravelTicks, openSupplyContract } from "./contracts.ts";
+import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
@@ -1209,6 +1210,7 @@ function selectOutscoreDockPrisoner(
   if (!losingFactionId) return null;
   const ranked = Object.values(world.characters)
     .filter((candidate) =>
+      !candidate.dead &&
       candidate.factionId === losingFactionId &&
       candidate.locationId === settlementId &&
       candidate.travel === null &&
@@ -1540,8 +1542,9 @@ function progressActiveBattles(world: WorldState, events: SimEvent[], rng: Deter
   const participants = new Set<string>();
   for (const battle of Object.values(world.activeBattles).sort((left, right) => left.id.localeCompare(right.id))) {
     if (battle.startedTick >= world.tick) continue;
-    participants.add(battle.attackerId);
     const attacker = world.characters[battle.attackerId];
+    if (!attacker || attacker.dead) continue;
+    participants.add(battle.attackerId);
     if (attacker.controller.kind === "autonomous" && autonomousShouldRetreat(world, battle)) {
       retreatFromBattle(world, battle, events, rng);
     } else {
@@ -1766,6 +1769,7 @@ function processCaptivityDeadlines(
   rng: DeterministicRng,
 ): void {
   for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    if (character.dead) continue;
     const captivity = character.captivity;
     if (!captivity || world.tick < captivity.mandatoryReleaseTick) continue;
     const physicalAverage = Object.values(character.attributes).reduce((sum, value) => sum + value, 0) / 4;
@@ -1837,7 +1841,7 @@ function collectCaptivityDebts(world: WorldState, events: SimEvent[]): void {
   if (world.ticksPerDay <= 0 || world.tick % world.ticksPerDay !== 0) return;
   const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
   for (const character of characters) {
-    if (character.captivity) continue;
+    if (character.dead || character.captivity) continue;
     const debt = character.debts
       .filter((row) =>
         row.remainingValue > 0 &&
@@ -1870,6 +1874,7 @@ function collectCaptivityDebts(world: WorldState, events: SimEvent[]): void {
 
 function progressTroopRecoveries(world: WorldState, events: SimEvent[]): void {
   for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    if (character.dead) continue;
     const recovery = character.troopRecovery;
     if (!recovery || character.captivity || world.tick < recovery.nextReturnTick) continue;
     const returning = Math.min(recovery.remaining, Math.max(1, Math.ceil(recovery.total / 7)));
@@ -2868,12 +2873,13 @@ function expireStandingOrders(world: WorldState, events: SimEvent[]): void {
  */
 function confirmUnansweredOrders(world: WorldState, events: SimEvent[]): void {
   for (const holder of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    if (holder.dead) continue;
     for (const order of holder.standingOrders) {
       if (order.status !== "awaiting-confirmation") continue;
       const waited = world.tick - order.statusChangedTick;
       if (waited < 1) continue;
       const issuer = world.characters[order.issuerId];
-      const judges = issuer !== undefined && issuer.controller.kind === "autonomous" && issuer.captivity === null;
+      const judges = issuer !== undefined && !issuer.dead && issuer.controller.kind === "autonomous" && issuer.captivity === null;
       if (!judges && waited < world.ticksPerDay) continue;
       const issuerName = issuer?.name ?? order.issuerId;
       const reason = judges ? "issuer-judgment" : "issuer-silent";
@@ -3312,6 +3318,7 @@ function partySightingsAt(
 ): PartySighting[] {
   return Object.values(world.characters)
     .filter((candidate) =>
+      !candidate.dead &&
       candidate.id !== observerId &&
       candidate.locationId === settlementId &&
       candidate.travel === null
@@ -3500,11 +3507,116 @@ function resolveMorningDesertion(world: WorldState, events: SimEvent[], notices:
   }
 }
 
+/**
+ * One short shelf, one offer. The buyer is the lowest autonomous captain of
+ * the faction that holds it, standing on it, who can pay 56.25. The carrier
+ * is the lowest id who is docked and free and whom `assessSupplyContract`
+ * would already accept. Nobody else is offered. A new offer waits until the
+ * next tick. A pair that is still open is not offered again.
+ */
+const SUPPLY_QUANTITY = 10;
+const SUPPLY_PRICE = 56.25;
+const SUPPLY_DEADLINE_CAP = 720;
+
+export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): void {
+  const settlements = Object.values(world.settlements).sort((left, right) => left.id.localeCompare(right.id));
+  for (const settlement of settlements) {
+    if (!(settlement.stocks.provisions < 1) || !settlement.factionId) continue;
+    const buyers = Object.values(world.characters)
+      .filter((character) =>
+        !character.dead &&
+        character.factionId === settlement.factionId &&
+        character.controller.kind === "autonomous" &&
+        character.locationId === settlement.id &&
+        character.travel === null &&
+        character.captivity === null &&
+        !Object.values(world.activeBattles).some((battle) => battle.attackerId === character.id) &&
+        resolveQuotedSpend(world, character, SUPPLY_PRICE, PASSAGE_COST_PER_TICK).ok
+      )
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const buyer = buyers[0];
+    if (!buyer) continue;
+    const carriers = Object.values(world.characters)
+      .filter((character) => !character.dead && !carrierBlocked(world, character))
+      .sort((left, right) => left.id.localeCompare(right.id));
+    let chosen: Character | null = null;
+    let deadlineTick = 0;
+    for (const carrier of carriers) {
+      if (openSupplyContract(world, buyer.id, carrier.id)) continue;
+      const travelTicks = contractTravelTicks(world, carrier, settlement.id);
+      const deadline = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1, 2));
+      const assessment = assessSupplyContract(world, carrier, {
+        buyerId: buyer.id,
+        quantity: SUPPLY_QUANTITY,
+        price: SUPPLY_PRICE,
+        destinationId: settlement.id,
+        deadlineTick: deadline,
+      });
+      if (!assessment.accepted) continue;
+      chosen = carrier;
+      deadlineTick = deadline;
+      break;
+    }
+    if (!chosen) continue;
+    const escrow = resolveQuotedSpend(world, buyer, SUPPLY_PRICE, PASSAGE_COST_PER_TICK);
+    if (!escrow.ok) continue;
+    const contract: SupplyContract = {
+      id: `supply-${settlement.id}-${world.tick}`,
+      buyerId: buyer.id,
+      carrierId: chosen.id,
+      good: "provisions",
+      quantity: SUPPLY_QUANTITY,
+      destinationId: settlement.id,
+      price: SUPPLY_PRICE,
+      escrow: SUPPLY_PRICE,
+      escrowFromTreasury: escrow.treasuryDrawn,
+      escrowFromPurse: escrow.purseDrawn,
+      settled: false,
+      deadlineTick,
+      issuedTick: world.tick,
+      acceptedTick: null,
+      status: "offered",
+      revision: 1,
+      observedTick: world.tick,
+    };
+    emitContract(world, events, "contract-offered", contract, escrow.characterMoney, chosen.money, buyer.id, {
+      ...spendData(escrow),
+      characterMoney: escrow.characterMoney,
+    });
+  }
+}
+
+/**
+ * Fixed deaths before desertion, the seat, and the stipend.
+ *
+ * The event carries the absolutes. Replay applies that event and does not
+ * roll a second death. Ages are not written on the character.
+ */
+function resolveAgingDeaths(world: WorldState, events: SimEvent[]): void {
+  const ids = Object.keys(world.characters).sort((left, right) => left.localeCompare(right));
+  for (const id of ids) {
+    const character = world.characters[id];
+    if (!character || character.dead) continue;
+    if (!diesOfOldAge(world.seed, id, world.tick)) continue;
+    const ashore = character.locationId !== null && character.travel === null;
+    emit(world, events, {
+      type: "character-died",
+      actorId: character.id,
+      settlementId: ashore ? character.locationId ?? undefined : undefined,
+      data: { ...agingDeathData(world, character) },
+    });
+  }
+}
+
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+  const leading: SimEvent[] = [];
+  resolveAgingDeaths(world, leading);
   const notices = applySilentTickStart(world);
   beginGovernorLevy(world);
   try {
-    return runTickBody(world, options, notices);
+    const result = runTickBody(world, options, notices);
+    result.events.unshift(...leading);
+    return result;
   } finally {
     endGovernorLevy(world);
   }
@@ -3521,6 +3633,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   declareAutonomousSecessions(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
+  offerAutonomousSupply(world, events);
   processCaptivityDeadlines(world, events, rng);
   collectCaptivityDebts(world, events);
   progressTroopRecoveries(world, events);
@@ -3529,6 +3642,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   confirmUnansweredOrders(world, events);
 
   for (const character of Object.values(world.characters).sort((a, b) => a.id.localeCompare(b.id))) {
+    if (character.dead) continue;
     const inActiveBattle = Object.values(world.activeBattles).some((battle) => battle.attackerId === character.id);
     if (battleParticipants.has(character.id) || inActiveBattle) continue;
     if (character.captivity) continue;

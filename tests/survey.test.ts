@@ -609,7 +609,7 @@ test("a remote garrison carries the report's tick and age, and a negative tick i
 });
 
 test("a garrison age equals the world tick minus the tick the player is shown", () => {
-  // Treasury spending moved the tick 72 reports. Verdant Cay is the stale rumor. Glassport is owned and fresh.
+  // Offices and news moved the tick 72 reports. Verdant Cay is the stale rumor. Crown Harbor is owned and fresh.
   const world = createPrototypeWorld(2718);
   runTicks(world, 72);
   assert.equal(world.tick, 72);
@@ -625,15 +625,15 @@ test("a garrison age equals the world tick minus the tick the player is shown", 
   assert.equal(verdant.garrisonIntelligence.ageTicks, world.tick - verdant.garrisonIntelligence.observedTick);
   assert.equal(verdant.intelligence.ageTicks, world.tick - verdant.intelligence.observedTick);
 
-  const glass = shown("glassport");
-  assert.equal(glass.garrison, 86);
-  assert.ok(glass.garrisonIntelligence);
-  assert.ok(glass.intelligence);
-  assert.equal(glass.garrisonIntelligence.source, "owned");
-  assert.equal(glass.garrisonIntelligence.observedTick, 72);
-  assert.equal(glass.garrisonIntelligence.ageTicks, world.tick - glass.garrisonIntelligence.observedTick);
-  assert.equal(glass.intelligence.ageTicks, world.tick - glass.intelligence.observedTick);
-  assert.equal(glass.garrisonIntelligence.ageTicks, glass.intelligence.ageTicks);
+  const harbor = shown("crown-harbor");
+  assert.equal(harbor.garrison, 256);
+  assert.ok(harbor.garrisonIntelligence);
+  assert.ok(harbor.intelligence);
+  assert.equal(harbor.garrisonIntelligence.source, "owned");
+  assert.equal(harbor.garrisonIntelligence.observedTick, 72);
+  assert.equal(harbor.garrisonIntelligence.ageTicks, world.tick - harbor.garrisonIntelligence.observedTick);
+  assert.equal(harbor.intelligence.ageTicks, world.tick - harbor.intelligence.observedTick);
+  assert.equal(harbor.garrisonIntelligence.ageTicks, harbor.intelligence.ageTicks);
 });
 
 test("standing on an island, the forecast names the same fortification the panel shows", () => {

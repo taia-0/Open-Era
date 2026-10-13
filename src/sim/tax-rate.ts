@@ -171,6 +171,8 @@ export function autonomousTaxStep(world: WorldState, factionId: string): Autonom
 
   const cents = Math.round(faction.taxRate * 100);
   const held = Object.values(world.settlements).filter((settlement) => settlement.factionId === factionId);
+  // A faction with no port does not step up or down until it holds one again.
+  if (held.length === 0) return null;
   let lowest = Number.POSITIVE_INFINITY;
   let known = false;
   for (const settlement of held) {
