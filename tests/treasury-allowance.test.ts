@@ -120,18 +120,17 @@ test("a Free Tide reader sees none of World Government's allowance or balance", 
   assert.equal(stateHash(world), before);
 });
 
-test("seed 2718 tick 900 binds the acting commander and does not uncap the captive holder", () => {
-  // Treasury spending moved Mara's capture. The balance share moved the cover to tick 1036.
-  // The headless World Government step at tick 216 on seed 2718 moved the cover to Iris Stone at tick 1002.
-  // The secession walker, first at tick 705 on seed 2718, seats that cover while Mara is held at tick 900.
-  const run = runTicks(createPrototypeWorld(2718), 900);
+test("seed 1847 tick 708 binds the acting commander and does not uncap the captive holder", () => {
+  // The skill step seats Jun Marrow while Mara is held at Crown Harbor. Tick 708 is a day boundary.
+  const run = runTicks(createPrototypeWorld(1847), 708);
   const world = run.state;
-  assert.equal(world.tick, 900);
+  assert.equal(world.tick, 708);
   const mara = world.characters["character-01"];
-  const iris = world.characters["character-06"];
-  assert.equal(iris.name, "Iris Stone");
-  assert.equal(world.factions["world-government"].actingCommanderId, "character-06");
-  assert.ok(mara.captivity);
+  const jun = world.characters["character-05"];
+  assert.equal(jun.name, "Jun Marrow");
+  assert.equal(world.factions["world-government"].actingCommanderId, "character-05");
+  assert.equal(mara.captivity?.capturedTick, 704);
+  assert.equal(mara.captivity?.settlementId, "crown-harbor");
   const before = stateHash(world);
   const holder = card(world, mara, mara);
   assert.equal(holder.allowanceRole, "captive-holder");
@@ -139,17 +138,18 @@ test("seed 2718 tick 900 binds the acting commander and does not uncap the capti
   assert.equal(holder.allowanceCap, null);
   assert.equal(holder.allowanceRemaining, null);
   assert.equal(holder.allowanceNote, "Cannot spend while held.");
-  const cover = card(world, mara, iris);
+  assert.equal("allowanceRemaining" in holder, true);
+  const cover = card(world, mara, jun);
   assert.equal(cover.allowanceRole, "acting-commander");
   assert.equal(cover.allowanceUncapped, false);
   assert.equal(cover.allowanceCap, 18);
   assert.equal(cover.allowanceOnDayBoundary, true);
-  assert.equal(cover.allowanceDayStart, 900);
-  assert.equal(cover.allowanceResetsOnTick, 906);
-  // Nothing has been drawn for Iris today, so the remainder stays omitted.
+  assert.equal(cover.allowanceDayStart, 708);
+  assert.equal(cover.allowanceResetsOnTick, 714);
+  // Nothing has been drawn for Jun today, so the remainder stays omitted.
   assert.equal("allowanceRemaining" in cover, false);
   assert.equal(cover.allowanceNote, "none spent today");
-  const asPax = card(world, world.characters["character-14"], iris);
+  const asPax = card(world, world.characters["character-14"], jun);
   assert.equal(asPax.allowanceRole, null);
   assert.equal(asPax.allowanceCap, null);
   assert.equal(stateHash(world), before);
@@ -183,42 +183,42 @@ test("seed 1847 sequence 43 qualifies Toma Reef on the order row Mara can read",
   assert.equal(stateHash(run.state), before);
 });
 
-test("seed 1847 tick 807 hides the Mina Vale balance and keeps the paid amount", () => {
-  // Treasury spending moved the first Free Tide ransom Mara can read.
-  // The balance share moved that line to Bram Quill. The autonomous Free Tide step, first at tick 120, moved it to Jun Marrow.
-  // The secession walker, first at tick 438, moved the hidden balance to the Free Glassport treasury on Dax Pike's release.
-  const run = runTicks(createPrototypeWorld(1847), 807);
+test("seed 1847 tick 789 hides the Free Crown Harbor balance and keeps the paid amount", () => {
+  // The skill step moved the hidden balance to Mara's own release. The payment is 108. The balance is 462.45.
+  const run = runTicks(createPrototypeWorld(1847), 789);
   const world = run.state;
-  assert.equal(world.tick, 807);
-  const release = run.events.find((event) => event.sequence === 107280);
+  assert.equal(world.tick, 789);
+  const release = run.events.find((event) => event.sequence === 106239);
   assert.ok(release);
   const balance = (release.data.ransom as { factionTreasury: number }).factionTreasury;
-  assert.equal(balance, 446.14);
+  assert.equal(balance, 462.45);
   const before = stateHash(world);
-  const line = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Free Glassport treasury. The balance is not visible to you. The ransom line covers only the ransom.";
+  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 74.92 was recorded as debt. Loyalty fell. 108 went to the Free Crown Harbor treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
   const [maraRow] = projectEventFeed(world, "character-01", [release]);
-  assert.equal(maraRow?.payloadWithheld, true);
-  assert.equal(maraRow?.data, null);
+  assert.equal(maraRow?.payloadWithheld, false);
+  assert.equal((maraRow?.data as { ransom: { factionTreasury?: number } }).ransom.factionTreasury, undefined);
   assert.equal(maraRow?.summary, line);
   assert.equal(String(maraRow?.summary).includes(String(balance)), false);
   assert.equal(String(maraRow?.summary).includes("not visible to you"), true);
-  const [minaRow] = projectEventFeed(world, "character-15", [release]);
-  assert.equal(minaRow?.data, null);
+  const [finnRow] = projectEventFeed(world, "character-18", [release]);
+  assert.equal(finnRow?.payloadWithheld, true);
+  assert.equal(finnRow?.data, null);
   assert.equal(
-    minaRow?.summary,
-    "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Free Glassport treasury. The ransom line covers only the ransom.",
+    finnRow?.summary,
+    "Mara Vane was released from Crown Harbor. 108 was paid and 74.92 was recorded as debt. Loyalty fell. 108 went to the Free Crown Harbor treasury. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.",
   );
-  assert.equal(String(minaRow?.summary).includes(String(balance)), false);
-  assert.equal(String(minaRow?.summary).includes("not visible to you"), false);
+  assert.equal(String(finnRow?.summary).includes(String(balance)), false);
+  assert.equal(String(finnRow?.summary).includes("not visible to you"), false);
   const view = dashboardState(world, run.events, fullEventFeed(run.events)) as {
     factions: Array<{ id: string; treasury: number | null; treasuryNote: string | null }>;
-    events: Array<{ sequence: number; summary: string; data: unknown }>;
+    events: Array<{ sequence: number; summary: string; data: { ransom?: { factionTreasury?: number } } | null }>;
   };
-  const mina = view.factions.find((faction) => faction.id === "secession-character-15-glassport-438");
-  assert.equal(mina?.treasury, null);
-  assert.equal(mina?.treasuryNote, "not visible to you");
-  assert.equal(view.events.find((event) => event.sequence === 107280)?.summary, line);
-  assert.equal(view.events.find((event) => event.sequence === 107280)?.data, null);
+  const crown = view.factions.find((faction) => faction.id === "secession-character-18-crown-harbor-477");
+  assert.equal(crown?.treasury, null);
+  assert.equal(crown?.treasuryNote, "not visible to you");
+  const shown = view.events.find((event) => event.sequence === 106239);
+  assert.equal(shown?.summary, line);
+  assert.equal(shown?.data?.ransom?.factionTreasury, undefined);
   assert.equal(stateHash(world), before);
 });
 

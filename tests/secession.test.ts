@@ -304,7 +304,7 @@ test("Glassport at tick 72 is a foreign port under a stale World Government repo
   const mara = world.characters["character-01"];
   assert.equal(mara.locationId, "crown-harbor");
   assert.equal(live.factionId, "free-tide");
-  assert.equal(live.ownerId, "character-18");
+  assert.equal(live.ownerId, "character-17");
   assert.equal(mara.knowledge["glassport"].factionId, "world-government");
 
   const view = viewOf(world);

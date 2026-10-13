@@ -28,22 +28,22 @@ test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick chec
   const countedView = dashboardState(run.state, counted, fullEventFeed(counted)) as {
     briefing: { attentionCount: number; omittedInfoCount: number; items: Array<{ title: string }> };
   };
-  assert.equal(counted[0]?.tick, 125);
+  assert.equal(counted[0]?.tick, 126);
   assert.deepEqual(countedView.briefing.items.map((item) => item.title), [
     "The party is starving",
     "Intelligence is stale",
     "Intelligence is stale",
-    "Intelligence is stale",
-    "Intelligence is stale",
-    "A captain was taken",
-    "A battle was decided",
-    "A battle was decided",
+    "A captain was released",
+    "Scattered troops came back, 4 times.",
+    "Scattered troops came back.",
+    "Scattered troops came back.",
   ]);
-  assert.equal(countedView.briefing.attentionCount, 8);
+  assert.equal(countedView.briefing.attentionCount, 4);
   assert.equal(countedView.briefing.omittedInfoCount, 0);
 
   const windowed = checkInEvents(run.events, run.state.tick);
   assert.equal(windowed[0]?.tick, 0);
+  assert.equal(windowed.length, 19648);
   assert.equal(windowed.length, run.events.length);
   const view = dashboardState(run.state, windowed, fullEventFeed(windowed)) as {
     briefing: { attentionCount: number; omittedInfoCount: number; items: Array<{ title: string }> };
@@ -52,16 +52,13 @@ test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick chec
     "The party is starving",
     "Intelligence is stale",
     "Intelligence is stale",
-    "Intelligence is stale",
-    "Intelligence is stale",
-    "A captain was taken",
-    "A battle was decided",
+    "A captain was released",
+    "A captain was released",
     "A battle was decided",
     "A captain was taken",
     "A battle was decided",
-    "A battle was decided",
-    "An order was not followed, 4 times.",
-    "A battle was decided",
+    "An order was not followed, 5 times.",
+    "A captain was taken",
     "A battle was decided",
     "A battle was decided",
     "An order was refused",
@@ -70,8 +67,8 @@ test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick chec
     "An order was refused",
     "An order was refused",
   ]);
-  assert.equal(view.briefing.attentionCount, 20);
-  assert.equal(view.briefing.omittedInfoCount, 6);
+  assert.equal(view.briefing.attentionCount, 17);
+  assert.equal(view.briefing.omittedInfoCount, 10);
   assert.equal(stateHash(run.state), before);
 });
 
@@ -98,67 +95,74 @@ test("the store read is the same tick window, and the cap keeps the newest rows"
   }
 });
 
-test("seed 1847 tick 137 states the captured troops on the captor's feed and not on a rival's", () => {
-  // Treasury spending moved Mina Vale's capture off seed 2718 tick 72. The balance share moved it to tick 137.
-  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved the troop count.
-  const run = runTicks(createPrototypeWorld(1847), 138);
-  const capture = run.events.find((event) => event.sequence === 16112);
+test("seed 2718 tick 79 states the captured troops on the captor's feed and not on a rival's", () => {
+  // The skill step moved Mina Vale's capture to seed 2718, tick 79.
+  const run = runTicks(createPrototypeWorld(2718), 80);
+  const capture = run.events.find((event) => event.sequence === 9160);
   assert.ok(capture);
   assert.equal(capture.type, "character-captured");
-  assert.equal(capture.tick, 137);
+  assert.equal(capture.tick, 79);
   const [forMara] = projectEventFeed(run.state, "character-01", [capture]);
   assert.equal(forMara?.payloadWithheld, true);
   assert.equal(forMara?.data, null);
   assert.equal(
     forMara?.summary,
-    "World Government took Mina Vale at Crown Harbor after major defeat. 9 troops were taken, power 54.105.",
+    "World Government took Mina Vale at Crown Harbor after major defeat. 9 troops were taken, power 58.944.",
   );
   const [forPax] = projectEventFeed(run.state, "character-14", [capture]);
   assert.equal(forPax?.data, null);
   assert.equal(forPax?.summary, "World Government took Mina Vale at Crown Harbor after major defeat");
-  assert.equal(String(forPax?.summary).includes("54.105"), false);
+  assert.equal(String(forPax?.summary).includes("58.944"), false);
   assert.equal(String(forPax?.summary).includes("9 troops"), false);
 });
 
 test("seed 1847 names both captains and does not say each one took the port", () => {
-  // Treasury spending split the old tick 69 pair. The claim is Jun's on tick 66. The balance share moved a later shared win. The tick 67 claim stays.
-  const claimedRun = runTicks(createPrototypeWorld(1847), 67);
-  const battle = claimedRun.events.find((event) => event.sequence === 7596);
-  const claim = claimedRun.events.find((event) => event.sequence === 7719);
+  // The skill step moved the surrender pair to Zara Gale at Glassport, battle tick 52 and claim tick 53.
+  const claimedRun = runTicks(createPrototypeWorld(1847), 54);
+  const battle = claimedRun.events.find((event) => event.sequence === 6114);
+  const claim = claimedRun.events.find((event) => event.sequence === 6241);
   assert.ok(battle && claim);
+  assert.equal(battle.type, "battle-resolved");
+  assert.equal(battle.tick, 52);
+  assert.equal(battle.actorId, "character-17");
   assert.equal(claim.type, "settlement-claimed");
-  assert.equal(claim.tick, 66);
-  assert.equal(claim.actorId, "character-05");
+  assert.equal(claim.tick, 53);
+  assert.equal(claim.actorId, "character-17");
   const claimedFeed = projectEventFeed(claimedRun.state, "character-01", [battle, claim]);
-  const jun = claimedFeed.find((row) => row.sequence === 7596);
-  const claimed = claimedFeed.find((row) => row.sequence === 7719);
+  const zara = claimedFeed.find((row) => row.sequence === 6114);
+  const claimed = claimedFeed.find((row) => row.sequence === 6241);
   assert.equal(
-    jun?.summary,
-    "Jun Marrow won the fight at Cinder Key on a higher score. The surrender was taken on the next tick.",
+    zara?.summary,
+    "Zara Gale won the fight at Glassport on a higher score. The surrender was taken on the next tick.",
   );
   assert.equal(
     claimed?.summary,
-    "Jun Marrow claimed Cinder Key. The surrender was offered and taken on the next tick, so it was not waiting.",
+    "Zara Gale claimed Glassport. The surrender was offered and taken on the next tick, so it was not waiting.",
   );
 
-  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved the shared win to Glassport on tick 438.
-  // The secession walker inserts two declarations on that tick, so these sequences move by two.
-  const shared = runTicks(createPrototypeWorld(1847), 439);
+  // Three captains win at Crown Harbor on tick 839.
+  const shared = runTicks(createPrototypeWorld(1847), 840);
   const wins = shared.events.filter((event) =>
-    event.type === "battle-resolved" && event.tick === 438 && event.settlementId === "glassport",
+    event.type === "battle-resolved" && event.tick === 839 && event.settlementId === "crown-harbor",
   );
   const sharedFeed = projectEventFeed(shared.state, "character-01", wins);
-  const junShared = sharedFeed.find((row) => row.sequence === 54723);
-  const vale = sharedFeed.find((row) => row.sequence === 54740);
+  const sable = sharedFeed.find((row) => row.sequence === 113951);
+  const vale = sharedFeed.find((row) => row.sequence === 113972);
+  const orin = sharedFeed.find((row) => row.sequence === 113983);
+  const sharedLine = "3 captains won a fight here on this tick: Sable Morrow, Vale Drake, Orin Rill. This fight left the garrison standing. A surrender was offered.";
   assert.equal(
-    junShared?.summary,
-    "Jun Marrow won the fight at Glassport on a higher score, after morale gave out. 2 captains won a fight here on this tick: Jun Marrow, Vale Drake. This fight left the garrison standing. A surrender was offered.",
+    sable?.summary,
+    `Sable Morrow won the fight at Crown Harbor on a higher score, after morale gave out. ${sharedLine}`,
   );
   assert.equal(
     vale?.summary,
-    "Vale Drake won the fight at Glassport on a higher score. 2 captains won a fight here on this tick: Jun Marrow, Vale Drake. This fight left the garrison standing. A surrender was offered.",
+    `Vale Drake won the fight at Crown Harbor on a higher score, after morale gave out. ${sharedLine}`,
   );
-  for (const row of [jun, claimed, junShared, vale]) {
+  assert.equal(
+    orin?.summary,
+    `Orin Rill won the fight at Crown Harbor on a higher score, after morale gave out. ${sharedLine}`,
+  );
+  for (const row of [zara, claimed, sable, vale, orin]) {
     assert.equal(row?.payloadWithheld, true);
     assert.equal(row?.data, null);
     assert.equal(String(row?.summary).includes("outscore"), false);
@@ -167,15 +171,13 @@ test("seed 1847 names both captains and does not say each one took the port", ()
   }
 });
 
-test("seed 1847 tick 438 says morale gave out, and does not say nerve broke", () => {
-  // Treasury spending moved this fight off tick 594. The balance share moved it to Crown Harbor on tick 671.
-  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved it to Glassport on tick 438.
-  // The secession walker inserts two declarations on that tick, so this sequence moves by two.
-  const run = runTicks(createPrototypeWorld(1847), 439);
-  const battle = run.events.find((event) => event.sequence === 54723);
+test("seed 1847 tick 477 says morale gave out, and does not say nerve broke", () => {
+  // The skill step moved this fight to Jun Marrow at Glassport on tick 477.
+  const run = runTicks(createPrototypeWorld(1847), 478);
+  const battle = run.events.find((event) => event.sequence === 61013);
   assert.ok(battle);
   assert.equal(battle.type, "battle-resolved");
-  assert.equal(battle.tick, 438);
+  assert.equal(battle.tick, 477);
   assert.equal(battle.actorId, "character-05");
   assert.equal(battle.settlementId, "glassport");
   assert.equal(battle.data.outcome, "attacker-victory");

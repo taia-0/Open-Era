@@ -257,14 +257,14 @@ test("seed 2718 lets Mara choose at tick 216 in a headless run and not in a live
   const headless = runTicks(createPrototypeWorld(2718), 217);
   const set = headless.events.find((event) => event.type === "tax-rate-set" && event.targetId === "world-government");
   assert.ok(set);
-  assert.equal(set.tick, 216);
-  assert.equal(set.sequence, 25812);
+  assert.equal(set.tick, 120);
+  assert.equal(set.sequence, 13865);
   assert.equal(set.actorId, "character-01");
   assert.equal(set.data.taxRate, 0.13);
   assert.equal(set.data.previousTaxRate, 0.14);
   assert.equal(Object.hasOwn(set.data, "commandId"), false);
   assert.equal(headless.state.factions["world-government"].taxRate, 0.13);
-  assert.equal(headless.state.factions["world-government"].taxRateSetTick, 216);
+  assert.equal(headless.state.factions["world-government"].taxRateSetTick, 120);
 
   const live = runTicks(createPrototypeWorld(2718), 217, { liveSession: true });
   assert.equal(live.events.some((event) => event.type === "tax-rate-set" && event.actorId === "character-01"), false);
@@ -337,7 +337,7 @@ test("recovery replays an autonomous set", () => {
     }
     assert.ok(set);
     assert.equal(set.tick, 120);
-    assert.equal(set.sequence, 14112);
+    assert.equal(set.sequence, 14193);
     assert.equal(set.targetId, "free-tide");
     assert.equal(set.actorId, "character-14");
     assert.equal(set.data.taxRate, 0.09);
