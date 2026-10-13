@@ -28,6 +28,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Treasury spending](treasury-spending.md) — Open / proposal: a faction ransom goes entirely to the treasury, and the command holder spends it while other members spend a daily allowance
 - [Treasury balance](treasury-balance.md) — Open / study: Free Tide's treasury empties under the 18-a-day draw, and the measured next step keeps 18 unless the treasury cannot pay it
 - [Morale](morale.md) — Open / design brief: a short balance share lowers a mate's morale, and a mate under the secession loyalty line leaves after 12 unpaid days
+- [Fleet](fleet.md) — Open / design brief: a character is one hull, sailors are the crew, and buying, repairing, losing, or paying that hull is priced against the 18-a-day allowance
 - [Political layer](political-layer.md) — Built in M30: the person who already issues a faction's orders is named in command, and a captive commander's seat is covered until release
 - [Leader tax](leader-tax.md) — Open / design brief: the free command holder sets the faction tax rate; the rate is already stored, and the first slice leaves autonomous leaders on the scenario constant
 - [Secession](secession.md) — Open / design brief: a settlement owner declares the break; garrison and local characters follow from tax, stability, provisions, and loyalty, and nothing rebels on its own
