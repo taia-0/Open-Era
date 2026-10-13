@@ -913,6 +913,24 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       clearActingCommander(world, actor);
       applyUnpaidReleaseScar(actor, event);
       break;
+    case "character-deserted":
+      if (!actor) throw new Error("Desertion event has no actor");
+      actor.factionId = null;
+      break;
+    case "debt-repaid": {
+      if (!actor) throw new Error("Debt repayment has no actor");
+      const debtId = String(event.data.debtId ?? "");
+      const index = actor.debts.findIndex((debt) => debt.id === debtId);
+      if (index < 0) throw new Error(`Debt repayment has no debt: ${debtId}`);
+      actor.money = event.data.characterMoney as number;
+      if (event.data.closed === true) actor.debts.splice(index, 1);
+      else actor.debts[index].remainingValue = event.data.remainingValue as number;
+      const faction = event.targetId ? world.factions[event.targetId] : undefined;
+      if (faction && typeof event.data.factionTreasury === "number") {
+        faction.treasury = event.data.factionTreasury;
+      }
+      break;
+    }
     case "scattered-troops-returned":
       if (!actor) throw new Error("Troop return event has no actor");
       actor.troops.count = event.data.troopCount as number;

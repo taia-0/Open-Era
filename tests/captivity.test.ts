@@ -7,7 +7,7 @@ import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
 import { captureChanceForRisk } from "../src/sim/combat.ts";
 import { submitCommand } from "../src/sim/commands.ts";
 import { createConversationThread, sendConversationMessage } from "../src/sim/conversations.ts";
-import { runTick } from "../src/sim/engine.ts";
+import { runTick, workGross } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { applyEvent, round, stateHash } from "../src/sim/state.ts";
@@ -136,6 +136,107 @@ test("the fourteen-day deadline forces release on bounded terms", () => {
   assert.equal(commander.money, 0);
   assert.equal(commander.debts.length, 1);
   assert.equal(commander.troopRecovery?.remaining, commander.troopRecovery?.total);
+  assert.equal(result.events.some((event) => event.type === "debt-repaid"), false);
+});
+
+test("a purse that cannot pay a debt emits nothing and does not draw", () => {
+  const left = createPrototypeWorld(1847);
+  const right = createPrototypeWorld(1847);
+  const debtor = left.characters["character-04"];
+  const twin = right.characters["character-04"];
+  debtor.money = 0;
+  twin.money = 0;
+  debtor.debts.push({
+    id: "debt-empty",
+    creditorFactionId: "free-tide",
+    originalValue: 40,
+    remainingValue: 40,
+    incurredTick: -1,
+    reason: "prisoner-release",
+  });
+  const leftTick = runTick(left);
+  const rightTick = runTick(right);
+  assert.equal(leftTick.events.some((event) => event.type === "debt-repaid"), false);
+  assert.equal(left.rngState, right.rngState);
+  assert.equal(debtor.money, 0);
+  assert.equal(debtor.debts[0].remainingValue, 40);
+});
+
+test("the next world day pays one day's wages toward the oldest open debt", () => {
+  const world = forceRetreatCapture();
+  const commander = world.characters[world.players["prototype-player"].characterId];
+  commander.money = 10;
+  commander.captivity!.capturedTick = world.tick - 14 * world.ticksPerDay;
+  commander.captivity!.mandatoryReleaseTick = world.tick;
+  const releaseResult = runTick(world);
+  assert.equal(releaseResult.events.some((event) => event.type === "debt-repaid"), false);
+  assert.equal(commander.debts.length, 1);
+  const newer = commander.debts[0];
+  assert.ok(newer.creditorFactionId);
+  const older = {
+    id: "debt-older",
+    creditorFactionId: newer.creditorFactionId,
+    originalValue: 500,
+    remainingValue: 500,
+    incurredTick: newer.incurredTick - 1,
+    reason: "prisoner-release" as const,
+  };
+  commander.debts.unshift(older);
+
+  while (world.tick % world.ticksPerDay !== 0) runTick(world);
+  const wage = workGross(commander);
+  commander.money = 0;
+  const quiet = runTick(world);
+  assert.equal(quiet.events.some((event) => event.type === "debt-repaid" && event.actorId === commander.id), false);
+  assert.equal(commander.debts.find((debt) => debt.id === older.id)?.remainingValue, 500);
+  while (world.tick % world.ticksPerDay !== 0) runTick(world);
+  commander.money = round(wage * 2, 2);
+  commander.captivity = null;
+  const treasuryBefore = world.factions[newer.creditorFactionId].treasury;
+  const paid = runTick(world);
+  const repayment = paid.events.find((event) => event.type === "debt-repaid");
+  assert.ok(repayment);
+  assert.equal(repayment.actorId, commander.id);
+  assert.equal(repayment.targetId, newer.creditorFactionId);
+  assert.equal(repayment.settlementId, undefined);
+  assert.equal(repayment.data.debtId, older.id);
+  assert.equal(repayment.data.paid, wage);
+  assert.equal(repayment.data.remainingValue, round(500 - wage, 2));
+  assert.equal(repayment.data.characterMoney, round(wage, 2));
+  assert.equal(repayment.data.factionTreasury, round(treasuryBefore + wage, 2));
+  assert.equal(repayment.data.closed, false);
+  assert.equal(commander.debts.find((debt) => debt.id === older.id)?.remainingValue, round(500 - wage, 2));
+  assert.equal(commander.debts.find((debt) => debt.id === newer.id)?.remainingValue, newer.remainingValue);
+  assert.equal("roll" in repayment.data, false);
+
+  commander.captivity = {
+    captorFactionId: newer.creditorFactionId,
+    settlementId: commander.locationId ?? "crown-harbor",
+    capturedTick: world.tick,
+    mandatoryReleaseTick: world.tick + 84,
+    cause: "major-defeat",
+    displayedRisk: "low",
+    scatteredTroops: { count: 0, experience: 0, discipline: 0 },
+    releaseDestinationId: null,
+  };
+  const remaining = commander.debts.find((debt) => debt.id === older.id)!.remainingValue;
+  while (world.tick % world.ticksPerDay !== 0) runTick(world);
+  commander.money = round(wage * 2, 2);
+  const held = runTick(world);
+  assert.equal(held.events.some((event) => event.type === "debt-repaid" && event.actorId === commander.id), false);
+  assert.equal(commander.debts.find((debt) => debt.id === older.id)?.remainingValue, remaining);
+  assert.equal(commander.money, round(wage * 2, 2));
+
+  commander.captivity = null;
+  const blocked = commander.debts.find((debt) => debt.id === older.id)!;
+  blocked.creditorFactionId = null;
+  const blockedRemaining = blocked.remainingValue;
+  while (world.tick % world.ticksPerDay !== 0) runTick(world);
+  commander.money = round(wage * 2, 2);
+  const skipped = runTick(world);
+  assert.equal(skipped.events.some((event) => event.type === "debt-repaid" && event.data.debtId === older.id), false);
+  assert.equal(commander.debts.find((debt) => debt.id === older.id)?.remainingValue, blockedRemaining);
+  assert.equal(commander.debts.find((debt) => debt.id === older.id)?.creditorFactionId, null);
 });
 
 function releaseWithDebt(world: WorldState, character: Character, debtValue: number): void {

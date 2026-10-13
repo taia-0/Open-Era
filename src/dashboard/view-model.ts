@@ -181,10 +181,20 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
       return captivityEscapedSentence(world, event);
     case "captivity-released":
       return captivityReleasedSentence(world, event, reader);
+    case "character-deserted":
+      return publicFeedSentence(world, event);
+    case "debt-repaid": {
+      const paid = event.data.paid;
+      const remaining = event.data.remainingValue;
+      const closed = event.data.closed === true;
+      const rest = closed ? " The debt is closed." : ` ${remaining} remains.`;
+      return `${actor} paid ${paid} toward a debt.${rest}`;
+    }
     case "character-upkeep": {
       const passage = passageUpkeepSentence(world, event);
-      if (passage) return passage;
-      return publicFeedSentence(world, event);
+      const base = passage ?? publicFeedSentence(world, event);
+      if (event.data.shortPay === true) return `${base} Pay was short, and morale lost 0.5.`;
+      return base;
     }
     case "scattered-troops-returned":
       return `${event.data.returning} scattered troops returned to ${actor}`;

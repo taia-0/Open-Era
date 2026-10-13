@@ -1,4 +1,5 @@
 import { DeterministicRng } from "./rng.ts";
+import { createPrototypeWorld } from "./scenario.ts";
 import {
   autonomousShouldRetreat,
   battleRisk,
@@ -23,7 +24,7 @@ import {
   reviewPlan,
 } from "./agency.ts";
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
-import { resolvePassageCharge, resolveQuotedSpend, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
+import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
 import { autonomousSecessionReady, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import {
@@ -578,7 +579,10 @@ function upkeepCharacter(
   cargo.provisions = round(cargo.provisions - consumed);
   const shortage = round(demand - consumed);
   const troopLoss = shortage > 0 ? Math.min(character.troops.count, Math.floor(shortage * 0.5)) : 0;
-  const morale = clamp(character.morale - shortage * 2.4 - (traveling ? 0.03 : 0) + (shortage === 0 ? 0.04 : 0), 0, 100);
+  const hungerAndTravel = clamp(character.morale - shortage * 2.4 - (traveling ? 0.03 : 0) + (shortage === 0 ? 0.04 : 0), 0, 100);
+  // A short mate loses 0.5 after those terms. The holder is not a mate. No draw.
+  const shortPay = shortPayMember(world, character, PASSAGE_COST_PER_TICK);
+  const morale = shortPay ? clamp(hungerAndTravel - 0.5, 0, 100) : hungerAndTravel;
   const health = clamp(character.health - shortage * 0.8, 1, 100);
   // Provisions burn at the same rate at sea and at anchor. The passage charge
   // is the part that does not: a voyage has to be worth the money it costs,
@@ -596,6 +600,7 @@ function upkeepCharacter(
       shortage,
       cargo,
       morale: round(morale),
+      ...(shortPay ? { shortPay: true } : {}),
       health: round(health),
       troopCount: character.troops.count - troopLoss,
       troopLoss,
@@ -1771,6 +1776,50 @@ function processCaptivityDeadlines(
         travel,
         releaseLocationId: travel ? null : captivity.settlementId,
         troopRecovery: recoveryAfterRelease(world, captivity),
+      },
+    });
+  }
+}
+
+/**
+ * One day's wages toward the oldest open captivity debt.
+ *
+ * A world day is `tick % ticksPerDay === 0`, and this runs after the
+ * deadlines. A captive pays nothing. The row must already exist
+ * (`incurredTick` is earlier) and the creditor faction must still be on the
+ * map. The pay is `round(min(purse, remaining, workGross), 2)`. A day that
+ * pays 0 emits nothing. No draw.
+ */
+function collectCaptivityDebts(world: WorldState, events: SimEvent[]): void {
+  if (world.ticksPerDay <= 0 || world.tick % world.ticksPerDay !== 0) return;
+  const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
+  for (const character of characters) {
+    if (character.captivity) continue;
+    const debt = character.debts
+      .filter((row) =>
+        row.remainingValue > 0 &&
+        row.incurredTick < world.tick &&
+        row.creditorFactionId !== null &&
+        world.factions[row.creditorFactionId] !== undefined,
+      )
+      .sort((left, right) => left.incurredTick - right.incurredTick || left.id.localeCompare(right.id))[0];
+    if (!debt?.creditorFactionId) continue;
+    const paid = round(Math.min(character.money, debt.remainingValue, workGross(character)), 2);
+    if (!(paid > 0)) continue;
+    const remainingValue = round(debt.remainingValue - paid, 2);
+    const faction = world.factions[debt.creditorFactionId];
+    emit(world, events, {
+      type: "debt-repaid",
+      actorId: character.id,
+      targetId: debt.creditorFactionId,
+      data: {
+        debtId: debt.id,
+        paid,
+        remainingValue,
+        originalValue: debt.originalValue,
+        characterMoney: round(character.money - paid, 2),
+        factionTreasury: round(faction.treasury + paid, 2),
+        closed: remainingValue === 0,
       },
     });
   }
@@ -3352,10 +3401,68 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
   }
 }
 
+const shortStreaks = new WeakMap<Character, number>();
+const desertionStreams = new WeakMap<WorldState, DeterministicRng>();
+
+/**
+ * Side stream for the desertion roll.
+ *
+ * Forked from `rngState` at the start of tick 0. It is not written back, and
+ * it is not stored on the world, so a morning that does not roll leaves the
+ * hash alone.
+ */
+function desertionRng(world: WorldState): DeterministicRng {
+  let rng = desertionStreams.get(world);
+  if (!rng) {
+    rng = new DeterministicRng(createPrototypeWorld(world.seed).rngState);
+    desertionStreams.set(world, rng);
+  }
+  return rng;
+}
+
+/**
+ * Twelve short mornings, then one side-stream roll.
+ *
+ * Read at the start of the morning, before production. A short mate's streak
+ * grows by one. Any other morning resets it. On the morning the streak becomes
+ * 12, a mate whose loyalty is under 0.75 draws one `next()`. The roll is stored
+ * to 3 decimals. Under 0.5, `factionId` becomes null. Place, travel, and troops
+ * stay. The cap is the cap at the start of the morning.
+ */
+function resolveMorningDesertion(world: WorldState, events: SimEvent[]): void {
+  if (world.ticksPerDay <= 0 || world.tick % world.ticksPerDay !== 0) return;
+  const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
+  const short = new Set(
+    characters.filter((character) => shortPayMember(world, character, PASSAGE_COST_PER_TICK)).map((character) => character.id),
+  );
+  for (const character of characters) {
+    const next = short.has(character.id) ? (shortStreaks.get(character) ?? 0) + 1 : 0;
+    if (next === 0) shortStreaks.delete(character);
+    else shortStreaks.set(character, next);
+    if (next !== 12) continue;
+    const loyalty = character.personality.loyalty + (character.loyaltyAdjustment ?? 0);
+    if (!(loyalty < 0.75)) continue;
+    const roll = desertionRng(world).next();
+    if (!(roll < 0.5)) continue;
+    const previousFactionId = character.factionId;
+    emit(world, events, {
+      type: "character-deserted",
+      actorId: character.id,
+      targetId: previousFactionId ?? undefined,
+      data: {
+        roll: round(roll, 3),
+        factionId: null,
+        previousFactionId,
+      },
+    });
+  }
+}
+
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
   const rng = new DeterministicRng(world.rngState);
   const events: SimEvent[] = [];
 
+  resolveMorningDesertion(world, events);
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   chooseAutonomousTaxRates(world, events, options.liveSession === true);
@@ -3363,6 +3470,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
   processCaptivityDeadlines(world, events, rng);
+  collectCaptivityDebts(world, events);
   progressTroopRecoveries(world, events);
   const battleParticipants = progressActiveBattles(world, events, rng);
   expireStandingOrders(world, events);

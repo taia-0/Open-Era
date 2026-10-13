@@ -214,13 +214,13 @@ test("an autonomous secession with no successor ends with no leader yet", () => 
       break;
     }
   }
-  assert.equal(world.tick, 699);
+  assert.equal(world.tick, 495);
   assert.equal(declared.length, 1);
-  assert.equal(declared[0]?.tick, 698);
+  assert.equal(declared[0]?.tick, 494);
   const view = projectEventFeed(world, "character-01", declared, siblings);
   assert.equal(
-    view.find((row) => row.settlementId === "cinder-key")?.summary,
-    "Corin Hale declared Cinder Key separate from Free Tide Compact. Free Cinder Key starts with an empty treasury. (no leader yet)",
+    view.find((row) => row.settlementId === "glassport")?.summary,
+    "Mina Vale declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)",
   );
   assert.equal(view.every((row) => row.payloadWithheld === true && row.data === null), true);
   assert.equal(declared.every((event) => event.data.successorId === null), true);

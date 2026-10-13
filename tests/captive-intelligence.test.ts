@@ -490,15 +490,15 @@ function recoverThrough(seed: number, splitAt: number, through: number, characte
   }
 }
 
-test("Mara Calder's release at tick 204 recovers from the tick 198 snapshot", () => {
-  // The skill step moved this release to seed 2718, tick 464.
-  const live = runTicks(createPrototypeWorld(2718), 465).state;
+test("Mara Calder's release at tick 1110 recovers from the tick 1110 snapshot", () => {
+  // Batch 1 moved this release to seed 1847, tick 1110.
+  const live = runTicks(createPrototypeWorld(1847), 1111).state;
   const calder = live.characters["character-21"];
   assert.equal(calder.name, "Mara Calder");
   assert.equal(calder.captivity, null);
-  assert.equal(calder.releaseSighting?.observedTick, 464);
-  assert.equal(calder.releaseSighting?.garrison, 152);
-  const split = recoverThrough(2718, 381, 465, "character-21");
+  assert.equal(calder.releaseSighting?.observedTick, 1110);
+  assert.equal(calder.releaseSighting?.garrison, 10);
+  const split = recoverThrough(1847, 1110, 1111, "character-21");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));
   assert.deepEqual(split.rebuiltRecord, calder.releaseSighting);

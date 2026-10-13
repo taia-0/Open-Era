@@ -1,6 +1,8 @@
 import { assessStandingOrder, garrisonConfidenceLabel } from "../sim/agency.ts";
 import { commandHolderId, factionPower, partyPower, partyPowerFromTroops, round } from "../sim/state.ts";
 import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder, SupplyContract, TravelState, WorldState } from "../sim/types.ts";
+import { PASSAGE_COST_PER_TICK } from "../sim/engine.ts";
+import { shortPayMember } from "../sim/allowance.ts";
 import { projectAllowance } from "./allowance.ts";
 import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
 
@@ -768,6 +770,14 @@ export function projectCharacter(
       : null,
     health: condition ? round(character.health, 1) : null,
     morale: condition ? round(character.morale, 1) : null,
+    /**
+     * Present when this card already shows morale and the mate's cap is under
+     * a day's passage. The holder is not a mate. A rival who is not alongside
+     * stays null, with the morale figure.
+     */
+    payNote: condition && shortPayMember(world, character, PASSAGE_COST_PER_TICK)
+      ? "Pay is short, so morale loses 0.5 on upkeep."
+      : null,
     sailors: condition ? character.sailors : null,
     troops: condition ? projectTroopFigures(character.troops) : null,
     /**
@@ -888,6 +898,44 @@ export function projectCharacter(
   };
 }
 
+/**
+ * Open debts owed to this faction, oldest first.
+ *
+ * The debtor's purse, cargo, and other debts stay off the row.
+ */
+function creditorDebtRows(world: WorldState, factionId: string): Array<{
+  debtorId: string;
+  id: string;
+  originalValue: number;
+  remainingValue: number;
+  incurredTick: number;
+  reason: string;
+}> {
+  const rows: Array<{
+    debtorId: string;
+    id: string;
+    originalValue: number;
+    remainingValue: number;
+    incurredTick: number;
+    reason: string;
+  }> = [];
+  for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    for (const debt of character.debts) {
+      if (debt.creditorFactionId !== factionId || debt.remainingValue <= 0) continue;
+      rows.push({
+        debtorId: character.id,
+        id: debt.id,
+        originalValue: debt.originalValue,
+        remainingValue: debt.remainingValue,
+        incurredTick: debt.incurredTick,
+        reason: debt.reason,
+      });
+    }
+  }
+  rows.sort((left, right) => left.incurredTick - right.incurredTick || left.id.localeCompare(right.id));
+  return rows;
+}
+
 export function projectFactions(
   world: WorldState,
   commander: Character,
@@ -923,6 +971,12 @@ export function projectFactions(
         /** Absent until the first set. Null on the row, including a rival's. */
         taxRateSetTick: faction.taxRateSetTick ?? null,
         power: owned ? factionPower(world, faction.id) : null,
+        /**
+         * Debts owed to this faction. Own faction only. The row is the debtor,
+         * the original, the remainder, the tick, and the reason. The debtor's
+         * purse is not on it. A rival is null.
+         */
+        debts: owned ? creditorDebtRows(world, faction.id) : null,
         intelligence: {
           exact: owned,
           source: owned ? "faction-record" : "reputation",
@@ -965,6 +1019,12 @@ export function eventPayloadVisible(
 
   // The commander's own actions are entirely theirs.
   if (event.actorId === commander.id) return true;
+
+  // The creditor faction sees the installment. A bystander, including a mate
+  // of the debtor in the other faction, does not.
+  if (event.type === "debt-repaid" && commander.factionId !== null && commander.factionId === event.targetId) {
+    return true;
+  }
 
   // A contract's payload is the two parties' business. The standing-order rule
   // is the same shape, with both parties in the issuer's place. Holding the
