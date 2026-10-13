@@ -340,7 +340,7 @@ On the slice 3 world the first `tax-rate-set` is still outside 72 ticks, so tick
 
 ## Addendum: the full office roster
 
-**Status: Open.** Design brief for the Lead. The sections above are the port-governor brief. They stay as they were. Nothing in this addendum is in the tree. The census is a local readout of the baseline tape. Two stipend deductions and one field store were applied by a local harness, measured, and restored.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). The sections above are the port-governor brief. They stay as they were. Nothing in this addendum is in the tree. The census is a local readout of the baseline tape. Two stipend deductions and one field store were applied by a local harness, measured, and restored.
 
 Checked on `origin/main` at `52bb65e9a2023a6e462192798c2c4285f4d0ab06` (PR #110). Node v24.21.0, ICU 78.3. `npm test` passed, 427 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline:
 
@@ -488,3 +488,9 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 6. **Does secession still read the governor?** Default: yes, as the offices brief already has it. `ownerId` stays the claimant. On this tree the walker still declares as the owner. That owner is the sticky governor on 2, 4, and 2 of the declarations. An empty seat declares nobody. This addendum does not give the declaration to a treasurer or an admiral.
 
 7. **What moves the hash?** Default: slice 1 stays on the baseline table. Slice 2 moves the tick-72 hash by the treasury and first differs at event ticks 110, 216, and 96. Slice 3 moves the fixture at state tick 0 and does not change the event log. Slice 4 moves the tick-72 hash and first differs at event ticks 91, 167, and 89. No new draw. The tick rng stays the wrong stream. Death and desertion were not hashed.
+
+## Ruling
+
+The Lead has ruled on this addendum. The questions in section 8 of the port-governor brief are a separate decision.
+
+The defaults stand. The posts stay the command holder, the acting commander, and the port governor. There is no treasurer and no admiral. A breakaway port appoints nobody.
