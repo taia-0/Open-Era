@@ -14,9 +14,10 @@ import {
   travelDuration,
   type ProvisionRunway,
 } from "../sim/engine.ts";
+import { secessionReadout, type SecessionReadout } from "../sim/secession.ts";
 import { marketPrice, partyPowerFromTroops, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { CHECK_IN_READ_CAP } from "../sim/persistence.ts";
-import { RESOURCE_KEYS, type ActiveBattle, type Character, type CombatForecast, type SettlementKnowledge, type SimEvent, type WorldState } from "../sim/types.ts";
+import { RESOURCE_KEYS, type ActiveBattle, type Character, type CombatForecast, type Settlement, type SettlementKnowledge, type SimEvent, type WorldState } from "../sim/types.ts";
 import { captiveIntelFor, projectCharacter, projectEvent, projectFactions, projectSupplyContracts, seaSightingsFor } from "./visibility.ts";
 import {
   attentionLabel,
@@ -866,6 +867,49 @@ function settlementTaxRate(world: WorldState, factionId: string | null): number 
 }
 
 /**
+ * The secession readout on one settlement row.
+ *
+ * Own faction, including a port the commander is away from, already shows
+ * the ground and the loyalty of the members who would be counted. Standing
+ * on another faction's port shows the ground, the owner gate, and whether
+ * the garrison would follow. The follower counts stay null there, because
+ * that faction's loyalty is not on the panel. Offshore, with no exact
+ * record, the whole readout is null. Nothing is written onto the world.
+ */
+export interface SecessionPanelReadout {
+  ownerId: string | null;
+  ownerGate: boolean;
+  followerCount: number | null;
+  garrisonFollows: boolean;
+  taxOpen: {
+    followerCount: number | null;
+    garrisonFollows: boolean;
+  };
+}
+
+function projectSecession(
+  world: WorldState,
+  commander: Character,
+  settlement: Settlement,
+  exact: boolean,
+  coLocated: boolean,
+): SecessionPanelReadout | null {
+  if (!exact && !coLocated) return null;
+  const readout: SecessionReadout = secessionReadout(world, settlement);
+  if (settlement.factionId === null || settlement.factionId === commander.factionId) return readout;
+  return {
+    ownerId: readout.ownerId,
+    ownerGate: readout.ownerGate,
+    followerCount: null,
+    garrisonFollows: readout.garrisonFollows,
+    taxOpen: {
+      followerCount: null,
+      garrisonFollows: readout.taxOpen.garrisonFollows,
+    },
+  };
+}
+
+/**
  * How fresh a price figure is.
  *
  * A live board is recomputed from stock every tick, so a number read now is
@@ -1212,6 +1256,7 @@ export function dashboardState(
       // the same `tradeQuote` the boundary charges means the shown cost is the
       // charged cost.
       const market = coLocated ? projectMarket(world, commander, settlement.id) : null;
+      const secession = projectSecession(world, commander, settlement, exact, coLocated);
       if (!exact) {
         return {
           id: settlement.id,
@@ -1280,6 +1325,7 @@ export function dashboardState(
             observedTick: coLocated ? world.tick : reported!.observedTick,
             ageTicks: coLocated ? 0 : reported!.ageTicks,
           } : null,
+          secession,
         };
       }
       return {
@@ -1304,6 +1350,7 @@ export function dashboardState(
         groundIntelligence,
         garrisonIntelligence,
         intelligence: { exact: true, present: commander.locationId === settlement.id, source: "owned", confidence: 1, observedTick: world.tick, ageTicks: 0 },
+        secession,
       };
     }),
     characters: Object.values(world.characters)
