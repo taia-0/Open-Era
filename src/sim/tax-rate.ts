@@ -1,4 +1,5 @@
 import { freeMateCount, fullAllowance, spendRole } from "./allowance.ts";
+import { newsStabilityThousandths } from "./news.ts";
 import { CLAIM_STABILITY_FLOOR } from "./state.ts";
 import type { Character, WorldState } from "./types.ts";
 
@@ -171,10 +172,14 @@ export function autonomousTaxStep(world: WorldState, factionId: string): Autonom
   const cents = Math.round(faction.taxRate * 100);
   const held = Object.values(world.settlements).filter((settlement) => settlement.factionId === factionId);
   let lowest = Number.POSITIVE_INFINITY;
+  let known = false;
   for (const settlement of held) {
-    lowest = Math.min(lowest, Math.round(settlement.stability * 1000));
+    const figure = newsStabilityThousandths(world, holder, settlement.id, true);
+    if (figure === null) continue;
+    known = true;
+    lowest = Math.min(lowest, figure);
   }
-  const pressed = held.length > 0 && lowest <= CLAIM_STABILITY_FLOOR * 1000;
+  const pressed = known && lowest <= CLAIM_STABILITY_FLOOR * 1000;
   const mates = freeMateCount(world, factionId);
   const dayCents = Math.round(fullAllowance(world, PASSAGE_PER_TICK) * 100);
   const treasuryCents = Math.round(faction.treasury * 100);

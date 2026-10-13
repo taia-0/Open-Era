@@ -26,6 +26,30 @@ export interface Faction {
   actingCommanderId?: string;
 }
 
+/**
+ * One public item. A tax item is the only one that carries `taxRate`.
+ * Garrison, stability, and loyalty stay off this object.
+ */
+export interface NewsItem {
+  id: string;
+  type: string;
+  observedTick: number;
+  factionId: string | null;
+  taxRate?: number;
+}
+
+/**
+ * The ledger entry. `aboutSettlementId` is the port the item describes.
+ * A tax step has none, and does not supply a stability figure.
+ */
+export interface NewsRecord {
+  item: NewsItem;
+  aboutSettlementId: string | null;
+  stability: number;
+  followerIds: string[];
+  sequence: number;
+}
+
 export interface Settlement {
   id: string;
   name: string;
@@ -54,6 +78,11 @@ export interface Settlement {
    * A headless run that never declares leaves the field absent.
    */
   secessionDeclaredBy?: string;
+  /**
+   * Public items posted at this port. Absent until the first post.
+   * Stability and the scarred-follower list sit beside the item.
+   */
+  news?: NewsRecord[];
 }
 
 export interface Personality {
@@ -642,6 +671,11 @@ export interface Character {
    * a process-local counter does not survive a snapshot.
    */
   shortMorningStreak?: number;
+  /**
+   * Ledger copied on departure, plus a tax item witnessed at sea.
+   * Absent until there is something to carry. Arrival posts it and clears it.
+   */
+  carriedNews?: NewsRecord[];
   /**
    * Set by `character-died`. Omitted while the character is alive, so a world
    * with no death hashes as before. A dead character stays in the world.

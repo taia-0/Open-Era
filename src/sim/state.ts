@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type {
   Character,
   Faction,
+  NewsRecord,
   PartySighting,
   ReleaseParty,
   ReleaseSighting,
@@ -632,6 +633,34 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       faction.taxRateSetTick = typeof event.data.taxRateSetTick === "number"
         ? event.data.taxRateSetTick
         : event.tick;
+      // A holder at sea carries the item. The next landfall posts it.
+      if (actor && actor.locationId === null) {
+        const record: NewsRecord = {
+          item: {
+            id: `news-${event.sequence}`,
+            type: "tax-rate-set",
+            observedTick: event.tick,
+            factionId,
+            taxRate: event.data.taxRate,
+          },
+          aboutSettlementId: null,
+          stability: 0,
+          followerIds: [],
+          sequence: event.sequence,
+        };
+        if (!actor.carriedNews?.some((held) => held.item.id === record.item.id)) {
+          actor.carriedNews = [...(actor.carriedNews ?? []), record];
+        }
+      }
+      break;
+    }
+    case "news-posted": {
+      if (!settlement) throw new Error("News post is missing a port");
+      const record = event.data.record as NewsRecord;
+      if (!record?.item?.id) throw new Error("News post is missing an item");
+      if (!settlement.news?.some((held) => held.item.id === record.item.id)) {
+        settlement.news = [...(settlement.news ?? []), record];
+      }
       break;
     }
     case "standing-order-issued": {
@@ -795,6 +824,16 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       break;
     case "travel-started":
       if (!actor) throw new Error("Travel event has no actor");
+      {
+        const fromId = (event.data.travel as { fromId?: string } | undefined)?.fromId;
+        const ledger = fromId ? world.settlements[fromId]?.news ?? [] : [];
+        const combined = [...(actor.carriedNews ?? [])];
+        for (const record of ledger) {
+          if (!combined.some((held) => held.item.id === record.item.id)) combined.push(record);
+        }
+        if (combined.length > 0) actor.carriedNews = combined;
+        else delete actor.carriedNews;
+      }
       actor.travel = { ...(event.data.travel as NonNullable<Character["travel"]>) };
       actor.locationId = null;
       // Navigation is fixed on this voyage. The next one reads the new absolute.
@@ -804,6 +843,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!actor) throw new Error("Arrival event has no actor");
       actor.locationId = event.data.locationId as string;
       actor.travel = null;
+      delete actor.carriedNews;
       break;
     case "market-trade":
       if (!actor || !settlement) throw new Error("Trade event is missing an entity");

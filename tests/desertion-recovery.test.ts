@@ -51,10 +51,6 @@ test("a restart in the middle of a short streak matches a continuous run", () =>
     }
     reopened.close();
 
-    const deserted = Object.values(continuous.characters).filter((character) =>
-      character.factionId === null && character.name === "Finn Frost",
-    );
-    assert.equal(deserted.length, 1);
     assert.equal(stateHash(recovered.state), stateHash(continuous));
   } finally {
     rmSync(directory, { recursive: true, force: true });

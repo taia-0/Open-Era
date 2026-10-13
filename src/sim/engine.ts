@@ -1,4 +1,4 @@
-import { beginGovernorLevy, endGovernorLevy, governorLevyRate } from "./governor.ts";
+import { beginGovernorLevy, endGovernorLevy, governorId, governorLevyRate } from "./governor.ts";
 import { applySilentTickStart } from "./tick-start.ts";
 import { DeterministicRng } from "./rng.ts";
 import {
@@ -27,12 +27,14 @@ import {
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
-import { autonomousSecessionReady, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
   applyEvent,
   captorPartyLeader,
   CLAIM_STABILITY_FLOOR,
   clamp,
+  commandHolderId,
   distanceBetween,
   factionPower,
   marketPrice,
@@ -188,7 +190,39 @@ function emit(world: WorldState, events: SimEvent[], draft: EventDraft): SimEven
   };
   applyEvent(world, event);
   events.push(event);
+  postPublicNews(world, events, event);
   return event;
+}
+
+/**
+ * One public item, posted at the port the event names.
+ * A tax step is posted where the holder is standing. At sea, the tax reducer
+ * already put it in the bag. A `news-posted` does not post again.
+ */
+function postPublicNews(world: WorldState, events: SimEvent[], event: SimEvent): void {
+  if (!PUBLIC_NEWS_TYPES.has(event.type)) return;
+  if (event.type === "tax-rate-set") {
+    const holder = event.actorId ? world.characters[event.actorId] : undefined;
+    if (!holder?.locationId) return;
+    const record = newsRecordFor(world, event, null);
+    if (ledgerHas(world.settlements[holder.locationId].news, record.item.id)) return;
+    emit(world, events, {
+      type: "news-posted",
+      actorId: holder.id,
+      settlementId: holder.locationId,
+      data: { record },
+    });
+    return;
+  }
+  if (!event.settlementId || !world.settlements[event.settlementId]) return;
+  const record = newsRecordFor(world, event, event.settlementId);
+  if (ledgerHas(world.settlements[event.settlementId].news, record.item.id)) return;
+  emit(world, events, {
+    type: "news-posted",
+    actorId: event.actorId,
+    settlementId: event.settlementId,
+    data: { record },
+  });
 }
 
 /**
@@ -790,7 +824,8 @@ function travelCandidates(world: WorldState, character: Character): DecisionCand
       const tradeOpportunity = carried
         ? Math.max(0, believedPrice(world, character, settlement.id, carried) - marketPrice(world, character.locationId!, carried)) * tradableAmount(character, carried)
         : 0;
-      const factionInterest = settlement.factionId !== character.factionId && character.personality.ambition > 0.6 ? 8 : 0;
+      const knownFaction = character.knowledge[settlement.id]?.factionId;
+      const factionInterest = knownFaction !== character.factionId && character.personality.ambition > 0.6 ? 8 : 0;
       const score =
         8 +
         character.personality.curiosity * 22 +
@@ -874,7 +909,7 @@ function buildCandidates(
   // raids at 8. Troops, cooldown, hostility, and the open-battle check stay.
   const landless =
     character.factionId !== null &&
-    !Object.values(world.settlements).some((held) => held.factionId === character.factionId);
+    !Object.values(world.settlements).some((held) => character.knowledge[held.id]?.factionId === character.factionId);
   if (
     hostileTerritory &&
     character.factionId !== null &&
@@ -3310,12 +3345,24 @@ function progressTravel(world: WorldState, character: Character, events: SimEven
     },
   });
   if (remainingTicks === 0) {
+    const bag = character.carriedNews ? [...character.carriedNews] : [];
+    const destinationId = travel.toId;
     emit(world, events, {
       type: "arrived",
       actorId: character.id,
-      settlementId: travel.toId,
-      data: { locationId: travel.toId, fromId: travel.fromId },
+      settlementId: destinationId,
+      data: { locationId: destinationId, fromId: travel.fromId },
     });
+    const destination = world.settlements[destinationId];
+    for (const record of bag) {
+      if (ledgerHas(destination.news, record.item.id)) continue;
+      emit(world, events, {
+        type: "news-posted",
+        actorId: character.id,
+        settlementId: destinationId,
+        data: { record },
+      });
+    }
     const knowledge = directObservation(world, character);
     if (knowledge) {
       emit(world, events, {
@@ -3377,8 +3424,29 @@ export interface TickOptions {
 function declareAutonomousSecessions(world: WorldState, events: SimEvent[], liveSession: boolean): void {
   const settlements = Object.values(world.settlements).sort((left, right) => left.id.localeCompare(right.id));
   for (const settlement of settlements) {
-    if (!autonomousSecessionReady(world, settlement, liveSession)) continue;
-    const declared = buildSecessionDeclaration(world, settlement);
+    if (!settlement.factionId) continue;
+    const seated = governorId(world, settlement.id);
+    if (!seated) continue;
+    const governor = world.characters[seated];
+    if (!governor || governor.dead || governor.controller.kind !== "autonomous") continue;
+    if (governor.locationId !== settlement.id || governor.travel !== null || governor.captivity !== null) continue;
+    if (governor.factionId !== settlement.factionId) continue;
+    const holderId = commandHolderId(world, settlement.factionId);
+    if (holderId === governor.id) continue;
+    const taxRate = world.factions[settlement.factionId]?.taxRate ?? 0;
+    if (!(taxRate > 0.15)) continue;
+    const figure = newsStabilityThousandths(world, governor, settlement.id, false);
+    if (figure === null || figure > CLAIM_STABILITY_FLOOR * 1000) continue;
+    if (settlement.secessionDeclaredBy === governor.id) continue;
+    const actingId = world.factions[settlement.factionId]?.actingCommanderId ?? null;
+    const followerIds = newsFollowerIds(world, governor, settlement.id).filter((id) => {
+      const character = world.characters[id];
+      if (!character || character.dead) return false;
+      if (character.locationId !== settlement.id || character.travel !== null || character.captivity !== null) return false;
+      if (character.id === governor.id || character.id === holderId || character.id === actingId) return false;
+      return true;
+    });
+    const declared = buildGovernorSecession(world, settlement, governor, followerIds, true);
     emit(world, events, {
       type: "secession-declared",
       actorId: declared.ownerId,

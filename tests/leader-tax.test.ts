@@ -301,16 +301,18 @@ test("replay and recovery reproduce the set", () => {
   }
 });
 
-test("the levy moves the first autonomous tax set to tick 48", () => {
-  const run = runTicks(createPrototypeWorld(1847), 72);
+test("the news cap moves the first autonomous tax set to tick 72", () => {
+  const inside = runTicks(createPrototypeWorld(1847), 72);
+  assert.equal(inside.events.filter((event: SimEvent) => event.type === "tax-rate-set").length, 0);
+  const run = runTicks(createPrototypeWorld(1847), 73);
   const sets = run.events.filter((event: SimEvent) => event.type === "tax-rate-set");
   assert.equal(sets.length, 1);
-  assert.equal(sets[0].tick, 48);
+  assert.equal(sets[0].tick, 72);
   assert.equal(sets[0].actorId, "character-01");
   assert.equal(sets[0].data.taxRate, 0.13);
   assert.equal(sets[0].data.previousTaxRate, 0.14);
   assert.equal(run.state.factions["world-government"].taxRate, 0.13);
-  assert.equal(run.state.factions["world-government"].taxRateSetTick, 48);
+  assert.equal(run.state.factions["world-government"].taxRateSetTick, 72);
   assert.equal(run.state.factions["free-tide"].taxRate, 0.08);
   assert.equal(Object.hasOwn(run.state.factions["free-tide"], "taxRateSetTick"), false);
 });
