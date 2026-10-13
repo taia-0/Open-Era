@@ -84,8 +84,8 @@ export const SECESSION_LOYALTY_LINE = 0.75;
  * What a declaration would do to one port, read from the world as it is.
  *
  * The readout writes nothing. The command builds a `secession-declared`
- * payload from this same reading. Nothing here draws. There is no autonomous
- * caller.
+ * payload from this same reading. Nothing here draws. The autonomous walker
+ * calls the same builder and does not draw either.
  */
 export interface SecessionReadout {
   /** `settlement.ownerId`. Null when the port is unowned. */
@@ -309,6 +309,32 @@ export function buildSecessionDeclaration(
     actingCommanderId,
     successorId,
   };
+}
+
+/**
+ * Section 6's autonomous gate for one port. Does not write the world.
+ *
+ * The owner gate in section 2 must pass, and the owner must not be the
+ * command holder. The controller is autonomous: a human owner is not declared
+ * here, in a live session or a headless run. The holding rate is above 0.15
+ * and stability is at or below 55. A declaration already recorded for this
+ * owner on this spell does not fire again. No draw.
+ */
+export function autonomousSecessionReady(world: WorldState, settlement: Settlement, liveSession = false): boolean {
+  if (!ownerGatePasses(world, settlement) || !settlement.ownerId || !settlement.factionId) return false;
+  const owner = world.characters[settlement.ownerId];
+  if (!owner) return false;
+  // "An autonomous owner declares." A human controller is the player's character,
+  // so a live session and a headless run both skip one. The live-session check
+  // is the leader-tax shape, kept because that is the rule when a note is silent.
+  if (liveSession && owner.controller.kind === "human") return false;
+  if (owner.controller.kind !== "autonomous") return false;
+  if (commandHolderId(world, settlement.factionId) === owner.id) return false;
+  const taxRate = world.factions[settlement.factionId]?.taxRate ?? 0;
+  if (!(taxRate > TAX_DRIFT_THRESHOLD)) return false;
+  if (!(settlement.stability <= CLAIM_STABILITY_FLOOR)) return false;
+  if (settlement.secessionDeclaredBy === owner.id) return false;
+  return true;
 }
 
 /** Read who would leave. Does not write the world. */

@@ -918,6 +918,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.factionId = event.data.factionId as string | null;
       settlement.stability = event.data.stability as number;
       settlement.surrender = null;
+      delete settlement.secessionDeclaredBy;
       break;
     case "secession-declared": {
       if (!settlement) throw new Error("Secession event is missing a settlement");
@@ -950,6 +951,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.factionId = faction.id;
       settlement.garrison = event.data.garrison as number;
       settlement.stability = event.data.stability as number;
+      settlement.secessionDeclaredBy = ownerId;
       // The cover takes the old seat in this same step. Retargeting the
       // holder's orders makes `commandHolderId` resolve to the successor,
       // whose faction was not moved. The new faction mints no order.

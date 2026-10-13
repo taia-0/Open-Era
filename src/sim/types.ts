@@ -46,6 +46,14 @@ export interface Settlement {
     offeredTick: number;
     previousFactionId: string;
   } | null;
+  /**
+   * Owner who already declared during the current ownership spell.
+   *
+   * Absent until a declaration. A claim clears it, which starts a new spell.
+   * The autonomous walker does not declare again while this matches `ownerId`.
+   * A headless run that never declares leaves the field absent.
+   */
+  secessionDeclaredBy?: string;
 }
 
 export interface Personality {
