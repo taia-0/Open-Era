@@ -30,17 +30,17 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/hazards-projection` from `208ed60`. A held port no longer shows a remote character's condition. Travel is on the viewer's own card only. An omitted player secession is `Free` plus the port.
+- **Baseline:** `feature/hazards-projection` from `208ed60`. A held port no longer shows a remote character's condition. Travel is on the viewer's own card and on a faction mate's card. An omitted player secession is `Free` plus the port.
 - **Last verified:** 432 tests on this commit. Typecheck clean. `./scripts/evaluate-milestone.sh hazards-projection` passed. No `golden:update`. The 72-tick and 1200-tick hashes are unchanged: `4ea893a4` / `d376ad02` / `ac780b39`, and `acf1b2c2` / `47c65e2f` / `a0ac2cc4`.
 - **Gate status:** `./scripts/evaluate-milestone.sh secession-3` passed on `4222ffe`. `feed-polish-2` passed on `61e558f`. `secession-founder-name` passed on `4a52a77`. `autonomous-faction-names` passed on `208ed60`. `hazards-projection` passed on this commit.
-- **Headline:** A rival anchored in another held port keeps the port and loses the purse. Another ship's course is off the card. The viewer's own course stays. A sea sighting still names a shared leg. An omitted player secession is `Free Crown Harbor`, and `Free Crown Harbor II` when that name is taken.
+- **Headline:** A rival anchored in another held port keeps the port and loses the purse. A faction mate's course stays on the card. A rival's course does not. A sea sighting still names a shared leg. An omitted player secession is `Free Crown Harbor`, and `Free Crown Harbor II` when that name is taken.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
-| Hazards 4 and 5: a held port does not show a rival's condition from another island, and travel is copied only onto the viewer's own card. A docked `locationId` stays. No roll and no event. | Projection | Open Era Engineer | **Fixed** on `feature/hazards-projection`. An omitted player secession uses the same `Free` port name as an autonomous one |
+| Hazards 4 and 5: a held port does not show a rival's condition from another island, and travel is copied onto the viewer's own card and a faction mate's card. A rival's course stays null. A docked `locationId` stays. No roll and no event. | Projection | Open Era Engineer | **Fixed** on `feature/hazards-projection`. An omitted player secession uses the same `Free` port name as an autonomous one |
 | Secession slice 1: a settlement-panel readout of the owner, the owner gate, how many characters would follow, and whether the garrison would follow. The tax-open line is a second figure. Not stored. | Behavior | Open Era Engineer | **Fixed** on `feature/secession-1`. The Lead's readout rulings are on `feature/secession-2`: live own-faction ports stay visible from afar, a neutral port is null, a garrison of 0 reads "no garrison", and the acting commander does not follow |
 | Secession slice 2: `declare-secession`, the reducer, and `secession-declared`. No autonomous caller. A headless run never queues the command. | Behavior | Open Era Engineer | **Fixed** on `feature/secession-2`. The player command, the refusal boundary, the reducer, and the event are in. No walker queues it. A player who already holds standing orders becomes command holder of the new faction; the reducer does not mint an order |
 | Secession holder ruling: a command holder may still declare. The cover-sort successor becomes the old faction's command holder in the same reducer step. No free cover refuses the declaration. | Behavior | Open Era Engineer | **Fixed** on `feature/secession-3`. The Lead approved the `no-successor` refusal. `successorId` is on the event. Viewers who may see the payload hear who takes the seat |
@@ -141,6 +141,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-13 — Faction mates share courses
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/hazards-projection` | **Commits:** this commit. | **Type:** Projection
+- **Changed** — `projectCharacter` at `src/dashboard/visibility.ts:733` copies `travel` when the card is the viewer's own or the character is in the viewer's faction. A rival and an unaffiliated ship stay null. `locationId` stays. `seaRow` is unchanged. Ada Sorn's card now shows her course. The test is `tests/hazards-projection.test.ts:111`. The plan in [hazards-projection-001](docs/playtests/hazards-projection-001.md) expects tick 1 `travel` Crown Harbor to Glassport, 3 of 3, and tick 2, 2 of 3. Mina Vale stays null.
+- **Why** — The Lead ruled that faction mates share courses. The earlier default nulled a mate's course as well as a rival's.
+- **Verified** — Node v24.21.0, ICU 78.3. `npm run typecheck` was clean before this note. **432 tests.** The 72-tick golden fixture passed inside `npm test`. No `golden:update`. `./scripts/evaluate-milestone.sh hazards-projection` passed. Recovery replayed 600 events and the hash matched. 72 ticks, headless, no commands: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261). 1200 ticks, headless, no commands: `acf1b2c25f0f55c3b308177ec621180a515897849bf1ee9ba5aa5bca3b0852c9` (1847, 164732 events), `47c65e2fd676bfd420a36ee4bf13d871d6b474dfd27b6106a3319724f6e75ec9` (2718, 162127), `a0ac2cc419d640660cf34c20acb3a0cb42449fef6f13e4eadb4caaaf9d255a1f` (4096, 159900). The hashes did not move.
+- **Left open** — None observed.
+- **Links** — [hazards 4 and 5](docs/design/hazards-2.md), [hazards-projection-001](docs/playtests/hazards-projection-001.md)
 
 ### 2026-10-13 — A held port stops showing a remote card, and an omitted player name is Free plus the port
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/hazards-projection` | **Commits:** `7d9588d` (the projection), `0faaead` (the player name). This commit records those SHAs and the playtest plan. | **Type:** Projection

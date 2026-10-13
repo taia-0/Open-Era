@@ -108,20 +108,21 @@ test("a rival standing in the same port stays co-located", () => {
   assert.deepEqual(card.skills, rival.skills);
 });
 
-test("travel is on the viewer's own card and null on every other card", () => {
+test("travel is on the viewer's card and a faction mate's card, and null on a rival", () => {
   const world = createPrototypeWorld(1847);
   const mara = maraOf(world);
-  const mate = world.characters["character-02"];
+  const ada = world.characters["character-13"];
   const distant = world.characters["character-15"];
-  assert.equal(mate.factionId, mara.factionId);
+  assert.equal(ada.name, "Ada Sorn");
+  assert.equal(ada.factionId, mara.factionId);
   assert.notEqual(distant.factionId, mara.factionId);
 
   mara.locationId = null;
   mara.captivity = null;
   mara.travel = { fromId: "crown-harbor", toId: "glassport", totalTicks: 4, remainingTicks: 2 };
-  mate.locationId = null;
-  mate.captivity = null;
-  mate.travel = { fromId: "crown-harbor", toId: "glassport", totalTicks: 4, remainingTicks: 2 };
+  ada.locationId = null;
+  ada.captivity = null;
+  ada.travel = { fromId: "crown-harbor", toId: "glassport", totalTicks: 3, remainingTicks: 2 };
   distant.locationId = null;
   distant.captivity = null;
   distant.travel = { fromId: "cinder-key", toId: "glassport", totalTicks: 2, remainingTicks: 2 };
@@ -133,18 +134,18 @@ test("travel is on the viewer's own card and null on every other card", () => {
   const own = projectCharacter(world, mara, mara);
   assert.deepEqual(own.travel, mara.travel);
 
-  const mateCard = projectCharacter(world, mara, mate);
-  assert.equal(characterVisibilityTier(world, mara, mate), "faction");
-  assert.equal(mateCard.travel, null);
+  const mateCard = projectCharacter(world, mara, ada);
+  assert.equal(characterVisibilityTier(world, mara, ada), "faction");
+  assert.deepEqual(mateCard.travel, ada.travel);
   assert.equal(mateCard.locationId, null);
-  assert.deepEqual(mateCard.skills, mate.skills);
+  assert.deepEqual(mateCard.skills, ada.skills);
   assert.equal(mateCard.money, null);
   assert.equal(mateCard.morale, null);
   assert.equal(mateCard.sailors, null);
   const mateSea = mateCard.seaSighting as SeaSighting;
   assert.equal(mateSea.fromId, "crown-harbor");
   assert.equal(mateSea.toId, "glassport");
-  assert.equal(mateSea.kind, "sharing");
+  assert.equal(mateSea.kind, "overtaking");
 
   const distantCard = projectCharacter(world, mara, distant);
   assert.equal(characterVisibilityTier(world, mara, distant), "distant");

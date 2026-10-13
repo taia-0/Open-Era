@@ -17,11 +17,11 @@ Two passes. One process at a time. Seed 1847. Mara Vane stays the viewer. Pass A
 
 ## Hypothesis and ambition
 
-**Hypothesis.** A rival anchored in Glassport does not show purse, morale, sailors, or troops while Mara is in Crown Harbor, and that rival's `locationId` stays `glassport`. A ship at sea has `travel` null on every card except Mara's own. A sea sighting can still name the leg she is on.
+**Hypothesis.** A rival anchored in Glassport does not show purse, morale, sailors, or troops while Mara is in Crown Harbor, and that rival's `locationId` stays `glassport`. A ship at sea has `travel` on Mara's card and on a World Government mate's card, and null on a rival. A sea sighting can still name the leg she is on.
 
 **Ambition.** Read the tick-0 cards for Corin Hale, Sable Sorn, Sable Morrow, and Pax Ash. Advance one tick and read Mina Vale and Ada Sorn. On a fresh process, sail Crown Harbor to Glassport and read Mara's own course beside Ada's card.
 
-**What you can see.** `locationId` on a docked card. `travel` only on Mara's card. Condition on a character standing in Crown Harbor with her. Skills on a World Government mate who is somewhere else. A `seaSighting` leg when she is on that leg. Not another ship's `fromId` / `toId` / `totalTicks` / `remainingTicks` on `travel`.
+**What you can see.** `locationId` on a docked card. `travel` on Mara's card and on a World Government mate's card. Condition on a character standing in Crown Harbor with her. Skills on a World Government mate who is somewhere else. A `seaSighting` leg when she is on that leg. Not a rival's `fromId` / `toId` / `totalTicks` / `remainingTicks` on `travel`.
 
 ## Characters
 
@@ -32,7 +32,7 @@ Two passes. One process at a time. Seed 1847. Mara Vane stays the viewer. Pass A
 | Pax Ash | `character-14` | Free Tide, standing in Crown Harbor with Mara. Condition stays. |
 | Mina Vale | `character-15` | Free Tide. At sea on the tick-1 read. `travel` is null. |
 | Corin Hale | `character-16` | Free Tide, docked at Glassport on tick 0. Location stays. Condition does not. |
-| Ada Sorn | `character-13` | World Government. At sea on both later reads. The overtaking on pass B. |
+| Ada Sorn | `character-13` | World Government. At sea on both later reads. Her course is on the card. The overtaking on pass B. |
 | Sable Sorn | `character-24` | Unaffiliated, docked at Glassport on tick 0. Same hiding as Corin. |
 
 ## Pass A, state tick 0
@@ -106,7 +106,8 @@ Mina Vale, `character-15`:
 
 Ada Sorn, `character-13`:
 
-- `locationId` null. `travel` null. `intelligence.tier` `faction`.
+- `locationId` null. `intelligence.tier` `faction`.
+- `travel` is `fromId` `crown-harbor`, `toId` `glassport`, `totalTicks` 3, `remainingTicks` 3.
 - `money`, `morale`, `sailors`, and `troops` are null. `seaSighting` is null, because Mara is still in port.
 - `skills` is strategy 18, leadership 36, navigation 86, trade 46.
 
@@ -146,7 +147,8 @@ Mara Vane:
 
 Ada Sorn:
 
-- `travel` null. `locationId` null. `troops` null. `money` null.
+- `locationId` null. `troops` null. `money` null.
+- `travel` is `fromId` `crown-harbor`, `toId` `glassport`, `totalTicks` 3, `remainingTicks` 2.
 - `seaSighting.fromId` `crown-harbor`. `seaSighting.toId` `glassport`. `seaSighting.kind` `overtaking`. `seaSighting.troops` 35.
 - `seaSightings` null.
 
@@ -200,7 +202,7 @@ Pax Ash, `character-14`: `factionId` `free-tide`. `locationId` `crown-harbor`. `
 
 Mina Vale, `character-15`: `locationId` null. `travel` null. `intelligence.tier` `distant`. `money`, `morale`, `sailors`, `troops`, `skills`, and `seaSighting` are null.
 
-Ada Sorn, `character-13`: `locationId` null. `travel` null. `intelligence.tier` `faction`. `money`, `morale`, `sailors`, and `troops` are null. `seaSighting` null. `skills` strategy 18, leadership 36, navigation 86, trade 46.
+Ada Sorn, `character-13`: `locationId` null. `travel` null on this play, before faction mates shared courses. `intelligence.tier` `faction`. `money`, `morale`, `sailors`, and `troops` are null. `seaSighting` null. `skills` strategy 18, leadership 36, navigation 86, trade 46. The plan above now expects her course: Crown Harbor to Glassport, 3 of 3.
 
 Sable Morrow: `locationId` `glassport`. `travel` null. `money` null. `skills` strategy 27, leadership 38, navigation 27, trade 58.
 
@@ -223,13 +225,13 @@ Fresh process, `--reset --seed 1847`. `GET /api/health` HTTP 200 `{"ok":true,"ti
 
 Mara Vane: `locationId` null. `travel.fromId` `crown-harbor`. `travel.toId` `glassport`. `travel.totalTicks` 4. `travel.remainingTicks` 2. `seaSightings["character-13"].kind` `overtaking`. `fromId` `crown-harbor`. `toId` `glassport`. `sailors` 18. `troops` 35. `partyPower` 81.529. Summary `Ada Sorn is overtaking on this route, Crown Harbor to Glassport. 35 troops, 0 ticks old.`
 
-Ada Sorn: `travel` null. `locationId` null. `troops` null. `money` null. `seaSighting.fromId` `crown-harbor`. `seaSighting.toId` `glassport`. `seaSighting.kind` `overtaking`. `seaSighting.troops` 35. `seaSightings` null.
+Ada Sorn: `travel` null on this play, before faction mates shared courses. `locationId` null. `troops` null. `money` null. `seaSighting.fromId` `crown-harbor`. `seaSighting.toId` `glassport`. `seaSighting.kind` `overtaking`. `seaSighting.troops` 35. `seaSightings` null. The plan above now expects her course: Crown Harbor to Glassport, 2 of 3.
 
 Mina Vale: `travel` null. `locationId` null. `seaSighting` null. `skills` null. `money` null.
 
 ## Outcome
 
-On tick 0, Glassport still names Corin Hale and Sable Sorn, and neither card shows a purse or a troop count. Sable Morrow, in that same port and in Mara's faction, keeps her skills and loses the purse. Pax Ash, standing in Crown Harbor, still shows money 247. On tick 1, Mina Vale has left Cinder Key and her card has no course. On the voyage, Mara's own card still shows Crown Harbor to Glassport, 2 of 4, and Ada's card does not. Ada's sea row still names that leg and 35 troops.
+On tick 0, Glassport still names Corin Hale and Sable Sorn, and neither card shows a purse or a troop count. Sable Morrow, in that same port and in Mara's faction, keeps her skills and loses the purse. Pax Ash, standing in Crown Harbor, still shows money 247. On tick 1, Mina Vale has left Cinder Key and her card has no course. Ada, a mate, shows Crown Harbor to Glassport, 3 of 3. On the voyage, Mara's own card still shows Crown Harbor to Glassport, 2 of 4, and Ada's card shows the same ports, 2 of 3. Ada's sea row still names that leg and 35 troops.
 
 ## Findings
 
@@ -237,7 +239,7 @@ On tick 0, Glassport still names Corin Hale and Sable Sorn, and neither card sho
 
 - A held port did not publish a distant rival's condition.
 - The docked `locationId` stayed.
-- `travel` stayed on the viewer's card and was null on the others.
+- `travel` stayed on the viewer's card and on a faction mate's card, and was null on a rival.
 - The sea row still named the shared leg.
 
 ### Implementation defects
@@ -252,4 +254,4 @@ On tick 0, Glassport still names Corin Hale and Sable Sorn, and neither card sho
 
 `PROMOTE`
 
-The four readings above are the projection. A failure on any named null, or a `travel` object on Ada or Mina or Corin, is a revise. None of those failed. Every named reading matched.
+The four readings above are the projection as played at `04ac9af`, when a mate's course was still null. A `travel` object on Mina or Corin is still a revise. Ada's course is now expected on her card: tick 1 is Crown Harbor to Glassport, 3 of 3, and tick 2 is 2 of 3.

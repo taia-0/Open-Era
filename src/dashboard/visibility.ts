@@ -688,6 +688,7 @@ export function projectCharacter(
 ): Record<string, unknown> {
   const intelligence = characterIntelligence(world, commander, character);
   const isSelf = intelligence.tier === "self";
+  const sameFaction = commander.factionId !== null && character.factionId === commander.factionId;
   const condition = intelligence.conditionExact;
   const capability = intelligence.capabilityExact;
 
@@ -724,12 +725,12 @@ export function projectCharacter(
     factionId: character.factionId,
     locationId: character.locationId,
     /**
-     * The commander's own course. Every other card is null, including a
-     * faction mate and a distant ship. `locationId` stays, so a docked rival
-     * is still on the map. A sea sighting still reads the world's travel for
-     * a leg the commander is actually on.
+     * The viewer's own course, and a faction mate's course. A rival and an
+     * unaffiliated ship stay null. `locationId` stays, so a docked rival is
+     * still on the map. A sea sighting still reads the world's travel for a
+     * leg the commander is actually on.
      */
-    travel: isSelf ? character.travel : null,
+    travel: isSelf || sameFaction ? character.travel : null,
     money: condition ? round(character.money, 2) : null,
     cargo: condition ? character.cargo : null,
     /**
