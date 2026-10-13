@@ -12,11 +12,35 @@ export const TAX_RATE_MAX = 0.3;
 export const TAX_RATE_STEP = 0.01;
 export const TAX_RATE_COOLDOWN_TICKS = 24;
 
+/**
+ * A holding rate at or below this subtracts no stability. There is no
+ * recovery term for a low rate.
+ */
+export const TAX_DRIFT_THRESHOLD = 0.15;
+/** Stability subtracted for one band of 0.05 above the threshold. */
+export const TAX_DRIFT_PER_BAND = 0.03;
+
 const TAX_RATE_ERROR = "The tax rate must be from 0.00 to 0.30 in steps of 0.01.";
 
 /** Whole percent for a rate already on the one-cent grid. 0.12 is 12. */
 export function taxRatePercent(rate: number): number {
   return Math.round(rate * 100);
+}
+
+/**
+ * Stability a holding rate subtracts on one peaceful upkeep.
+ *
+ * A rate at or below 0.15 subtracts zero. Above it the count is integer
+ * hundredths: `bands = ceil((nearest(rate * 100) - 15) / 5)`, and the drift
+ * is `bands * 0.03`. Rates 0.16 through 0.20 subtract 0.03, 0.21 through
+ * 0.25 subtract 0.06, and 0.26 through 0.30 subtract 0.09. A neutral port
+ * has no holding rate; the caller passes 0.
+ */
+export function taxDrift(taxRate: number): number {
+  if (!(taxRate > TAX_DRIFT_THRESHOLD)) return 0;
+  const cents = Math.round(taxRate * 100);
+  const bands = Math.ceil((cents - 15) / 5);
+  return bands * TAX_DRIFT_PER_BAND;
 }
 
 /**
