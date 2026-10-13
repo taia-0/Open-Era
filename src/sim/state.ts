@@ -913,6 +913,10 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       clearActingCommander(world, actor);
       applyUnpaidReleaseScar(actor, event);
       break;
+    case "character-deserted":
+      if (!actor) throw new Error("Desertion event has no actor");
+      actor.factionId = null;
+      break;
     case "debt-repaid": {
       if (!actor) throw new Error("Debt repayment has no actor");
       const debtId = String(event.data.debtId ?? "");

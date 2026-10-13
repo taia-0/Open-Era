@@ -1,4 +1,5 @@
 import { DeterministicRng } from "./rng.ts";
+import { createPrototypeWorld } from "./scenario.ts";
 import {
   autonomousShouldRetreat,
   battleRisk,
@@ -3400,10 +3401,68 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
   }
 }
 
+const shortStreaks = new WeakMap<Character, number>();
+const desertionStreams = new WeakMap<WorldState, DeterministicRng>();
+
+/**
+ * Side stream for the desertion roll.
+ *
+ * Forked from `rngState` at the start of tick 0. It is not written back, and
+ * it is not stored on the world, so a morning that does not roll leaves the
+ * hash alone.
+ */
+function desertionRng(world: WorldState): DeterministicRng {
+  let rng = desertionStreams.get(world);
+  if (!rng) {
+    rng = new DeterministicRng(createPrototypeWorld(world.seed).rngState);
+    desertionStreams.set(world, rng);
+  }
+  return rng;
+}
+
+/**
+ * Twelve short mornings, then one side-stream roll.
+ *
+ * Read at the start of the morning, before production. A short mate's streak
+ * grows by one. Any other morning resets it. On the morning the streak becomes
+ * 12, a mate whose loyalty is under 0.75 draws one `next()`. The roll is stored
+ * to 3 decimals. Under 0.5, `factionId` becomes null. Place, travel, and troops
+ * stay. The cap is the cap at the start of the morning.
+ */
+function resolveMorningDesertion(world: WorldState, events: SimEvent[]): void {
+  if (world.ticksPerDay <= 0 || world.tick % world.ticksPerDay !== 0) return;
+  const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
+  const short = new Set(
+    characters.filter((character) => shortPayMember(world, character, PASSAGE_COST_PER_TICK)).map((character) => character.id),
+  );
+  for (const character of characters) {
+    const next = short.has(character.id) ? (shortStreaks.get(character) ?? 0) + 1 : 0;
+    if (next === 0) shortStreaks.delete(character);
+    else shortStreaks.set(character, next);
+    if (next !== 12) continue;
+    const loyalty = character.personality.loyalty + (character.loyaltyAdjustment ?? 0);
+    if (!(loyalty < 0.75)) continue;
+    const roll = desertionRng(world).next();
+    if (!(roll < 0.5)) continue;
+    const previousFactionId = character.factionId;
+    emit(world, events, {
+      type: "character-deserted",
+      actorId: character.id,
+      targetId: previousFactionId ?? undefined,
+      data: {
+        roll: round(roll, 3),
+        factionId: null,
+        previousFactionId,
+      },
+    });
+  }
+}
+
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
   const rng = new DeterministicRng(world.rngState);
   const events: SimEvent[] = [];
 
+  resolveMorningDesertion(world, events);
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   chooseAutonomousTaxRates(world, events, options.liveSession === true);

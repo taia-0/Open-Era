@@ -181,6 +181,8 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
       return captivityEscapedSentence(world, event);
     case "captivity-released":
       return captivityReleasedSentence(world, event, reader);
+    case "character-deserted":
+      return publicFeedSentence(world, event);
     case "debt-repaid": {
       const paid = event.data.paid;
       const remaining = event.data.remainingValue;
