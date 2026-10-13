@@ -1,7 +1,55 @@
 import { provisionDemand } from "./engine.ts";
-import { commandHolderId, CLAIM_STABILITY_FLOOR, round } from "./state.ts";
+import { actingCoverId, commandHolderId, CLAIM_STABILITY_FLOOR, round } from "./state.ts";
 import { TAX_DRIFT_THRESHOLD } from "./tax-rate.ts";
 import type { Character, Settlement, WorldState } from "./types.ts";
+
+export function declareSecessionRefusal(
+  world: WorldState,
+  character: Character,
+  playerId: string,
+  settlementId: unknown,
+  name: unknown,
+  nameProvided: boolean,
+  exceptCommandId?: string,
+): { code: string; error: string } | null {
+  if (typeof settlementId !== "string" || !world.settlements[settlementId]) {
+    return { code: "unknown-settlement", error: "That port is not on the chart." };
+  }
+  if (nameProvided && (typeof name !== "string" || name.trim().length === 0)) {
+    return { code: "invalid-name", error: "The faction name has to be a non-empty string." };
+  }
+  const settlement = world.settlements[settlementId];
+  if (settlement.factionId === null) {
+    return { code: "no-faction", error: "A neutral port has no faction to leave." };
+  }
+  if (settlement.ownerId !== character.id) {
+    return { code: "not-owner", error: "Only the owner of this port may declare it separate." };
+  }
+  if (character.factionId !== settlement.factionId) {
+    return { code: "not-member", error: "The owner is not a member of the faction that holds this port." };
+  }
+  if (character.captivity) {
+    return { code: "character-captive", error: "Only an escape attempt is available while the character is captive" };
+  }
+  if (character.travel) {
+    return { code: "at-sea", error: "The owner is at sea." };
+  }
+  if (character.locationId !== settlement.id) {
+    return { code: "away", error: "The owner is not at this port." };
+  }
+  const holderId = commandHolderId(world, settlement.factionId);
+  if (holderId === character.id && character.controller.kind !== "human") {
+    return { code: "autonomous-holder", error: "An autonomous command holder may not declare." };
+  }
+  if (world.pendingCommands.some((command) =>
+    command.type === "declare-secession" &&
+    command.id !== exceptCommandId &&
+    (command.playerId === playerId || command.settlementId === settlement.id)
+  )) {
+    return { code: "secession-already-queued", error: "A secession is already queued for this port." };
+  }
+  return null;
+}
 
 /**
  * Loyalty below this follows a declaration. It is the floor of the officer
@@ -12,8 +60,9 @@ export const SECESSION_LOYALTY_LINE = 0.75;
 /**
  * What a declaration would do to one port, read from the world as it is.
  *
- * Nothing here writes the world or an event, and nothing draws. Slice 1 is
- * this readout. The command and the autonomous walker are later slices.
+ * The readout writes nothing. The command builds a `secession-declared`
+ * payload from this same reading. Nothing here draws. There is no autonomous
+ * caller.
  */
 export interface SecessionReadout {
   /** `settlement.ownerId`. Null when the port is unowned. */
@@ -25,15 +74,20 @@ export interface SecessionReadout {
   ownerGate: boolean;
   /** Anchored members who would leave with the owner. The owner is not in this count. */
   followerCount: number;
-  /** The whole garrison follows, or none of it does. */
-  garrisonFollows: boolean;
+  /**
+   * The whole garrison follows, or none of it does.
+   * `"none"` is a garrison of 0: there is nothing to follow, so the panel
+   * says "no garrison" rather than "would follow".
+   */
+  garrisonFollows: boolean | "none";
   /**
    * The same two figures with the tax line treated as open. That press is the
-   * stand-in for a holding rate above 0.15. It is not stored.
+   * stand-in for a holding rate above 0.15. It is not stored. A garrison of 0
+   * is still `"none"` on this line.
    */
   taxOpen: {
     followerCount: number;
-    garrisonFollows: boolean;
+    garrisonFollows: boolean | "none";
   };
 }
 
@@ -88,11 +142,17 @@ export function ownerGatePasses(world: WorldState, settlement: Settlement): bool
   return true;
 }
 
+function actingCommanderId(world: WorldState, settlement: Settlement): string | null {
+  if (!settlement.factionId) return null;
+  return world.factions[settlement.factionId]?.actingCommanderId ?? null;
+}
+
 function wouldFollow(
   world: WorldState,
   settlement: Settlement,
   character: Character,
   holderId: string | null,
+  actingId: string | null,
   pressed: boolean,
 ): boolean {
   if (settlement.factionId === null) return false;
@@ -100,33 +160,128 @@ function wouldFollow(
   if (!anchored(character, settlement.id)) return false;
   if (character.factionId !== settlement.factionId) return false;
   if (holderId !== null && character.id === holderId) return false;
+  if (actingId !== null && character.id === actingId) return false;
   if (!(secessionLoyalty(character) < SECESSION_LOYALTY_LINE)) return false;
   if (pressed) return true;
   return character.cargo.provisions < provisionDemand(character);
 }
 
-function countFollowers(world: WorldState, settlement: Settlement, holderId: string | null, pressed: boolean): number {
-  const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
-  let count = 0;
-  for (const character of characters) {
-    if (wouldFollow(world, settlement, character, holderId, pressed)) count += 1;
+/** `"none"` when the stack is empty. A press does not invent a garrison. */
+export function garrisonReading(garrison: number, pressed: boolean): boolean | "none" {
+  if (garrison <= 0) return "none";
+  return pressed;
+}
+
+/**
+ * Character ids who would leave, in id order. The owner is not in the list.
+ * The command holder and the acting commander are not in it either.
+ */
+export function secessionFollowerIds(world: WorldState, settlement: Settlement, pressed: boolean): string[] {
+  const holderId = settlement.factionId === null ? null : commandHolderId(world, settlement.factionId);
+  const actingId = actingCommanderId(world, settlement);
+  return Object.values(world.characters)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .filter((character) => wouldFollow(world, settlement, character, holderId, actingId, pressed))
+    .map((character) => character.id);
+}
+
+function countFollowers(world: WorldState, settlement: Settlement, pressed: boolean): number {
+  return secessionFollowerIds(world, settlement, pressed).length;
+}
+
+/** Every founded faction in this prototype uses this color. */
+export const SECESSION_FACTION_COLOR = "#2f6f4e";
+
+/** Free Tide's scenario rate. It is not above the 0.15 drift line. */
+export const SECESSION_FOUNDING_TAX_RATE = 0.08;
+
+export interface SecessionFactionPayload {
+  id: string;
+  name: string;
+  color: string;
+  treasury: number;
+  taxRate: number;
+}
+
+/**
+ * The absolutes `secession-declared` carries. The reducer writes these and
+ * does not re-test loyalty.
+ */
+export interface SecessionDeclaredData {
+  previousFactionId: string;
+  ownerId: string;
+  followerIds: string[];
+  garrisonFollowed: boolean;
+  garrison: number;
+  stability: number;
+  faction: SecessionFactionPayload;
+  previousActingCommanderId: string | null;
+  actingCommanderId: string | null;
+}
+
+export function secessionFactionId(ownerId: string, settlementId: string, tick: number): string {
+  return `secession-${ownerId}-${settlementId}-${tick}`;
+}
+
+/**
+ * The payload for one declaration. Does not write the world.
+ *
+ * `name` is the faction name when the command passed one. Omitted, the
+ * owner's name is used. The garrison follows only when the port is pressed
+ * and the stack is not empty. Otherwise the event stores garrison 0.
+ * If the acting commander is leaving, the replacement is the cover sort
+ * over the members who remain.
+ */
+export function buildSecessionDeclaration(
+  world: WorldState,
+  settlement: Settlement,
+  name?: string,
+): SecessionDeclaredData {
+  if (!settlement.factionId || !settlement.ownerId) {
+    throw new Error("A secession declaration requires an owned faction port");
   }
-  return count;
+  const owner = world.characters[settlement.ownerId];
+  if (!owner) throw new Error("A secession declaration requires the owner");
+  const previousFactionId = settlement.factionId;
+  const pressed = settlementPressed(world, settlement, false);
+  const followerIds = secessionFollowerIds(world, settlement, pressed);
+  const garrisonFollowed = pressed && settlement.garrison > 0;
+  const previousActing = world.factions[previousFactionId]?.actingCommanderId ?? null;
+  const leaving = [settlement.ownerId, ...followerIds];
+  const actingCommanderId = previousActing !== null && leaving.includes(previousActing)
+    ? actingCoverId(world, previousFactionId, commandHolderId(world, previousFactionId), leaving)
+    : previousActing;
+  return {
+    previousFactionId,
+    ownerId: settlement.ownerId,
+    followerIds,
+    garrisonFollowed,
+    garrison: garrisonFollowed ? settlement.garrison : 0,
+    stability: settlement.stability,
+    faction: {
+      id: secessionFactionId(settlement.ownerId, settlement.id, world.tick),
+      name: name ?? owner.name,
+      color: SECESSION_FACTION_COLOR,
+      treasury: 0,
+      taxRate: SECESSION_FOUNDING_TAX_RATE,
+    },
+    previousActingCommanderId: previousActing,
+    actingCommanderId,
+  };
 }
 
 /** Read who would leave. Does not write the world. */
 export function secessionReadout(world: WorldState, settlement: Settlement): SecessionReadout {
-  const holderId = settlement.factionId === null ? null : commandHolderId(world, settlement.factionId);
   const livePressed = settlementPressed(world, settlement, false);
   const openPressed = settlementPressed(world, settlement, true);
   return {
     ownerId: settlement.ownerId,
     ownerGate: ownerGatePasses(world, settlement),
-    followerCount: countFollowers(world, settlement, holderId, livePressed),
-    garrisonFollows: livePressed,
+    followerCount: countFollowers(world, settlement, livePressed),
+    garrisonFollows: garrisonReading(settlement.garrison, livePressed),
     taxOpen: {
-      followerCount: countFollowers(world, settlement, holderId, openPressed),
-      garrisonFollows: openPressed,
+      followerCount: countFollowers(world, settlement, openPressed),
+      garrisonFollows: garrisonReading(settlement.garrison, openPressed),
     },
   };
 }

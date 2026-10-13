@@ -175,6 +175,19 @@ test("the settlement panel states the secession readout when the row has one", (
   const besideHtml = besideRenderer.settlementInspector(cinder);
   assert.match(besideHtml, /Who would follow is not on this report\./);
   assert.match(besideHtml, /who would follow is not on this report\./);
+
+  const empty = {
+    ...owned,
+    secession: {
+      ...owned.secession,
+      garrisonFollows: "none",
+      taxOpen: { ...owned.secession.taxOpen, garrisonFollows: "none" },
+    },
+  };
+  const emptyHtml = renderer.settlementInspector(empty);
+  assert.match(emptyHtml, /no garrison\./);
+  assert.doesNotMatch(emptyHtml, /The garrison would follow\./);
+  assert.doesNotMatch(emptyHtml, /The garrison would not follow\./);
 });
 
 test("an owned market is never marked approximate", () => {  const state = projectedState();

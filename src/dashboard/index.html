@@ -693,14 +693,18 @@
     function stat(label, value, digits) {
       return '<div class="stat"><span>' + esc(label) + "</span><strong>" + (value == null ? "Unknown" : fmt(value, digits)) + "</strong></div>";
     }
+    function garrisonLine(value) {
+      if (value === "none") return "no garrison.";
+      return value ? "The garrison would follow." : "The garrison would not follow.";
+    }
     function secessionHtml(item) {
       var reading = item.secession;
       if (!reading) return "";
       var gate = reading.ownerGate ? "The owner gate passes." : "The owner gate does not pass.";
       var follow = reading.followerCount == null ? "Who would follow is not on this report." : reading.followerCount + " would follow.";
-      var garrison = reading.garrisonFollows ? "The garrison would follow." : "The garrison would not follow.";
+      var garrison = garrisonLine(reading.garrisonFollows);
       var openFollow = reading.taxOpen.followerCount == null ? "who would follow is not on this report" : reading.taxOpen.followerCount + " would follow";
-      var openGarrison = reading.taxOpen.garrisonFollows ? "The garrison would follow." : "The garrison would not follow.";
+      var openGarrison = garrisonLine(reading.taxOpen.garrisonFollows);
       return "<h3>Secession</h3><div class=\"subtle\">" + esc(gate) + " " + esc(follow) + " " + esc(garrison) + " With the tax line open, " + esc(openFollow) + ". " + esc(openGarrison) + "</div>";
     }
     function settlementInspector(item) {

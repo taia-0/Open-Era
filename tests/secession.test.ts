@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
-import { provisionDemand } from "../src/sim/engine.ts";
+import { provisionDemand, runTicks } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import {
   ownerGatePasses,
@@ -43,8 +43,8 @@ function viewOf(world: WorldState) {
         ownerId: string | null;
         ownerGate: boolean;
         followerCount: number | null;
-        garrisonFollows: boolean;
-        taxOpen: { followerCount: number | null; garrisonFollows: boolean };
+        garrisonFollows: boolean | "none";
+        taxOpen: { followerCount: number | null; garrisonFollows: boolean | "none" };
       } | null;
     }>;
   };
@@ -114,6 +114,14 @@ test("the owner gate is presence, membership, and the holder split", () => {
   harbor.ownerId = "character-missing";
   assert.equal(ownerGatePasses(world, harbor), false);
 
+  for (const character of Object.values(world.characters)) character.standingOrders = [];
+  assert.equal(commandHolderId(world, "world-government"), null);
+  place(mate, "crown-harbor");
+  mate.factionId = "world-government";
+  harbor.ownerId = mate.id;
+  harbor.factionId = "world-government";
+  assert.equal(ownerGatePasses(world, harbor), true);
+
   const cay = port(world, "verdant-cay");
   const bystander = world.characters["character-23"];
   place(bystander, "verdant-cay");
@@ -146,7 +154,8 @@ test("the garrison follows only when the port is pressed", () => {
   assert.equal(secessionReadout(world, harbor).garrisonFollows, true);
 
   harbor.garrison = 0;
-  assert.equal(secessionReadout(world, harbor).garrisonFollows, true);
+  assert.equal(secessionReadout(world, harbor).garrisonFollows, "none");
+  assert.equal(secessionReadout(world, harbor).taxOpen.garrisonFollows, "none");
 
   const cay = port(world, "verdant-cay");
   cay.stability = 80;
@@ -234,6 +243,13 @@ test("followers are anchored members under 0.75, and the tax-open line presses t
   assert.equal(pressed.followerCount, 4);
   assert.equal(pressed.taxOpen.followerCount, 4);
   assert.equal(pressed.ownerGate, true);
+
+  world.factions["world-government"].actingCommanderId = shaky.id;
+  const covered = secessionReadout(world, harbor);
+  assert.equal(covered.followerCount, 3);
+  assert.equal(covered.taxOpen.followerCount, 3);
+  delete world.factions["world-government"].actingCommanderId;
+  assert.equal(secessionReadout(world, harbor).followerCount, 4);
 });
 
 test("the panel shows the readout on an exact port and withholds it offshore", () => {
@@ -272,4 +288,32 @@ test("the panel shows the readout on an exact port and withholds it offshore", (
   assert.equal(typeof beside.secession.garrisonFollows, "boolean");
   assert.equal(beside.secession.taxOpen.garrisonFollows, true);
   assert.equal(beside.secession.ownerId, world.settlements["cinder-key"].ownerId);
+
+  commander.locationId = "verdant-cay";
+  const onCay = viewOf(world).settlements.find((settlement) => settlement.id === "verdant-cay");
+  assert.equal(onCay?.secession, null);
+  const harborAway = viewOf(world).settlements.find((settlement) => settlement.id === "crown-harbor");
+  assert.ok(harborAway?.secession);
+  assert.equal(typeof harborAway.secession.followerCount, "number");
+});
+
+test("Glassport at tick 72 is a foreign port under a stale World Government report", () => {
+  const world = createPrototypeWorld(1847);
+  runTicks(world, 72);
+  const live = world.settlements["glassport"];
+  const mara = world.characters["character-01"];
+  assert.equal(mara.locationId, "crown-harbor");
+  assert.equal(live.factionId, "free-tide");
+  assert.equal(live.ownerId, "character-18");
+  assert.equal(mara.knowledge["glassport"].factionId, "world-government");
+
+  const view = viewOf(world);
+  const glass = view.settlements.find((settlement) => settlement.id === "glassport");
+  const harbor = view.settlements.find((settlement) => settlement.id === "crown-harbor");
+  const cinder = view.settlements.find((settlement) => settlement.id === "cinder-key");
+  assert.equal(glass?.secession, null);
+  assert.ok(harbor?.secession);
+  assert.equal(typeof harbor.secession.followerCount, "number");
+  assert.ok(cinder?.secession);
+  assert.equal(typeof cinder.secession.followerCount, "number");
 });

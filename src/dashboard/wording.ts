@@ -46,7 +46,7 @@ export function higherScoreClause(data: Record<string, unknown>): string {
  * `data` stays null. A decision, a contract, and an upkeep row are not in this set.
  */
 export function summaryStaysWhenWithheld(type: string): boolean {
-  return type === "character-captured" || type === "captivity-released" || type === "battle-resolved" || type === "settlement-claimed";
+  return type === "character-captured" || type === "captivity-released" || type === "battle-resolved" || type === "settlement-claimed" || type === "secession-declared";
 }
 
 /**
@@ -560,6 +560,8 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
       return `Scattered troops returned to ${actor}.`;
     case "settlement-claimed":
       return settlement ? `${actor} claimed ${settlement}.` : `${actor} claimed a port.`;
+    case "secession-declared":
+      return secessionDeclaredSentence(world, event, actor);
     case "settlement-surrender-declined":
       return `${actor} declined a surrender${at}.`;
     case "player-command-accepted":
@@ -700,6 +702,8 @@ export function eventBriefingTitle(type: string): string {
       return "A port is short of provisions";
     case "settlement-claimed":
       return "A port was claimed";
+    case "secession-declared":
+      return "A port was declared separate";
     default:
       return type.replaceAll("-", " ");
   }
@@ -960,6 +964,21 @@ export function withheldRecruitSentence(world: WorldState, readerFactionId: stri
  * The rate is public, so a rival sees the same sentence. The payload may
  * still be withheld. 0.12 reads as 12%.
  */
+/**
+ * The public secession line.
+ *
+ * Follower names stay out of it. The old faction is the one on the event,
+ * which is still in the world after the break.
+ */
+export function secessionDeclaredSentence(world: WorldState, event: SimEvent, actor: string): string {
+  const place = settlementName(world, event.settlementId, "the port");
+  const previousId = typeof event.data.previousFactionId === "string"
+    ? event.data.previousFactionId
+    : event.targetId;
+  const faction = previousId ? world.factions[previousId]?.name ?? previousId : "the faction";
+  return `${actor} declared ${place} separate from ${faction}.`;
+}
+
 export function taxRateSetSentence(world: WorldState, event: SimEvent, actor: string): string {
   const rate = typeof event.data.taxRate === "number" ? event.data.taxRate : null;
   const factionId = typeof event.data.factionId === "string" ? event.data.factionId : event.targetId;
@@ -989,6 +1008,14 @@ export function queuedCommandSentence(
   if (command.type === "set-tax-rate" && typeof command.taxRate === "number") {
     return `Command queued for ${actor}: set tax rate to ${Math.round(command.taxRate * 100)}%`;
   }
+  if (command.type === "declare-secession") {
+    const place = typeof command.settlementId === "string"
+      ? world.settlements[command.settlementId]?.name ?? settlement ?? command.settlementId
+      : settlement;
+    if (!place) return fallback;
+    const named = typeof command.name === "string" && command.name.length > 0 ? ` as ${command.name}` : "";
+    return `Command queued for ${actor}: declare ${place} separate${named}`;
+  }
   if (command.action === "buy-provisions" && typeof command.gross === "number") {
     const cap = command.capped
       ? ` (${settlement ?? "This market"} clears no more than ${command.quantity} in one order)`
@@ -1011,6 +1038,8 @@ function commandRecord(value: unknown): {
   gross?: number;
   capped?: boolean;
   taxRate?: number;
+  settlementId?: string;
+  name?: string;
 } | null {
   if (!value || typeof value !== "object") return null;
   return value as {
@@ -1022,6 +1051,8 @@ function commandRecord(value: unknown): {
     gross?: number;
     capped?: boolean;
     taxRate?: number;
+    settlementId?: string;
+    name?: string;
   };
 }
 
