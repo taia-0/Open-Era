@@ -157,8 +157,10 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
   Mara Vane, `character-01`, seed 1847, live session, no command. `commandHolderId` of `world-government` is `character-01` from tick 0 through tick 833. `spendRole` at `src/sim/allowance.ts:84` is `holder`, and `shortPayMember` at `src/sim/allowance.ts:69` returns false. While she is held, at tick 317, the role is `captive` at `src/sim/allowance.ts:82`, which is also off the roster. Money and morale are not inputs. At tick 174 her morale is 0 and her money is 108. At tick 401 and tick 833 her morale is 0 and her money is 0. `payNote` stays null. That null is correct.
 
   The advance stops at `src/dashboard/server.ts:173` on her own `character-captured`, `captivity-escaped`, or `captivity-released`. From tick 175, 144 requested ticks stop at world tick 317 (`ticksAdvanced` 142) on `character-captured` sequence 39449, event tick 316, cause `outscore-loss`, at Crown Harbor. The next 144 stop at world tick 401 (`ticksAdvanced` 84) on `captivity-released` sequence 50454, event tick 400. Before, the response had `attentionUpdated` true and the toast said `World advanced`. After, `pauseNote` is `Time stopped. Free Tide Compact took Mara Vane on the dock at Crown Harbor after Pax Ash won there on a higher score.` and then `Time stopped. Mara Vane was released from Crown Harbor.` The feed row at 39449 still carries the troop clause after that first sentence. The plan is [queue-polish-001](docs/playtests/queue-polish-001.md).
+
+  Blind operator, separate from the readings above. HEAD `d248e56db90f81aaddbf5dc0aa1b1d229d8fbf52` before the first request. Node v24.21.0, ICU 78.3. Seed 1847, one process, no command. `beforeSequence` omitted. Every checkpoint in [queue-polish-001](docs/playtests/queue-polish-001.md) matched. Verdict `PROMOTE`.
 - **Left open** — A separate operator has not run the blind plan.
-- **Links** — [queue-polish-001](docs/playtests/queue-polish-001.md)
+- **Links** — [queue-polish-001](docs/playtests/queue-polish-001.md) (`PROMOTE` at `d248e56`)
 
 ### 2026-10-13 — Batch 1 wording: the roll, the debt amount, and the short-pay line
 
