@@ -186,7 +186,7 @@ test("seed 1847 sequence 43 qualifies Toma Reef on the order row Mara can read",
 test("seed 1847 tick 807 hides the Mina Vale balance and keeps the paid amount", () => {
   // Treasury spending moved the first Free Tide ransom Mara can read.
   // The balance share moved that line to Bram Quill. The autonomous Free Tide step, first at tick 120, moved it to Jun Marrow.
-  // The secession walker, first at tick 438, moved the hidden balance to Mina Vale's treasury on Dax Pike's release.
+  // The secession walker, first at tick 438, moved the hidden balance to the Free Glassport treasury on Dax Pike's release.
   const run = runTicks(createPrototypeWorld(1847), 807);
   const world = run.state;
   assert.equal(world.tick, 807);
@@ -195,7 +195,7 @@ test("seed 1847 tick 807 hides the Mina Vale balance and keeps the paid amount",
   const balance = (release.data.ransom as { factionTreasury: number }).factionTreasury;
   assert.equal(balance, 446.14);
   const before = stateHash(world);
-  const line = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Mina Vale treasury. The balance is not visible to you. The ransom line covers only the ransom.";
+  const line = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Free Glassport treasury. The balance is not visible to you. The ransom line covers only the ransom.";
   const [maraRow] = projectEventFeed(world, "character-01", [release]);
   assert.equal(maraRow?.payloadWithheld, true);
   assert.equal(maraRow?.data, null);
@@ -206,7 +206,7 @@ test("seed 1847 tick 807 hides the Mina Vale balance and keeps the paid amount",
   assert.equal(minaRow?.data, null);
   assert.equal(
     minaRow?.summary,
-    "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Mina Vale treasury. The ransom line covers only the ransom.",
+    "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Free Glassport treasury. The ransom line covers only the ransom.",
   );
   assert.equal(String(minaRow?.summary).includes(String(balance)), false);
   assert.equal(String(minaRow?.summary).includes("not visible to you"), false);

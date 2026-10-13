@@ -516,7 +516,7 @@ test("Dax Pike's release at state tick 807 says loyalty fell beside his prison r
   assert.ok(release);
   assert.equal(release.type, "captivity-released");
   assert.equal(release.tick, 806);
-  const sentence = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Mina Vale treasury. The balance is not visible to you. The ransom line covers only the ransom.";
+  const sentence = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Free Glassport treasury. The balance is not visible to you. The ransom line covers only the ransom.";
   const [maraRow] = projectEventFeed(world, mara.id, [release]);
   assert.equal(maraRow?.payloadWithheld, true);
   assert.equal(maraRow?.data, null);
@@ -534,7 +534,7 @@ test("Dax Pike's release at state tick 807 says loyalty fell beside his prison r
   assert.equal(view.briefing.items.find((item) => item.id === "event:107280")?.summary, sentence);
   assert.equal(
     captivityReleasedChronicle(world, release),
-    "**Dax Pike** was released from **Glassport** under mandatory terms. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the **Mina Vale** treasury. The ransom line covers only the ransom.",
+    "**Dax Pike** was released from **Glassport** under mandatory terms. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the **Free Glassport** treasury. The ransom line covers only the ransom.",
   );
   assert.equal(stateHash(world), before);
 });
