@@ -115,10 +115,11 @@ test("the pay term is on the mate's own upkeep line and on a co-located card", (
     actorId: mate.id,
     data: { morale: 40, shortPay: true, demand: 1, consumed: 1, shortage: 0 },
   };
-  const own = projectEvent(world, mate, event, "Esme's upkeep was recorded. Pay was short, and morale lost 0.5.");
+  const own = projectEvent(world, mate, event, `${mate.name}'s upkeep was recorded.`);
   assert.equal(own.payloadWithheld, false);
-  assert.equal(String(own.summary).includes("morale lost 0.5"), true);
-  const bystander = projectEvent(world, commander, event, "Esme's upkeep was recorded. Pay was short, and morale lost 0.5.");
+  assert.equal(own.summary, `${mate.name}'s upkeep was recorded. Pay was short, so morale fell by 0.5.`);
+  const bystander = projectEvent(world, commander, event, `${mate.name}'s upkeep was recorded. Pay was short, so morale fell by 0.5.`);
   assert.equal(bystander.payloadWithheld, true);
+  assert.equal(bystander.summary, `${mate.name}'s upkeep was recorded.`);
   assert.equal(String(bystander.summary).includes("0.5"), false);
 });

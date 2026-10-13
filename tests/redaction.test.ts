@@ -561,7 +561,7 @@ test("a debt row and its repayment stay off a bystander's json", () => {
   const bystander = projectEvent(world, commander, repayment, `rich paid ${amount}`);
   assert.equal(bystander.data, null);
   assert.equal(bystander.payloadWithheld, true);
-  assert.equal(String(bystander.summary).includes("paid"), false);
+  assert.equal(bystander.summary, `${debtor.name} paid toward a debt to Free Tide Compact.`);
   assert.equal(String(bystander.summary).includes(String(amount)), false);
 
   const creditor = world.characters["character-14"];

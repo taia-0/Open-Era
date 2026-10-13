@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { projectEvent } from "../src/dashboard/visibility.ts";
+import { projectEventFeed } from "../src/dashboard/view-model.ts";
 import { runTick } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { commandHolderId } from "../src/sim/state.ts";
@@ -60,7 +60,13 @@ test("twelve short mornings roll the side stream once, and a roll under 0.5 leav
   assert.equal(holder.personality.loyalty, 0.1);
 
   const commander = world.characters[world.players["prototype-player"].characterId];
-  const projected = projectEvent(world, commander, seen[0], "rich");
-  assert.equal(String(projected.summary).includes("0.245"), true);
-  assert.equal(String(projected.summary).includes("left"), true);
+  const name = leaves.name;
+  const [projected] = projectEventFeed(world, commander.id, [seen[0]]);
+  assert.equal(projected.summary, `${name} left Free Tide Compact.`);
+  assert.equal(String(projected.summary).includes("0.245"), false);
+  assert.equal(String(projected.summary).includes("roll"), false);
+  assert.equal(projected.data, null);
+  const [own] = projectEventFeed(world, leaves.id, [seen[0]]);
+  assert.equal(own.summary, `${name} left Free Tide Compact.`);
+  assert.equal((own.data as { roll?: number } | null)?.roll, 0.245);
 });

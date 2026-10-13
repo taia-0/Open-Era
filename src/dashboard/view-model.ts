@@ -32,8 +32,11 @@ import {
   passageUpkeepSentence,
   executedActionSentence,
   marketTradeSentence,
+  debtRepaidSentence,
   publicFeedSentence,
   queuedCommandSentence,
+  SHORT_PAY_UPKEEP_LINE,
+  shortPayUpkeepVisible,
   secessionDeclaredSentence,
   secessionSuccessorClause,
   recruitDetailSentence,
@@ -183,17 +186,12 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
       return captivityReleasedSentence(world, event, reader);
     case "character-deserted":
       return publicFeedSentence(world, event);
-    case "debt-repaid": {
-      const paid = event.data.paid;
-      const remaining = event.data.remainingValue;
-      const closed = event.data.closed === true;
-      const rest = closed ? " The debt is closed." : ` ${remaining} remains.`;
-      return `${actor} paid ${paid} toward a debt.${rest}`;
-    }
+    case "debt-repaid":
+      return debtRepaidSentence(world, event, true);
     case "character-upkeep": {
       const passage = passageUpkeepSentence(world, event);
       const base = passage ?? publicFeedSentence(world, event);
-      if (event.data.shortPay === true) return `${base} Pay was short, and morale lost 0.5.`;
+      if (shortPayUpkeepVisible(world, reader, event)) return `${base} ${SHORT_PAY_UPKEEP_LINE}`;
       return base;
     }
     case "scattered-troops-returned":
