@@ -587,6 +587,15 @@ export type PlayerCommand =
       factionId: string;
       /** Absolute rate on the one-cent grid, from 0.00 through 0.30. */
       taxRate: number;
+    }
+  | {
+      id: string;
+      playerId: string;
+      issuedTick: number;
+      type: "declare-secession";
+      settlementId: string;
+      /** Omitted, the owner's name is the faction name when the command runs. */
+      name?: string;
     };
 
 export interface Character {

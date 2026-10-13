@@ -2,6 +2,7 @@ import { openStandingOrder } from "./agency.ts";
 import { openSupplyContract } from "./contracts.ts";
 import { applyEvent, clamp, marketPrice, round, settlementClaimAvailableTo } from "./state.ts";
 import { resolveQuotedSpend, spendRole, spendableAmount, type SpendSource } from "./allowance.ts";
+import { declareSecessionRefusal } from "./secession.ts";
 import { parseTaxRate, TAX_RATE_COOLDOWN_TICKS, TAX_RATE_MAX, TAX_RATE_MIN, TAX_RATE_STEP, taxRateCommandRefusal } from "./tax-rate.ts";
 import { MARKET_DEPTH_FRACTION, marketDepth, PASSAGE_COST_PER_TICK, provisionResupplyTarget, quotedPassage, tradeAmounts, tradeQuote } from "./engine.ts";
 import type {
@@ -93,6 +94,13 @@ export type CommandRequest =
       type: "set-tax-rate";
       /** Absolute rate from 0.00 to 0.30 in steps of 0.01. The faction is the player's. */
       taxRate: number;
+    }
+  | {
+      playerId: string;
+      type: "declare-secession";
+      settlementId: string;
+      /** Omitted, the owner's name is used when the command runs. */
+      name?: string;
     };
 
 export type CommandSubmission =
@@ -209,6 +217,7 @@ export const COMMAND_TYPES: readonly string[] = [
   "offer-contract",
   "cancel-contract",
   "set-tax-rate",
+  "declare-secession",
 ];
 
 /**
@@ -252,6 +261,8 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
         destinationId: "required for offer-contract; the settlement shelf that receives the provisions",
         contractId: "required for cancel-contract",
         taxRate: `required for set-tax-rate; an absolute rate from ${COMMAND_LIMITS.taxRate.min.toFixed(2)} to ${COMMAND_LIMITS.taxRate.max.toFixed(2)} in steps of ${COMMAND_LIMITS.taxRate.step.toFixed(2)}. Only the free command holder may set it. Cooldown is ${COMMAND_LIMITS.taxRate.cooldownTicks} ticks. A repeat of the current rate is refused. The faction is the player's`,
+        settlementId: "required for declare-secession; the port the owner is standing on. The character must be that port's owner, a member of the holding faction, anchored there, and not captive. A neutral port is refused. The tax and stability gate is not required",
+        name: "optional for declare-secession; the new faction's name. Omitted, the owner's name is used. An empty name is refused",
         source: "optional on character-action and offer-contract; \"purse\" pays the purse and skips the allowance. Omitted, the free command holder draws the treasury and a member draws the allowance, then the purse",
       },
       failure: "any 4xx body is { ok: false, code, error }; `code` is stable, `error` is human prose",
@@ -381,6 +392,8 @@ function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
         ? world.characters[player.characterId]?.captivity?.settlementId
       : command.type === "set-tax-rate"
         ? command.factionId
+      : command.type === "declare-secession"
+        ? command.settlementId
       : command.characterId;
   const event: SimEvent = {
     sequence: world.nextEventSequence,
@@ -388,7 +401,9 @@ function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
     type: "player-command-accepted",
     actorId: player.characterId,
     targetId,
-    ...(command.type === "character-action" && command.action === "buy-provisions" && character?.locationId
+    ...(command.type === "declare-secession"
+      ? { settlementId: command.settlementId }
+      : command.type === "character-action" && command.action === "buy-provisions" && character?.locationId
       ? { settlementId: character.locationId }
       : {}),
     data: {
@@ -1017,6 +1032,27 @@ function contractMutationPending(world: WorldState, contractId: string): boolean
   );
 }
 
+function validateDeclareSecession(
+  world: WorldState,
+  request: Extract<CommandRequest, { type: "declare-secession" }>,
+): CommandSubmission {
+  const player = world.players[request.playerId];
+  const character = world.characters[player.characterId];
+  const nameProvided = Object.prototype.hasOwnProperty.call(request, "name");
+  const refusal = declareSecessionRefusal(world, character, player.id, request.settlementId, request.name, nameProvided);
+  if (refusal) return reject(refusal.code, refusal.error);
+  const name = nameProvided ? (request.name as string).trim() : undefined;
+  const command: PlayerCommand = {
+    id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
+    playerId: player.id,
+    issuedTick: world.tick,
+    type: "declare-secession",
+    settlementId: request.settlementId,
+    ...(name ? { name } : {}),
+  };
+  return { ok: true, command, event: acceptedEvent(world, command) };
+}
+
 function validateSetTaxRate(
   world: WorldState,
   request: Extract<CommandRequest, { type: "set-tax-rate" }>,
@@ -1090,6 +1126,7 @@ export function submitCommand(world: WorldState, request: CommandRequest): Comma
   if (request.type === "offer-contract") return validateOfferContract(world, request);
   if (request.type === "cancel-contract") return validateCancelContract(world, request);
   if (request.type === "set-tax-rate") return validateSetTaxRate(world, request);
+  if (request.type === "declare-secession") return validateDeclareSecession(world, request);
   // Without this, an unrecognised `type` fell through to order cancellation and
   // was reported as "The order recipient is unknown", because the request also
   // carried no `characterId`. A playtest lost time to exactly that.

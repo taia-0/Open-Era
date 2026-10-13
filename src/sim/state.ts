@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
   Character,
+  Faction,
   PartySighting,
   ReleaseParty,
   ReleaseSighting,
@@ -408,22 +409,40 @@ function applyUnpaidReleaseScar(character: Character, event: SimEvent): void {
  * and so is anyone already captive. A tie breaks toward the lower id, the same
  * comparison `createPrototypeWorld` uses for the reporting officer. No draw.
  */
-function selectActingCommanderId(
+/**
+ * The cover, by the existing sort.
+ *
+ * Highest leadership plus the scarred loyalty times 50. The holder is skipped,
+ * and so is anyone already captive, and so is every id in `excludedIds`.
+ * A tie breaks toward the lower id. No draw. Null when nobody remains.
+ */
+export function actingCoverId(
   world: WorldState,
   factionId: string,
-  holderId: string,
-): string | undefined {
+  holderId: string | null,
+  excludedIds: readonly string[] = [],
+): string | null {
+  const excluded = new Set(excludedIds);
+  if (holderId) excluded.add(holderId);
   const ranked = Object.values(world.characters)
     .filter((character) =>
       character.factionId === factionId &&
-      character.id !== holderId &&
+      !excluded.has(character.id) &&
       character.captivity === null
     )
     .sort((left, right) =>
       commandScore(right) - commandScore(left) ||
       left.id.localeCompare(right.id)
     );
-  return ranked[0]?.id;
+  return ranked[0]?.id ?? null;
+}
+
+function selectActingCommanderId(
+  world: WorldState,
+  factionId: string,
+  holderId: string,
+): string | undefined {
+  return actingCoverId(world, factionId, holderId) ?? undefined;
 }
 
 function assignActingCommander(world: WorldState, captured: Character): void {
@@ -900,6 +919,40 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.stability = event.data.stability as number;
       settlement.surrender = null;
       break;
+    case "secession-declared": {
+      if (!settlement) throw new Error("Secession event is missing a settlement");
+      const faction = event.data.faction as Faction | undefined;
+      if (!faction || typeof faction.id !== "string") throw new Error("Secession event has no faction");
+      const previousFactionId = String(event.data.previousFactionId ?? event.targetId ?? "");
+      const previous = world.factions[previousFactionId];
+      if (!previous) throw new Error(`Secession event has no previous faction: ${previousFactionId}`);
+      const ownerId = String(event.data.ownerId ?? "");
+      const owner = world.characters[ownerId];
+      if (!owner) throw new Error("Secession event has no owner");
+      const followerIds = event.data.followerIds;
+      if (!Array.isArray(followerIds)) throw new Error("Secession event has no follower list");
+      world.factions[faction.id] = {
+        id: faction.id,
+        name: String(faction.name),
+        color: String(faction.color),
+        treasury: faction.treasury,
+        taxRate: faction.taxRate,
+      };
+      owner.factionId = faction.id;
+      for (const followerId of followerIds) {
+        const follower = world.characters[String(followerId)];
+        if (!follower) throw new Error(`Secession event names a missing follower: ${String(followerId)}`);
+        follower.factionId = faction.id;
+      }
+      settlement.ownerId = ownerId;
+      settlement.factionId = faction.id;
+      settlement.garrison = event.data.garrison as number;
+      settlement.stability = event.data.stability as number;
+      const nextActing = event.data.actingCommanderId;
+      if (typeof nextActing === "string") previous.actingCommanderId = nextActing;
+      else delete previous.actingCommanderId;
+      break;
+    }
     case "tick-advanced":
       world.tick = event.data.nextTick as number;
       world.rngState = event.data.rngState as number;

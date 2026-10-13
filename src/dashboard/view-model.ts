@@ -34,6 +34,7 @@ import {
   marketTradeSentence,
   publicFeedSentence,
   queuedCommandSentence,
+  secessionDeclaredSentence,
   recruitDetailSentence,
   settlementClaimedSentence,
 } from "./wording.ts";
@@ -120,6 +121,7 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     case "player-command-accepted":
       return queuedCommandSentence(world, event, actor, settlement);
     case "player-command-resolved":
+      if (event.data.outcome === "secession-declared") return secessionDeclaredSentence(world, event, actor);
       if (event.data.action === "buy-provisions" && typeof event.data.gross === "number") {
         return `${actor} bought ${event.data.quantity} provisions for ${event.data.gross} (${event.data.unitPrice} each)`;
       }
@@ -170,6 +172,8 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
       return `${event.data.returning} scattered troops returned to ${actor}`;
     case "settlement-claimed":
       return settlementClaimedSentence(world, event, events);
+    case "secession-declared":
+      return secessionDeclaredSentence(world, event, actor);
     case "arrived":
       return `${actor} arrived at ${settlement}`;
     case "travel-started":

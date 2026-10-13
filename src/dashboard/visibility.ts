@@ -924,6 +924,12 @@ export function eventPayloadVisible(
     if (order?.issuerId === commander.id) return true;
   }
 
+  // The faction that lost the port can see who left. A rival gets the
+  // sentence only. The actor is already allowed above.
+  if (event.type === "secession-declared" && commander.factionId !== null && commander.factionId === event.targetId) {
+    return true;
+  }
+
   // Anything else attributed to a character belongs to that character. Motives,
   // beliefs, and logistics stay private even for faction peers, because the
   // character projection withholds the same fields and a feed that revealed them

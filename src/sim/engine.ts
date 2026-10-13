@@ -25,6 +25,7 @@ import {
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
 import { resolvePassageCharge, resolveQuotedSpend, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
+import { buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import {
   applyEvent,
   captorPartyLeader,
@@ -2380,6 +2381,50 @@ function processPlayerCommands(
         actorId: commander.id,
         targetId: command.factionId,
         data: { commandId: command.id, outcome: "tax-rate-set", taxRate: command.taxRate },
+      });
+      continue;
+    }
+
+    if (command.type === "declare-secession") {
+      const nameProvided = Object.prototype.hasOwnProperty.call(command, "name");
+      const refusal = declareSecessionRefusal(
+        world,
+        commander,
+        command.playerId,
+        command.settlementId,
+        command.name,
+        nameProvided,
+        command.id,
+      );
+      if (refusal) {
+        emit(world, events, {
+          type: "player-command-failed",
+          actorId: commander.id,
+          settlementId: command.settlementId,
+          data: { commandId: command.id, reason: refusal.error, code: refusal.code },
+        });
+        continue;
+      }
+      const settlement = world.settlements[command.settlementId];
+      const declared = buildSecessionDeclaration(world, settlement, command.name);
+      emit(world, events, {
+        type: "secession-declared",
+        actorId: commander.id,
+        targetId: declared.previousFactionId,
+        settlementId: settlement.id,
+        data: { commandId: command.id, ...declared },
+      });
+      emit(world, events, {
+        type: "player-command-resolved",
+        actorId: commander.id,
+        targetId: declared.previousFactionId,
+        settlementId: settlement.id,
+        data: {
+          commandId: command.id,
+          outcome: "secession-declared",
+          previousFactionId: declared.previousFactionId,
+          factionId: declared.faction.id,
+        },
       });
       continue;
     }
