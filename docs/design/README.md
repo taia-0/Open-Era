@@ -9,7 +9,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Reconnaissance](reconnaissance.md) — Open / investigation, except the survey slice, which M18 built and M18.1 made readable: earned, dated knowledge of rival strength, with provenance
 - [Party sightings](party-sightings.md) — Built in M21: a dated troop count and party power for parties anchored at a surveyed port, or delivered by a targeted explore
 - [Sea sightings](sea-sightings.md) — Open / proposal: what a captain learns from a ship met on a voyage, derived when the state is read and left out of the hash
-- [Hazards 4 and 5](hazards-2.md) — Open / design brief: a held port stops showing a rival's condition from another island, and travel stops being copied onto every card
+- [Hazards 4 and 5](hazards-2.md) — Ruled: the port clause drops, travel is null except on Mara's own card, a docked rival keeps locationId, and neither slice draws or adds an event
 - [Captive intelligence](captive-intelligence.md) — Built in M33: a captor reads leadership, the captured troop count, and the port beliefs the prisoner already carries. The prison is stored once, at release. The planner does not read either record. The note itself is still marked Open
 - [M33 release record](m33-release-record.md) — Open / design note: a field on `captivity-released`, or a derivation inside its reducer, so replay from a pre-release snapshot keeps the prison record
 - [Raid floor](raid-floor.md) — Open / proposal: the slope-10 surrender slide, accepted as M19, so a battered port can change hands once
@@ -22,7 +22,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Captures under M29](captures-under-m29.md) — Open / proposal: an outscore win keeps the attacker's victory and spends the capture roll it already draws on the losing faction's officer standing on the port
 - [Capture wording](capture-wording.md) — Open / proposal: name the captor, say a dock prisoner was taken after the other side won on a higher score, and say who covers a captive commander's seat
 - [Autonomous provisioning](autonomous-provisioning.md) — Open / proposal: the 16% depth cap does not stop captains emptying a small port, and a reserve that they cannot buy below makes the crews hungrier
-- [Contracts](contracts.md) — Open / proposal: a paid provisions delivery the sim would enforce, once a standing order is one job rather than two
+- [Contracts](contracts.md) — Open / proposal: a paid provisions delivery the sim would enforce, once a standing order is one job rather than two. The addendum measures captains offering that haul on their own
 - [Order confirmation](order-confirmation.md) — Open / proposal: a completion report closes when its issuer signs it, or after a day when nobody can
 - [Captivity debts](captivity-debts.md) — Open / proposal: the unpaid ransom comes out of the prisoner's purse, up to one day's wages, on each world day
 - [Ransom split](ransom-split.md) — Built: a faction captor's treasury receives the whole ransom. A factionless leader still receives all of it. The 2026-10-01 addendum supersedes the 50/50 split
