@@ -363,6 +363,7 @@ test("a stale port belief warns, and the person row does not.", () => {
 
 test("Mina Vale's hold on seed 1847 matches the note.", () => {
   // Treasury spending moved this capture off seed 2718 tick 72. The balance share moved it to tick 137.
+  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved the scattered count and the release garrison.
   const world = createPrototypeWorld(1847);
   runTicks(world, 138);
   const mara = world.characters["character-01"];
@@ -373,14 +374,14 @@ test("Mina Vale's hold on seed 1847 matches the note.", () => {
   assert.equal(mina.locationId, "crown-harbor");
   assert.equal(mina.troops.count, 0);
   assert.equal(partyPower(mina), 0);
-  assert.equal(mina.captivity?.scatteredTroops.count, 7);
+  assert.equal(mina.captivity?.scatteredTroops.count, 9);
   assert.equal(mina.captivity?.capturedTick, 137);
   assert.equal(mina.captivity?.captorFactionId, "world-government");
 
   const seen = row(world, mara, mina);
   assert.ok(seen);
-  assert.equal(seen.troops, 7);
-  assert.equal(seen.partyPower, 52.59);
+  assert.equal(seen.troops, 9);
+  assert.equal(seen.partyPower, 54.105);
   assert.equal(seen.leadership, 25);
   assert.equal(seen.observedTick, 137);
   assert.equal(seen.ageTicks, 1);
@@ -423,7 +424,7 @@ test("Mina Vale's hold on seed 1847 matches the note.", () => {
   assert.equal(release.settlementId, "crown-harbor");
   assert.equal(release.factionId, "world-government");
   assert.equal(release.captorFactionId, "world-government");
-  assert.equal(release.garrison, 168);
+  assert.equal(release.garrison, 174);
   assert.equal(release.observedTick, 221);
   assert.equal(release.ageTicks, 1);
   assert.deepEqual(
@@ -431,9 +432,10 @@ test("Mina Vale's hold on seed 1847 matches the note.", () => {
     [
       ["character-01", 80, 194.678],
       ["character-06", 35, 88.984],
-      ["character-19", 0, 0],
-      ["character-24", 91, 147.877],
-      ["character-25", 107, 175.092],
+      ["character-13", 35, 81.529],
+      ["character-14", 59, 186.961],
+      ["character-23", 33, 75.186],
+      ["character-25", 107, 174.891],
     ],
   );
 });
@@ -499,7 +501,8 @@ test("Mara Calder's release at tick 204 recovers from the tick 198 snapshot", ()
   assert.equal(calder.captivity, null);
   assert.equal(calder.releaseSighting?.observedTick, 203);
   // The balance share moved the garrison on this same release.
-  assert.equal(calder.releaseSighting?.garrison, 175);
+  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved it again.
+  assert.equal(calder.releaseSighting?.garrison, 180);
   const split = recoverThrough(1847, 198, 204, "character-21");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));
@@ -512,7 +515,8 @@ test("Mina Vale's release recovers from the tick 138 snapshot", () => {
   const mina = live.characters["character-15"];
   assert.equal(mina.name, "Mina Vale");
   assert.equal(mina.releaseSighting?.observedTick, 221);
-  assert.equal(mina.releaseSighting?.garrison, 168);
+  // The autonomous Free Tide step, first at tick 120 on seed 1847, moved this garrison.
+  assert.equal(mina.releaseSighting?.garrison, 174);
   const split = recoverThrough(1847, 138, 222, "character-15");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));

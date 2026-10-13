@@ -14,8 +14,10 @@ import { applyEvent, round, stateHash } from "../src/sim/state.ts";
 import type { Character, SimEvent, WorldState } from "../src/sim/types.ts";
 
 /**
- * Slice 1. The free command holder sets the faction tax rate. Headless runs
- * do not. `taxRateSetTick` stays off the faction until the first set.
+ * Slice 1. The free command holder sets the faction tax rate. A 72-tick
+ * headless run still emits no `tax-rate-set`: the autonomous step's first
+ * check that changes a rate is later. `taxRateSetTick` stays off the faction
+ * until the first set.
  */
 
 const PLAYER = "prototype-player";
