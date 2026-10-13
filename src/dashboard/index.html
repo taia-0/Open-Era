@@ -694,6 +694,28 @@
     function stat(label, value, digits) {
       return '<div class="stat"><span>' + esc(label) + "</span><strong>" + (value == null ? "Unknown" : fmt(value, digits)) + "</strong></div>";
     }
+    function progressionHtml(item) {
+      var reading = item.progression;
+      if (!reading) return "";
+      var skills = reading.skills;
+      var quality = reading.troopQuality;
+      var counts = reading.feedCounts;
+      var battles = reading.battleTotals;
+      return "<h3>Progression</h3><div class=\"stat-grid\">" +
+        stat("Strategy", skills ? skills.strategy : null, 3) +
+        stat("Leadership", skills ? skills.leadership : null, 3) +
+        stat("Navigation", skills ? skills.navigation : null, 3) +
+        stat("Trade", skills ? skills.trade : null, 3) +
+        stat("Experience", quality ? quality.experience : null, 3) +
+        stat("Discipline", quality ? quality.discipline : null, 3) +
+        '<div class="stat"><span>Troop quality</span><strong>' + (quality ? esc(quality.band) : "Unknown") + "</strong></div>" +
+        stat("Works", counts ? counts.worked : null, 0) +
+        stat("Voyages", counts ? counts.voyages : null, 0) +
+        stat("Battles", counts ? counts.battles : null, 0) +
+        stat("Victories", battles ? battles.victories : null, 0) +
+        stat("Defeats", battles ? battles.defeats : null, 0) +
+        "</div>";
+    }
     function garrisonLine(value) {
       if (value === "none") return "no garrison.";
       return value ? "The garrison would follow." : "The garrison would not follow.";
@@ -835,6 +857,7 @@
             ? '<div class="stat"><span>Captured troops</span><strong>' + item.captiveIntel.troops + ' <span class="subtle">' + item.captiveIntel.ageTicks + " ticks old</span></strong></div>"
             : "") +
         "</div>" +
+        progressionHtml(item) +
         (item.troopsNote ? '<div class="subtle">' + esc(item.troopsNote) + "</div>" : "") +
         (item.captiveIntel
           ? "<h3>Captive reading</h3><div class=\"subtle\">Taken at tick " + item.captiveIntel.observedTick + ", party power " + item.captiveIntel.partyPower + ".</div>" +

@@ -1,4 +1,4 @@
-import { CLAIM_STABILITY_FLOOR, commandHolderId, round } from "../sim/state.ts";
+import { CLAIM_STABILITY_FLOOR, commandHolderId, practicedSkill, round } from "../sim/state.ts";
 import type { Character, Faction, ResourceKey, SimEvent, WorldState } from "../sim/types.ts";
 
 /**
@@ -1290,4 +1290,69 @@ export function attentionLabel(attentionCount: number, shownCount: number): stri
   if (background <= 0) return `Check-in · ${attentionCount} need attention`;
   const noun = background === 1 ? "1 background line is" : `${background} background lines are`;
   return `Check-in · ${attentionCount} need attention, and ${noun} listed with them.`;
+}
+
+/**
+ * Skills a feeding event practices, in the order the step writes them.
+ *
+ * `worked` practices leadership and trade. `travel-started` practices
+ * navigation. `battle-resolved` practices strategy and leadership.
+ * A sea tick and a battle phase are not in this map, so they grow nothing.
+ */
+const FEEDING_SKILLS: Record<string, readonly (keyof Character["skills"])[]> = {
+  worked: ["leadership", "trade"],
+  "travel-started": ["navigation"],
+  "battle-resolved": ["strategy", "leadership"],
+};
+
+function wholePart(value: number): number {
+  return Math.floor(round(value, 3) + 1e-9);
+}
+
+/**
+ * The whole number a stored skill absolute crossed, or null when it did not.
+ *
+ * The feeding event stores the new absolute only. One use closes 0.1% of the
+ * gap to 100 and rounds to 3 decimals, so the previous value is whichever
+ * 3-decimal skill `practicedSkill` maps to this number. A step moves by at
+ * most 0.1, and it crosses at most one whole number. Preimages that disagree
+ * about the crossing produce no number.
+ */
+export function wholeNumberReached(next: number): number | null {
+  if (!Number.isFinite(next)) return null;
+  const rounded = round(next, 3);
+  const approx = (rounded - 0.1) / 0.999;
+  const center = Math.round(approx * 1000);
+  const matches: number[] = [];
+  for (let milli = center - 5; milli <= center + 5; milli += 1) {
+    if (milli < 0) continue;
+    const candidate = round(milli / 1000, 3);
+    if (practicedSkill(candidate) === rounded) matches.push(candidate);
+  }
+  if (matches.length === 0) return null;
+  const whole = wholePart(rounded);
+  if (matches.every((previous) => whole > wholePart(previous))) return whole;
+  return null;
+}
+
+/**
+ * The quiet skill-gain line for one feeding event.
+ *
+ * One sentence per skill that crossed a whole number, in practice order.
+ * "Mara Vane's trade rose to 58." A step that stays inside the same whole
+ * number returns null. This does not write an event.
+ */
+export function skillGainSentence(world: WorldState, event: SimEvent): string | null {
+  const keys = FEEDING_SKILLS[event.type];
+  if (!keys || !event.actorId) return null;
+  const name = characterName(world, event.actorId, event.actorId);
+  const lines: string[] = [];
+  for (const key of keys) {
+    const next = event.data[key];
+    if (typeof next !== "number") continue;
+    const whole = wholeNumberReached(next);
+    if (whole === null) continue;
+    lines.push(`${name}'s ${key} rose to ${whole}.`);
+  }
+  return lines.length === 0 ? null : lines.join(" ");
 }

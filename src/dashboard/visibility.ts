@@ -2,7 +2,7 @@ import { assessStandingOrder, garrisonConfidenceLabel } from "../sim/agency.ts";
 import { commandHolderId, factionPower, partyPower, partyPowerFromTroops, round } from "../sim/state.ts";
 import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder, SupplyContract, TravelState, WorldState } from "../sim/types.ts";
 import { projectAllowance } from "./allowance.ts";
-import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
+import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
 
 /**
  * Decides what a player may legitimately know about the rest of the world.
@@ -680,11 +680,36 @@ function projectTroopFigures(troops: { count: number; experience: number; discip
   };
 }
 
+/**
+ * The setup bands. Under 0.35 is the ordinary draw. From 0.35 up to 0.55 is
+ * the gap. From 0.55 up to 0.8 is the veteran draw. At 0.8 the veteran
+ * generator stops. This is a readout of the number already on the card. It
+ * is not a stored promotion label.
+ */
+export function troopQualityBand(experience: number): "ordinary" | "gap" | "veteran" | "past" {
+  const value = round(experience, 3);
+  if (value < 0.35) return "ordinary";
+  if (value < 0.55) return "gap";
+  if (value < 0.8) return "veteran";
+  return "past";
+}
+
+export interface FeedingCounts {
+  worked: number;
+  voyages: number;
+  battles: number;
+}
+
 export function projectCharacter(
   world: WorldState,
   commander: Character,
   character: Character,
   events?: SimEvent[],
+  /**
+   * Lifetime feeding counts from the whole log. Omit them, and the readout
+   * is null, rather than counting the check-in window and calling it a life.
+   */
+  feedCounts?: Record<string, FeedingCounts>,
 ): Record<string, unknown> {
   const intelligence = characterIntelligence(world, commander, character);
   const isSelf = intelligence.tier === "self";
@@ -835,6 +860,30 @@ export function projectCharacter(
     outOfStretch: isSelf ? outOfStretchFor(world, character) : null,
     victories: character.victories,
     defeats: character.defeats,
+    /**
+     * Skills, troop quality, the feed counts, and the battle totals.
+     * Nothing here is written. Skills follow the card. Troop quality follows
+     * the troop figures. Feed counts are the three feeding events when the
+     * caller passed the log, and null when it did not. Battle totals are the
+     * victories and defeats already on this card.
+     */
+    progression: {
+      skills: capability ? { ...character.skills } : null,
+      troopQuality: condition
+        ? {
+            experience: round(character.troops.experience, 3),
+            discipline: round(character.troops.discipline, 3),
+            band: troopQualityBand(character.troops.experience),
+          }
+        : null,
+      feedCounts: feedCounts
+        ? feedCounts[character.id] ?? { worked: 0, voyages: 0, battles: 0 }
+        : null,
+      battleTotals: {
+        victories: character.victories,
+        defeats: character.defeats,
+      },
+    },
     intelligence,
   };
 }
@@ -988,6 +1037,15 @@ export function projectEvent(
   if (visible && event.type === "secession-declared") {
     const clause = secessionSuccessorClause(world, event);
     if (clause && !summary.endsWith(clause)) summary = `${summary} ${clause}`;
+  }
+  // A whole-number crossing, and only there. The viewer must already be able
+  // to see this character's skills. A withheld payload does not hide the line
+  // when the card shows the skills, and a visible payload does not add it
+  // when the card does not.
+  const actorCharacter = event.actorId ? world.characters[event.actorId] : undefined;
+  if (actorCharacter && characterIntelligence(world, commander, actorCharacter).capabilityExact) {
+    const gain = skillGainSentence(world, event);
+    if (gain && !summary.includes(gain)) summary = `${summary} ${gain}`;
   }
   const details = event.type === "captivity-released" ? captivityReleasedParts(world, event, false, commander) : null;
   return {
