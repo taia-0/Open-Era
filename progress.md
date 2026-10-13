@@ -31,8 +31,8 @@ Git remains the complete history. This file exists for three things git does not
 ## Current state
 
 - **Baseline:** `feature/secession-3` from `f85d59a`. Slice 1 readout, slice 2 `declare-secession`, and the holder successor stay. An autonomous owner declares when the owner gate passes, the owner is not the command holder, the holding rate is above 0.15, and stability is at or below 55.
-- **Last verified:** 415 tests. Typecheck clean. The 72-tick golden fixture passed inside `npm test`. Headless 72-tick hashes match. Headless 1200-tick hashes moved. No `golden:update`.
-- **Gate status:** `./scripts/evaluate-milestone.sh secession-2` passed on `2f4bd73`. `secession-3` passed on this commit.
+- **Last verified:** 415 tests. Typecheck clean. The 72-tick golden fixture passed inside `npm test`. Headless 72-tick hashes match. Headless 1200-tick hashes moved. Section 9 now records that move. The golden fixture is not updated in this commit.
+- **Gate status:** `./scripts/evaluate-milestone.sh secession-2` passed on `2f4bd73`. `secession-3` passed on `4222ffe`.
 - **Headline:** Mara can declare a port she owns, and the old faction's seat passes to the cover. A headless run declares on its own once leader-tax autonomy lifts a holding rate above 0.15. On seed 1847 the first declarations are tick 438. The 72-tick fixture does not move.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
@@ -139,6 +139,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-13 — Secession, the zero-spell line
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/secession-3` | **Commits:** this commit. | **Type:** Design
+- **Changed** — Section 9 of [secession](docs/design/secession.md) no longer says slice 3 is neutral because eligible spells are 0. That sentence assumed the scenario rates 0.14 and 0.08 for the whole run. It predates leader-tax autonomy (#94). Free Tide now raises its rate above 0.15, so the walker fires 6 / 5 / 4 times at 1200 ticks. The first events are 1847 sequence 54705 tick 438, 2718 sequence 90617 tick 705, and 4096 sequence 50341 tick 400, each `secession-declared`. The 72-tick row stays, because the first declaration is past that window. The 0.10 warning stays: that line would still move the 72-tick fixture.
+- **Why** — The measured walker follows section 6. The note's census did not.
+- **Verified** — The cited events were measured on `4222ffe`, Node v24.21.0, ICU 78.3, headless, no commands. This commit does not change the simulation.
+- **Left open** — Recording the Lead-approved 1200-tick baseline, and `npm run golden:update`.
+- **Links** — [secession](docs/design/secession.md), [leader tax](docs/design/leader-tax.md)
 
 ### 2026-10-13 — Secession, the autonomous walker
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/secession-3` | **Commits:** `a90317f` and this commit. | **Type:** Behavior

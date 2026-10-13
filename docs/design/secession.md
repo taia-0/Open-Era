@@ -194,9 +194,9 @@ Sampled `loyaltyAdjustment` on people standing in a port is the scar, in steps o
 | --- | --- | --- |
 | 1 | A readout, computed when the settlement panel is built. Owner, whether the owner gate passes, how many characters would follow, whether the garrison would follow. Not written onto the world and not written onto an event. | Neutral. `stateHash` and the event count stay on the table above. |
 | 2 | `declare-secession`, the reducer, and `secession-declared`. No autonomous caller. A headless run never queues the command. | Neutral, for the same reason a headless run emits no `tax-rate-set`. A session that declares moves the state hash and the event count on that tick, and moves `metrics-recorded`. That session was not run. The expectation was not re-measured with the command compiled in. |
-| 3 | The autonomous rule in section 6. | Neutral on these seeds: eligible spells are 0, so the walker emits nothing. The hash moves on the first tick a holding rate above 0.15 meets stability at or below 55 with a present, free owner who is not the command holder. The uniform-0.20 world is that case. It was not measured here. |
+| 3 | The autonomous rule in section 6. | The "eligible spells are 0" line predates leader-tax autonomy (#94). Free Tide now raises its rate above 0.15, so the walker fires. 72 ticks stay on the table above: the first declaration is past that window. At 1200 ticks the walker fires 6 / 5 / 4 times. First events, all `secession-declared`: 1847 sequence 54705 tick 438, 2718 sequence 90617 tick 705, 4096 sequence 50341 tick 400. |
 
-Slice 1 can show the tax-open column as a second line, still without storing it. Slice 3 should not ship while the only rates in the world are 0.14 and 0.08, unless the Lead wants a rule that can fire on those rates. The 0.10 column is that rule, and it would move the 72-tick fixture: the first qualifying claims are ticks 67, 47, and 45.
+Slice 1 can show the tax-open column as a second line, still without storing it. Slice 3's zero-spell sentence assumed the scenario rates 0.14 and 0.08 for the whole run. That census predates leader-tax autonomy (#94). A line above 0.10 would still let World Government's opening 0.14 through and would move the 72-tick fixture: the first qualifying claims are ticks 67, 47, and 45.
 
 ## 10. Questions for the Lead
 
