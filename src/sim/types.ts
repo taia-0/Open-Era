@@ -635,6 +635,19 @@ export interface Character {
    */
   loyaltyAdjustment?: number;
   /**
+   * Mornings in a row this mate's allowance cap was under 18.
+   *
+   * Omitted at 0. A morning that is not short deletes it. On the morning it
+   * becomes 12, desertion may draw. Recovery reads it off the world, because
+   * a process-local counter does not survive a snapshot.
+   */
+  shortMorningStreak?: number;
+  /**
+   * Set by `character-died`. Omitted while the character is alive, so a world
+   * with no death hashes as before. A dead character stays in the world.
+   */
+  dead?: true;
+  /**
    * Coins left of today's treasury allowance. The cap is the balance share,
    * `min(18, treasury / free mates)`, read on each quote. Omitted while it
    * equals that cap. Omitted means full. The `tick-advanced` reducer deletes
@@ -680,6 +693,13 @@ export interface WorldState {
   scenario: string;
   seed: number;
   rngState: number;
+  /**
+   * Side-stream position for the desertion roll.
+   *
+   * Omitted until the first roll, so a morning that does not draw leaves the
+   * hash alone. A stay still advances it. The tick rng is not this field.
+   */
+  desertionRngState?: number;
   tick: number;
   ticksPerDay: number;
   nextEventSequence: number;

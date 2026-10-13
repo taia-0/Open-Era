@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { noteMorningDesertion } from "./desertion.ts";
 import { applyEvent, normalizeWorldState, stateHash } from "./state.ts";
 import type { SimEvent, WorldState } from "./types.ts";
 
@@ -168,13 +169,34 @@ export class WorldStore {
     const rows = this.database
       .prepare("SELECT * FROM events WHERE sequence > ? ORDER BY sequence")
       .all(snapshot.sequence) as unknown as EventRow[];
-    for (const row of rows) applyEvent(state, this.rowToEvent(row));
+    this.replayEvents(state, rows);
 
     return {
       state,
       snapshotSequence: snapshot.sequence,
       replayedEvents: rows.length,
     };
+  }
+
+  /**
+   * Replay events after a snapshot.
+   *
+   * A day-boundary snapshot is taken when the clock lands on a morning, before
+   * that morning's desertion. The streak and the side-stream position are not
+   * events, so each replayed tick applies them before its log. A tick that is
+   * not a morning leaves both alone.
+   */
+  private replayEvents(state: WorldState, rows: EventRow[]): void {
+    const events = rows.map((row) => this.rowToEvent(row));
+    let atStart = events.length > 0;
+    for (const event of events) {
+      if (atStart) {
+        noteMorningDesertion(state);
+        atStart = false;
+      }
+      applyEvent(state, event);
+      if (event.type === "tick-advanced") atStart = true;
+    }
   }
 
   allEvents(): SimEvent[] {

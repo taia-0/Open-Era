@@ -213,7 +213,7 @@ export function partyPowerFromTroops(character: Character, troops: TroopGroup): 
 }
 
 export function partyPower(character: Character): number {
-  if (character.captivity) return 0;
+  if (character.dead || character.captivity) return 0;
   return partyPowerFromTroops(character, character.troops);
 }
 
