@@ -283,3 +283,42 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 6. **Can a rival read the rate?** Default: yes. It is already on the faction row and on the settlement panel. Treasury and power stay hidden. The rate is not copied onto the knowledge record.
 
 7. **Does Free Tide's empty treasury block the lever?** Default: no. The lever says who is paid. It does not leave a standing fund while the holder is uncapped. A fund would be a spending rule. The treasury-balance note kept that holder uncapped, and this sweep agrees with that result.
+
+## Addendum: tax and stability (slice 2)
+
+The Lead's later ruling is the slice order this section uses. Slice 1 stays the command, the `tax-rate-set` event, and `taxRateSetTick`. That command is not in this tree: nothing under `src/` writes `taxRate` after `createPrototypeWorld`. Slice 2 is the drift. Slice 3 is the autonomous choice, and it may lower the rate as well as raise it. The drift reads the rate already stored on the faction. A headless run still emits no `tax-rate-set`.
+
+The drift applies to each settlement whose `factionId` is set, on the stability write inside `produceSettlements`. The holder is whoever holds the port on that tick, so a claim starts the new rate on the next peaceful upkeep. A neutral port adds zero. An active battle still skips the settlement, which is the existing cadence: every peaceful upkeep, six in a world day that stays peaceful. The term is subtracted only when `taxRate > threshold`. A rate at or below the threshold adds zero. There is no separate recovery for a low rate.
+
+It sits in the expression the upkeep already rounds, after the same clamp to 0–100, at the same 3 digits:
+
+```text
+stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0) - taxDrift
+```
+
+`taxDrift` is the drift size, or zero. Immediate battles still subtract 12 or 3, and a phase still subtracts 4 or 1, on their own events. The claim floor of 55 is unchanged.
+
+The sizes are scaled to the fed `+ 0.03`. Small is `0.01`, so a fed port above the threshold still gains `0.02`. Moderate is `0.03`, the same literal, so those two terms sum to zero while the ration is met. A shortage still subtracts `shortage * 0.35`.
+
+Measured on `c2a812d8c3c3280931069db00f92839c1dd2f6fe`, Node v24.21.0, ICU 78.3, after `npm test` passed 358 tests. The 72-tick fixture and the 1200-tick scenario baseline are the hashes in the tables above, unchanged on this commit. The grid is thresholds `{0.10, 0.15}` and drifts `{0.01, 0.03}`, at the scenario pair and at uniform `0.04`, `0.20`, and `0.30`, seeds 1847 / 2718 / 4096, 1200 ticks. Production is the stock added on `settlement-produced`, four goods. Stability samples are the state after each tick.
+
+Scenario rates trigger the drift at `0.10` only. World Government's `0.14` is above it, so a port drifts on the ticks that faction holds it, and Free Tide's `0.08` does not. Those 72-tick hashes move. Event counts are 8413 / 8396 / 8261 at drift `0.01` (deltas 0 / −60 / 0) and 8413 / 8396 / 8253 at drift `0.03` (deltas 0 / −60 / −8). At threshold `0.15` neither scenario rate is above the line: drift upkeeps are 0, and the 72-tick and 1200-tick hashes and event counts match the unpatched scenario run for both drift sizes. Uniform `0.04` matches its unpatched run at both thresholds and both sizes. Uniform `0.20` and `0.30` are above both thresholds, so a given drift is one world at either threshold, and the hashes move.
+
+Crown Harbor is the port whose provision surplus has a line that binds: penalized provisions fall under the ration of 5 below stability `69.696`. The scenario baseline already spends 788 / 582 / 907 ticks there. Cinder Key's penalized provisions cover its ration at stability 0. Glassport's line is `3.821`, and its minimum stays above it. Verdant Cay is neutral, ends at 100, and its production stays `23250.80` (`23250.79` on one `0.30` row). No run in the grid emits `settlement-shortage`.
+
+Drift `0.01` leaves endings in the same mid-50s band. At uniform `0.20`, Crown Harbor's minimums are 30.16 / 36.58 / 40.06 and ticks at or below 30 are 0 / 0 / 0. Drift `0.03` cancels the fed climb, so a claimed port that is then left in peace stays on the claim floor. That is the row below. Ticks at or below 30, the surrender line while the garrison is still 15 or more, are 12 / 1 / 0 at uniform `0.20`. On those rows Cinder Key ends 51 / 55 / 55 (minimums 34 / 32 / 27) and Glassport ends 55 / 55 / 47 (minimums 37 / 34 / 32). At `0.30` all three faction ports end at 55. Crown Harbor's production changes by −25.07 / −117.97 / −13.04 against the unpatched `0.20` run. The `0.30` seed 4096 case is the outlier: unpatched, that port stays at 100 (minimum 80.61, production 22130.23); with the drift it ends at 55, minimum 32, production 20120.33. Unpatched `0.30` treasuries, for the column below, are World Government 43848.86 / 38739.21 / 42297.54 and Free Tide 10303.91 / 20540.45 / 10477.27. The unpatched `0.20` treasuries are the both-0.20 row above.
+
+Recommend threshold `0.15` and drift `0.03`. The scenario fixture stays put. A rate above `0.15` moves the hashes from the first peaceful upkeep. At uniform `0.20` the 72-tick hashes are `d769fad93ec13e6d8433c4dbd9312d823f2dc587d8d9e59ad18de6e0fa32fe8c` / `3eadce5cb55c4219307c84696e870dfd0896c77e67cc5a4bb4f3af2f8d60c168` / `9944405fed3c7775dcb0912278fdcf1e197820a7f38cfed79cf9d7a960f2998d` (8410 / 8520 / 8419 events; deltas 0 / 0 / −41) and the 1200-tick hashes are `b673a14b4f778ed274f49bf07d28155450da002fc190dc587b0acfa408640383` / `59b64c2c2f1b5688864e271999460927ee9bb74c38f92b07ae8dda1d61791097` / `32a33d81903c304c2ad88f9e84fdbef0d40ac5a6fbf4c405c5b9cdfc36ecc7ea` (159357 / 162646 / 161975). At uniform `0.30` the 72-tick hashes are `71c2f1c19bd05f76ed9bfb801e9497f1c485d4aba4c1b9f4b77f5d1e2ced9bbe` / `f5e164a5e10d61c9af7e9b30a6608344c3a35180a12c375b17dfba65382488a3` / `220e144bf1f27559074236bd8c6e616ded3ddb693f8914cbb246c2c3a1f5e830` (8260 / 8262 / 8237; deltas −2 / +4 / −82) and the 1200-tick hashes are `e7f44b3e3a64f0cd6660445e153275a905c4b5e8f17b728135b8a8726dc1eed0` / `59b32514bae7f2c237c12f6f4a23b74d8cdc1773da39b20e4816538fa4b3ac02` / `b5b5b0a775cc3ff0355d9ef0cc1ec9e14601fe262b246c41bc9c616c23ad8813` (161421 / 164660 / 161412).
+
+Slice 3 weighs a cost the flat rule does not grade. Once the rate is above `0.15`, another `0.01` subtracts nothing further: `0.16` and `0.30` both subtract `0.03`. Crown Harbor's minimums at `0.30` are 19 / 31 / 32, against 10 / 28 / 33 at `0.20`. Work tax plus sale tax, divided by the ten steps from `0.20` to `0.30` under this drift, is World Government 1844.74 / 1681.17 / 1225.96 and Free Tide 808.99 / 1581.20 / 2212.08 over the 1200 ticks. A holder who will not pay the `0.03` sits at `0.15`, the highest legal rate that adds zero. A holder who will pay it keeps the income up to `0.30` with the same stability term. A cost that grows per `0.01` would be a different rule.
+
+Crown Harbor under threshold `0.15` and drift `0.03`. Treasury is the drifted ending balance. Event counts are the drifted run, with the change from the unpatched same-rate run in parentheses.
+
+| Rate | Seed | End | Min plain | Min drift | Ticks ≤30 | Prod Δ | WG treasury | FT treasury | 1200 events |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.20 | 1847 | 55 | 40.49 | 10 | 12 | −25.07 | 25523.78 | 64.17 | 159357 (−3028) |
+| 0.20 | 2718 | 55 | 34.53 | 28 | 1 | −117.97 | 24698.14 | 658.64 | 162646 (−3652) |
+| 0.20 | 4096 | 55 | 39.69 | 33 | 0 | −13.04 | 25650.68 | 161.82 | 161975 (+310) |
+| 0.30 | 1847 | 55 | 34.54 | 19 | 1 | −268.59 | 42488.49 | 2789.40 | 161421 (−1650) |
+| 0.30 | 2718 | 55 | 34.50 | 31 | 0 | −303.65 | 42041.53 | 11155.58 | 164660 (+3894) |
+| 0.30 | 4096 | 55 | 80.61 | 32 | 0 | −2009.90 | 35849.38 | 12835.79 | 161412 (−4037) |
