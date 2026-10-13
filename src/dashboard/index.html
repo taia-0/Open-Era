@@ -636,9 +636,11 @@
      * against. Kept in step by tests/trade.test.ts, so the total printed in a row
      * is the total the purse will show after the button is pressed.
      */
-    function tradeAmounts(quantity, unitPrice, taxRate, direction) {
+    function tradeAmounts(quantity, unitPrice, taxRate, direction, levyRate) {
       var gross = Math.round(quantity * unitPrice * 100) / 100;
-      var tax = direction === "sell" ? Math.round(gross * taxRate * 100) / 100 : 0;
+      var base = direction === "sell" ? Math.round(gross * taxRate * 100) / 100 : 0;
+      var levy = direction === "sell" ? Math.round(gross * (levyRate || 0) * 100) / 100 : 0;
+      var tax = Math.round((base + levy) * 100) / 100;
       return { gross: gross, tax: tax, net: Math.round((gross - tax) * 100) / 100 };
     }
     /**
@@ -658,7 +660,7 @@
           return;
         }
         var cost = tradeAmounts(quantity, quote.price, 0, "buy");
-        var proceeds = tradeAmounts(quantity, quote.price, market.taxRate, "sell");
+        var proceeds = tradeAmounts(quantity, quote.price, market.taxRate, "sell", market.levyRate);
         out.textContent = "Cost " + fmt(cost.net, 2) + " · Proceeds " + fmt(proceeds.net, 2) +
           (proceeds.tax > 0 ? " (after " + fmt(proceeds.tax, 2) + " tax)" : "");
       });

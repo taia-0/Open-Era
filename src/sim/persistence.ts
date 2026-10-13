@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { replayGovernorSeats, transplantGovernorSeats } from "./governor.ts";
 import { applyEvent, normalizeWorldState, stateHash } from "./state.ts";
 import type { SimEvent, WorldState } from "./types.ts";
 
@@ -169,12 +170,31 @@ export class WorldStore {
       .prepare("SELECT * FROM events WHERE sequence > ? ORDER BY sequence")
       .all(snapshot.sequence) as unknown as EventRow[];
     for (const row of rows) applyEvent(state, this.rowToEvent(row));
+    this.restoreGovernorSeats(state);
 
     return {
       state,
       snapshotSequence: snapshot.sequence,
       replayedEvents: rows.length,
     };
+  }
+
+  /**
+   * The governor seat is not on the hashed world. Replay it from the opening
+   * snapshot so a resumed tick levies the same sticky seats.
+   */
+  private restoreGovernorSeats(target: WorldState): void {
+    const initial = this.database
+      .prepare("SELECT state_json FROM snapshots WHERE sequence = 0")
+      .get() as { state_json: string } | undefined;
+    if (!initial) return;
+    const scratch = JSON.parse(initial.state_json) as WorldState;
+    normalizeWorldState(scratch);
+    const rows = this.database
+      .prepare("SELECT * FROM events ORDER BY sequence")
+      .all() as unknown as EventRow[];
+    replayGovernorSeats(scratch, rows.map((row) => this.rowToEvent(row)));
+    transplantGovernorSeats(scratch, target);
   }
 
   allEvents(): SimEvent[] {

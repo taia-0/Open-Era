@@ -1,3 +1,4 @@
+import { syncGovernorSeats } from "./governor.ts";
 import { DeterministicRng } from "./rng.ts";
 import type {
   Character,
@@ -406,7 +407,7 @@ export function createPrototypeWorld(seed = 1847, options: PrototypeWorldOptions
       left.id.localeCompare(right.id)
     )[0]?.id ?? null;
 
-  return {
+  const world: WorldState = {
     version: 5,
     scenario: "four-island-pressure-test",
     seed,
@@ -439,4 +440,7 @@ export function createPrototypeWorld(seed = 1847, options: PrototypeWorldOptions
     conversationMessages: [],
     scheduledReplies: [],
   };
+  // Opening seats are filled before the first tick. The ids stay off the world.
+  syncGovernorSeats(world);
+  return world;
 }

@@ -64,31 +64,31 @@ test("seed 1847 at state tick 12 agrees the routine digest with completed orders
   assert.equal(single.summary, "1 routine order update: 1 completed. No command decision is required.");
 });
 
-test("seed 2718 Mina Vale at tick 80 rounds the held troop figures", () => {
-  // The skill step moved her capture to seed 2718, tick 79.
-  const run = runTicks(createPrototypeWorld(2718), 80);
+test("seed 1847 Mina Vale at tick 282 rounds the held troop figures", () => {
+  // The levy moved her co-located hold to seed 1847, tick 281.
+  const run = runTicks(createPrototypeWorld(1847), 282);
   const before = stateHash(run.state);
   const mina = run.state.characters["character-15"];
   const mara = run.state.characters["character-01"];
   assert.equal(mina.name, "Mina Vale");
-  assert.equal(mina.troops.experience, 0.19867861845996232);
-  assert.equal(mina.troops.discipline, 0.3837455657846294);
+  assert.equal(mina.troops.experience, 0.23115545285400002);
+  assert.equal(mina.troops.discipline, 0.3581968812993727);
   const card = projectCharacter(run.state, mara, mina);
   const troops = card.troops as { count: number; experience: number; discipline: number };
   assert.equal(troops.count, 0);
-  assert.equal(troops.experience, 0.199);
-  assert.equal(troops.discipline, 0.384);
+  assert.equal(troops.experience, 0.231);
+  assert.equal(troops.discipline, 0.358);
   assert.equal(troops.experience, round(mina.troops.experience, 3));
   assert.equal(troops.discipline, round(mina.troops.discipline, 3));
   assert.equal(
     card.troopsNote,
-    "0 with Mina Vale; 9 held by World Government. The experience and discipline are the troops now held by World Government.",
+    "0 with Mina Vale; 30 held by World Government. The experience and discipline are the troops now held by World Government.",
   );
   const scattered = (card.captivity as { scatteredTroops: { experience: number; discipline: number } }).scatteredTroops;
-  assert.equal(scattered.experience, 0.199);
-  assert.equal(scattered.discipline, 0.384);
-  assert.equal(mina.troops.experience, 0.19867861845996232);
-  assert.equal(mina.captivity?.scatteredTroops.experience, 0.19867861845996232);
+  assert.equal(scattered.experience, 0.231);
+  assert.equal(scattered.discipline, 0.358);
+  assert.equal(mina.troops.experience, 0.23115545285400002);
+  assert.equal(mina.captivity?.scatteredTroops.experience, 0.23115545285400002);
   assert.equal(stateHash(run.state), before);
 });
 
@@ -102,8 +102,8 @@ test("briefing titles on a held captain and on returned troops are sentences", (
     briefing: { attentionCount: number; omittedInfoCount: number };
   };
   assert.equal(counted.length, 5_000);
-  assert.equal(counted[0]?.tick, 126);
-  assert.equal(countedView.briefing.attentionCount, 4);
+  assert.equal(counted[0]?.tick, 128);
+  assert.equal(countedView.briefing.attentionCount, 2);
   assert.equal(countedView.briefing.omittedInfoCount, 0);
   const windowed = checkInEvents(scattered.events, scattered.state.tick);
   const full = dashboardState(scattered.state, windowed, fullEventFeed(windowed)) as {
@@ -112,25 +112,18 @@ test("briefing titles on a held captain and on returned troops are sentences", (
   assert.deepEqual(full.briefing.items.map((item) => item.title), [
     "The party is starving",
     "Intelligence is stale",
-    "Intelligence is stale",
-    "A captain was released",
-    "A captain was released",
-    "A battle was decided",
-    "A captain was taken",
-    "A battle was decided",
-    "An order was not followed, 5 times.",
-    "A captain was taken",
-    "A battle was decided",
-    "A battle was decided",
+    "An order was not followed, 3 times.",
+    "An order was not followed, 2 times.",
     "An order was refused",
     "An order was refused",
-    "An order was not followed.",
     "An order was refused",
     "An order was refused",
+    "Iris Stone sent a routine digest.",
+    "A port was claimed",
   ]);
-  assert.equal(full.briefing.attentionCount, 17);
-  assert.equal(full.briefing.omittedInfoCount, 10);
-  const returnedRun = runTicks(createPrototypeWorld(2718), 160);
+  assert.equal(full.briefing.attentionCount, 8);
+  assert.equal(full.briefing.omittedInfoCount, 17);
+  const returnedRun = runTicks(createPrototypeWorld(2718), 530);
   const returnsOnly = dashboardState(
     returnedRun.state,
     returnedRun.events.filter((event) => event.type === "scattered-troops-returned"),
@@ -138,19 +131,19 @@ test("briefing titles on a held captain and on returned troops are sentences", (
   ) as { briefing: { items: Array<{ title: string; summary: string }> } };
   const returned = returnsOnly.briefing.items.find((item) => item.title.startsWith("Scattered troops came back"));
   assert.ok(returned);
-  assert.equal(returned.title, "Scattered troops came back, 3 times.");
+  assert.equal(returned.title, "Scattered troops came back, 7 times.");
   assert.equal(returned.summary.includes(".."), false);
   assert.equal(full.briefing.items.some((item) => item.title.startsWith("An order was not followed")), true);
   const returns = returnedRun.events.filter((event) => event.type === "scattered-troops-returned");
-  assert.deepEqual(returns.map((event) => event.tick), [130, 136, 142, 148, 154]);
+  assert.deepEqual(returns.map((event) => event.tick), [486, 492, 498, 504, 510, 516, 522]);
 
-  // The skill step moved Mara's hold to seed 1847, captured on tick 704.
-  const held = runTicks(createPrototypeWorld(1847), 708);
+  // The levy moved Mara's hold to seed 1847, captured on tick 803.
+  const held = runTicks(createPrototypeWorld(1847), 804);
   assert.equal(held.state.characters["character-01"].captivity?.settlementId, "crown-harbor");
   const heldView = dashboardState(held.state, held.events, fullEventFeed(held.events)) as {
     briefing: { items: Array<{ id: string; title: string }> };
   };
-  const captivity = heldView.briefing.items.find((item) => item.id === "captivity:704");
+  const captivity = heldView.briefing.items.find((item) => item.id === "captivity:803");
   assert.ok(captivity);
   assert.equal(captivity.title, "A captain is held captive.");
 });
@@ -167,65 +160,65 @@ test("the loyalty note uses plain words and only the rounded figure", () => {
 });
 
 test("seed 1847 shows the release debt and the ransom credit the line already states", () => {
-  // The skill step left Esme Dusk's Cinder Key debt on the card Mara can read at tick 710.
-  const at710 = runTicks(createPrototypeWorld(1847), 710);
-  const mara = at710.state.characters["character-01"];
-  const esme = at710.state.characters["character-19"];
-  const pax = at710.state.characters["character-14"];
-  const esmeCard = projectCharacter(at710.state, mara, esme, at710.events);
-  const paxCard = projectCharacter(at710.state, mara, pax, at710.events);
+  // The levy left Esme Dusk's Crown Harbor debt on the card Mara can read at tick 400.
+  const at400 = runTicks(createPrototypeWorld(1847), 400);
+  const mara = at400.state.characters["character-01"];
+  const esme = at400.state.characters["character-19"];
+  const pax = at400.state.characters["character-14"];
+  const esmeCard = projectCharacter(at400.state, mara, esme, at400.events);
+  const paxCard = projectCharacter(at400.state, mara, pax, at400.events);
   assert.equal(esme.name, "Esme Dusk");
-  assert.equal(esme.locationId, "verdant-cay");
+  assert.equal(esme.locationId, "glassport");
   assert.equal(esmeCard.debts, null);
-  assert.equal(esmeCard.releaseDebtNote, "Owes 324.45 from the release at Cinder Key.");
+  assert.equal(esmeCard.releaseDebtNote, "Owes 69.96 from the release at Crown Harbor.");
   assert.equal(pax.locationId, "verdant-cay");
-  assert.equal(pax.money, 3885.31);
+  assert.equal(pax.money, 2104.61);
   assert.equal(paxCard.money, null);
   assert.equal(paxCard.ransomIncomeNote, null);
 
-  const at1046 = runTicks(createPrototypeWorld(1847), 1046);
-  const before = stateHash(at1046.state);
-  const maraLater = at1046.state.characters["character-01"];
-  const esmeLater = at1046.state.characters["character-19"];
-  const dax = at1046.state.characters["character-20"];
-  const esmeCardLater = projectCharacter(at1046.state, maraLater, esmeLater, at1046.events);
-  const daxCard = projectCharacter(at1046.state, maraLater, dax, at1046.events);
-  const maraCard = projectCharacter(at1046.state, maraLater, maraLater, at1046.events);
+  const at807 = runTicks(createPrototypeWorld(1847), 807);
+  const before = stateHash(at807.state);
+  const maraLater = at807.state.characters["character-01"];
+  const esmeLater = at807.state.characters["character-19"];
+  const dax = at807.state.characters["character-20"];
+  const esmeCardLater = projectCharacter(at807.state, maraLater, esmeLater, at807.events);
+  const daxCard = projectCharacter(at807.state, maraLater, dax, at807.events);
+  const maraCard = projectCharacter(at807.state, maraLater, maraLater, at807.events);
   assert.equal(dax.name, "Dax Pike");
   assert.equal(dax.captivity, null);
   assert.equal(dax.locationId, null);
-  assert.equal(daxCard.releaseDebtNote, "Owes 304.22 from the release at Cinder Key.");
-  assert.equal(esmeCardLater.releaseDebtNote, "Owes 324.45 from the release at Cinder Key.");
+  assert.equal(daxCard.releaseDebtNote, "Owes 502.05 from the release at Glassport.");
+  assert.equal(esmeCardLater.releaseDebtNote, "Owes 69.96 from the release at Crown Harbor. Owes 309.42 from the release at Glassport.");
   assert.equal(maraCard.ransomIncomeNote, null);
-  assert.equal(stateHash(at1046.state), before);
+  assert.equal(stateHash(at807.state), before);
 });
 
-test("seed 1847 tick 788 separates the ransom from the Crown Harbor work", () => {
-  // The skill step put Mara's release and Kessa Calder's work on the same tick. They stay different sentences.
-  const run = runTicks(createPrototypeWorld(1847), 789);
+test("seed 1847 tick 887 separates the ransom from the Crown Harbor work", () => {
+  // The levy put Mara's release and Dax Pike's work on the same tick. They stay different sentences.
+  const run = runTicks(createPrototypeWorld(1847), 888);
   const before = stateHash(run.state);
-  const release = run.events.find((event) => event.sequence === 106239);
-  const cinderUpkeep = run.events.find((event) => event.sequence === 106232);
-  const crownUpkeep = run.events.find((event) => event.sequence === 106234);
-  const glassUpkeep = run.events.find((event) => event.sequence === 106236);
-  const verdantUpkeep = run.events.find((event) => event.sequence === 106238);
-  const traded = run.events.find((event) => event.sequence === 106285);
+  const release = run.events.find((event) => event.sequence === 119648);
+  const cinderUpkeep = run.events.find((event) => event.sequence === 119641);
+  const crownUpkeep = run.events.find((event) => event.sequence === 119643);
+  const glassUpkeep = run.events.find((event) => event.sequence === 119645);
+  const verdantUpkeep = run.events.find((event) => event.sequence === 119647);
+  const traded = run.events.find((event) => event.sequence === 119731);
   assert.ok(release && cinderUpkeep && crownUpkeep && glassUpkeep && verdantUpkeep && traded);
   const mara = run.state.characters["character-01"];
-  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 74.92 was recorded as debt. Loyalty fell. 108 went to the Free Crown Harbor treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
+  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 106.34 was recorded as debt. Loyalty fell. 108 went to the Free Cinder Key treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
   const [releaseRow] = projectEventFeed(run.state, "character-01", [release]);
   assert.equal(releaseRow?.payloadWithheld, false);
   assert.equal(releaseRow?.summary, line);
   assert.deepEqual(releaseRow?.details, captivityReleasedParts(run.state, release, false, mara));
   assert.deepEqual(releaseRow?.details, [
     "Mara Vane was released from Crown Harbor.",
-    "108 was paid and 74.92 was recorded as debt.",
+    "108 was paid and 106.34 was recorded as debt.",
     "Loyalty fell.",
-    "108 went to the Free Crown Harbor treasury. The balance is not visible to you.",
+    "108 went to the Free Cinder Key treasury. The balance is not visible to you.",
     "The ransom line covers only the ransom.",
     "Mara Vane holds the seat of World Government again.",
   ]);
-  assert.equal(String(line).includes("462.45"), false);
+  assert.equal(String(line).includes("1072.9"), false);
 
   const [cinder] = projectEventFeed(run.state, "character-01", [cinderUpkeep]);
   const [crown] = projectEventFeed(run.state, "character-01", [crownUpkeep]);
@@ -242,11 +235,11 @@ test("seed 1847 tick 788 separates the ransom from the Crown Harbor work", () =>
 
   const [workRow] = projectEventFeed(run.state, "character-01", [traded]);
   assert.equal(traded.type, "worked");
-  assert.equal(traded.actorId, "character-10");
+  assert.equal(traded.actorId, "character-20");
   assert.equal(workRow?.payloadWithheld, true);
   assert.equal(workRow?.data, null);
-  assert.equal(workRow?.summary, "Kessa Calder worked at Crown Harbor.");
+  assert.equal(workRow?.summary, "Dax Pike worked at Crown Harbor.");
   assert.equal(String(workRow?.summary).includes("108"), false);
-  assert.equal(String(workRow?.summary).includes("74.92"), false);
+  assert.equal(String(workRow?.summary).includes("106.34"), false);
   assert.equal(stateHash(run.state), before);
 });

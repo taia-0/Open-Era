@@ -297,14 +297,15 @@ test("the panel shows the readout on an exact port and withholds it offshore", (
   assert.equal(typeof harborAway.secession.followerCount, "number");
 });
 
-test("Glassport at tick 72 is a foreign port under a stale World Government report", () => {
+test("Glassport at tick 49 is a foreign port under a stale World Government report", () => {
+  // The levy moves the first foreign Glassport to tick 49. Crown Harbor is still hers. Cinder Key is not, so that readout stays off.
   const world = createPrototypeWorld(1847);
-  runTicks(world, 72);
+  runTicks(world, 49);
   const live = world.settlements["glassport"];
   const mara = world.characters["character-01"];
   assert.equal(mara.locationId, "crown-harbor");
   assert.equal(live.factionId, "free-tide");
-  assert.equal(live.ownerId, "character-17");
+  assert.equal(live.ownerId, "character-20");
   assert.equal(mara.knowledge["glassport"].factionId, "world-government");
 
   const view = viewOf(world);
@@ -314,6 +315,5 @@ test("Glassport at tick 72 is a foreign port under a stale World Government repo
   assert.equal(glass?.secession, null);
   assert.ok(harbor?.secession);
   assert.equal(typeof harbor.secession.followerCount, "number");
-  assert.ok(cinder?.secession);
-  assert.equal(typeof cinder.secession.followerCount, "number");
+  assert.equal(cinder?.secession, null);
 });

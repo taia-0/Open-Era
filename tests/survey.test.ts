@@ -609,7 +609,7 @@ test("a remote garrison carries the report's tick and age, and a negative tick i
 });
 
 test("a garrison age equals the world tick minus the tick the player is shown", () => {
-  // Treasury spending moved the tick 72 reports. Verdant Cay is the stale rumor. Glassport is owned and fresh.
+  // The levy moved the tick 72 reports. Verdant Cay is the stale rumor. Glassport is a stale faction report. Crown Harbor is owned and fresh.
   const world = createPrototypeWorld(2718);
   runTicks(world, 72);
   assert.equal(world.tick, 72);
@@ -626,14 +626,24 @@ test("a garrison age equals the world tick minus the tick the player is shown", 
   assert.equal(verdant.intelligence.ageTicks, world.tick - verdant.intelligence.observedTick);
 
   const glass = shown("glassport");
-  assert.equal(glass.garrison, 86);
+  assert.equal(glass.garrison, 138);
   assert.ok(glass.garrisonIntelligence);
   assert.ok(glass.intelligence);
-  assert.equal(glass.garrisonIntelligence.source, "owned");
-  assert.equal(glass.garrisonIntelligence.observedTick, 72);
+  assert.equal(glass.garrisonIntelligence.source, "faction-report");
+  assert.equal(glass.garrisonIntelligence.observedTick, 0);
   assert.equal(glass.garrisonIntelligence.ageTicks, world.tick - glass.garrisonIntelligence.observedTick);
   assert.equal(glass.intelligence.ageTicks, world.tick - glass.intelligence.observedTick);
   assert.equal(glass.garrisonIntelligence.ageTicks, glass.intelligence.ageTicks);
+
+  const crown = shown("crown-harbor");
+  assert.equal(crown.garrison, 218);
+  assert.ok(crown.garrisonIntelligence);
+  assert.ok(crown.intelligence);
+  assert.equal(crown.garrisonIntelligence.source, "owned");
+  assert.equal(crown.garrisonIntelligence.observedTick, 72);
+  assert.equal(crown.garrisonIntelligence.ageTicks, world.tick - crown.garrisonIntelligence.observedTick);
+  assert.equal(crown.intelligence.ageTicks, world.tick - crown.intelligence.observedTick);
+  assert.equal(crown.garrisonIntelligence.ageTicks, crown.intelligence.ageTicks);
 });
 
 test("standing on an island, the forecast names the same fortification the panel shows", () => {

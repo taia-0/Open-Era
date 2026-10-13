@@ -61,7 +61,7 @@ test("a work that stays inside the whole number adds no skill line", () => {
   assert.equal(wholeNumberReached(77.023), null);
   const hashAfterTick = stateHash(world);
   const [row] = projectEventFeed(world, mara.id, [worked]);
-  assert.equal(row.summary, "Mara Vane worked at Crown Harbor. Tax of 2.82 went to the treasury.");
+  assert.equal(row.summary, "Mara Vane worked at Crown Harbor. Tax of 3.83 went to the treasury.");
   assert.equal(row.payloadWithheld, false);
   assert.equal(String(row.summary).includes("rose"), false);
   assert.equal(stateHash(world), hashAfterTick);
