@@ -1,6 +1,6 @@
 # Progression
 
-**Status: Open.** Design brief for the Lead. Nothing in this note is in the tree. The census is a local readout of the baseline tape. The resims were produced by a local harness and were not left in the tree.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). Nothing in this note is in the tree. The census is a local readout of the baseline tape. The resims were produced by a local harness and were not left in the tree.
 
 Checked on `origin/main` at `c4969af8477e2ec16ca7c135d610cf1c03a33fb9` (PR #93). Node v24.21.0, ICU 78.3. `npm test` passed, 379 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A separate headless run reproduced the fixture and the 1200-tick baseline:
 
@@ -218,3 +218,9 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 7. **How does this meet aging?** Default: a dead character practices nothing further. The year is 180 ticks. The run stays 1200. The deaths are the four in section 5. None fall inside the first 72 ticks. They remove the work and the voyages counted there, and they remove no finished battle. Slice 6 matches slice 2 through tick 72 and leaves it by tick 1200.
 
 8. **Which RNG?** Default: the skill step and the troop step draw nothing. A rarity roll, if a later slice adds one, uses a side stream forked from `world.rngState` at setup, stores the roll on the event, and does not draw inside `applyEvent`. The tick rng is the wrong stream. One discarded draw on it moves the first decision of tick 0, which is the result the aging note already measured for a death roll.
+
+## Ruling
+
+The Lead has ruled.
+
+Every default in section 8 is accepted. The skill step ships first. That is slice 2: `worked`, `travel-started`, and `battle-resolved` store the new skill absolutes at rate 0.001, and `applyEvent` writes them. The 72-tick hash moves on every seed, so the fixture is re-pinned when that slice lands. Troop experience, the promotion label, and the rarity mark stay behind it.
