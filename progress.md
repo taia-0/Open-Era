@@ -30,10 +30,10 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/leader-tax` from `c2a812d`. The free command holder sets the faction tax rate. Tick-72 and tick-1200 hashes are unchanged.
-- **Last verified:** 368 tests. Recovery replays 600.
-- **Gate status:** `./scripts/evaluate-milestone.sh leader-tax` passed. The blind plan is not run.
-- **Headline:** Mara can set World Government's tax rate. A headless run does not.
+- **Baseline:** `feature/feed-polish` from `7274635`. One feed line per player action. Buys and sells name the live hold. An empty `beforeSequence` is no bound. Tick-72 and tick-1200 hashes are unchanged.
+- **Last verified:** 374 tests. Recovery replays 600.
+- **Gate status:** `./scripts/evaluate-milestone.sh feed-polish` passed.
+- **Headline:** A player action keeps its result sentence. A provision buy names the purse and the hold.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
@@ -52,7 +52,7 @@ Git remains the complete history. This file exists for three things git does not
 | With several attackers, the briefing says more than one captain "won at Crown Harbor" in the same tick while the panel still shows the other side | Readability | Cursor | **Fixed in M34.3.** Two wins on one tick name both captains and say the garrison was left standing |
 | A claim says the captain "accepted Crown Harbor's surrender", but the surrender block is written and consumed within one tick, so the player never saw an offer | Readability | Cursor | **Fixed in M34.3.** A claim taken on the next tick says the offer was not waiting. No same-tick consumption was found in 1,200 ticks |
 | The visible port upkeep and the player's knowledge line give a garrison estimate (15) that disagrees with the dock panel (14, then 12) | Readability | Unassigned | Open |
-| The buy receipt's hold, shelf and price differ from the next screen because of the rest of the tick's upkeep and trading (for example hold 48 on the receipt, then 47.424, and price 1.54 then 1.78), and nothing says so | Readability | Unassigned | Open |
+| The buy receipt's hold, shelf and price differ from the next screen because of the rest of the tick's upkeep and trading (for example hold 48 on the receipt, then 47.424, and price 1.54 then 1.78), and nothing says so | Readability | Open Era Engineer | **Narrowed** on `feature/feed-polish`. The buy and sell lines state the live hold of that good, two decimals (`hold now 47.42` after the 12-provision purse buy). The event's `characterCargo` stays 48. The shelf and the later price still move |
 | Doubled period in grouped briefing lines ("Crown Harbor.. The first was on day 1.") | Readability | Cursor | **Fixed in M34.2.** A grouped summary drops one trailing period before it adds its own |
 | The starvation item at an empty Crown Harbor (tick 135, seed 1847) points only at Glassport and doesn't say this port is empty. The morale-cost half, quoting 1.382 per tick when morale is already 0, is fixed in M34 | Readability | Cursor | **Fixed in M34.1.** An empty berth is named. Correction (M34.2): after the ransom split, tick 595 has Mara free at Crown Harbor. She is not held, and the line does not name Verdant Cay |
 | Recruit's queued and executed lines ("Command queued for Mara Vane", "Mara Vane: action executed") omit quantity and cost (8 for 96) | Readability | Open Era Engineer | **Fixed** on `fix/treasury-wording`. The queued line names the order. The recruited line names the count and the cost. `player-action-executed` still says the action was carried out |
@@ -135,6 +135,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-13 — Player feed, one line and the live hold
+- **Agent:** Cursor cloud agent | **Branch:** `feature/feed-polish` | **Commits:** `1b910ca` (the feed, the tests). This commit records the gate. | **Type:** wording
+- **Changed** — The projected feed drops `player-action-executed` and `player-command-resolved`. The result sentence stays. A tax set stays `Mara Vane set the World Government tax rate to 12%.` and loses `Mara Vane: tax rate set`. A purse recruit stays `Mara Vane recruited 8 at Crown Harbor for 96 from the purse.` A provision buy becomes `Mara Vane bought 12 provisions at Crown Harbor for 17.64 from the purse (hold now 47.42).` A medicine buy becomes `Mara Vane bought 2 medicine at Crown Harbor for 34.54 from the purse (hold now 6).` A sale becomes `Mara Vane sold 2 arms at Crown Harbor (hold now 1). Tax of 0.91 went to the treasury.` Work, rest, and travel keep `worked`, `rested`, and `travel-started`. Queued lines and `player-command-failed` stay. `beforeSequence=` and a blank value are no bound. `beforeSequence=0` is still a bound. `src/sim` is unchanged.
+- **Why** — The executed and resolved rows repeated the result. The buy line did not say what the hold holds after the tick. An empty cursor was read as 0 and returned no events.
+- **Verified** — Base `7274635`. Node v24.21.0, ICU 78.3. `npm run typecheck` is clean. **374 tests.** `./scripts/evaluate-milestone.sh feed-polish` passed. Recovery replays 600. No `golden:update`. 72-tick hashes unchanged: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261). 1200-tick hashes unchanged: `90dacc2dfcd199ab720ade191bd3fdf8742632a36f19216bd53ce0e3a3294fef` / `226bf6257a86b233d197bd77747a10fe64b33dd7ac1e94bc27c11ff3ddf50cd8` / `30e9994387b2c9a2d8c0e16e27042797599188a105992cb7a9f8d2e924a8b0a6`. Events 160268 / 161850 / 162459. Blind playtest [feed-polish-001](docs/playtests/feed-polish-001.md) is **REVISE**. Seed 1847, Mara Vane, Node v24.21.0. Tax, buy, sell, recruit, work, rest, and travel each kept one result sentence. The queued rest line matched. An empty `beforeSequence=` returned 182 events. `beforeSequence=0` returned none. A rest while already traveling was HTTP 400 `character-traveling` and did not write `Mara Vane's command failed: controlled character cannot act while traveling`.
+- **Left open** — The shelf and the price on a buy still move later in the tick. Own-faction money at sea stays null. The blind session is not run.
+- **Links** — [feed-polish-001](docs/playtests/feed-polish-001.md)
 
 ### 2026-10-13 — Leader tax, the free holder's rate
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/leader-tax` | **Commits:** `deae157` (the command, the reducer, and the tests). This commit adds the unread plan and this entry. | **Type:** Behavior
