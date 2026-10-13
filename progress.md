@@ -31,8 +31,8 @@ Git remains the complete history. This file exists for three things git does not
 ## Current state
 
 - **Baseline:** `feature/feed-polish-2` from `4e715c4`. The secession walker stays. This branch changes dashboard sentences and the events page. It does not change the simulation.
-- **Last verified:** Unverified on this branch. The previous verification is 415 tests on `4222ffe`. The Lead-approved 1200-tick baseline is still `b302e1af` / `e81f5ba4` / `f6b6aea4`.
-- **Gate status:** `./scripts/evaluate-milestone.sh secession-3` passed on `4222ffe`. `feed-polish-2` is not run yet.
+- **Last verified:** 421 tests on `61e558f`. Typecheck clean. `./scripts/evaluate-milestone.sh feed-polish-2` passed. No `golden:update`. The 72-tick and 1200-tick hashes match the Lead-approved baseline `b302e1af` / `e81f5ba4` / `f6b6aea4`.
+- **Gate status:** `./scripts/evaluate-milestone.sh secession-3` passed on `4222ffe`. `feed-polish-2` passed on `61e558f`.
 - **Headline:** A refused command is a feed row. A queued voyage names both ports. The page count is the rows returned. The viewer's faction has an income line. A new faction's line says the treasury starts empty. An autonomous tax line says why. A tax set publishes `settlementId` null. An autonomous secession with no successor ends with ` (no leader yet)`.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
@@ -141,10 +141,10 @@ Git remains the complete history. This file exists for three things git does not
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
 ### 2026-10-13 — Feed polish, the refusal and the treasury line
-- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/feed-polish-2` | **Commits:** this commit. | **Type:** Wording
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/feed-polish-2` | **Commits:** `61e558f` and this commit. | **Type:** Wording
 - **Changed** — Eight dashboard readings. A submit-time HTTP 400 is also a `command-refused` row on the newest page, and the HTTP body is unchanged. A queued voyage names the port left and the port aimed at. `eventPage.count` is the rows returned, and `eventPage.total` excludes `player-action-executed` and `player-command-resolved`, which the page query drops before the limit. The viewer's faction has `treasuryLine` for tax, ransom, and treasury draws over the last 180 ticks. A declaration whose stored treasury is 0 says the faction starts empty. An autonomous tax line says `treasury short` on a rise and names the pressed port on a fall. A `tax-rate-set` row publishes `settlementId` null. An autonomous declaration with no successor ends with ` (no leader yet)`.
 - **Why** — The feed counted rows the projection had already dropped, a refusal vanished, and a new faction's 0 sat next to a same-tick 2.69 with no sentence saying which figure was the start. Autonomous tax and secession lines did not say why.
-- **Verified** — unverified
+- **Verified** — Node v24.21.0, ICU 78.3. `npm run typecheck` is clean. **421 tests.** The 72-tick golden fixture passed inside `npm test`. No `golden:update`. `./scripts/evaluate-milestone.sh feed-polish-2` passed. Recovery replayed 600 events and the hash matched. 72 ticks, headless, no commands: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261). 1200 ticks, headless, no commands: `b302e1af1cdd4dfe7ba2ea3371bf35dd64d770c1a7c8692a0a0ed6fac20e07e9` (1847, 164732 events), `e81f5ba4a3036f40f94ca02e48d856b3cf6572709277a303a718f4c273237056` (2718, 162127), `f6b6aea414d205bebd264d8d2c8efba66c6287448414df7359e7a90c910c31db` (4096, 159900). The declaration keeps treasury 0. On seed 1847 the same tick's Breakwater row is 2.69, from tax after the founding, so the line says the treasury starts empty rather than reprinting 2.69. The blind plan is written and not yet played.
 - **Left open** — The blind playtest. There is no wage event, so the income line cannot name wages. Spending is `treasuryDrawn` minus `treasuryRefunded`, floored at 0. A window that hits the check-in cap says the older events were not loaded.
 - **Links** — [feed-polish-2-001](docs/playtests/feed-polish-2-001.md)
 
