@@ -33,6 +33,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Offices](offices.md) — Open / design brief: the free command holder appoints a port governor, the secession read uses that governor, and a stipend is paid only when the treasury's headroom covers it
 - [Alliances](alliances.md) — Open / design brief: two factions ally or break from a shared enemy, raid losses, treasury, and port proximity, and a pact is not forced to restore balance
 - [Aging](aging.md) — Open / design brief: named characters die only of old age, a calendar year produces no death in 1200 ticks, and the acting commander does not inherit the seat
+- [Progression](progression.md) — Open / design brief: skills grow from work, travel, and battle, troop experience is the promotion band, and rarity stays the veteran split already in setup
 - [Loyalty drift](loyalty-drift.md) — Open / proposal: loyalty falls by 0.04 when a release leaves the ransom unpaid, and nothing else reads that change except who covers the seat
 - [Loyalty scar remeasure](loyalty-scar-remeasure.md) — Open / remeasure: with the dock rule patched on and M30's cover sort live, a −0.04 unpaid-release scar does not rename a cover or move the 72-tick fixture
 - [Autonomous orders](autonomous-orders.md) — Open / proposal: Free Tide does not mint protect orders after tick 0; once a report has closed, the four-day sketch accepts the next one and rewrites the first 72 ticks
