@@ -219,11 +219,11 @@ test("an autonomous secession with no successor ends with no leader yet", () => 
   const view = projectEventFeed(world, "character-01", declared, siblings);
   assert.equal(
     view.find((row) => row.settlementId === "crown-harbor")?.summary,
-    "Corin Hale declared Crown Harbor separate from Free Tide Compact. Corin Hale starts with an empty treasury. (no leader yet)",
+    "Corin Hale declared Crown Harbor separate from Free Tide Compact. Free Crown Harbor starts with an empty treasury. (no leader yet)",
   );
   assert.equal(
     view.find((row) => row.settlementId === "glassport")?.summary,
-    "Mina Vale declared Glassport separate from Free Tide Compact. Mina Vale starts with an empty treasury. (no leader yet)",
+    "Mina Vale declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)",
   );
   assert.equal(view.every((row) => row.payloadWithheld === true && row.data === null), true);
   assert.equal(declared.every((event) => event.data.successorId === null), true);

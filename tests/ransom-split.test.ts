@@ -224,7 +224,7 @@ test("Dax Pike's release is visible to the prisoner and the captor", () => {
   // Treasury spending moved Sable Morrow's tick 118 release. The balance share moved the Free Tide credit to Bram Quill.
   // The autonomous Free Tide step, first at tick 120 on seed 1847, moved it to Jun Marrow at Glassport.
   // The headless World Government step at tick 432 moved that release to tick 690.
-  // The secession walker, first at tick 438, moved the hidden-balance release to Dax Pike. It pays Mina Vale's treasury, not her purse.
+  // The secession walker, first at tick 438, moved the hidden-balance release to Dax Pike. It pays the Free Glassport treasury, not Mina Vale's purse.
   const world = createPrototypeWorld(1847);
   const events: SimEvent[] = [];
   let treasuryBefore = 0;
@@ -257,9 +257,9 @@ test("Dax Pike's release is visible to the prisoner and the captor", () => {
   assert.equal(world.characters["character-15"].money, 279);
   assert.notEqual(world.characters["character-15"].money, round(minaBefore + 5.09, 2));
   assert.equal(ransomIncomeNote(world, "character-15", [release]), null);
-  const line = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Mina Vale treasury. The ransom line covers only the ransom.";
-  const hiddenLine = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Mina Vale treasury. The balance is not visible to you. The ransom line covers only the ransom.";
-  const chronicle = "**Dax Pike** was released from **Glassport** under mandatory terms. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the **Mina Vale** treasury. The ransom line covers only the ransom.";
+  const line = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Free Glassport treasury. The ransom line covers only the ransom.";
+  const hiddenLine = "Dax Pike was released from Glassport. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the Free Glassport treasury. The balance is not visible to you. The ransom line covers only the ransom.";
+  const chronicle = "**Dax Pike** was released from **Glassport** under mandatory terms. 5.09 was paid and 470.2 was recorded as debt. Loyalty fell. 5.09 went to the **Free Glassport** treasury. The ransom line covers only the ransom.";
   assert.equal(captivityReleasedSentence(world, release), line);
   assert.equal(captivityReleasedChronicle(world, release), chronicle);
   for (const readerId of ["character-20", "character-15", "character-01"]) {

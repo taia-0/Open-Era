@@ -253,17 +253,71 @@ export function secessionFactionId(ownerId: string, settlementId: string, tick: 
   return `secession-${ownerId}-${settlementId}-${tick}`;
 }
 
+const ROMAN_NUMERALS: ReadonlyArray<readonly [number, string]> = [
+  [1000, "M"],
+  [900, "CM"],
+  [500, "D"],
+  [400, "CD"],
+  [100, "C"],
+  [90, "XC"],
+  [50, "L"],
+  [40, "XL"],
+  [10, "X"],
+  [9, "IX"],
+  [5, "V"],
+  [4, "IV"],
+  [1, "I"],
+];
+
+/** Decimal to a roman numeral. 2 is II. No draw. */
+function romanNumeral(value: number): string {
+  let rest = value;
+  let numeral = "";
+  for (const [amount, glyph] of ROMAN_NUMERALS) {
+    while (rest >= amount) {
+      numeral += glyph;
+      rest -= amount;
+    }
+  }
+  return numeral;
+}
+
+/**
+ * The faction name for a declaration that passed no name.
+ *
+ * The port's name, prefixed with "Free". Crown Harbor is "Free Crown Harbor".
+ * When that string is already a faction's name, the next free roman suffix
+ * is used: "Free Crown Harbor II", then "III". The names already in the
+ * world are the ones that count. The walker applies each declaration before
+ * the next port, so a second break in the same tick sees the first. No draw.
+ */
+export function autonomousFactionName(world: WorldState, settlement: Settlement): string {
+  const base = `Free ${settlement.name}`;
+  const taken = new Set(Object.values(world.factions).map((faction) => faction.name));
+  if (!taken.has(base)) return base;
+  let ordinal = 2;
+  let candidate = `${base} ${romanNumeral(ordinal)}`;
+  while (taken.has(candidate)) {
+    ordinal += 1;
+    candidate = `${base} ${romanNumeral(ordinal)}`;
+  }
+  return candidate;
+}
+
 /**
  * The payload for one declaration. Does not write the world.
  *
  * `name` is the faction name when the command passed one. Omitted, the
- * owner's name is used. The garrison follows only when the port is pressed
- * and the stack is not empty. Otherwise the event stores garrison 0.
- * If the acting commander is leaving, the replacement is the cover sort
- * over the members who remain. When the declarer is the command holder, the
- * cover-sort successor stays, is left out of `followerIds`, and the regency
- * ends: `actingCommanderId` is null because that cover has taken the seat.
- * A holder with no successor is refused before this runs.
+ * faction is "Free" plus the port name, with a roman suffix when that name
+ * is already taken. The player command passes the owner's name when the
+ * player omits one, so that path does not use this fallback. The garrison
+ * follows only when the port is pressed and the stack is not empty.
+ * Otherwise the event stores garrison 0. If the acting commander is leaving,
+ * the replacement is the cover sort over the members who remain. When the
+ * declarer is the command holder, the cover-sort successor stays, is left
+ * out of `followerIds`, and the regency ends: `actingCommanderId` is null
+ * because that cover has taken the seat. A holder with no successor is
+ * refused before this runs.
  */
 export function buildSecessionDeclaration(
   world: WorldState,
@@ -300,7 +354,7 @@ export function buildSecessionDeclaration(
     stability: settlement.stability,
     faction: {
       id: secessionFactionId(settlement.ownerId, settlement.id, world.tick),
-      name: name ?? owner.name,
+      name: name ?? autonomousFactionName(world, settlement),
       color: SECESSION_FACTION_COLOR,
       treasury: 0,
       taxRate: SECESSION_FOUNDING_TAX_RATE,
