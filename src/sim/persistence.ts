@@ -245,6 +245,32 @@ export class WorldStore {
     return row.count;
   }
 
+  /**
+   * Lifetime counts of the three feeding events, per actor.
+   *
+   * Read from the log. Nothing is written onto the world. A character with
+   * none of these events is absent; the caller treats that as zero.
+   */
+  feedingCounts(): Record<string, { worked: number; voyages: number; battles: number }> {
+    const rows = this.database.prepare(`
+      SELECT actor_id AS actorId, type, COUNT(*) AS count
+      FROM events
+      WHERE actor_id IS NOT NULL
+        AND type IN ('worked', 'travel-started', 'battle-resolved')
+      GROUP BY actor_id, type
+    `).all() as Array<{ actorId: string; type: string; count: number }>;
+    const counts: Record<string, { worked: number; voyages: number; battles: number }> = {};
+    for (const row of rows) {
+      const entry = counts[row.actorId] ?? { worked: 0, voyages: 0, battles: 0 };
+      const count = Number(row.count);
+      if (row.type === "worked") entry.worked = count;
+      else if (row.type === "travel-started") entry.voyages = count;
+      else if (row.type === "battle-resolved") entry.battles = count;
+      counts[row.actorId] = entry;
+    }
+    return counts;
+  }
+
   eventCount(omitTypes: readonly string[] = []): number {
     const filter = typeFilter(omitTypes);
     const row = this.database.prepare(`SELECT COUNT(*) AS count FROM events WHERE 1 = 1${filter.clause}`).get(...filter.params) as { count: number };

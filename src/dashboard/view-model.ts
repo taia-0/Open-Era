@@ -18,7 +18,7 @@ import { secessionReadout, type SecessionReadout } from "../sim/secession.ts";
 import { marketPrice, partyPowerFromTroops, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { CHECK_IN_READ_CAP } from "../sim/persistence.ts";
 import { RESOURCE_KEYS, type ActiveBattle, type Character, type CombatForecast, type Settlement, type SettlementKnowledge, type SimEvent, type WorldState } from "../sim/types.ts";
-import { captiveIntelFor, eventPayloadVisible, projectCharacter, projectEvent, projectFactions, projectSupplyContracts, seaSightingsFor } from "./visibility.ts";
+import { captiveIntelFor, eventPayloadVisible, projectCharacter, projectEvent, projectFactions, projectSupplyContracts, seaSightingsFor, type FeedingCounts } from "./visibility.ts";
 import {
   attentionLabel,
   battleResolvedSentence,
@@ -1201,6 +1201,11 @@ export function dashboardState(
    * Oldest first. They are not stored.
    */
   refusals: DashboardRefusal[] = [],
+  /**
+   * Lifetime feeding counts. The check-in window is not a substitute: a
+   * missing log leaves `feedCounts` null.
+   */
+  feedCounts?: Record<string, FeedingCounts>,
 ): Record<string, unknown> {
   const player = Object.values(world.players)[0];
   const commander = world.characters[player.characterId];
@@ -1452,7 +1457,7 @@ export function dashboardState(
     }),
     characters: Object.values(world.characters)
       .sort((left, right) => left.id.localeCompare(right.id))
-      .map((character) => projectCharacter(world, commander, character, briefingEvents)),
+      .map((character) => projectCharacter(world, commander, character, briefingEvents, feedCounts)),
     contracts: projectSupplyContracts(world, commander),
     ...eventFeed(world, commander.id, briefingEvents, feed, refusals),
     conversations: {

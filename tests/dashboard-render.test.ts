@@ -286,6 +286,24 @@ test("the header runway reads the party's runwayTicks", () => {
   assert.doesNotMatch(header, /unknown/, "a known runway must not render as unknown");
 });
 
+test("the character panel reads progression from the card", () => {
+  const state = projectedState();
+  const renderer = rendererFor(state);
+  const characters = state.characters as Array<Record<string, any>>;
+  const mara = characters.find((character) => character.id === "character-01");
+  assert.ok(mara);
+  const html = renderer.characterInspector(mara);
+  assert.match(html, /<h3>Progression<\/h3>/);
+  assert.match(html, /Trade<\/span><strong>57\.000/);
+  assert.match(html, /Troop quality<\/span><strong>veteran/);
+  assert.match(html, /Works<\/span><strong>Unknown/);
+  const distant = characters.find((character) => character.skills === null && character.progression);
+  assert.ok(distant, "a captain whose skills are withheld must be on the panel");
+  const hidden = renderer.characterInspector(distant);
+  assert.match(hidden, /Trade<\/span><strong>Unknown/);
+  assert.match(hidden, /Troop quality<\/span><strong>Unknown/);
+});
+
 test("a market with no report says so instead of drawing zero stocks as fact", () => {
   const state = projectedState();
   const renderer = rendererFor(state);
