@@ -275,19 +275,19 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
   );
 });
 
-test("seed 1847 at tick 708 names Verdant Cay while she is held", () => {
-  // The skill step moved Mara's hold to Crown Harbor, captured on tick 704.
-  const result = runTicks(createPrototypeWorld(1847), 708);
+test("seed 1847 at tick 324 names Verdant Cay while she is held", () => {
+  // Batch 1 moved Mara's hold to Crown Harbor, captured on tick 316.
+  const result = runTicks(createPrototypeWorld(1847), 324);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
     day: number;
     party: { resupply: { settlementId: string; provisions: number; price: number; reachable: boolean; travelTicks: number | null } | null };
     briefing: { items: Array<{ id: string; summary: string; settlementId: string | null }> };
   };
-  assert.equal(result.state.tick, 708);
-  assert.equal(view.day, 118);
+  assert.equal(result.state.tick, 324);
+  assert.equal(view.day, 54);
   assert.equal(commander.captivity?.settlementId, "crown-harbor");
-  assert.equal(commander.captivity?.capturedTick, 704);
+  assert.equal(commander.captivity?.capturedTick, 316);
   assert.equal(commander.locationId, "crown-harbor");
   const starving = view.briefing.items.find((item) => item.id === "provision:critical");
   assert.ok(starving);

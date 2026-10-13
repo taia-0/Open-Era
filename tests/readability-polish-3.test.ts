@@ -140,29 +140,24 @@ test("seed 1847 names both captains and does not say each one took the port", ()
     "Zara Gale claimed Glassport. The surrender was offered and taken on the next tick, so it was not waiting.",
   );
 
-  // Three captains win at Crown Harbor on tick 839.
-  const shared = runTicks(createPrototypeWorld(1847), 840);
+  // Two captains win at Crown Harbor on tick 478.
+  const shared = runTicks(createPrototypeWorld(1847), 479);
   const wins = shared.events.filter((event) =>
-    event.type === "battle-resolved" && event.tick === 839 && event.settlementId === "crown-harbor",
+    event.type === "battle-resolved" && event.tick === 478 && event.settlementId === "crown-harbor",
   );
   const sharedFeed = projectEventFeed(shared.state, "character-01", wins);
-  const sable = sharedFeed.find((row) => row.sequence === 113951);
-  const vale = sharedFeed.find((row) => row.sequence === 113972);
-  const orin = sharedFeed.find((row) => row.sequence === 113983);
-  const sharedLine = "3 captains won a fight here on this tick: Sable Morrow, Vale Drake, Orin Rill. This fight left the garrison standing. A surrender was offered.";
+  const pax = sharedFeed.find((row) => row.sequence === 61244);
+  const zaraWin = sharedFeed.find((row) => row.sequence === 61256);
+  const sharedLine = "2 captains won a fight here on this tick: Pax Ash, Zara Gale. This fight left the garrison standing. A surrender was offered.";
   assert.equal(
-    sable?.summary,
-    `Sable Morrow won the fight at Crown Harbor on a higher score, after morale gave out. ${sharedLine}`,
+    pax?.summary,
+    `Pax Ash won the fight at Crown Harbor on a higher score, after morale gave out. ${sharedLine}`,
   );
   assert.equal(
-    vale?.summary,
-    `Vale Drake won the fight at Crown Harbor on a higher score, after morale gave out. ${sharedLine}`,
+    zaraWin?.summary,
+    `Zara Gale won the fight at Crown Harbor on a higher score, after morale gave out. ${sharedLine}`,
   );
-  assert.equal(
-    orin?.summary,
-    `Orin Rill won the fight at Crown Harbor on a higher score, after morale gave out. ${sharedLine}`,
-  );
-  for (const row of [zara, claimed, sable, vale, orin]) {
+  for (const row of [zara, claimed, pax, zaraWin]) {
     assert.equal(row?.payloadWithheld, true);
     assert.equal(row?.data, null);
     assert.equal(String(row?.summary).includes("outscore"), false);
@@ -171,21 +166,21 @@ test("seed 1847 names both captains and does not say each one took the port", ()
   }
 });
 
-test("seed 1847 tick 477 says morale gave out, and does not say nerve broke", () => {
-  // The skill step moved this fight to Jun Marrow at Glassport on tick 477.
-  const run = runTicks(createPrototypeWorld(1847), 478);
-  const battle = run.events.find((event) => event.sequence === 61013);
+test("seed 1847 tick 380 says morale gave out, and does not say nerve broke", () => {
+  // Batch 1 moved this fight to Dax Pike at Glassport on tick 380.
+  const run = runTicks(createPrototypeWorld(1847), 381);
+  const battle = run.events.find((event) => event.sequence === 48129);
   assert.ok(battle);
   assert.equal(battle.type, "battle-resolved");
-  assert.equal(battle.tick, 477);
-  assert.equal(battle.actorId, "character-05");
+  assert.equal(battle.tick, 380);
+  assert.equal(battle.actorId, "character-20");
   assert.equal(battle.settlementId, "glassport");
   assert.equal(battle.data.outcome, "attacker-victory");
   assert.equal(typeof battle.data.battleId, "string");
   const [row] = projectEventFeed(run.state, "character-01", [battle]);
   assert.equal(row?.payloadWithheld, true);
   assert.equal(row?.data, null);
-  assert.equal(row?.summary, "Jun Marrow won the fight at Glassport on a higher score, after morale gave out. A surrender was offered.");
+  assert.equal(row?.summary, "Dax Pike won the fight at Glassport on a higher score, after morale gave out. A surrender was offered.");
   assert.equal(String(row?.summary).includes("nerve"), false);
   assert.equal(String(row?.summary).includes("outscore"), false);
 });
