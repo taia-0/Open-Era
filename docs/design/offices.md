@@ -337,3 +337,154 @@ On the slice 3 world the first `tax-rate-set` is still outside 72 ticks, so tick
 | 4096 | `3ce72c067ac47182d868137c79b9228b0a76dc5bed0d5f17c9d30028dd052437` | 162327 |
 
 **The step should stand.** It is the scar's step, in the other direction. On these seeds it lifts seated governors across 0.75 and does not change who follows a declaration, how many spells open, or the event log. The hash moves because the field is stored. A larger step was not run.
+
+## Addendum: the full office roster
+
+**Status: Open.** Design brief for the Lead. The sections above are the port-governor brief. They stay as they were. Nothing in this addendum is in the tree. The census is a local readout of the baseline tape. Two stipend deductions and one field store were applied by a local harness, measured, and restored.
+
+Checked on `origin/main` at `52bb65e9a2023a6e462192798c2c4285f4d0ab06` (PR #110). Node v24.21.0, ICU 78.3. `npm test` passed, 427 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline:
+
+| Seed | Tick 72 state hash | Events | Tick 1200 state hash | Events |
+| --- | --- | ---: | --- | ---: |
+| 1847 | `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` | 8413 | `acf1b2c25f0f55c3b308177ec621180a515897849bf1ee9ba5aa5bca3b0852c9` | 164732 |
+| 2718 | `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` | 8456 | `47c65e2fd676bfd420a36ee4bf13d871d6b474dfd27b6106a3319724f6e75ec9` | 162127 |
+| 4096 | `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` | 8261 | `a0ac2cc419d640660cf34c20acb3a0cb42449fef6f13e4eadb4caaaf9d255a1f` | 159900 |
+
+Captures are 15, 14, and 13. Releases are 14, 13, and 13. Secessions are 6, 5, and 4. Ending treasuries are World Government 5501.03, 6885.06, and 3608.30, and Free Tide 0, 666.09, and 0. Free Tide is at or below 0 on 570, 150, and 713 of the states from tick 0 through tick 1200.
+
+Runs are `createPrototypeWorld` plus `runTick`, no player commands. Seeds 1847, 2718, and 4096. A figure at tick 0 is the world before any `runTick`. A figure at tick 72 or tick 1200 is the world after that many calls. Tick numbers on events are the `tick` field. State samples below are tick 0 through tick 1200, 1201 states. The stipend mornings are tick 0, 6, …, 1194, two hundred of them. The state at tick 1200 is not billed.
+
+[Game vision](game-vision.md) names winning office as a weekly success, and it keeps a political office going through a deputy while the human holder is away. It does not name a treasurer or an admiral. [Aging](aging.md) is the death rule: a year is 180 ticks, death draws use a side stream, and the other defaults in that brief stand, including vacant succession. [Morale](morale.md) is the desertion rule: 12 short mornings, then one side-stream roll, leaving when the roll is under 0.5. [Treasury balance](treasury-balance.md) is the allowance, `min(18, treasury / free mates)`, holder uncapped. [Secession](secession.md) is what the governor reads. On this tree the declarer is still `ownerId`.
+
+### Summary
+
+The roster stays the command holder, the acting commander, and the port governor. A treasurer and an admiral were seated in the readout and were not given a job the code already has. There is one treasury. The holder draws it without a cap, 260, 424, and 211 times, 7027.89, 6911.28, and 5199.07 coins. Mates draw the balance share, 5696, 5991, and 6401 times. There is no ship record. `sailors` is unchanged across the 1200 ticks. An admiral who issued orders would be a second issuer, and `commandHolderId` then returns null.
+
+A breakaway has no command holder. Port-ticks held by a faction with no holder are 1367, 842, and 1482, and every one of them is a breakaway. The appointment rule does not run. The governor seat stays empty. At tick 1200 those ports have an owner and no governor.
+
+Vacancies below are hits on the sticky seat. The character is not removed, so a death or a desertion is the post they hold on the living tape. Governor deaths are 2, 0, and 0. Governor captures are 0, 1, and 2. Governor desertions are 0. A secession clears a seated governor 3, 5, and 2 times. The declarer is that governor on 2, 4, and 2 of the 6, 5, and 4 declarations.
+
+The governor stipend, 18 from headroom, is the offices rule measured on this tree. On the tape the spot bill is World Government 4518, 4752, and 4626, and Free Tide 774, 1944, and 792. The writing run pays 3510, 5130, and 3726, and 612, 1116, and 756. Free Tide ends at 0, 0, and 0. The middle seed's baseline ending is 666.09. Adding a treasurer and an admiral on the same 18 drains World Government to 52.25, 148.85, and 0.
+
+### 1. Which posts the material conditions support
+
+Three seats are already named. The command holder is the standing-order issuer. The acting commander is the captivity cover. The port governor is one seat per faction-held settlement, appointed by the free holder from the members anchored on that dock. The opening names are the table in section 2. Verdant Cay is neutral on every state. Seatings on this tree are 23, 24, and 20. Distinct governors are 9, 14, and 11.
+
+Regency, states where `actingCommanderId` is set, out of 1201: World Government 84, 84, and 84, Free Tide 84, 190, and 84. At tick 72 the field is absent on both factions. At tick 1200 it is absent except Free Tide on 2718, where Dax Pike covers Pax Ash. The cover does not appoint, does not set the tax, and does not inherit the holder's draw. That is the deputy the vision already has.
+
+A treasurer, scored beside the run, is the free mate with the highest `skills.trade`, lower id on a tie, not the holder and not captive. An admiral is the free mate with the highest `skills.navigation * 1000 + sailors`, same exclusions. Neither field is in the tree. At tick 72 the treasurer is Toma Reef, Toma Reef, and Bram Quill for World Government, and Bram Tern, Bram Tern, and Zara Gale for Free Tide. The admiral is Ada Sorn, Vale Drake, and Niko Wren, and Finn Frost, Finn Frost, and Corin Hale. On 2718 at tick 1200 the Free Tide admiral is Dax Pike, who is also the acting commander. The post is not a second person.
+
+`sailors` does not change. The most hulls underway at once are 11, 11, and 11 for World Government and 9, 8, and 8 for Free Tide. A breakaway's most is 3, 3, and 5. Each character is already the hull. The holder already issues the orders.
+
+### 2. How a post is filled, and what empties it
+
+The free holder appoints. The acting commander does not. A governor is the cover sort on the members anchored at that port. Once named, the seat stays until the port's faction changes, the officer's faction no longer matches, or the officer becomes the command holder. Captivity does not clear it. That is the sticky seat these counts are read from.
+
+A faction with no holder appoints nobody. Secession founds that faction and retargets the old holder's orders onto the cover who stayed, so the new faction has no issuer. The 1367, 842, and 1482 port-ticks are that case. Filled governor states are 2158, 2598, and 2039 of the 3603 faction-port states. The empty remainder is 1445, 1005, and 1564, of which 1367, 842, and 1482 are the breakaway ports. The other 78, 163, and 82 are World Government or Free Tide with nobody seated.
+
+Death is the aging rule, read beside the tape and not written. Span ages are `DeterministicRng(seed).integer(18, 119)` in id order. A year is 180 ticks. The side stream is a `DeterministicRng` forked from `world.rngState` at setup and is not written back. `physical` is the weighted sum already inside `personalPower`, before the health factor. Strength is `(physical / 100 + troops.experience) / 2`. From 81 to 119, on the birthday, the character dies when the roll is under `((age - 80) / 40) * (1 - strength)`, clamped to 0–1. At 120 the death is certain and no roll is drawn. A person already counted is not rolled again. The character stays on the tape.
+
+Deaths are 13, 5, and 8. Two of them are governors, one is the Free Tide admiral, and one is the command holder. Lio Crow and Esme Dusk reach 120 on 2718 and hold no post when they do. The post hits and those two age-120 deaths:
+
+| Seed | Tick | Who | Post |
+| --- | ---: | --- | --- |
+| 1847 | 180 | Bram Quill (`character-02`) | governor of Glassport, roll 0.556 under 0.565 |
+| 1847 | 360 | Jun Marrow (`character-05`) | governor of Crown Harbor, roll 0.388 under 0.390 |
+| 1847 | 360 | Finn Frost (`character-18`) | admiral of Free Tide, roll 0.451 under 0.610 |
+| 1847 | 1080 | Pax Ash (`character-14`) | command holder, roll 0.082 under 0.192 |
+| 2718 | 180 | Lio Crow (`character-12`) | none, age 120 |
+| 2718 | 720 | Esme Dusk (`character-19`) | none, age 120 |
+
+Esme Dusk is not governor of Cinder Key at tick 720 on this tape. Mara's ages are 29, 35, and 44. She does not enter the band. Pax's ages are 101, 43, and 98. Only the 1847 birthday kills him. Unaffiliated deaths are 5, 0, and 3. They hold no post.
+
+Desertion is the morale rule, also beside the tape. A free mate, not the holder, whose scarred loyalty is under 0.75, rolls once on the morning the short streak reaches 12. Short means the cap is under 18. The roll is the morale side stream, forked the same way, and a roll under 0.5 leaves. Mates who reach 12 are 8, 6, and 8. The leaves are 2, 0, and 2. Esme Dusk at tick 180, roll 0.245, and Mina Vale at tick 288, roll 0.034, both on 1847, hold no post. Zara Gale at tick 204, roll 0.160, is Free Tide's treasurer. Dax Pike at the same tick, roll 0.238, holds no post. The six mates on 2718 stay. No governor deserts.
+
+Captures that hit a sticky post: Finn Frost, the Free Tide admiral, at tick 333 on 1847 and tick 308 on 2718. Kessa Calder, governor of Crown Harbor, at tick 979 on 2718. Iris Stone, governor of Glassport, at tick 437 on 4096. Rook Tern, governor of Crown Harbor, at tick 1009 on 4096. Holder captures are 2, 4, and 2: Pax at 570 and Mara at 1078; Pax at 119, 266, and 1178, and Mara at 836; Pax at 406 and Mara at 759. No acting commander is captured while covering.
+
+Secession clears a seated governor 3, 5, and 2 times, because the port's faction changes and the seat does not follow the officer into the new hold. The declarer is that governor on 2, 4, and 2 declarations: Corin Hale and Dax Pike on 1847; Mina Vale, Zara Gale, Bram Tern, and Esme Dusk on 2718; Corin Hale and Zara Gale on 4096. Two others declare while a different governor holds the seat: Mina Vale at Glassport on 1847, Dax Pike seated, and Corin Hale at Cinder Key on 2718, Zara Gale seated. The remaining 3, 0, and 2 find the seat empty.
+
+### 3. Allowance, succession, and the declaration
+
+The stipend is 18, the same unit as the allowance. Headroom is `treasury − free mates × 18`. The day pays only when that headroom covers 18 for every seat the faction holds. Otherwise the day pays 0. The holder's draw stays uncapped. The mates' cap stays the balance share. A governor does not become a second holder.
+
+World Government's cap is 18 on all 200 mornings. Free Tide's cap is under 18 on 77, 88, and 113 of them. A breakaway opens at 0, so its headroom does not cover a seat. The spot ledger bills none of them.
+
+Succession is the aging default. A dead holder leaves the faction, the orders are not retargeted, and the seat is vacant. The acting commander is not promoted. On this census that death is Pax Ash at tick 1080 on 1847, and it is not written. A captive holder keeps the issuer id. The cover is seated beside him and does not take the orders. That is the 2, 4, and 2 holder captures.
+
+The declaration on this tree is still the owner's. The offices brief moves it to the governor. On these seeds the owner who declares is the sticky governor 2, 4, and 2 times. Two declarations have a different governor in the seat, and 3, 0, and 2 find it empty. A port with no governor has nobody to declare under that read. Crown Harbor before its first claim, and every breakaway port after the faction change, are in that set.
+
+At tick 1200 the seated governors are Kessa Calder at Cinder Key, Vale Drake at Glassport, and Jun Marrow at Crown Harbor. Jun is also the owner there. The other ports are breakaways and have no governor.
+
+### 4. What the stipends cost
+
+The spot bill uses the baseline treasury. The same captain is not removed, and the treasury is not reduced between mornings. Coins are 18 times the filled seats on a morning the headroom covers every held port. Days are mornings that pay at least one seat.
+
+| Bill | World Government coins | Days | Free Tide coins | Days |
+| --- | --- | ---: | --- | ---: |
+| Governor | 4518, 4752, 4626 | 174, 164, 177 | 774, 1944, 792 | 30, 79, 31 |
+| Governor, treasurer, and admiral | 11214, 11124, 11466 | 186, 177, 190 | 1368, 4788, 1512 | 23, 82, 25 |
+
+The writing runs deduct those coins from the treasury on the same mornings, each run from the baseline. The governor run pays World Government 3510, 5130, and 3726, on 166, 186, and 169 mornings, and Free Tide 612, 1116, and 756, on 25, 56, and 31 mornings. Endings are World Government 1758.59, 4420.26, and 57.26, and Free Tide 0, 0, and 0. States at or below 0, after each of the 1200 ticks, are 841, 456, and 701. The baseline middle-seed ending of 666.09 does not survive the deduction.
+
+The wide run pays World Government 9144, 9774, and 8478, and Free Tide 1476, 1710, and 1458. Endings are World Government 52.25, 148.85, and 0, and Free Tide 0, 6.33, and 0. That bill is the two extra posts. It is not the governor rule.
+
+### 5. Hash
+
+Slices are measured from the baseline, not stacked. A readout writes nothing. The tick rng is not drawn. Death and desertion rolls use their own side streams and are not written back.
+
+Storing `governorId` on the settlement, and `treasurerId` and `admiralId` on the faction, moves the hash. Nothing reads the fields. The ordered event identity matches the baseline through tick 1200. Event counts stay on the baseline table. The fixture moves because the opening seats are named at state tick 0.
+
+| Seed | Tick 72 | Events | Tick 1200 | Events |
+| ---: | --- | ---: | --- | ---: |
+| 1847 | `fd229411e1758bcd91b9c98cb8f032f3fdc6fe425b7bee328c92fa01d5fc111d` | 8413 | `6fe8646239787fd5ebf7f91510728dc44d9a8deb5f63917d54b39cfdf6f15101` | 164732 |
+| 2718 | `52510ca8343fd1664fdd1b38aebea734e194a7805de8ae1fff631a5d7c8009cf` | 8456 | `4d146c1d20fefebcda4e9e37326bf373fb8d18c2bd063cd8f2a67eb8b2a3076f` | 162127 |
+| 4096 | `94c185179b9725f82866625494ce2b51010d758563d3622b153ff3ab8774a364` | 8261 | `b0f8525ce480c2ec5a2aa143533d07c1e7c3ad612b5d91ab4c08fa116aaa0479` | 159900 |
+
+The governor stipend writes no new event. The treasury is lower, so the tick-72 hash moves and the event count stays 8413, 8456, and 8261. The ordered event identity matches through the fixture. The first difference is tick 110, tick 216, and tick 96.
+
+| Seed | Tick 72 | Events | Tick 1200 | Events |
+| ---: | --- | ---: | --- | ---: |
+| 1847 | `866ed2c82aba5ef909aeef4ffbf9b558a842483c7e2b9d253f5c7cce8727ce6f` | 8413 | `5f31c75d4dc2047fd927066c6a9130f0cec81da0e85da4a792284cabc2926397` | 164325 |
+| 2718 | `0e8133175488be3b2feae35d8a68d4db80126f38d87348339c3d9b37534ec7bc` | 8456 | `7c27529a33bf0262fc883baee953b2708b63ef662abf38165edafeede34eb26c` | 164680 |
+| 4096 | `b8cf5eedd07184d1ef3375191195e99f8a29e24ab21fb11f228da07045fb11f6` | 8261 | `5470e2f2496a5f9f01540b83ac31606230cfdd2822139330cbc282969812c1e1` | 164582 |
+
+The wide stipend is the same shape. The first difference is tick 91, tick 167, and tick 89.
+
+| Seed | Tick 72 | Events | Tick 1200 | Events |
+| ---: | --- | ---: | --- | ---: |
+| 1847 | `cff92ec13df831dc53ec06d53af39a2f6b82d3a908188171fa1ca2d13c18a164` | 8413 | `e55aae4a97412936222b120f5697b6455e3ddbc68404e2442b6a09a8cfeefa24` | 161426 |
+| 2718 | `9b055e1097253c787430ec7ef40a8c89b624f907b971cf8bfaf69195484dc143` | 8456 | `6b426daad61e18813fd2544cc346c0e8ee8790aab3aae170974deb444c0df1b6` | 163527 |
+| 4096 | `b78642cbd8a9cff83fe6636f0016335b3bacf8cc78812f1917b9080ea8eafa39` | 8261 | `15ab01b7b0cbc2b3497b0ffb2a4c2ce4e50c1de3ed4392f365c989c4862673b5` | 162572 |
+
+A `character-died` world and a `character-deserted` world were not hashed here. Those events belong to the aging and morale rulings. This readout does not emit them.
+
+### 6. Slice plan
+
+The slices are in the order they would be considered. Each one starts from the baseline.
+
+| Slice | What lands | Hash on these three seeds |
+| --- | --- | --- |
+| 1 | A readout. The holder, the cover, the governor, the breakaway ports with no holder, and the death, capture, and desertion hits. Not written. | Neutral. The baseline table. |
+| 2 | The governor stipend. Eighteen per filled seat on a morning whose headroom covers every held port. No new event. | Tick 72 keeps the event count and moves the hash. The first event difference is tick 110, 216, and 96. Tick 1200 is the governor row. Free Tide ends at 0, 0, and 0. |
+| 3 | `governorId`, `treasurerId`, and `admiralId` stored, nothing reading them. | The fixture moves. Event identity matches the baseline. Counts stay 8413, 8456, 8261 and 164732, 162127, 159900. |
+| 4 | The stipend of slice 2, plus 18 for a treasurer and 18 for an admiral, with those filled posts added to the cover. | Tick 72 keeps the event count and moves the hash. The first event difference is tick 91, 167, and 89. Tick 1200 is the wide row. World Government ends at 52.25, 148.85, and 0. |
+
+Slice 3 and slice 4 are the measurement of the extra posts. They are not required for slice 2.
+
+### 7. Questions for the Lead
+
+The Lead rules on these against [game vision](game-vision.md). Defaults are what this brief would build.
+
+1. **Which posts exist beyond the holder, the acting commander, and the port governor?** Default: none. A treasurer and an admiral fail the material test. The holder is already the uncapped drawer. The mates are already on `min(18, treasury / free mates)`. There is no second account and no fleet. The vision's deputy is the acting commander, who does not appoint and does not take the holder's draw. The store that wrote the two extra ids is slice 3. It moves the fixture and does not change an event.
+
+2. **Who fills a seat, and what happens when the faction has no holder?** Default: the free command holder appoints, and the acting commander does not. A breakaway has no issuer, so it appoints nobody. Those port-ticks are 1367, 842, and 1482. The seat stays empty until a holder exists. At tick 1200 the breakaway ports have an owner and no governor.
+
+3. **What empties a governor seat?** Default: the port's faction changes, the officer leaves the faction, or the officer becomes the holder, and also capture, death, and desertion. On the sticky seat the hits are governor deaths 2, 0, and 0 (Bram Quill at Glassport, Jun Marrow at Crown Harbor), governor captures 0, 1, and 2 (Kessa Calder, Iris Stone, Rook Tern), and governor desertions 0. Secession clears a seated governor 3, 5, and 2 times. The clear was counted on the tape and was not given its own world.
+
+4. **What happens to the command seat?** Default: the aging rule. A dead holder leaves the faction and the seat is vacant. The cover is not promoted. That death is Pax Ash at tick 1080 on 1847. A captive holder keeps the issuer. The cover is the deputy already in the code. Holder captures are 2, 4, and 2. No acting commander is captured while covering.
+
+5. **What does the stipend cost?** Default: the governor's 18, from headroom, and only when the day covers every held port. The mates' cap is unchanged. The holder stays uncapped. The spot bill for Free Tide is 774, 1944, and 792. The writing run pays 612, 1116, and 756, and Free Tide ends at 0, 0, and 0. The wide bill is rejected. It ends World Government at 52.25, 148.85, and 0, and Free Tide at 0, 6.33, and 0.
+
+6. **Does secession still read the governor?** Default: yes, as the offices brief already has it. `ownerId` stays the claimant. On this tree the walker still declares as the owner. That owner is the sticky governor on 2, 4, and 2 of the declarations. An empty seat declares nobody. This addendum does not give the declaration to a treasurer or an admiral.
+
+7. **What moves the hash?** Default: slice 1 stays on the baseline table. Slice 2 moves the tick-72 hash by the treasury and first differs at event ticks 110, 216, and 96. Slice 3 moves the fixture at state tick 0 and does not change the event log. Slice 4 moves the tick-72 hash and first differs at event ticks 91, 167, and 89. No new draw. The tick rng stays the wrong stream. Death and desertion were not hashed.

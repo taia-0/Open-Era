@@ -160,7 +160,7 @@ Send Orin's offer first, then Zara's. A second Zara offer before the tick is HTT
 
 ## Addendum: captains offering on their own
 
-**Status: Open.** Design brief for the Lead. The sections above are the note merged as PR #25. They stay as they were. Question 5 up there defaults to no. This addendum is the measurement that default put off. Nothing here is in the tree. The census is a local readout of the baseline tape. Two offer rules were patched into `runTick`, measured, and restored. With the patch idle, the same three runs reproduced the baseline table.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). The sections above are the note merged as PR #25. They stay as they were. Question 5 up there defaults to no. This addendum is the measurement that default put off. Nothing here is in the tree. The census is a local readout of the baseline tape. Two offer rules were patched into `runTick`, measured, and restored. With the patch idle, the same three runs reproduced the baseline table.
 
 Checked on `origin/main` at `d7a816fd8f9c3cd371e9fa746b306958475427eb` (PR #108). Node v24.21.0, ICU 78.3. `npm test` passed, 424 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline:
 
@@ -321,3 +321,9 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 5. **What does Free Tide pay?** Default: the quoted spend already in the tree. The holder offers only when the treasury covers the price. A member draws the allowance, then the purse. Free Tide's baseline endings are 0, 666.09, and 0, and the treasury is at or below 0 on 570, 150, and 713 snapshots. The spot sums in section 2 repeat the same bill on later snapshots. On the writers the escrow returns. Net still out is 0, 45, and 45 at the 45 price, and 0, 112.50, and 329.82 from the purse at 56.25, plus 7.68 of treasury on 4096. Ending Free Tide is 0, 0, and 0 at 45, and 0, 990.33, and 0 at 56.25. Those endings are the later campaign.
 
 6. **Does the hash move, and does anything draw?** Default: the offer moves the hash from its first event tick. Seed 2718 is tick 42, so the fixture moves. Seeds 1847 and 4096 are ticks 99 and 73, so the fixture stays and tick 1200 moves. No new event type. No side stream. The tick rng stays the wrong stream. A writer on stock under 1 was not run. Its first tick on each port matches the empty tick, so it would move the same fixture and was not hashed.
+
+## Ruling
+
+The Lead has ruled.
+
+The payout is 56.25, the premium priced from the empty shelf. Ten units at the live price, 45, is rejected. Every contract that price accepted was breached, 6, 4, and 7, so the haul is dead content. The other numbered defaults stand. One autonomous captain of the faction that holds the shelf offers, the lowest id who can pay, one offer per shelf per tick. The carrier is the lowest id who passes `carrierBlocked`, and `candidates[0]` answers. The deadline is `max(travelTicks + 1, 2)`, never past 720. Free Tide pays by the quoted spend already in the tree. The offer moves the hash from its first event tick. Seed 2718 moves inside the 72-tick fixture, and that move is accepted. Slice 4 is the slice that explains it.
