@@ -30,10 +30,10 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `feature/feed-polish-2` from `4e715c4`. The secession walker stays. This branch changes dashboard sentences and the events page. It does not change the simulation.
-- **Last verified:** 421 tests on `61e558f`. Typecheck clean. `./scripts/evaluate-milestone.sh feed-polish-2` passed. No `golden:update`. The 72-tick and 1200-tick hashes match the Lead-approved baseline `b302e1af` / `e81f5ba4` / `f6b6aea4`.
-- **Gate status:** `./scripts/evaluate-milestone.sh secession-3` passed on `4222ffe`. `feed-polish-2` passed on `61e558f`.
-- **Headline:** A refused command is a feed row. A queued voyage names both ports. The page count is the rows returned. The viewer's faction has an income line. A new faction's line says the treasury starts empty. An autonomous tax line says why. A tax set publishes `settlementId` null. An autonomous secession with no successor ends with ` (no leader yet)`.
+- **Baseline:** `fix/secession-founder-name` from `6c00333`. The secession walker stays. This branch changes the empty-treasury sentence. It does not change the simulation.
+- **Last verified:** 424 tests on this commit. Typecheck clean. `./scripts/evaluate-milestone.sh secession-founder-name` passed. No `golden:update`. The 72-tick and 1200-tick hashes match the Lead-approved baseline `b302e1af` / `e81f5ba4` / `f6b6aea4`.
+- **Gate status:** `./scripts/evaluate-milestone.sh secession-3` passed on `4222ffe`. `feed-polish-2` passed on `61e558f`. `secession-founder-name` passed on this commit.
+- **Headline:** A refused command is a feed row. A queued voyage names both ports. The page count is the rows returned. The viewer's faction has an income line. A new faction's line says the treasury starts empty, and names that faction. An autonomous tax line says why. A tax set publishes `settlementId` null. An autonomous secession with no successor ends with ` (no leader yet)`.
 - **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
 
 ## Open items
@@ -139,6 +139,14 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-13 — The empty-treasury sentence names the new faction
+- **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `fix/secession-founder-name` | **Commits:** this commit. | **Type:** Wording
+- **Changed** — The middle sentence of a `secession-declared` line uses the new faction's name. A stored name is used as written. A blank or missing name on the event falls through to the faction already in the world, and if that is blank too the sentence is `The new faction starts with an empty treasury.` Player lines stay as they were, including `Breakwater starts with an empty treasury. Jun Marrow takes the seat.`
+- **Why** — An autonomous declaration with no leader reads `Corin Hale starts with an empty treasury.` That is not a wrong field. `buildSecessionDeclaration` stores `name ?? owner.name`, and the walker passes no name, so the faction is named after the founder. The sentence was already reading `event.data.faction.name`. A faction that has no name yet omitted the treasury sentence entirely.
+- **Verified** — Node v24.21.0, ICU 78.3. `npm run typecheck` is clean. **424 tests.** The 72-tick golden fixture passed inside `npm test`. No `golden:update`. `./scripts/evaluate-milestone.sh secession-founder-name` passed. Recovery replayed 600 events and the hash matched. 72 ticks, headless, no commands: `4ea893a485b05ce6eab599919765903ade9a0ce45f383437f4698064faa7a297` (1847, 8413 events), `d376ad02c6e7c9b03dd0eb4db1c3c137ac7a00d61a096673e12ae4fdabbdfef2` (2718, 8456), `ac780b3999c3da53f38c0cd16301dfa7f60562a35796f5fa0451c969c9ed08de` (4096, 8261). 1200 ticks, headless, no commands: `b302e1af1cdd4dfe7ba2ea3371bf35dd64d770c1a7c8692a0a0ed6fac20e07e9` (1847, 164732 events), `e81f5ba4a3036f40f94ca02e48d856b3cf6572709277a303a718f4c273237056` (2718, 162127), `f6b6aea414d205bebd264d8d2c8efba66c6287448414df7359e7a90c910c31db` (4096, 159900). On seed 1847 the declaring tick is world tick 439 and event tick 438. Crown Harbor and Glassport read the same before and after, because those factions are named Corin Hale and Mina Vale: `Corin Hale declared Crown Harbor separate from Free Tide Compact. Corin Hale starts with an empty treasury. (no leader yet)` and `Mina Vale declared Glassport separate from Free Tide Compact. Mina Vale starts with an empty treasury. (no leader yet)`.
+- **Left open** — None observed.
+- **Links** — [secession](docs/design/secession.md)
 
 ### 2026-10-13 — Feed polish, the refusal and the treasury line
 - **Agent:** Open Era Engineer (Cursor cloud agent) | **Branch:** `feature/feed-polish-2` | **Commits:** `61e558f` and this commit. | **Type:** Wording

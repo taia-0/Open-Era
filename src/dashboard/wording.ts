@@ -981,8 +981,14 @@ export function secessionDeclaredSentence(world: WorldState, event: SimEvent, ac
   // The event stores the treasury at the declaration, which is 0. Tax later
   // in the same tick can credit the faction row. The line says the start, so
   // the row's later balance is not a second founding figure.
-  if (founded && founded.treasury === 0 && founded.name) {
-    sentence += ` ${founded.name} starts with an empty treasury.`;
+  // The name is the new faction's, not the declarer's. An autonomous
+  // declaration passes no name, and the payload then stores the owner's name,
+  // so the sentence names the founder because the faction is named after them.
+  // A faction with no name yet still says the treasury starts empty.
+  if (founded && founded.treasury === 0) {
+    const live = world.factions[founded.id]?.name;
+    const named = founded.name || (typeof live === "string" ? live.trim() : "");
+    sentence += ` ${named || "The new faction"} starts with an empty treasury.`;
   }
   // An autonomous declaration names no successor. The new seat stays unnamed.
   // A holder who leaves names the successor in a separate clause.
@@ -996,9 +1002,10 @@ function foundedFaction(event: SimEvent): { id: string; name: string; treasury: 
   const faction = event.data.faction;
   if (!faction || typeof faction !== "object") return null;
   const record = faction as { id?: unknown; name?: unknown; treasury?: unknown };
-  if (typeof record.id !== "string" || typeof record.name !== "string") return null;
+  if (typeof record.id !== "string") return null;
   if (typeof record.treasury !== "number") return null;
-  return { id: record.id, name: record.name, treasury: record.treasury };
+  const name = typeof record.name === "string" ? record.name.trim() : "";
+  return { id: record.id, name, treasury: record.treasury };
 }
 
 function namedSuccessor(event: SimEvent): boolean {
