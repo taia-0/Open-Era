@@ -488,35 +488,35 @@ test("Mina Vale's release at event tick 163 keeps the paid line beside her priso
   assert.equal(stateHash(world), before);
 });
 
-test("Dax Pike's release at state tick 1046 says loyalty fell beside his prison record", () => {
-  // The skill step moved the loyalty-scar release to Dax Pike at Cinder Key, tick 1045.
-  const result = runTicks(createPrototypeWorld(1847), 1046);
+test("Jun Marrow's release at state tick 680 says loyalty fell beside his prison record", () => {
+  // Batch 1 moved the loyalty-scar release to Jun Marrow at Cinder Key, tick 679.
+  const result = runTicks(createPrototypeWorld(1847), 680);
   const world = result.state;
   const mara = world.characters["character-01"];
-  const dax = world.characters["character-20"];
-  assert.equal(world.tick, 1046);
-  assert.equal(dax.name, "Dax Pike");
-  assert.equal(dax.captivity, null);
-  assert.equal(dax.loyaltyAdjustment, -0.04);
-  assert.equal(dax.releaseSighting?.observedTick, 1045);
-  assert.equal(dax.releaseSighting?.settlementId, "cinder-key");
+  const jun = world.characters["character-05"];
+  assert.equal(world.tick, 680);
+  assert.equal(jun.name, "Jun Marrow");
+  assert.equal(jun.captivity, null);
+  assert.equal(jun.loyaltyAdjustment, -0.04);
+  assert.equal(jun.releaseSighting?.observedTick, 679);
+  assert.equal(jun.releaseSighting?.settlementId, "cinder-key");
   const before = stateHash(world);
-  const own = projectCharacter(world, dax, dax);
+  const own = projectCharacter(world, jun, jun);
   assert.equal((own.releaseSighting as { garrison: number; factionId: string; captorFactionId: string }).garrison, 3);
-  assert.equal((own.releaseSighting as { factionId: string }).factionId, "secession-character-16-cinder-key-622");
+  assert.equal((own.releaseSighting as { factionId: string }).factionId, "world-government");
   assert.equal((own.releaseSighting as { captorFactionId: string }).captorFactionId, "free-tide");
-  assert.equal(projectCharacter(world, mara, dax).releaseSighting, null);
+  assert.equal(projectCharacter(world, mara, jun).releaseSighting, null);
 
-  const release = result.events.find((item) => item.sequence === 143082);
+  const release = result.events.find((item) => item.sequence === 88717);
   assert.ok(release);
   assert.equal(release.type, "captivity-released");
-  assert.equal(release.tick, 1045);
-  const sentence = "Dax Pike was released from Cinder Key. 34.52 was paid and 304.22 was recorded as debt. Loyalty fell. 34.52 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
+  assert.equal(release.tick, 679);
+  const sentence = "Jun Marrow was released from Cinder Key. 0 was paid and 560.23 was recorded as debt. Loyalty fell. 0 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom.";
   const [maraRow] = projectEventFeed(world, mara.id, [release]);
   assert.equal(maraRow?.payloadWithheld, true);
   assert.equal(maraRow?.data, null);
   assert.equal(maraRow?.summary, sentence);
-  const [ownRow] = projectEventFeed(world, dax.id, [release]);
+  const [ownRow] = projectEventFeed(world, jun.id, [release]);
   assert.equal(ownRow?.payloadWithheld, false);
   assert.equal(ownRow?.summary, sentence);
   assert.equal(
@@ -526,10 +526,10 @@ test("Dax Pike's release at state tick 1046 says loyalty fell beside his prison 
   const view = dashboardState(world, result.events, fullEventFeed(result.events)) as {
     briefing: { items: Array<{ id: string; summary: string }> };
   };
-  assert.equal(view.briefing.items.find((item) => item.id === "event:143082")?.summary, sentence);
+  assert.equal(view.briefing.items.find((item) => item.id === "event:88717")?.summary, sentence);
   assert.equal(
     captivityReleasedChronicle(world, release),
-    "**Dax Pike** was released from **Cinder Key** under mandatory terms. 34.52 was paid and 304.22 was recorded as debt. Loyalty fell. 34.52 went to the **Free Tide Compact** treasury. The ransom line covers only the ransom.",
+    "**Jun Marrow** was released from **Cinder Key** under mandatory terms. 0 was paid and 560.23 was recorded as debt. Loyalty fell. 0 went to the **Free Tide Compact** treasury. The ransom line covers only the ransom.",
   );
   assert.equal(stateHash(world), before);
 });

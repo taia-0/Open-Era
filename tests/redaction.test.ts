@@ -505,6 +505,84 @@ test("foreign faction strength is withheld while the commander's own is exact", 
   }
 });
 
+test("a debt row and its repayment stay off a bystander's json", () => {
+  const { world, commander } = fixture();
+  const debtor = rival(world, commander);
+  const amount = 17.13;
+  debtor.locationId = "cinder-key";
+  debtor.travel = null;
+  debtor.debts.push({
+    id: "debt-redaction",
+    creditorFactionId: "free-tide",
+    originalValue: 58.18,
+    remainingValue: amount,
+    incurredTick: 4,
+    reason: "prisoner-release",
+  });
+  debtor.money = 80.77;
+
+  const distant = project(world, commander, debtor);
+  assert.equal(distant.debts, null);
+  assert.equal(JSON.stringify(distant).includes(String(amount)), false);
+
+  commander.locationId = "cinder-key";
+  commander.travel = null;
+  const alongside = project(world, commander, debtor);
+  assert.equal(alongside.intelligence.tier, "co-located");
+  assert.notEqual(alongside.money, null);
+  assert.equal(alongside.debts, null);
+  const before = JSON.stringify(alongside);
+  debtor.debts[0].remainingValue = 3.5;
+  const edited = project(world, commander, debtor);
+  assert.equal(JSON.stringify(edited), before);
+  debtor.debts[0].remainingValue = amount;
+
+  const mate = peer(world, commander);
+  makeUnobserved(mate);
+  const mateView = project(world, mate, debtor);
+  assert.equal(mateView.debts, null);
+
+  const repayment: SimEvent = {
+    sequence: 9,
+    tick: 6,
+    type: "debt-repaid",
+    actorId: debtor.id,
+    targetId: "free-tide",
+    data: {
+      debtId: "debt-redaction",
+      paid: amount,
+      remainingValue: 41.08,
+      originalValue: 58.18,
+      characterMoney: 62.9,
+      factionTreasury: 2817.1,
+      closed: false,
+    },
+  };
+  const bystander = projectEvent(world, commander, repayment, `rich paid ${amount}`);
+  assert.equal(bystander.data, null);
+  assert.equal(bystander.payloadWithheld, true);
+  assert.equal(String(bystander.summary).includes("paid"), false);
+  assert.equal(String(bystander.summary).includes(String(amount)), false);
+
+  const creditor = world.characters["character-14"];
+  assert.equal(creditor.factionId, "free-tide");
+  const seen = projectEvent(world, creditor, repayment, `rich paid ${amount}`);
+  assert.equal(seen.payloadWithheld, false);
+  assert.equal((seen.data as { paid?: number } | null)?.paid, amount);
+  const ledger = (projectFactions(world, creditor) as Array<{ id: string; debts: Array<{ debtorId: string; remainingValue: number; characterMoney?: number }> | null }>)
+    .find((faction) => faction.id === "free-tide");
+  assert.ok(ledger?.debts);
+  const row = ledger.debts.find((entry) => entry.debtorId === debtor.id);
+  assert.ok(row);
+  assert.equal(row.remainingValue, amount);
+  assert.equal("characterMoney" in row, false);
+  assert.equal(JSON.stringify(row).includes(String(debtor.money)), false);
+
+  const hiddenLedger = (projectFactions(world, commander) as Array<{ id: string; debts: unknown }>)
+    .find((faction) => faction.id === "free-tide");
+  assert.equal(hiddenLedger?.debts, null);
+});
+
 test("a foreign decision payload is withheld and its summary neutralised", () => {
   const { world, commander } = fixture();
   const outsider = rival(world, commander);

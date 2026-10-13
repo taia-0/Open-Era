@@ -60,6 +60,18 @@ export type SpendRole = "captive" | "factionless" | "holder" | "member";
 export type SpendSource = "default" | "purse";
 
 /**
+ * A free mate whose live cap is under one day of passage.
+ *
+ * The holder is not a member. A captive is not a member. The cap is read
+ * now, from the treasury and the free mates.
+ */
+export function shortPayMember(world: WorldState, character: Character, passagePerTick: number): boolean {
+  if (spendRole(world, character) !== "member") return false;
+  if (!character.factionId) return false;
+  return memberAllowanceCap(world, character.factionId, passagePerTick) < fullAllowance(world, passagePerTick);
+}
+
+/**
  * Who is paying.
  *
  * A captive draws nothing. A character with no faction stays on the purse.

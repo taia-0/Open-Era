@@ -554,6 +554,13 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
       return `${actor} was taken${at}.`;
     case "captivity-released":
       return `${actor} was released${at}.`;
+    case "debt-repaid":
+      return `${actor} met a debt.`;
+    case "character-deserted": {
+      const previous = typeof event.data.previousFactionId === "string" ? event.data.previousFactionId : undefined;
+      const faction = previous ? world.factions[previous]?.name ?? previous : "a faction";
+      return `${actor} left ${faction}. The roll was ${event.data.roll}.`;
+    }
     case "captivity-escaped":
       return `${actor} escaped captivity${at}.`;
     case "scattered-troops-returned":

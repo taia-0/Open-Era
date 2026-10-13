@@ -337,7 +337,7 @@ test("recovery replays an autonomous set", () => {
     }
     assert.ok(set);
     assert.equal(set.tick, 120);
-    assert.equal(set.sequence, 14193);
+    assert.equal(set.sequence, 14184);
     assert.equal(set.targetId, "free-tide");
     assert.equal(set.actorId, "character-14");
     assert.equal(set.data.taxRate, 0.09);
