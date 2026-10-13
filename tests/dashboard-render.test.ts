@@ -151,6 +151,32 @@ test("standing on a foreign island shows its garrison and its market as direct o
   assert.doesNotMatch(section, /~/, "direct observation must not be marked approximate");
 });
 
+test("the settlement panel states the secession readout when the row has one", () => {
+  const state = projectedState();
+  const renderer = rendererFor(state);
+  const settlements = state.settlements as Array<Record<string, any>>;
+  const owned = settlements.find((entry) => entry.id === "crown-harbor")!;
+  const foreign = settlements.find((entry) => entry.id === "cinder-key")!;
+  assert.ok(owned.secession);
+  assert.equal(foreign.secession, null);
+  const ownedHtml = renderer.settlementInspector(owned);
+  assert.match(ownedHtml, /<h3>Secession<\/h3>/);
+  assert.match(ownedHtml, /The owner gate does not pass\./);
+  assert.match(ownedHtml, /0 would follow\./);
+  assert.match(ownedHtml, /The garrison would not follow\./);
+  assert.match(ownedHtml, /With the tax line open, \d+ would follow\./);
+  assert.match(ownedHtml, /The garrison would follow\./);
+  const foreignHtml = renderer.settlementInspector(foreign);
+  assert.doesNotMatch(foreignHtml, /<h3>Secession<\/h3>/);
+
+  const beside = projectedStateAt("cinder-key");
+  const besideRenderer = rendererFor(beside);
+  const cinder = (beside.settlements as Array<Record<string, any>>).find((entry) => entry.id === "cinder-key")!;
+  const besideHtml = besideRenderer.settlementInspector(cinder);
+  assert.match(besideHtml, /Who would follow is not on this report\./);
+  assert.match(besideHtml, /who would follow is not on this report\./);
+});
+
 test("an owned market is never marked approximate", () => {  const state = projectedState();
   const renderer = rendererFor(state);
   const settlements = state.settlements as Array<Record<string, any>>;

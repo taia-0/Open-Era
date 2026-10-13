@@ -693,6 +693,16 @@
     function stat(label, value, digits) {
       return '<div class="stat"><span>' + esc(label) + "</span><strong>" + (value == null ? "Unknown" : fmt(value, digits)) + "</strong></div>";
     }
+    function secessionHtml(item) {
+      var reading = item.secession;
+      if (!reading) return "";
+      var gate = reading.ownerGate ? "The owner gate passes." : "The owner gate does not pass.";
+      var follow = reading.followerCount == null ? "Who would follow is not on this report." : reading.followerCount + " would follow.";
+      var garrison = reading.garrisonFollows ? "The garrison would follow." : "The garrison would not follow.";
+      var openFollow = reading.taxOpen.followerCount == null ? "who would follow is not on this report" : reading.taxOpen.followerCount + " would follow";
+      var openGarrison = reading.taxOpen.garrisonFollows ? "The garrison would follow." : "The garrison would not follow.";
+      return "<h3>Secession</h3><div class=\"subtle\">" + esc(gate) + " " + esc(follow) + " " + esc(garrison) + " With the tax line open, " + esc(openFollow) + ". " + esc(openGarrison) + "</div>";
+    }
     function settlementInspector(item) {
       var owningFaction = faction(item.factionId);
       var owner = character(item.ownerId);
@@ -772,7 +782,7 @@
         "<h3>Parties present</h3>" +
         (parties.length ? parties.map(function (party) {
           return '<button class="party-row" type="button" data-party="' + esc(party.id) + '"><span><strong>' + esc(shownName(party)) + "</strong><br><span class=\"subtle\">" + esc(party.archetype) + '</span></span><span>' + (party.partyPower == null ? '<span class="subtle">strength unknown</span>' : fmt(party.partyPower)) + "</span></button>";
-        }).join("") : '<div class="empty">' + (intel && intel.exact ? "No named parties are currently here." : "Foreign party positions are not available in this report.") + "</div>") + battleNotice + forecastHtml +
+        }).join("") : '<div class="empty">' + (intel && intel.exact ? "No named parties are currently here." : "Foreign party positions are not available in this report.") + "</div>") + secessionHtml(item) + battleNotice + forecastHtml +
         "<h3>Direct command</h3><div class=\"actions\">" +
           (travelAllowed ? '<button class="action" type="button" data-action="travel" data-target="' + esc(item.id) + '">Sail here' + (item.travelTicks == null ? "" : " — " + item.travelTicks + " ticks (" + fmt(item.travelDays, 1) + " days), passage " + fmt(item.passageCost, 2)) + "</button>" : "") +
           (here && item.surrenderOffered ? '<button class="action danger" type="button" data-action="claim-settlement">Accept surrender &amp; claim</button>' : "") +
