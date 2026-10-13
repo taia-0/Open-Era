@@ -35,6 +35,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Aging](aging.md) — Ruled: a year is 180 ticks and the run stays 1200, death draws use a side stream, and the other defaults in the brief stand
 - [Progression](progression.md) — Ruled: every default stands, and the skill step ships first with a fixture re-pin
 - [News](news.md) — Ruled: every default stands, except the tax step, which judges an away port by the latest stale stability on the ledger
+- [Negotiation](negotiation.md) — Open / design brief: ransom, contract, pact, and tribute offers are a scored shortlist, a logged choice, and a deadline, and this tape pays ransoms without bargaining
 - [Loyalty drift](loyalty-drift.md) — Open / proposal: loyalty falls by 0.04 when a release leaves the ransom unpaid, and nothing else reads that change except who covers the seat
 - [Loyalty scar remeasure](loyalty-scar-remeasure.md) — Open / remeasure: with the dock rule patched on and M30's cover sort live, a −0.04 unpaid-release scar does not rename a cover or move the 72-tick fixture
 - [Autonomous orders](autonomous-orders.md) — Open / proposal: Free Tide does not mint protect orders after tick 0; once a report has closed, the four-day sketch accepts the next one and rewrites the first 72 ticks
