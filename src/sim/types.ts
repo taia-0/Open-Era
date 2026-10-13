@@ -602,7 +602,7 @@ export type PlayerCommand =
       issuedTick: number;
       type: "declare-secession";
       settlementId: string;
-      /** Omitted, the owner's name is the faction name when the command runs. */
+      /** Omitted, the faction is "Free" plus the port, with a roman suffix when that name is taken. */
       name?: string;
     };
 

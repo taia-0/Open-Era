@@ -87,7 +87,7 @@ The world-simulation note allows independence first, and a faction later if the 
 The new `Faction` is carried on the event, so replay does not invent it:
 
 - `id`: `secession-{ownerId}-{settlementId}-{tick}`
-- `name`: the name on the command, or the owner's name when the command omits it. An autonomous declaration passes no name. The faction is then `Free <port name>`, for example `Free Crown Harbor`. When that name is already taken, the next name adds a roman suffix, `Free Crown Harbor II`, then `III`. No draw.
+- `name`: the name on the command. Omitted, on a player command and on an autonomous declaration, the faction is `Free <port name>`, for example `Free Crown Harbor`. When that name is already taken, the next name adds a roman suffix, `Free Crown Harbor II`, then `III`. No draw.
 - `color`: `#2f6f4e` for every founded faction in this prototype
 - `treasury`: 0
 - `taxRate`: 0.08, Free Tide's scenario rate, which is not above the 0.15 drift line
@@ -107,7 +107,7 @@ Player command, beside `claim-settlement`:
 { "playerId": "…", "type": "declare-secession", "settlementId": "glassport", "name": "Finn Frost" }
 ```
 
-`name` may be omitted. The boundary refuses, with a reason, when the player's character is not the owner, is away or at sea, is captive, or is not a member of the holding faction, and when the port has no faction. The player does not have to clear the tax and stability gate. The declaration is the act. A name the player passes is stored as given. An omitted player name is still the owner's name.
+`name` may be omitted. The boundary refuses, with a reason, when the player's character is not the owner, is away or at sea, is captive, or is not a member of the holding faction, and when the port has no faction. The player does not have to clear the tax and stability gate. The declaration is the act. A name the player passes is stored as given. An omitted player name is `Free` plus the port, with a roman suffix when that name is taken.
 
 The autonomous walker passes no name. The new faction is `Free` plus the port's name. A name already held by a faction takes the next roman suffix, `II`, then `III`. The choice reads the factions already in the world and does not draw.
 
@@ -212,7 +212,7 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 
 4. **Who comes along?** Default: the whole population count stays. The garrison follows as a whole when the port is pressed, and is removed when it does not. An anchored member follows when loyalty is under 0.75 and the port or their own hold is short, and the command holder does not follow. Success does not require followers.
 
-5. **Independence, or a new faction immediately?** Default: a new faction in the same event, treasury 0, tax 0.08, seat unnamed. A player declaration keeps the name the player gives, and an omitted player name is still the owner's. An autonomous declaration is `Free <port name>`, with a roman suffix when that name is taken. A null faction id cannot be raided. No split of the old treasury.
+5. **Independence, or a new faction immediately?** Default: a new faction in the same event, treasury 0, tax 0.08, seat unnamed. A player declaration keeps the name the player gives. An omitted player name is `Free <port name>`, the same as an autonomous declaration, with a roman suffix when that name is taken. A null faction id cannot be raided. No split of the old treasury.
 
 6. **What does the old faction see, and what can it do?** Default: the public sentence, and the payload for its own members. Retake is the existing raid and claim. No accept command and no treaty in this slice. Autonomous raids wait until the garrison reaches 15 while the old faction still holds another port.
 

@@ -309,8 +309,8 @@ export function autonomousFactionName(world: WorldState, settlement: Settlement)
  *
  * `name` is the faction name when the command passed one. Omitted, the
  * faction is "Free" plus the port name, with a roman suffix when that name
- * is already taken. The player command passes the owner's name when the
- * player omits one, so that path does not use this fallback. The garrison
+ * is already taken. A player command that omits the name passes nothing, so
+ * it uses this same fallback. The garrison
  * follows only when the port is pressed and the stack is not empty.
  * Otherwise the event stores garrison 0. If the acting commander is leaving,
  * the replacement is the cover sort over the members who remain. When the
