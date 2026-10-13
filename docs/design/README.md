@@ -9,6 +9,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Reconnaissance](reconnaissance.md) — Open / investigation, except the survey slice, which M18 built and M18.1 made readable: earned, dated knowledge of rival strength, with provenance
 - [Party sightings](party-sightings.md) — Built in M21: a dated troop count and party power for parties anchored at a surveyed port, or delivered by a targeted explore
 - [Sea sightings](sea-sightings.md) — Open / proposal: what a captain learns from a ship met on a voyage, derived when the state is read and left out of the hash
+- [Hazards 4 and 5](hazards-2.md) — Open / design brief: a held port stops showing a rival's condition from another island, and travel stops being copied onto every card
 - [Captive intelligence](captive-intelligence.md) — Built in M33: a captor reads leadership, the captured troop count, and the port beliefs the prisoner already carries. The prison is stored once, at release. The planner does not read either record. The note itself is still marked Open
 - [M33 release record](m33-release-record.md) — Open / design note: a field on `captivity-released`, or a derivation inside its reducer, so replay from a pre-release snapshot keeps the prison record
 - [Raid floor](raid-floor.md) — Open / proposal: the slope-10 surrender slide, accepted as M19, so a battered port can change hands once
