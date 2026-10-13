@@ -102,3 +102,93 @@ The other six checkpoints use the same steps. Only the rate, the percent, the tr
 `REVISE` when the set lands and Free Tide stays hidden, but a tick 3 stability, a treasury, or a summary differs.
 
 `ABANDON` when a rate above 0.15 leaves tick 3 stability on the 0.15 figures, when 0.16 and 0.20 disagree, when 0.21 and 0.25 disagree, when 0.26 and 0.30 disagree, or when a rival treasury or power becomes a number.
+
+## Session
+
+Blind session on `feature/leader-tax-stability` at `ff7470c19a7a37bb11bc6209a24408b899f998ae`. Node v24.21.0, ICU 78.3. Seed 1847. Seat Mara Vane, `character-01`, `playerId` `prototype-player`. Seven processes, one per checkpoint. Each was `npm run dashboard -- --reset --seed 1847` on `127.0.0.1:4317`. The process was stopped, and port 4317 was free, before the next `--reset`. No command other than `set-tax-rate` at the rate for that checkpoint.
+
+### Setup, every checkpoint
+
+`GET /api/health` was HTTP 200 `{"ok":true,"tick":0,"events":0}`.
+
+`GET /api/state?limit=200` and `GET /api/state?limit=200&beforeSequence=` were each HTTP 200. At tick 0 both had `eventPage.total` 0, and the two bodies were identical. `GET /api/state?limit=200&beforeSequence=0` was HTTP 200 with `events` length 0.
+
+`player.id` `prototype-player`. `player.characterId` `character-01`. `player.displayName` `Mara Vane`. `party.locationId` `crown-harbor`. `capabilities.commandTypes` includes `set-tax-rate`.
+
+Opening rows matched the plan on every process.
+
+| Faction | taxRate | taxRateSetTick | treasury | power | commanderId | actingCommanderId |
+| --- | ---: | --- | ---: | ---: | --- | --- |
+| `free-tide`, Free Tide Compact | 0.08 | null | null (`treasuryNote` `not visible to you`) | null | `character-14` | null |
+| `world-government`, World Government | 0.14 | null | 18000 | 2335.44 | `character-01` | null |
+
+| Settlement | stability | battleInProgress | taxRate |
+| --- | ---: | --- | ---: |
+| `crown-harbor` | 91 | false | 0.14 |
+| `glassport` | 86 | false | 0.14 |
+| `verdant-cay` | null | false | 0 |
+| `cinder-key` | null | false | 0.08 |
+
+### Shared steps
+
+Sent `{"playerId":"prototype-player","type":"set-tax-rate","taxRate":<rate>}` with `<rate>` `0.15`, `0.16`, `0.2`, `0.21`, `0.25`, `0.26`, and `0.3`. Each answer was HTTP 202. `command.id` `command-00001`. `command.playerId` `prototype-player`. `command.issuedTick` 0. `command.type` `set-tax-rate`. `command.factionId` `world-government`. `command.taxRate` was the returned rate in the table below.
+
+Before the advance, `tick` 0 and `eventPage.total` 1. World Government `taxRate` was still 0.14, `taxRateSetTick` was still null, `treasury` was still 18000, `power` was still 2335.44. Sequence 1 was `player-command-accepted`, `tick` 0, `actorId` `character-01`, `targetId` `world-government`, `payloadWithheld` false. Summary `Command queued for Mara Vane: set tax rate to <percent>` with that checkpoint's percent.
+
+`POST /api/advance` `{"ticks":1}` was HTTP 200. `tick` 1. `day` 0.17. `ticksAdvanced` 1. `eventSequence` 185.
+
+`GET /api/state?limit=200` with `beforeSequence` omitted: `tick` 1, `day` 0.17, `eventPage.total` 185, `count` 185, `oldestSequence` 1, `newestSequence` 185, `hasMore` false. `beforeSequence=` empty returned the same body. `beforeSequence=0` returned `events` length 0 and `eventPage.count` 0.
+
+World Government `taxRate` was the new rate and `taxRateSetTick` was 0. Free Tide stayed 0.08, `taxRateSetTick` null, `treasury` null, `power` null. Crown Harbor `stability` 90.03, `battleInProgress` true, `taxRate` the new rate. Glassport `stability` 86.03, `battleInProgress` false, `taxRate` the new rate. Verdant Cay and Cinder Key `stability` stayed null. That tick 1 stability pair was the same on every rate.
+
+Sequence 10: `type` `tax-rate-set`, `tick` 0, `actorId` `character-01`, `targetId` `world-government`, `payloadWithheld` false. `data.factionId` `world-government`. `data.previousTaxRate` 0.14. `data.taxRateSetTick` 0. `data.taxRate` was the new rate. Summary `Mara Vane set the World Government tax rate to <percent>.`
+
+`POST /api/advance` `{"ticks":2}` was HTTP 200. `tick` 3. `day` 0.5. `ticksAdvanced` 2. `eventSequence` 362.
+
+`GET /api/state?limit=200`: `tick` 3, `day` 0.5, `eventPage.total` 362, `count` 200, `oldestSequence` 163, `newestSequence` 362, `hasMore` true. Sequence 10 was not on that page. Crown Harbor and Glassport `battleInProgress` false. Their `taxRate` was still the new rate. World Government `taxRateSetTick` was still 0. Free Tide was unchanged. Verdant Cay and Cinder Key `stability` were still null.
+
+### Checkpoints
+
+Observed values. Each one matches the plan's row.
+
+| Checkpoint | Returned `taxRate` | Percent | Tick 1 treasury | Tick 1 power | Tick 3 treasury | Tick 3 power | Tick 3 Crown Harbor | Tick 3 Glassport |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Threshold, no drift | 0.15 | 15% | 17947.25 | 2346.56 | 17898.79 | 2355.88 | 90.06 | 86.09 |
+| First band, low edge | 0.16 | 16% | 17947.33 | 2346.56 | 17899.04 | 2355.88 | 90.03 | 86.03 |
+| First band, high edge | 0.2 | 20% | 17947.66 | 2346.57 | 17900.05 | 2355.9 | 90.03 | 86.03 |
+| Second band, low edge | 0.21 | 21% | 17947.75 | 2346.57 | 17900.31 | 2355.9 | 90 | 85.97 |
+| Second band, high edge | 0.25 | 25% | 17948.08 | 2346.57 | 17901.32 | 2355.91 | 90 | 85.97 |
+| Third band, low edge | 0.26 | 26% | 17948.16 | 2346.57 | 17901.57 | 2355.91 | 89.97 | 85.91 |
+| Third band, high edge | 0.3 | 30% | 17948.49 | 2346.58 | 17902.58 | 2355.93 | 89.97 | 85.91 |
+
+Queued summaries, verbatim: `Command queued for Mara Vane: set tax rate to 15%`, `16%`, `20%`, `21%`, `25%`, `26%`, `30%`.
+
+Sequence 10 summaries, verbatim: `Mara Vane set the World Government tax rate to 15%.`, `16%.`, `20%.`, `21%.`, `25%.`, `26%.`, `30%.`
+
+### First band, 20%
+
+`POST /api/commands` `{"playerId":"prototype-player","type":"set-tax-rate","taxRate":0.2}` returned HTTP 202:
+
+```json
+{"ok":true,"command":{"id":"command-00001","playerId":"prototype-player","issuedTick":0,"type":"set-tax-rate","factionId":"world-government","taxRate":0.2}}
+```
+
+Before the advance, sequence 1 summary `Command queued for Mara Vane: set tax rate to 20%.` World Government `taxRate` 0.14.
+
+After `{"ticks":1}`: World Government `taxRate` 0.2, `taxRateSetTick` 0, `treasury` 17947.66, `power` 2346.57. Crown Harbor `stability` 90.03, `battleInProgress` true. Glassport `stability` 86.03, `battleInProgress` false.
+
+Sequence 10 summary `Mara Vane set the World Government tax rate to 20%.` `data.taxRate` 0.2. `data.previousTaxRate` 0.14. `data.taxRateSetTick` 0. `data.factionId` `world-government`.
+
+After `{"ticks":2}`: `tick` 3, `day` 0.5, `eventSequence` 362, `eventPage.total` 362, `oldestSequence` 163, `newestSequence` 362, `hasMore` true. World Government `treasury` 17900.05, `power` 2355.9, `taxRate` 0.2, `taxRateSetTick` 0. Crown Harbor `stability` 90.03. Glassport `stability` 86.03. Both `battleInProgress` false. Free Tide `taxRate` 0.08, `treasury` null, `power` null.
+
+## Findings
+
+Every checkpoint matched the table. Tick 1 stability was 90.03 at Crown Harbor and 86.03 at Glassport on every rate. Sequence 10 named the percent that was sent. Free Tide stayed 0.08 with treasury and power null. Verdant Cay and Cinder Key stability stayed null.
+
+The line at 0.15 left tick 3 at Crown Harbor 90.06 and Glassport 86.09. One band, 0.16 and 0.20, held 90.03 and 86.03. Two bands, 0.21 and 0.25, left 90 and 85.97. Three bands, 0.26 and 0.30, left 89.97 and 85.91. The two edges of each band matched each other. No rate above 0.15 stayed on the 0.15 figures.
+
+The tick 1 page reported `count` 185, `oldestSequence` 1, and `newestSequence` 185, and the `events` array omitted sequence 11 (length 184) on every rate. The named page fields still matched. Sequence 10 was present. That omission is not a tick 3 stability, a treasury, or a summary.
+
+## Verdict
+
+`PROMOTE`. Every checkpoint matches the table, tick 1 stability is 90.03 at Crown Harbor and 86.03 at Glassport on every rate, sequence 10 names the percent that was sent, Free Tide stays 0.08 with treasury and power null, and Verdant Cay and Cinder Key stability stay null.
