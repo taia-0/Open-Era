@@ -1,6 +1,6 @@
 # Income
 
-**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). The [payment-order addendum](#addendum-payment-order) is open. Nothing in this note is in the tree. The census is a local readout of the baseline tape. Each lever was applied by a local harness, measured alone, and restored.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). [Ruling: levy alone](#ruling-levy-alone) closes the [payment-order addendum](#addendum-payment-order). Nothing in this note is in the tree. The census is a local readout of the baseline tape. Each lever was applied by a local harness, measured alone, and restored.
 
 Checked on `origin/main` at `33e668fb4734c758751ab41c6af19e84e6df408f` (PR #112). Node v24.21.0, ICU 78.3. `npm test` passed, 432 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline:
 
@@ -321,3 +321,13 @@ Seed 4096 still ends at 0.00. Seed 2718 ends at 84.81, down from 1407.46 under t
 2. **Does the holder stop at a reserve of one day's obligations?** Default: no. That reserve is the smallest rule that keeps the draw free and leaves the coins in the same treasury. One day is 18 per free mate and 18 per seated governor. Free Tide ends at 931.59, 84.81, and 0.00. Seed 4096 is still 0.00. Seed 2718 falls from 1407.46 to 84.81. Tick 72 stays on the levy hashes. Tick 1200 moves.
 
 3. **What is measured next if every seed should finish above empty?** Default: the holder draws only from that day's tax income above upkeep. Upkeep is the same one-day obligation, 18 per free mate and 18 per seated governor. A higher levy was not run. The surplus rule was not run. The floor was the smaller change, and one seed still finished at 0.00.
+
+## Ruling: levy alone
+
+The levy is adopted on its own. There is no pay-first order. There is no reserve floor. The surplus-only draw was not run.
+
+"Free Tide never ends at 0" is not a vision goal. [Game vision](game-vision.md) says a faction that becomes overwhelmingly powerful may remain dominant. The simulation does not move one treasury into another to restore a balance.
+
+Micah ruled that rulers spend freely, and that the allowance shrinks when the treasury is short. A holder who empties the treasury is working as intended. That is where the drama comes from.
+
+The levy alone already collects more than one stipend over a run: 3719/7649/6206 against 3600. Those are the levy credits in section 4, 3718.63, 7649.02, and 6205.68, rounded to the coin.
