@@ -564,6 +564,8 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
       return `${actor} declined a surrender${at}.`;
     case "player-command-accepted":
       return `A command was queued for ${actor}.`;
+    case "tax-rate-set":
+      return taxRateSetSentence(world, event, actor);
     case "player-command-resolved":
       return `${actor}'s command was resolved.`;
     case "player-command-failed":
@@ -891,13 +893,27 @@ export function withheldRecruitSentence(world: WorldState, readerFactionId: stri
 }
 
 /**
+ * The confirmation line for a published tax-rate change.
+ *
+ * The rate is public, so a rival sees the same sentence. The payload may
+ * still be withheld. 0.12 reads as 12%.
+ */
+export function taxRateSetSentence(world: WorldState, event: SimEvent, actor: string): string {
+  const rate = typeof event.data.taxRate === "number" ? event.data.taxRate : null;
+  const factionId = typeof event.data.factionId === "string" ? event.data.factionId : event.targetId;
+  const faction = factionId ? world.factions[factionId]?.name ?? "the faction" : "the faction";
+  if (rate === null) return `${actor} set the tax rate.`;
+  return `${actor} set the ${faction} tax rate to ${Math.round(rate * 100)}%.`;
+}
+
+/**
  * The queued-command line.
  *
- * A provision buy keeps the quoted total. Any other action is named only when
- * the command itself carries the action and a purse or treasury source, and a
- * berth can be named. The berth is the settlement stored on the event, or the
- * officer's port on this reading when the command did not store one. Anything
- * missing keeps `Command queued for {name}`.
+ * A tax-rate command names the percent. A provision buy keeps the quoted total.
+ * Any other action is named only when the command itself carries the action
+ * and a purse or treasury source, and a berth can be named. The berth is the
+ * settlement stored on the event, or the officer's port on this reading when
+ * the command did not store one. Anything missing keeps `Command queued for {name}`.
  */
 export function queuedCommandSentence(
   world: WorldState,
@@ -908,6 +924,9 @@ export function queuedCommandSentence(
   const fallback = `Command queued for ${actor}`;
   const command = commandRecord(event.data.command);
   if (!command) return fallback;
+  if (command.type === "set-tax-rate" && typeof command.taxRate === "number") {
+    return `Command queued for ${actor}: set tax rate to ${Math.round(command.taxRate * 100)}%`;
+  }
   if (command.action === "buy-provisions" && typeof command.gross === "number") {
     const cap = command.capped
       ? ` (${settlement ?? "This market"} clears no more than ${command.quantity} in one order)`
@@ -922,21 +941,25 @@ export function queuedCommandSentence(
 }
 
 function commandRecord(value: unknown): {
+  type?: string;
   action?: string;
   source?: string;
   quantity?: number;
   unitPrice?: number;
   gross?: number;
   capped?: boolean;
+  taxRate?: number;
 } | null {
   if (!value || typeof value !== "object") return null;
   return value as {
+    type?: string;
     action?: string;
     source?: string;
     quantity?: number;
     unitPrice?: number;
     gross?: number;
     capped?: boolean;
+    taxRate?: number;
   };
 }
 
