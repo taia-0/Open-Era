@@ -888,6 +888,44 @@ export function projectCharacter(
   };
 }
 
+/**
+ * Open debts owed to this faction, oldest first.
+ *
+ * The debtor's purse, cargo, and other debts stay off the row.
+ */
+function creditorDebtRows(world: WorldState, factionId: string): Array<{
+  debtorId: string;
+  id: string;
+  originalValue: number;
+  remainingValue: number;
+  incurredTick: number;
+  reason: string;
+}> {
+  const rows: Array<{
+    debtorId: string;
+    id: string;
+    originalValue: number;
+    remainingValue: number;
+    incurredTick: number;
+    reason: string;
+  }> = [];
+  for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    for (const debt of character.debts) {
+      if (debt.creditorFactionId !== factionId || debt.remainingValue <= 0) continue;
+      rows.push({
+        debtorId: character.id,
+        id: debt.id,
+        originalValue: debt.originalValue,
+        remainingValue: debt.remainingValue,
+        incurredTick: debt.incurredTick,
+        reason: debt.reason,
+      });
+    }
+  }
+  rows.sort((left, right) => left.incurredTick - right.incurredTick || left.id.localeCompare(right.id));
+  return rows;
+}
+
 export function projectFactions(
   world: WorldState,
   commander: Character,
@@ -923,6 +961,12 @@ export function projectFactions(
         /** Absent until the first set. Null on the row, including a rival's. */
         taxRateSetTick: faction.taxRateSetTick ?? null,
         power: owned ? factionPower(world, faction.id) : null,
+        /**
+         * Debts owed to this faction. Own faction only. The row is the debtor,
+         * the original, the remainder, the tick, and the reason. The debtor's
+         * purse is not on it. A rival is null.
+         */
+        debts: owned ? creditorDebtRows(world, faction.id) : null,
         intelligence: {
           exact: owned,
           source: owned ? "faction-record" : "reputation",
@@ -965,6 +1009,12 @@ export function eventPayloadVisible(
 
   // The commander's own actions are entirely theirs.
   if (event.actorId === commander.id) return true;
+
+  // The creditor faction sees the installment. A bystander, including a mate
+  // of the debtor in the other faction, does not.
+  if (event.type === "debt-repaid" && commander.factionId !== null && commander.factionId === event.targetId) {
+    return true;
+  }
 
   // A contract's payload is the two parties' business. The standing-order rule
   // is the same shape, with both parties in the issuer's place. Holding the

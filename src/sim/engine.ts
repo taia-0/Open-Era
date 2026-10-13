@@ -1776,6 +1776,50 @@ function processCaptivityDeadlines(
   }
 }
 
+/**
+ * One day's wages toward the oldest open captivity debt.
+ *
+ * A world day is `tick % ticksPerDay === 0`, and this runs after the
+ * deadlines. A captive pays nothing. The row must already exist
+ * (`incurredTick` is earlier) and the creditor faction must still be on the
+ * map. The pay is `round(min(purse, remaining, workGross), 2)`. A day that
+ * pays 0 emits nothing. No draw.
+ */
+function collectCaptivityDebts(world: WorldState, events: SimEvent[]): void {
+  if (world.ticksPerDay <= 0 || world.tick % world.ticksPerDay !== 0) return;
+  const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
+  for (const character of characters) {
+    if (character.captivity) continue;
+    const debt = character.debts
+      .filter((row) =>
+        row.remainingValue > 0 &&
+        row.incurredTick < world.tick &&
+        row.creditorFactionId !== null &&
+        world.factions[row.creditorFactionId] !== undefined,
+      )
+      .sort((left, right) => left.incurredTick - right.incurredTick || left.id.localeCompare(right.id))[0];
+    if (!debt?.creditorFactionId) continue;
+    const paid = round(Math.min(character.money, debt.remainingValue, workGross(character)), 2);
+    if (!(paid > 0)) continue;
+    const remainingValue = round(debt.remainingValue - paid, 2);
+    const faction = world.factions[debt.creditorFactionId];
+    emit(world, events, {
+      type: "debt-repaid",
+      actorId: character.id,
+      targetId: debt.creditorFactionId,
+      data: {
+        debtId: debt.id,
+        paid,
+        remainingValue,
+        originalValue: debt.originalValue,
+        characterMoney: round(character.money - paid, 2),
+        factionTreasury: round(faction.treasury + paid, 2),
+        closed: remainingValue === 0,
+      },
+    });
+  }
+}
+
 function progressTroopRecoveries(world: WorldState, events: SimEvent[]): void {
   for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
     const recovery = character.troopRecovery;
@@ -3363,6 +3407,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
   processCaptivityDeadlines(world, events, rng);
+  collectCaptivityDebts(world, events);
   progressTroopRecoveries(world, events);
   const battleParticipants = progressActiveBattles(world, events, rng);
   expireStandingOrders(world, events);

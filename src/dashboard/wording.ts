@@ -554,6 +554,8 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
       return `${actor} was taken${at}.`;
     case "captivity-released":
       return `${actor} was released${at}.`;
+    case "debt-repaid":
+      return `${actor} met a debt.`;
     case "captivity-escaped":
       return `${actor} escaped captivity${at}.`;
     case "scattered-troops-returned":
