@@ -2,6 +2,8 @@
 
 **Status: Built.** Slices 2 and 3 are in `src/dashboard/visibility.ts`. The Lead accepted the defaults: drop the port clause, null `travel` on every card except the viewer's own, keep a docked rival's `locationId`, and no roll and no event. The census below is the baseline those slices were measured against. It describes the tree before the slices, not the cards after them.
 
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). Nothing in this note is in the tree. The census is a local readout of the baseline tape. The two projection edits were patched in a local harness, measured, and restored. They were not left in the tree.
+
 Checked on `origin/main` at `6c0033335c199a851e6d3107d622af26b8e2192c` (PR #105). Node v24.21.0, ICU 78.3. `npm test` passed, 421 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline:
 
 | Seed | Tick 72 state hash | Events | Tick 1200 state hash | Events |
@@ -129,3 +131,9 @@ The Lead rules on these against [game vision](game-vision.md) and the principles
 5. **Does a docked rival's location stay public?** Default: yes. Hazard 5 is the travel object. Mara's docked distant location copies are 8383, 9402, and 6986. The distant test keeps `locationId` because the map depends on it. This brief does not take it down.
 
 6. **Does either slice draw, or write through `applyEvent`?** Default: no. No side stream, no new event, no new world key. The reducer does not see the card. The fixture and the 1200-tick hashes stay the baseline table. A stored last-seen course was not measured on this tree.
+
+## Ruling
+
+The Lead has ruled.
+
+All four defaults stand. The port clause drops, so a rival anchored in another held port loses co-located condition, and a mate in another held port falls back to the faction tier. `travel` is null on every card except Mara's own, faction mates included. A docked rival keeps `locationId`. Neither slice draws a side-stream roll or adds an event.
