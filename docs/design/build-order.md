@@ -28,7 +28,7 @@ These were ruled, and they stay out of the batches.
 
 [Income](income.md) lands the 0.05 governor levy only. Port dues, the sale tariff, the buy duty, the passage credit, the contract fee, the pay-first order, and the reserve floor do not land.
 
-[Morale](morale.md) slice 3, certain desertion, does not land. [Contracts](contracts.md) at 45 does not land. [Money at sea](money-at-sea.md) slices 2 and 3 do not land. [Offices](offices.md) does not add a treasurer or an admiral. [Aging](aging.md) does not store ages at setup and does not inherit to the cover.
+[Morale](morale.md) slice 3, certain desertion, does not land. [Contracts](contracts.md) at 45 does not land. [Money at sea](money-at-sea.md) slices 2 and 3 do not land. [Offices](offices.md) does not add a treasurer or an admiral. [Aging](aging.md) does not store ages at setup, does not inherit to the cover, and does not roll a per-tick chance. Death is certain at 120 only.
 
 ## Slices
 
@@ -108,11 +108,11 @@ Writes purses and treasuries, and the tax step then writes `taxRate` off the new
 
 ### Aging
 
-[Aging](aging.md) ruling. A year is 180 ticks. The run stays 1200. Death draws use a side stream. The other defaults stand. The calendar of 2190 ticks does not land. Ages are not stored at setup. The heir is not the cover.
+[Aging](aging.md) ruling. A year is 180 ticks. The run stays 1200. Aging is a fixed death at 120 only, with no per-tick chance. Ages are not stored at setup. The heir is not the cover. The calendar of 2190 ticks does not land.
 
-The slices that do land are `character-aged` when the integer year increases, the read-time penalty inside `personalPower` once an age is stored, certain death at 120, and the chance from 80 to 120 on the side stream, roll stored only on the killing event. Succession is vacant. Debts pay the creditor treasury from the purse. Sailors and troops stay on the body. Ports' `ownerId` becomes null.
+What lands is the certain death at 120, with vacant succession. Debts pay the creditor treasury from the purse. Sailors and troops stay on the body. Ports' `ownerId` becomes null. `character-aged` does not land. The personal-power penalty does not land. The side-stream chance does not land.
 
-No unbuilt dependency. The first death in the remeasure is tick 180, 180, and 540, all after the fixture. The chance was accepted and was not remeasured. The remeasure that was run is span ages, a fixed death at 120, vacant succession, and a year of 180, on an older baseline. The fixture stayed. Tick 1200 event counts were 159664, 156271, and 159974. World Government ended at 13652.48, 14355.47, and 13799.49. Free Tide ended at 12.3, 45.66, and 150.72. Taken from the doc. Not remeasured here. The personal-power penalty was not part of that resim.
+No unbuilt dependency. On this tip the deaths are tick 1080, ticks 180 and 720, and tick 540, all after the fixture. Tick 72 stays on the fixture when aging sits on batch 1 alone. The names are the batch 2 remeasure. The older fixed-death resim, on an older baseline, is the check-in row in the aging note: the same three deaths, tick-1200 event counts 159664, 156271, and 159974, World Government 13652.48, 14355.47, and 13799.49, Free Tide 12.3, 45.66, and 150.72. Taken from that note. The stack remeasure is below.
 
 Writes `factionId`, the purse, the creditor treasury, and `ownerId`. The same `factionId` as desertion. The same purse and treasury as the wage collector. A dead governor is an empty seat, which is the offices clear.
 
@@ -160,7 +160,7 @@ After batch 1. One commit, one `golden:update`, one new 1200-tick record. The pi
 2. The 0.05 levy, reading that seat.
 3. News slices 2 and 3, then slice 4, then slice 5 at the 24-tick cap, then slice 6. The declarer is the governor from step 1. The stability and the followers he reads are the ledger, under the cap. A port the holder is standing in stays live for the tax step. That live exception stays off the secession read.
 4. Contracts slice 4, the 56.25 offer.
-5. Aging: the 180-tick year, `character-aged`, the personal-power penalty once an age is stored, certain death at 120, the side-stream chance from 80 to 120, vacant succession.
+5. Aging: the 180-tick year, a fixed death at age 120 only, vacant succession. No per-tick chance. No `character-aged`. No personal-power penalty.
 
 Desertion and death are already the seat-clear by the time the stipend is in this commit. The levy, the stipend, the wage collector, and the contract writer share the treasury, so they are not given separate re-pins. The fixture moves. Aging by itself does not move tick 72.
 
@@ -213,7 +213,7 @@ Batch 1 leaves Finn Frost (0.245) and Bram Tern (0.034) at tick 174 and Esme Dus
 
 ### Batch 2 stack
 
-The same harness, with batch 1 still on, then offices, the levy, news slices 2–6, contracts at 56.25, and aging. Flags defaulted off. The run was local and was restored. Node v24.21.0, ICU 78.3. Seeds 1847, 2718, and 4096. A second run of the stack reproduced the hashes below.
+The same harness, with batch 1 still on, then offices, the levy, news slices 2–6, contracts at 56.25, and aging as a fixed death at 120. Flags defaulted off. The run was local and was restored. Node v24.21.0, ICU 78.3. Seeds 1847, 2718, and 4096. `origin/main` is `f7f3fa1`. The pin is the fixed-death table. A second run reproduced those hashes.
 
 Appointment runs at the start of the tick, after aging and the morning desertion check. The cover sort names one anchored member who is not the holder, and only while `spendRole` is `"holder"`. A breakaway appoints nobody. `governorId` is omitted while the seat is empty. Captivity does not clear it. The stipend is silent: `seats × 18` from the treasury into the governors' purses, and only when the treasury covers 18 for every free mate and every seat. A morning that cannot pay emits nothing.
 
@@ -223,9 +223,9 @@ News posts the public item on the port: id, type, `observedTick`, `factionId`, a
 
 The contract offer is the contracts ruling: one autonomous captain of the faction that holds an empty shelf, 10 provisions at 56.25, the lowest id who can pay, the carrier the lowest id who passes `carrierBlocked`, deadline `max(travelTicks + 1, 2)` and never past 720. A new offer waits until the next tick.
 
-Aging uses span ages from `DeterministicRng(seed).integer(18, 119)`, in id order `character-01` through `character-30`, not from `world.rngState`. Ages are omitted until the integer year increases. A year is 180 ticks. Once an age is stored, `personalPower` loses 1 over 60 and 3 over 80. Death draws use a second `DeterministicRng` forked from `world.rngState` at setup and not written back. At 80 or under, the chance is 0. At 120 the death is certain and draws nothing. Between those, the birthday kills when the roll is under `((age − 80) / 40) × (1 − strength)`. Succession is vacant. Debts pay the creditor treasury from the purse, in id order. Sailors, troops, and the remainder stay. Ports' `ownerId` becomes null. A holder death clears the acting commander. An acting-commander death writes the next cover or clears the seat.
+Aging uses span ages from `DeterministicRng(seed).integer(18, 119)`, in id order `character-01` through `character-30`, not from `world.rngState`. A year is 180 ticks. A character dies when the starting age plus `tick / 180` reaches 120. The death draws nothing. There is no per-tick chance, no `character-aged`, and no personal-power penalty. Succession is vacant. Debts pay the creditor treasury from the purse, in id order. Sailors, troops, and the remainder stay. Ports' `ownerId` becomes null. A holder death clears the acting commander. An acting-commander death writes the next cover or clears the seat.
 
-The 72-tick fixture moves on every seed. The first death is tick 180, so aging is not what moves tick 72.
+An earlier run of this stack used a side-stream per-tick chance plus certain death at 120. That run is superseded. It killed 13, 5, and 8. Its `news-posted` counts were 441, 604, and 535. Its contract events were 2, 31, and 778. Free Tide's ending rate on 4096 was 0.30. Seed 1847's contract events were 2, against 839 with aging off, while 4096 kept 778. The hashes of that run:
 
 | Seed | Tick 72 state hash | Events | Tick 1200 state hash | Events | WG | WG rate | FT | FT rate | Secessions | Deaths |
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -233,47 +233,79 @@ The 72-tick fixture moves on every seed. The first death is tick 180, so aging i
 | 2718 | `10acbabbd427a909fb86828aadde45ea79b3a51cc31d0cb9177ec4f8af80db02` | 8548 | `3f682e91b7c9f41b18c3192d740f1bbf7a9f61eee88c17c97947e462f85f8a4f` | 149519 | 10474.79 | 0.08 | 0.00 | 0.23 | 5 | 5 |
 | 4096 | `a8e6794dcddb18dbe67cef4c6038e4016096c073d978160ddcc3c851abbc4c7f` | 8467 | `52c2de69c97c9cbb73deec708a5fbb9b7ab16208647f39e2ac519b7450b699c2` | 138648 | 12758.79 | 0.08 | 0.00 | 0.30 | 2 | 8 |
 
-`news-posted` on that row is 441, 604, and 535. Contract events are 2, 31, and 778.
+### Fixed death at 120
 
-Deaths, with age. The same list appears when news is removed and when aging sits on batch 1 alone. Offices, the levy, the ledger, and the contract writer do not change who dies.
+The pin. Batch 1, then offices and the 18 stipend, the 0.05 levy, news slices 2–6 with the 24-tick cap, contracts at 56.25, and aging as a fixed death at 120 with vacant succession. Tick 72 moves on every seed. Aging off matches those tick-72 hashes, so the death is not what moves the fixture. The first death is tick 180, on 2718.
 
-1847, tick 180: Bram Quill 110, Sable Morrow 108, Iris Stone 95, Lio Crow 115, Dax Pike 91, Vale Gale 97. Tick 360: Finn Frost 114, Niko Crow 96, Sable Sorn 92, Toma Hale 107. Tick 540: Jun Marrow 105. Tick 720: Pax Ash 105, Orin Frost 92.
+| Seed | Tick 72 state hash | Events | Tick 1200 state hash | Events | WG | WG rate | FT | FT rate | Secessions | Deaths | News | Contracts |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1847 | `711510cba582b5ee9ef64c38f33113fd02d0b8267d5808bffd1bcbcf20555ca8` | 8502 | `1cd5197a76fe5310704e91ee004f5881371ad4f7c0d2d44b3449f8784e98399f` | 163602 | 7811.39 | 0.06 | 0.00 | 0.17 | 4 | 1 | 544 | 1132 |
+| 2718 | `f08bc429038cc308b18c5b6388aee877136ce033b5012dd6e877d0f8c2e52cc8` | 8553 | `9a0e76dab1baee4eac580b1a33b300aa0abdebe22636a2f6392d9006e8247ac1` | 158837 | 11147.39 | 0.11 | 492.79 | 0.08 | 0 | 2 | 384 | 16 |
+| 4096 | `43da07200fec9f187c5158c1bb3db8d15093d02f04419b7427064fb2b3a5082e` | 8468 | `cdaa7e5f6c4b71df0f30d130bec2483ea180834c6d38bd0149cdc41f640d1ae0` | 160014 | 4950.77 | 0.10 | 0.00 | 0.16 | 5 | 1 | 612 | 724 |
 
-2718, tick 180: Rook Tern 108, Lio Crow 120, Mara Calder 114. Tick 720: Esme Dusk 120. Tick 900: Orin Rill 101.
+Deaths, each at age 120. The same list appears on every row that includes aging: levy off, offices off, news off, and aging on batch 1 alone. Offices, the levy, the ledger, and the contract writer do not change who dies.
 
-4096, tick 180: Toma Reef 111, Sable Sorn 113, Kessa Dusk 118. Tick 540: Rook Tern 104, Mina Vale 99, Esme Dusk 98, Iris Vale 97. Tick 1080: Orin Rill 87.
+1847, tick 1080: Lio Crow (`character-12`), World Government. 2718, tick 180: Lio Crow (`character-12`), World Government. Tick 720: Esme Dusk (`character-19`), Free Tide. 4096, tick 540: Kessa Dusk (`character-30`), unaffiliated.
 
-Lio Crow at 120 on 2718, and Esme Dusk at 120 on 2718, are the certain deaths. The rest are the side-stream chance. The older fixed-only remeasure, deaths 1, 2, and 1, is not this pin.
+Secessions. 1847: Zara Gale at crown-harbor, tick 838; Dax Pike at cinder-key, tick 840; Esme Dusk at glassport, tick 857; Mara Calder at glassport, tick 863. 2718: none. 4096: Esme Dusk at crown-harbor, tick 651; Corin Hale at glassport, tick 723; Zara Gale at glassport, tick 729; Finn Frost at crown-harbor, tick 737; Mara Calder at crown-harbor, tick 757.
 
-Secessions on the stack. 1847: none. 2718: Dax Pike at cinder-key, tick 529; Bram Tern at glassport, tick 554; Esme Dusk at cinder-key, tick 591; Corin Hale at cinder-key, tick 715; Zara Gale at glassport, tick 958. 4096: Finn Frost at glassport, tick 698; Corin Hale at cinder-key, tick 965.
+Contract events on the stack. 1847: offered 563, refused 555, accepted 7, breached 7. 2718: offered 8, refused 8. 4096: offered 356, refused 344, accepted 12, breached 8, fulfilled 4.
 
-Desertions move against the batch 1 row. 1847: Finn Frost 0.245 and Bram Tern 0.034 at tick 264, and Corin Hale 0.407 at tick 450. The 0.407 roll was Esme Dusk at tick 390 on batch 1. 2718: Finn Frost 0.244 at tick 342, where batch 1 had him at tick 282, and Mina Vale 0.085 at tick 1026. 4096: Mina Vale 0.160 and Dax Pike 0.238 at tick 174, where batch 1 had Zara Gale 0.160 and Dax Pike 0.238 at tick 312, and Bram Tern 0.449 at tick 312, where batch 1 had him at tick 438.
+The comparisons are the same harness with one group off, and each slice alone on top of batch 1. They are not a second pin. Tick 72 with aging off matches the stack. Tick 72 with aging on batch 1 alone stays on the fixture. Those tick-1200 hashes are `892abdf0b46ac5de4ff71344a7c0d827dc0b96608fb8ddf35144a5bd05a23d4d`, `82e015aff002572b3303f5e3216046beda18967b544b5673e764b3d3bcc09b26`, and `d4bf0f55cfc98df424fbcf2e95b3b7710171c9baf5c4ac906bbf22c9d7bd5809`.
 
-The comparisons below used the same harness with one group turned off. They are not a second pin. Tick 72 with aging off matches the stack hashes and the counts 8497, 8548, and 8467. Tick 72 with aging on batch 1 alone stays on the fixture. Tick 72 with news off does not match the stack. Those three hashes were not copied out.
+| Run | Seed | Events | WG | WG rate | FT | FT rate | Secessions | Deaths | News | Contracts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Levy off | 1847 | 160526 | 53.45 | 0.05 | 0.00 | 0.20 | 5 | 1 | 668 | 446 |
+| Levy off | 2718 | 151694 | 2004.50 | 0.07 | 0.00 | 0.27 | 4 | 2 | 614 | 767 |
+| Levy off | 4096 | 157951 | 58.94 | 0.03 | 21.80 | 0.24 | 3 | 1 | 652 | 566 |
+| Offices off | 1847 | 166965 | 18580.22 | 0.08 | 723.08 | 0.29 | 1 | 1 | 564 | 1143 |
+| Offices off | 2718 | 160313 | 15801.95 | 0.04 | 27.87 | 0.20 | 2 | 2 | 636 | 945 |
+| Offices off | 4096 | 162035 | 12143.43 | 0.08 | 0.00 | 0.16 | 4 | 1 | 621 | 1026 |
+| News off | 1847 | 166487 | 20106.11 | 0.12 | 475.23 | 0.21 | 0 | 1 | 0 | 434 |
+| News off | 2718 | 158351 | 16567.53 | 0.10 | 12.17 | 0.16 | 0 | 2 | 0 | 480 |
+| News off | 4096 | 160811 | 14228.35 | 0.12 | 63.39 | 0.15 | 0 | 1 | 0 | 1120 |
+| Aging off | 1847 | 164106 | 7680.89 | 0.06 | 0.00 | 0.17 | 4 | 0 | 544 | 1132 |
+| Aging off | 2718 | 164614 | 11947.17 | 0.09 | 18.27 | 0.16 | 1 | 0 | 544 | 412 |
+| Aging off | 4096 | 162421 | 10740.42 | 0.09 | 752.06 | 0.15 | 0 | 0 | 585 | 901 |
+| Offices alone | 1847 | 163382 | 63.26 | 0.05 | 105.22 | 0.16 | 0 | 0 | 0 | 0 |
+| Offices alone | 2718 | 163852 | 3302.37 | 0.12 | 3400.35 | 0.15 | 0 | 0 | 0 | 0 |
+| Offices alone | 4096 | 163005 | 4070.98 | 0.10 | 14.74 | 0.16 | 0 | 0 | 0 | 0 |
+| Levy alone | 1847 | 162989 | 11697.72 | 0.13 | 16.32 | 0.15 | 5 | 0 | 0 | 0 |
+| Levy alone | 2718 | 165618 | 20217.96 | 0.13 | 3297.40 | 0.13 | 0 | 0 | 0 | 0 |
+| Levy alone | 4096 | 160577 | 16277.48 | 0.09 | 348.07 | 0.17 | 4 | 0 | 0 | 0 |
+| News alone | 1847 | 163777 | 9051.98 | 0.09 | 37.86 | 0.22 | 2 | 0 | 525 | 0 |
+| News alone | 2718 | 162460 | 9611.46 | 0.10 | 46.83 | 0.15 | 2 | 0 | 608 | 0 |
+| News alone | 4096 | 161887 | 6000.81 | 0.08 | 0.00 | 0.30 | 3 | 0 | 628 | 0 |
+| Contracts alone | 1847 | 163513 | 4493.06 | 0.06 | 30.06 | 0.15 | 5 | 0 | 0 | 239 |
+| Contracts alone | 2718 | 163467 | 10091.01 | 0.14 | 0.00 | 0.16 | 4 | 0 | 0 | 14 |
+| Contracts alone | 4096 | 167565 | 13161.66 | 0.12 | 18.49 | 0.13 | 1 | 0 | 0 | 10 |
+| Aging alone | 1847 | 162813 | 3952.73 | 0.07 | 0.00 | 0.17 | 5 | 1 | 0 | 0 |
+| Aging alone | 2718 | 157857 | 6792.70 | 0.13 | 0.00 | 0.17 | 5 | 2 | 0 | 0 |
+| Aging alone | 4096 | 164443 | 13960.87 | 0.14 | 0.00 | 0.16 | 2 | 1 | 0 | 0 |
 
-| Run | Seed | Events | WG | WG rate | FT | FT rate | Secessions | Deaths |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| News off | 1847 | 118110 | 13251.98 | 0.13 | 410.72 | 0.11 | 0 | 13 |
-| News off | 2718 | 146611 | 16620.20 | 0.11 | 419.45 | 0.18 | 0 | 5 |
-| News off | 4096 | 136598 | 17799.36 | 0.12 | 60.6 | 0.18 | 0 | 8 |
-| Aging off | 1847 | 164933 | 15818.88 | 0.08 | 0.00 | 0.30 | 2 | 0 |
-| Aging off | 2718 | 164314 | 11480.65 | 0.09 | 0.00 | 0.22 | 3 | 0 |
-| Aging off | 4096 | 165367 | 15554.31 | 0.12 | 0.00 | 0.22 | 1 | 0 |
-| Aging on batch 1 | 1847 | 113194 | 11104.18 | 0.08 | 4.39 | 0.23 | 5 | 13 |
-| Aging on batch 1 | 2718 | 146635 | 11153.57 | 0.13 | 0.00 | 0.15 | 4 | 5 |
-| Aging on batch 1 | 4096 | 138308 | 12804.94 | 0.14 | 0.00 | 0.18 | 4 | 8 |
+With the deaths down to 1, 2, and 1, three interactions remain. On 1847 the late death changes nothing that this table counts: aging off matches the stack's 1132 contract events, the 4 secessions, Free Tide at 0.00, and the 0.17 rate. On 2718 the deaths still move the campaign. Contract events are 16 against 412 with aging off, Free Tide ends at 492.79 against 18.27, and the one secession with aging off (Zara Gale at crown-harbor, tick 1180) does not happen. On 4096, Kessa Dusk is unaffiliated, and the death still moves the campaign: contract events 724 against 901, Free Tide 0.00 against 752.06, secessions 5 against 0. News off declares nobody on any seed, because the governor has no figure inside the cap. Each slice alone leaves different treasuries from the stack. News alone is the row whose Free Tide rate on 4096 reaches 0.30.
 
-Aging on batch 1 alone keeps the fixture. Its tick-1200 hashes are `5db84281c7a13bb11c9edfc687e111ecce84a6b7922877dd87fa81b11b861590`, `50c29d5209f00e665aae4e01a0d34922c270a993da37ba3273025c8f41e9c578`, and `23bf6a892f7a57567cbed8799015d08b97a4f41cd75a1c655c6f0960d5cd3bb3`. The news-off and aging-off tick-1200 hashes were not copied out.
+### (a) Contract offers
 
-Contract events are 350, 660, and 812 with news off, and 839, 344, and 785 with aging off. News events with aging off are 608, 581, and 496. With news off the count is 0.
+The old collapse does not recur. On 1847 the stack and aging off are the same 1132 contract events, and the offer trace matches: 902 empty-shelf visits, 563 offers, 11 with no buyer, 81 who cannot pay, 0 with no carrier, 247 skipped because the pair is already open. Lio Crow dies at tick 1080. Seed 4096 stays healthy: 724 in the stack, 901 with aging off, 566 with the levy off, 1026 with offices off, 1120 with news off. The old stack had kept 778 there.
 
-Free Tide ends at 1988.92 only on 1847 in the stack, the seed where Pax Ash dies at tick 720. Aging on batch 1 alone leaves 4.39 on that seed and 0.00 on the other two. The levy is what the vacant seat then stops spending. On 2718 and 4096 Pax lives, and Free Tide still ends at 0.00 in the stack. The same deaths with the ledger removed leave Free Tide at 410.72, 419.45, and 60.6, so the ledger also decides whether that treasury is spent down.
+Contracts do disappear on 2718. The stack emits 16 contract events, 8 offers, and 8 refusals. Aging off emits 412. The levy off emits 767. Offices off emits 945. News off emits 480. Contracts on batch 1 alone emit 14.
 
-Secessions are 0, 5, and 2 on the stack, and 5, 4, and 4 when aging sits on batch 1 alone. With the ledger removed the governor declares nobody on any seed. With aging off, 1847 still declares: Zara Gale at crown-harbor, tick 728, and Esme Dusk at glassport, tick 783. Those two do not happen once the deaths are in. 2718 goes from 3 declarations without aging to 5 with the deaths. The three without aging are Corin Hale at crown-harbor, tick 1047; Dax Pike at cinder-key, tick 1181; and Zara Gale at glassport, tick 1199. 4096 goes from 1 to 2. The one without aging is Corin Hale at glassport, tick 1084. Deaths do not only suppress declarations.
+The pay check and the carrier check are not the stop. On the stack's 2718 trace, empty-shelf visits are 10, offers are 8, visits with no buyer are 2, visits that cannot pay are 0, and visits with no carrier are 0. The gate in front of those checks is `stocks.provisions <= 0`. Across 4800 port-ticks (4 ports, 1200 ticks) that seed has 10 at or under 0 and 1384 strictly between 0 and 1. The other two seeds of the stack still hit empty shelves: 1847 has 902 at or under 0 and 671 between 0 and 1, and 4096 has 982 and 753.
 
-Free Tide's ending rate on 4096 is 0.30 only in the full stack. Aging on batch 1 alone ends that rate at 0.18. News removed ends it at 0.18. The cap and the deaths together are what reach 0.30.
+It is a side effect of the stock sitting just above 0, and the levy and the offices are part of that side effect. They are not a defect in the offer's spend or carrier test. Removing any one of the levy, offices, news, or aging restores empty shelves on 2718: 687, 998, 740, and 529 visits at or under 0. The band between 0 and 1 stays large on those rows (856, 695, 740, and 1084). Contracts alone, with none of those four, already has 9 visits at or under 0 and 1447 between 0 and 1. The four together keep 2718 on that band. Each one removed lets a shelf hit 0, and the offers come back.
 
-Seed 1847's contract events fall to 2 in the stack. Aging off leaves 839. News off leaves 350. Seed 4096 still has 778.
+The smallest fix is the shelf threshold. Offer when `stocks.provisions < 1`, which is the `buy-provisions` gate the contracts note already counted and did not write. On this stack that adds the 671, 1384, and 753 port-ticks that sit strictly between 0 and 1. That writer was not hashed here.
+
+### (b) Free Tide's rate on 4096
+
+The stack does not reach 0.30. Free Tide ends at 0.16. The highest rate during the run is 0.17. Zero starts of tick are at 0.30. The treasury ends at 0.00, so the faction is short. Fourteen raises are unpressed and short. Six presses cut the rate: ticks 48, 72, 216, 312, and 528 read a fresh news figure at or under 55, and tick 1056 is the holder standing on a pressed port, which takes 0.17 down to 0.16. One raise, tick 504, is a step where Free Tide holds no port.
+
+News alone does pin. It ends at 0.30, the max is 0.30, and 479 starts of tick are at 0.30, from tick 721 through tick 1199. The rate at tick 1200 is still 0.30. The last step is tick 720, from 0.29 to 0.30, unpressed and short, and Free Tide holds no port on that step. The cent stops at 30, so a later short step emits nothing. The treasury ends at 0.00. Presses land only at tick 48 (0.08 to 0.07) and tick 312 (0.15 to 0.14), both from a fresh news figure. After tick 312, fifteen raises find no held port and one raise (tick 384, 0.15 to 0.16) holds a port whose figure inside the cap is not at or under 55. There is no standing press. The cap is not hiding a low port on the climb that pins the rate. Free Tide holds nothing to read, the treasury stays short, and the short raise walks from 0.14 at tick 360 to the cap.
+
+The other slices do not pin. On 4096, offices alone ends at 0.16 (max 0.19), the levy alone at 0.17 (max 0.18), contracts alone at 0.13 (max 0.21), aging alone at 0.16 (max 0.21), and batch 1 at 0.17 (max 0.21). News is the slice that reaches the cap.
+
+The levy and the stipend do not create that shortage. The stack and news alone both end Free Tide at 0.00. With the levy removed from the stack the rate climbs higher, to a max of 0.25, and a standing press at tick 1152 cuts it to 0.24. The treasury on that row ends at 21.80. Offices off ends at 0.16. News off, which reads live stability, ends at 0.15 and is still being pressed at tick 1152. The per-slice cause of the pin is the news press going quiet once Free Tide holds no port, while the treasury-short raise is still eligible and the cent stops at 30.
 
 Batch 3 was not measured.
 
@@ -289,7 +321,7 @@ Settled with this note.
 
 4. **Does batch 1 fold into batch 2?** No. Batch 1 is with the Engineer. Its tick-1200 pin is the batch 1 row, and the golden file stays. Batch 2 was measured on top of it, and that pin is the stack.
 
-5. **Does the aging chance from 80 to 120 land with the fixed death?** Yes. Both are in the batch 2 pin. The older fixed-only remeasure, deaths 1, 2, and 1, is a different run.
+5. **Does the aging chance from 80 to 120 land with the fixed death?** No. Aging is a fixed death at 120 only, with no per-tick chance. The earlier stack used a side-stream per-tick chance plus certain death at 120 and killed 13, 5, and 8. That stack is superseded. This pin kills 1, 2, and 1.
 
 6. **Who declares, and what does he read?** The governor declares. The stability and the followers he reads are the news ledger under the 24-tick cap. A port the holder is standing in stays live for the tax step. That live exception stays off the secession read. No governor means nobody declares.
 
