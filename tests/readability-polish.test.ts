@@ -275,20 +275,21 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
   );
 });
 
-test("seed 2718 at tick 1002 names Verdant Cay while she is held", () => {
+test("seed 2718 at tick 900 names Verdant Cay while she is held", () => {
   // Treasury spending moved the hold off tick 595. The balance share moved the unreachable Verdant Cay line to tick 1037.
   // The headless World Government step at tick 216 on seed 2718 moved Mara's hold to tick 1001.
-  const result = runTicks(createPrototypeWorld(2718), 1002);
+  // The secession walker, first at tick 705 on seed 2718, moved that hold to tick 836.
+  const result = runTicks(createPrototypeWorld(2718), 900);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
     day: number;
     party: { resupply: { settlementId: string; provisions: number; price: number; reachable: boolean; travelTicks: number | null } | null };
     briefing: { items: Array<{ id: string; summary: string; settlementId: string | null }> };
   };
-  assert.equal(result.state.tick, 1002);
-  assert.equal(view.day, 167);
+  assert.equal(result.state.tick, 900);
+  assert.equal(view.day, 150);
   assert.equal(commander.captivity?.settlementId, "crown-harbor");
-  assert.equal(commander.captivity?.capturedTick, 1001);
+  assert.equal(commander.captivity?.capturedTick, 836);
   assert.equal(commander.locationId, "crown-harbor");
   const starving = view.briefing.items.find((item) => item.id === "provision:critical");
   assert.ok(starving);

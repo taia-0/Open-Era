@@ -979,6 +979,18 @@ export function secessionDeclaredSentence(world: WorldState, event: SimEvent, ac
   return `${actor} declared ${place} separate from ${faction}.`;
 }
 
+/**
+ * The seat clause for a viewer who may see the payload.
+ *
+ * Null when this declaration did not name a successor. The public sentence
+ * stays the line above. Follower names stay out of both.
+ */
+export function secessionSuccessorClause(world: WorldState, event: SimEvent): string | null {
+  const successorId = event.data.successorId;
+  if (typeof successorId !== "string" || successorId.length === 0) return null;
+  return `${characterName(world, successorId, successorId)} takes the seat.`;
+}
+
 export function taxRateSetSentence(world: WorldState, event: SimEvent, actor: string): string {
   const rate = typeof event.data.taxRate === "number" ? event.data.taxRate : null;
   const factionId = typeof event.data.factionId === "string" ? event.data.factionId : event.targetId;

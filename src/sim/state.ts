@@ -918,6 +918,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.factionId = event.data.factionId as string | null;
       settlement.stability = event.data.stability as number;
       settlement.surrender = null;
+      delete settlement.secessionDeclaredBy;
       break;
     case "secession-declared": {
       if (!settlement) throw new Error("Secession event is missing a settlement");
@@ -939,7 +940,9 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
         taxRate: faction.taxRate,
       };
       owner.factionId = faction.id;
+      const successorId = typeof event.data.successorId === "string" ? event.data.successorId : null;
       for (const followerId of followerIds) {
+        if (successorId !== null && String(followerId) === successorId) continue;
         const follower = world.characters[String(followerId)];
         if (!follower) throw new Error(`Secession event names a missing follower: ${String(followerId)}`);
         follower.factionId = faction.id;
@@ -948,6 +951,19 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.factionId = faction.id;
       settlement.garrison = event.data.garrison as number;
       settlement.stability = event.data.stability as number;
+      settlement.secessionDeclaredBy = ownerId;
+      // The cover takes the old seat in this same step. Retargeting the
+      // holder's orders makes `commandHolderId` resolve to the successor,
+      // whose faction was not moved. The new faction mints no order.
+      if (successorId !== null) {
+        const successor = world.characters[successorId];
+        if (!successor) throw new Error(`Secession event names a missing successor: ${successorId}`);
+        for (const character of Object.values(world.characters)) {
+          for (const order of character.standingOrders) {
+            if (order.issuerId === ownerId) order.issuerId = successorId;
+          }
+        }
+      }
       const nextActing = event.data.actingCommanderId;
       if (typeof nextActing === "string") previous.actingCommanderId = nextActing;
       else delete previous.actingCommanderId;

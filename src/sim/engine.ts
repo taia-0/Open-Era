@@ -25,7 +25,7 @@ import {
 import { assessSupplyContract, contractRelationship } from "./contracts.ts";
 import { resolvePassageCharge, resolveQuotedSpend, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
-import { buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+import { autonomousSecessionReady, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import {
   applyEvent,
   captorPartyLeader,
@@ -3286,6 +3286,26 @@ export interface TickOptions {
  * A headless run does not. The event is the same `tax-rate-set` the command
  * emits, without a command id.
  */
+/**
+ * Section 6. After settlement upkeep and player commands, and after this
+ * tick's tax step, before battles. Ports in id order. No draw. The event is
+ * the same `secession-declared` the command emits, without a command id.
+ */
+function declareAutonomousSecessions(world: WorldState, events: SimEvent[], liveSession: boolean): void {
+  const settlements = Object.values(world.settlements).sort((left, right) => left.id.localeCompare(right.id));
+  for (const settlement of settlements) {
+    if (!autonomousSecessionReady(world, settlement, liveSession)) continue;
+    const declared = buildSecessionDeclaration(world, settlement);
+    emit(world, events, {
+      type: "secession-declared",
+      actorId: declared.ownerId,
+      targetId: declared.previousFactionId,
+      settlementId: settlement.id,
+      data: { ...declared },
+    });
+  }
+}
+
 function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSession: boolean): void {
   if (world.tick <= 0 || world.tick % TAX_RATE_COOLDOWN_TICKS !== 0) return;
   const factionIds = Object.keys(world.factions).sort((left, right) => left.localeCompare(right));
@@ -3314,6 +3334,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   chooseAutonomousTaxRates(world, events, options.liveSession === true);
+  declareAutonomousSecessions(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
   processCaptivityDeadlines(world, events, rng);

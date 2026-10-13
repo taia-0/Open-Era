@@ -3,6 +3,20 @@ import { actingCoverId, commandHolderId, CLAIM_STABILITY_FLOOR, round } from "./
 import { TAX_DRIFT_THRESHOLD } from "./tax-rate.ts";
 import type { Character, Settlement, WorldState } from "./types.ts";
 
+/**
+ * The command holder is leaving, and the cover sort names who takes the seat.
+ *
+ * The sort is the captivity cover: highest leadership plus scarred loyalty
+ * times 50, captives skipped, the holder skipped, a lower id on a tie. No draw.
+ * Null when no free member remains. The declaration is refused in that case,
+ * so the old faction is not left headless.
+ */
+export function secessionSuccessorId(world: WorldState, settlement: Settlement): string | null {
+  if (!settlement.ownerId || !settlement.factionId) return null;
+  if (commandHolderId(world, settlement.factionId) !== settlement.ownerId) return null;
+  return actingCoverId(world, settlement.factionId, settlement.ownerId);
+}
+
 export function declareSecessionRefusal(
   world: WorldState,
   character: Character,
@@ -41,6 +55,15 @@ export function declareSecessionRefusal(
   if (holderId === character.id && character.controller.kind !== "human") {
     return { code: "autonomous-holder", error: "An autonomous command holder may not declare." };
   }
+  // A player who holds the seat may still declare. The cover takes that seat
+  // in the same reducer step. With nobody left to take it, the declaration
+  // is refused and the holder stays, so the faction is not left headless.
+  if (holderId === character.id && secessionSuccessorId(world, settlement) === null) {
+    return {
+      code: "no-successor",
+      error: "The faction would be left with nobody to take the seat.",
+    };
+  }
   if (world.pendingCommands.some((command) =>
     command.type === "declare-secession" &&
     command.id !== exceptCommandId &&
@@ -61,8 +84,8 @@ export const SECESSION_LOYALTY_LINE = 0.75;
  * What a declaration would do to one port, read from the world as it is.
  *
  * The readout writes nothing. The command builds a `secession-declared`
- * payload from this same reading. Nothing here draws. There is no autonomous
- * caller.
+ * payload from this same reading. Nothing here draws. The autonomous walker
+ * calls the same builder and does not draw either.
  */
 export interface SecessionReadout {
   /** `settlement.ownerId`. Null when the port is unowned. */
@@ -217,6 +240,13 @@ export interface SecessionDeclaredData {
   faction: SecessionFactionPayload;
   previousActingCommanderId: string | null;
   actingCommanderId: string | null;
+  /**
+   * Cover-sort successor who becomes `commandHolderId` of the faction being
+   * left. Null when the declarer does not hold that seat. The reducer
+   * retargets the holder's standing orders onto this id. Absent only on an
+   * event recorded before this field existed.
+   */
+  successorId: string | null;
 }
 
 export function secessionFactionId(ownerId: string, settlementId: string, tick: number): string {
@@ -230,7 +260,10 @@ export function secessionFactionId(ownerId: string, settlementId: string, tick: 
  * owner's name is used. The garrison follows only when the port is pressed
  * and the stack is not empty. Otherwise the event stores garrison 0.
  * If the acting commander is leaving, the replacement is the cover sort
- * over the members who remain.
+ * over the members who remain. When the declarer is the command holder, the
+ * cover-sort successor stays, is left out of `followerIds`, and the regency
+ * ends: `actingCommanderId` is null because that cover has taken the seat.
+ * A holder with no successor is refused before this runs.
  */
 export function buildSecessionDeclaration(
   world: WorldState,
@@ -244,13 +277,20 @@ export function buildSecessionDeclaration(
   if (!owner) throw new Error("A secession declaration requires the owner");
   const previousFactionId = settlement.factionId;
   const pressed = settlementPressed(world, settlement, false);
-  const followerIds = secessionFollowerIds(world, settlement, pressed);
+  const successorId = secessionSuccessorId(world, settlement);
+  if (commandHolderId(world, previousFactionId) === settlement.ownerId && successorId === null) {
+    throw new Error("A command holder cannot leave a faction with no cover");
+  }
+  const followerIds = secessionFollowerIds(world, settlement, pressed)
+    .filter((id) => id !== successorId);
   const garrisonFollowed = pressed && settlement.garrison > 0;
   const previousActing = world.factions[previousFactionId]?.actingCommanderId ?? null;
   const leaving = [settlement.ownerId, ...followerIds];
-  const actingCommanderId = previousActing !== null && leaving.includes(previousActing)
-    ? actingCoverId(world, previousFactionId, commandHolderId(world, previousFactionId), leaving)
-    : previousActing;
+  const actingCommanderId = successorId !== null
+    ? null
+    : previousActing !== null && leaving.includes(previousActing)
+      ? actingCoverId(world, previousFactionId, commandHolderId(world, previousFactionId), leaving)
+      : previousActing;
   return {
     previousFactionId,
     ownerId: settlement.ownerId,
@@ -267,7 +307,34 @@ export function buildSecessionDeclaration(
     },
     previousActingCommanderId: previousActing,
     actingCommanderId,
+    successorId,
   };
+}
+
+/**
+ * Section 6's autonomous gate for one port. Does not write the world.
+ *
+ * The owner gate in section 2 must pass, and the owner must not be the
+ * command holder. The controller is autonomous: a human owner is not declared
+ * here, in a live session or a headless run. The holding rate is above 0.15
+ * and stability is at or below 55. A declaration already recorded for this
+ * owner on this spell does not fire again. No draw.
+ */
+export function autonomousSecessionReady(world: WorldState, settlement: Settlement, liveSession = false): boolean {
+  if (!ownerGatePasses(world, settlement) || !settlement.ownerId || !settlement.factionId) return false;
+  const owner = world.characters[settlement.ownerId];
+  if (!owner) return false;
+  // "An autonomous owner declares." A human controller is the player's character,
+  // so a live session and a headless run both skip one. The live-session check
+  // is the leader-tax shape, kept because that is the rule when a note is silent.
+  if (liveSession && owner.controller.kind === "human") return false;
+  if (owner.controller.kind !== "autonomous") return false;
+  if (commandHolderId(world, settlement.factionId) === owner.id) return false;
+  const taxRate = world.factions[settlement.factionId]?.taxRate ?? 0;
+  if (!(taxRate > TAX_DRIFT_THRESHOLD)) return false;
+  if (!(settlement.stability <= CLAIM_STABILITY_FLOOR)) return false;
+  if (settlement.secessionDeclaredBy === owner.id) return false;
+  return true;
 }
 
 /** Read who would leave. Does not write the world. */

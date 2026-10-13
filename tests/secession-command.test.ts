@@ -12,7 +12,7 @@ import {
   SECESSION_FACTION_COLOR,
   SECESSION_FOUNDING_TAX_RATE,
 } from "../src/sim/secession.ts";
-import { applyEvent, commandHolderId, stateHash } from "../src/sim/state.ts";
+import { actingCoverId, applyEvent, commandHolderId, stateHash } from "../src/sim/state.ts";
 import type { Character, WorldState } from "../src/sim/types.ts";
 
 /**
@@ -121,6 +121,8 @@ test("a declaration founds the faction from the event and does not draw", () => 
   const pressedFollowers = secessionFollowerIds(world, harbor, true);
   assert.equal(pressedFollowers.includes("character-01"), false);
   assert.equal(pressedFollowers.includes("character-04"), false);
+  const successorBefore = actingCoverId(world, "world-government", owner.id);
+  if (!successorBefore) throw new Error("unreachable");
 
   const accepted = submitCommand(world, {
     playerId: PLAYER,
@@ -168,12 +170,24 @@ test("a declaration founds the faction from the event and does not draw", () => 
   assert.equal(faction.taxRate, SECESSION_FOUNDING_TAX_RATE);
   assert.equal(faction.actingCommanderId, undefined);
   assert.equal(declared.data.previousActingCommanderId, "character-04");
-  const left = new Set([owner.id, ...(declared.data.followerIds as string[])]);
-  if (left.has("character-04")) {
-    assert.notEqual(declared.data.actingCommanderId, "character-04");
-  } else {
-    assert.equal(declared.data.actingCommanderId, "character-04");
-  }
+  assert.equal(declared.data.successorId, successorBefore);
+  assert.equal((declared.data.followerIds as string[]).includes(successorBefore), false);
+  // The cover takes the seat, so the regency ends in the same step.
+  assert.equal(declared.data.actingCommanderId, null);
+  assert.equal(commandHolderId(world, "world-government"), successorBefore);
+  assert.equal(commandHolderId(world, faction.id), null);
+  assert.equal(
+    Object.values(world.characters).some((character) =>
+      character.standingOrders.some((order) => order.issuerId === owner.id)
+    ),
+    false,
+  );
+  assert.equal(
+    Object.values(world.characters).some((character) =>
+      character.standingOrders.some((order) => order.issuerId === successorBefore)
+    ),
+    true,
+  );
 
   const founded = world.factions[faction.id];
   assert.equal(founded.name, "Finn Frost");
@@ -202,10 +216,15 @@ test("a declaration founds the faction from the event and does not draw", () => 
   };
   const queued = view.events.find((event) => event.type === "player-command-accepted");
   assert.match(queued?.summary ?? "", /Command queued for Mara Vane: declare Crown Harbor separate as Finn Frost/);
+  const successorName = world.characters[successorBefore].name;
   const line = view.events.find((event) => event.type === "secession-declared");
-  assert.equal(line?.summary, "Mara Vane declared Crown Harbor separate from World Government.");
+  assert.equal(
+    line?.summary,
+    `Mara Vane declared Crown Harbor separate from World Government. ${successorName} takes the seat.`,
+  );
   assert.equal(line?.payloadWithheld, false);
   assert.equal(line?.summary.includes("character-"), false);
+  assert.equal(line?.data?.successorId, successorBefore);
   assert.equal(
     secessionDeclaredSentence(world, resolved, "Mara Vane"),
     "Mara Vane declared Crown Harbor separate from World Government.",
@@ -228,6 +247,10 @@ test("a declaration founds the faction from the event and does not draw", () => 
   const mateView = projectEvent(world, mate, declared, secessionDeclaredSentence(world, declared, "Mara Vane"));
   assert.equal(mateView.payloadWithheld, false);
   assert.ok(mateView.data);
+  assert.equal(
+    mateView.summary,
+    `Mara Vane declared Crown Harbor separate from World Government. ${successorName} takes the seat.`,
+  );
 });
 
 test("an omitted name uses the owner's, and an unpressed port stores garrison 0", () => {
@@ -256,6 +279,102 @@ test("an omitted name uses the owner's, and an unpressed port stores garrison 0"
   runTick(world);
   assert.equal(harbor.garrison, 0);
   assert.equal(world.factions[`secession-${mara(world).id}-crown-harbor-0`].name, "Mara Vane");
+});
+
+test("a declaration by someone who does not hold the seat names no successor", () => {
+  const world = createPrototypeWorld(1847);
+  ownCrownHarbor(world);
+  const owner = mara(world);
+  const holder = Object.values(world.characters).find((character) =>
+    character.factionId === "world-government" && character.id !== owner.id
+  );
+  if (!holder) throw new Error("unreachable");
+  for (const character of Object.values(world.characters)) {
+    for (const order of character.standingOrders) {
+      if (order.issuerId === owner.id) order.issuerId = holder.id;
+    }
+  }
+  assert.equal(commandHolderId(world, "world-government"), holder.id);
+  const harbor = world.settlements["crown-harbor"];
+  harbor.stability = 40;
+  const preview = buildSecessionDeclaration(world, harbor, "Side Port");
+  assert.equal(preview.successorId, null);
+  const accepted = submitCommand(world, { playerId: PLAYER, type: "declare-secession", settlementId: "crown-harbor" });
+  assert.equal(accepted.ok, true);
+  const tick = runTick(world);
+  const declared = tick.events.find((event) => event.type === "secession-declared");
+  assert.ok(declared);
+  assert.equal(declared.data.successorId, null);
+  assert.equal(commandHolderId(world, "world-government"), holder.id);
+  assert.equal(
+    Object.values(world.characters).some((character) =>
+      character.standingOrders.some((order) => order.issuerId === holder.id)
+    ),
+    true,
+  );
+});
+
+test("a command holder with no free cover is refused and the seat stays", () => {
+  const world = createPrototypeWorld(1847);
+  ownCrownHarbor(world);
+  const owner = mara(world);
+  for (const character of Object.values(world.characters)) {
+    if (character.id === owner.id || character.factionId !== "world-government") continue;
+    character.captivity = {
+      captorFactionId: "free-tide",
+      settlementId: "crown-harbor",
+      capturedTick: 0,
+      mandatoryReleaseTick: 84,
+      cause: "major-defeat",
+      displayedRisk: "high",
+      scatteredTroops: { count: 1, experience: 0, discipline: 0 },
+      releaseDestinationId: null,
+    };
+  }
+  assert.equal(actingCoverId(world, "world-government", owner.id), null);
+  const refused = submitCommand(world, { playerId: PLAYER, type: "declare-secession", settlementId: "crown-harbor" });
+  assert.equal(refused.ok, false);
+  if (refused.ok) throw new Error("unreachable");
+  assert.equal(refused.code, "no-successor");
+  assert.match(refused.error, /nobody to take the seat/);
+  assert.equal(world.pendingCommands.length, 0);
+  assert.equal(commandHolderId(world, "world-government"), owner.id);
+  assert.equal(world.settlements["crown-harbor"].factionId, "world-government");
+});
+
+test("the cover who would have followed stays and takes the old seat", () => {
+  const world = createPrototypeWorld(1847);
+  ownCrownHarbor(world);
+  const owner = mara(world);
+  const harbor = world.settlements["crown-harbor"];
+  harbor.stability = 40;
+  harbor.garrison = 8;
+  harbor.stocks.provisions = 0;
+  const successor = Object.values(world.characters).find((character) =>
+    character.factionId === "world-government" && character.id !== owner.id
+  );
+  if (!successor) throw new Error("unreachable");
+  successor.locationId = "crown-harbor";
+  successor.travel = null;
+  successor.captivity = null;
+  successor.skills.leadership = 1000;
+  successor.personality.loyalty = 0.1;
+  delete successor.loyaltyAdjustment;
+  successor.cargo.provisions = 0;
+  const successorId = actingCoverId(world, "world-government", owner.id);
+  assert.equal(successorId, successor.id);
+  const wouldHaveFollowed = secessionFollowerIds(world, harbor, true);
+  assert.equal(wouldHaveFollowed.includes(successor.id), true);
+  const accepted = submitCommand(world, { playerId: PLAYER, type: "declare-secession", settlementId: "crown-harbor", name: "Cover" });
+  assert.equal(accepted.ok, true);
+  const tick = runTick(world);
+  const declared = tick.events.find((event) => event.type === "secession-declared");
+  assert.ok(declared);
+  assert.equal(declared.data.successorId, successorId);
+  assert.equal((declared.data.followerIds as string[]).includes(successorId), false);
+  assert.equal(successor.factionId, "world-government");
+  assert.equal(commandHolderId(world, "world-government"), successorId);
+  assert.equal(typeof owner.factionId === "string" && owner.factionId.startsWith("secession-"), true);
 });
 
 test("a queued declaration fails when the owner is no longer the owner", () => {

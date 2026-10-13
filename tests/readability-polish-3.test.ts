@@ -142,14 +142,14 @@ test("seed 1847 names both captains and does not say each one took the port", ()
   );
 
   // The autonomous Free Tide step, first at tick 120 on seed 1847, moved the shared win to Glassport on tick 438.
+  // The secession walker inserts two declarations on that tick, so these sequences move by two.
   const shared = runTicks(createPrototypeWorld(1847), 439);
   const wins = shared.events.filter((event) =>
     event.type === "battle-resolved" && event.tick === 438 && event.settlementId === "glassport",
   );
   const sharedFeed = projectEventFeed(shared.state, "character-01", wins);
-  // The headless World Government step at tick 432 shifted these sequences by one.
-  const junShared = sharedFeed.find((row) => row.sequence === 54721);
-  const vale = sharedFeed.find((row) => row.sequence === 54738);
+  const junShared = sharedFeed.find((row) => row.sequence === 54723);
+  const vale = sharedFeed.find((row) => row.sequence === 54740);
   assert.equal(
     junShared?.summary,
     "Jun Marrow won the fight at Glassport on a higher score, after morale gave out. 2 captains won a fight here on this tick: Jun Marrow, Vale Drake. This fight left the garrison standing. A surrender was offered.",
@@ -170,9 +170,9 @@ test("seed 1847 names both captains and does not say each one took the port", ()
 test("seed 1847 tick 438 says morale gave out, and does not say nerve broke", () => {
   // Treasury spending moved this fight off tick 594. The balance share moved it to Crown Harbor on tick 671.
   // The autonomous Free Tide step, first at tick 120 on seed 1847, moved it to Glassport on tick 438.
-  // The headless World Government step at tick 432 shifted the sequence by one.
+  // The secession walker inserts two declarations on that tick, so this sequence moves by two.
   const run = runTicks(createPrototypeWorld(1847), 439);
-  const battle = run.events.find((event) => event.sequence === 54721);
+  const battle = run.events.find((event) => event.sequence === 54723);
   assert.ok(battle);
   assert.equal(battle.type, "battle-resolved");
   assert.equal(battle.tick, 438);
