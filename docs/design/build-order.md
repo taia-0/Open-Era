@@ -1,6 +1,6 @@
 # Build order
 
-**Status: Open / scheduling note.** Batch 1 is on `origin/main` at `f02ed4e`. The shelf gate and the landless freeze are ruled. The pin is the remeasure at the end of this note. Batch 2 is still unbuilt. Batch 3 was not measured. The harness was local and was restored.
+**Status: Open / scheduling note.** Batch 1 is on `origin/main` at `f02ed4e`. The shelf gate and the landless freeze are ruled. The pin is the remeasure at the end of this note. The batch 2 contracts pin is the walk on that stack, in the section of that name. Batch 2 is still unbuilt. Batch 3 was not measured. The harness was local and was restored.
 
 Checked after merging `origin/main` at `28928f6` (PR #117) into this branch. The merge commit is `1bc65e7`. Node v24.21.0, ICU 78.3. `npm test` passed, 447 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline below. `src/` and `tests/` are that merge. The progression readout is in. It does not move these hashes.
 
@@ -36,7 +36,7 @@ A readout that writes nothing is not a slice here. "Doc" means the hash in that 
 
 ### Contracts, slice 4
 
-[Contracts](contracts.md) ruling. One autonomous captain of the faction that holds a shelf with `stocks.provisions < 1` offers 10 provisions at 56.25. The carrier is the lowest id who passes `carrierBlocked`. The deadline is `max(travelTicks + 1, 2)`, never past 720. Free Tide pays by the quoted spend already in the tree.
+[Contracts](contracts.md) ruling, with the walk in [contract refusals](contract-refusals.md). One autonomous captain of the faction that holds a shelf with `stocks.provisions < 1` offers 10 provisions at 56.25. The carrier is the lowest id who passes `carrierBlocked` and whom `assessSupplyContract` would accept at 56.25 on the offer tick. If nobody would accept, the shelf offers nothing. The payout stays 56.25. The threshold stays `round(0.54 + ambition * 0.08)`. The deadline is `max(travelTicks + 1, 2)`, never past 720. Free Tide pays by the quoted spend already in the tree. The pin for that walk is the batch 2 contracts pin.
 
 Depends on the contract resolver, which is in the tree. It does not depend on negotiation. Negotiation's default was that nobody offers a contract unprompted. This ruling replaces that default for this haul.
 
@@ -159,7 +159,7 @@ After batch 1. One commit, one `golden:update`, one new 1200-tick record. The pi
 1. Offices appointment, the 18 stipend from headroom, breakaway appoints nobody, and the governor is the secession declarer. No treasurer, no admiral. Patronage stays unbuilt at 0.04. Captivity does not clear the seat.
 2. The 0.05 levy, reading that seat.
 3. News slices 2 and 3, then slice 4, then slice 5 at the 24-tick cap, then slice 6. The declarer is the governor from step 1. The stability and the followers he reads are the ledger, under the cap. A port the holder is standing in stays live for the tax step. That live exception stays off the secession read. A faction that holds no port freezes its rate: no autonomous step up or down until it holds a port again.
-4. Contracts slice 4, the 56.25 offer, when `stocks.provisions < 1`.
+4. Contracts slice 4, the 56.25 offer, when `stocks.provisions < 1`, to the lowest id who would already accept, or to nobody. The pin is the batch 2 contracts pin.
 5. Aging: the 180-tick year, a fixed death at age 120 only, vacant succession. No per-tick chance. No `character-aged`. No personal-power penalty.
 
 Desertion and death are already the seat-clear by the time the stipend is in this commit. The levy, the stipend, the wage collector, and the contract writer share the treasury, so they are not given separate re-pins. The fixture moves. Aging by itself does not move tick 72.
@@ -382,6 +382,42 @@ The news-alone row in the superseded table ended Free Tide at 0.30, with 479 sta
 The other two seeds of the same news-only run, tick 1200. 1847: `d749467e2ae0e71328ad716d5ab7026852d2194e29292b057daaa966745a1b3e`, 163386 events, World Government 10193.41 at 0.08, Free Tide 0.00 at 0.20, maximum 0.21, zero starts at 0.30, secessions 2, news 527. Freezes that would raise: ticks 936 and 960 at 0.19, and ticks 1104, 1128, 1152, and 1176 at 0.20. The one that would not raise is tick 1080, at 0.20. 2718: `ba41a8fa683203b70bb8fee4e69c34341ef7d39b803e6b8f4e46d83c1ec9af70`, 162447 events, World Government 9611.46 at 0.10, Free Tide 41.86 at 0.14, maximum 0.19, zero starts at 0.30, secessions 2, news 596. One freeze, tick 1176 at 0.14, and it would raise.
 
 News only on 4096 at tick 72: `1241c1944cacbc72f11d47004356804af2537834d8cc85448dc7b9a34ed49869`, 8339 events, World Government 17650.28 at 0.14, Free Tide 965.77 at 0.07, news 78. One Free Tide set, tick 48, from 0.08 to 0.07. No freeze, no secession, no death.
+
+## Batch 2 contracts pin
+
+The stack in [The pin](#the-pin) is commit `2169bac`, on top of batch 1. This section adds the ruled walk and nothing else. Offer to the lowest id who passes `carrierBlocked` and whom `assessSupplyContract` would accept at 56.25 on the offer tick. If nobody would accept, offer nothing. The payout stays 56.25. The threshold stays `round(0.54 + ambition * 0.08)`. The deadline stays `min(720, max(travelTicks + 1, 2))`. A captain who sails away before the next morning can still refuse. The preview is the offer tick. The score is the next tick.
+
+Checked after `git fetch origin`. `origin/main` is `b421c70` (`b421c7015227886a5733f19967cf4a9c1fc74083`), the merge of PR #122. Node v24.21.0, ICU 78.3. `npm test` passed, 456 tests, 0 failed. The 72-tick fixture matched: `86507558d49cee305c5f663e1699aacc19d66356ce518d4c32ac1e07085d8687` (8426), `c6268c398c5b8a674a1bef8a675cd74c747392e3fb767a67e1ebd8bc1a4143f6` (8335), `d62ab7f9c9e840b55c012fb1d8f2fe6929a61359178b4daf7b5eb10cbf7bca95` (8266). The harness edited the sim, ran, and was restored. Flags defaulted off. Seeds 1847, 2718, and 4096, in that order, in one process. The governor seats sit in a module map and are not cleared between seeds. That is how the stack pin was run. No player commands.
+
+The tick-1200 hashes are the walk in [contract refusals](contract-refusals.md). A second run on this tip reproduced them.
+
+### Tick 72
+
+Seed 1847 offers nothing inside 72 ticks, and that row is the stack pin. Seeds 2718 and 4096 move.
+
+| Seed | State hash | Events | Accepted | Fulfilled | Breached | WG | WG rate | FT | FT rate |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1847 | `1f350990d9bfd9d3cd9458bf9bc59d23f1416e4fc1ea85a3163c739e7be3300e` | 8496 | 0 | 0 | 0 | 17904.84 | 0.14 | 1195.88 | 0.08 |
+| 2718 | `591add204c5a93dd363f1b91f0f7126bb80bd3c5a26973c5c046b0f2d1513616` | 8564 | 2 | 1 | 1 | 17755.75 | 0.14 | 1401.41 | 0.08 |
+| 4096 | `895ede93add6e5c31a82f53562a97182270faaffbe5357723e5ccfdd971ae059` | 8435 | 4 | 1 | 2 | 18055.21 | 0.13 | 1190.79 | 0.08 |
+
+Offers, refusals, and what is still open. 1847: offered 0, refused 0, and the acceptance row is closed. 2718: offered 7, refused 4, accepted 2. One offer is still unanswered. The two acceptances are one breach and one fulfilment. 4096: offered 5, refused 1, accepted 4. Every offer has been answered. One acceptance is still open. The other three are two breaches and one fulfilment. No secession. No death.
+
+### Tick 1200
+
+| Seed | State hash | Events | Accepted | Fulfilled | Breached | WG | WG rate | FT | FT rate |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1847 | `acde8d6b66b11d2bc8bbb89e2e92acf0aa5a555d8e9f515b74a5479189b79696` | 162137 | 208 | 36 | 172 | 13543.34 | 0.07 | 0.00 | 0.17 |
+| 2718 | `633868b09e49911fe1bfe5a86a89d7d45e4093773863df6e683ef1c6b91f0a7e` | 159710 | 119 | 13 | 105 | 5158.06 | 0.09 | 18.91 | 0.17 |
+| 4096 | `9d5cfc389cafd273d5d5bb86ac3180870be9ebb086fa32808585d1671a57843e` | 163464 | 235 | 60 | 175 | 12436.65 | 0.09 | 0.00 | 0.16 |
+
+Offers are 268, 145, and 316. Refusals are 59, 26, and 81. One offer is still unanswered on 1847. On 2718 and 4096 every offer has been answered. The acceptances on 1847 and 4096 are closed: 172 breaches and 36 fulfilments, and 175 breaches and 60 fulfilments. On 2718 one of the 119 acceptances is still open. The other 118 are 105 breaches and 13 fulfilments. Shelves with a carrier in reach and nobody who would accept are 871, 990, and 889.
+
+Secessions. 1847, five: Dax Pike (`character-20`) at cinder-key, tick 529, Free Cinder Key; Finn Frost (`character-18`) at crown-harbor, tick 552, Free Crown Harbor; Mara Calder (`character-21`) at cinder-key, tick 591, Free Cinder Key II; Esme Dusk (`character-19`) at glassport, tick 591, Free Glassport; Zara Gale (`character-17`) at crown-harbor, tick 628, Free Crown Harbor II. 2718, four: Mara Calder at glassport, tick 743, Free Glassport; Corin Hale (`character-16`) at glassport, tick 781, Free Glassport II; Dax Pike at cinder-key, tick 807, Free Cinder Key; Zara Gale at glassport, tick 862, Free Glassport III. 4096, one: Corin Hale at cinder-key, tick 809, Free Cinder Key.
+
+Deaths are the same names and ticks as the stack pin. 1847, tick 1080: Lio Crow (`character-12`), World Government. 2718, tick 180: Lio Crow, World Government; tick 720: Esme Dusk (`character-19`), Free Tide. 4096, tick 540: Kessa Dusk (`character-30`), unaffiliated.
+
+The follow-up, a carrier who has accepted buying the shortfall and sailing, is [contract fulfilment](contract-fulfilment.md). It is measured on this pin. It is unbuilt.
 
 ## Questions
 
