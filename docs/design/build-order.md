@@ -1,8 +1,8 @@
 # Build order
 
-**Status: Open / scheduling note.** No slice below is in the tree. The Lead's rulings stand. This note only orders the ones that are still unbuilt. The harness was local and was restored.
+**Status: Open / scheduling note.** No slice below is in the tree. The Lead's rulings stand. This note only orders the ones that are still unbuilt. Batch 1 is with the Engineer. The harness was local and was restored.
 
-Checked on `origin/main` at `01b2d880d22d41d39205ae8daedee2e2593c7d3e` (PR #116). Node v24.21.0, ICU 78.3. `npm test` passed, 439 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the current 1200-tick baseline. `src/` and `tests/` are unchanged from `5107d7811abf87ed5775c9f774a29845ea046d72` (PR #115), which is the tree [money at sea](money-at-sea.md) measured.
+Checked after merging `origin/main` at `28928f6` (PR #117) into this branch. The merge commit is `1bc65e7`. Node v24.21.0, ICU 78.3. `npm test` passed, 447 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline below. `src/` and `tests/` are that merge. The progression readout is in. It does not move these hashes.
 
 | Seed | Tick 72 state hash | Events | Tick 1200 state hash | Events |
 | --- | --- | ---: | --- | ---: |
@@ -22,9 +22,9 @@ The hazards projection is in. `isDirectlyObserved` keeps the shared settlement a
 
 ## Not scheduled
 
-These were ruled, and they do not enter either batch.
+These were ruled, and they stay out of the batches.
 
-[Fleet](fleet.md) slices 3–7 wait until income can carry them. The levy does not start them. Slice 2 is the one-voyage limit already in the code.
+[Fleet](fleet.md) slices 3–7 stay parked. They wait until income can carry them. The levy does not start them. Slice 2 is the one-voyage limit already in the code.
 
 [Income](income.md) lands the 0.05 governor levy only. Port dues, the sale tariff, the buy duty, the passage credit, the contract fee, the pay-first order, and the reserve floor do not land.
 
@@ -58,15 +58,13 @@ Writes the ledger on the settlement, then travel targets (slice 4), `taxRate` (s
 
 ### Negotiation
 
-[Negotiation](negotiation.md) is still an open brief. The defaults are not a Lead ruling. Listed because the order has to say where they would sit.
+[Negotiation](negotiation.md), PR #100. The Lead accepted the defaults.
 
-Slices 2, 4, and 7 are reducer cases with no autonomous caller. A headless run emits none of those types. Neutral. Taken from the doc. Not compiled here.
+Slices 2, 4, and 7 are reducer cases with no autonomous caller. A headless run emits none of those types. Hash-neutral. They fit in the commit that first emits the type. They are not a re-pin.
 
-Slice 3, the ransom reply, pays `min(purse, demand)`, the coins the release already writes. The note says a reducer that omits the offer key keeps the baseline. A key stored at capture was not measured. The first capture on this class of tape was inside the fixture only on 4096. Not remeasured.
+Slice 3, the ransom reply, pays `min(purse, demand)`, the coins the release already writes. The offer key stays omitted, which is the row the note says keeps the baseline. A key stored at capture was not measured and does not land.
 
-Slice 5, an autonomous buyer on an empty shelf, is the offer the contracts ruling rejected at 45 and replaced at 56.25. It does not land beside slice 4 of the contracts addendum. They would write the same contract.
-
-Slice 6, the pact shortlist, needs a third faction on the ledger and the alliances rule. Slice 8, the autonomous tribute, was not run. The note's first tribute shape is after tick 72, so the fixture would stay and tick 1200 would move. That hash was not measured.
+Slice 5 does not land. The default is that nobody offers a contract unprompted. The contracts ruling already has that haul, at 56.25, in batch 2. Slice 8 does not land. The default is that nobody offers a tribute unprompted. Slice 6, the pact shortlist, does not offer on its own. The default is that nobody offers a pact unprompted. The alliances writer is the one that accepts.
 
 ### Morale
 
@@ -80,13 +78,13 @@ On the morale note's older baseline both slices keep the fixture and move tick 1
 
 ### Alliances
 
-[Alliances](alliances.md) is still an open brief. The defaults are not a Lead ruling.
+[Alliances](alliances.md), PR #92. The Lead accepted the defaults. Nothing is forced at tick 0. The forced two-faction pact in that note is not the build.
 
-Slice 2, the propose and break commands with no autonomous caller, is neutral on a headless run. Taken from the doc. Not compiled here.
+Slice 2, the propose and break commands with no autonomous caller, is hash-neutral on a headless run. It fits with the negotiation reducers, in the commit that first emits the type. Not a re-pin.
 
-The autonomous accept (slice 3), the no-raid rule (slice 4), the sighting copy (slice 5), and the break cost (slice 7) were neutral on that note because the tape never founded a third faction. This tip does. The first secession is event tick 477, 574, and 609, all after the fixture, so a writer that waits for a third faction does not enter the 72-tick window. Tick 1200 would move. That hash was not measured. Slice 6, a second attacker, is out of the brief.
+Slice 6, a second attacker, stays out of the brief.
 
-The break cost writes `breakAdjustment` on the same loyalty sum as `loyaltyAdjustment` and `patronageAdjustment`. The no-raid rule writes battles and claims.
+The autonomous accept (slice 3), the no-raid rule (slice 4), the sighting copy (slice 5), and the break cost (slice 7) wait for a third faction that holds a port, and then only with the faction that is not that enemy and not the parent just left. Both sides accept. The founder speaks until the seat is named. This tip does found third factions, after the fixture, so tick 1200 would move and the fixture would stay. That hash was not measured. They are batch 3. They need the governor seat from batch 2, because the founder is the governor who declared, and they need the batch 2 pin first: the news ledger and the deaths change who secedes. The break cost writes `breakAdjustment` of 0.04 on the same loyalty sum as `loyaltyAdjustment`. Patronage's 0.04 stays unbuilt and is not added. The no-raid rule writes battles and claims.
 
 ### Wage collector
 
@@ -120,9 +118,9 @@ Writes `factionId`, the purse, the creditor treasury, and `ownerId`. The same `f
 
 ### Offices and patronage
 
-The roster addendum is ruled. The posts stay the command holder, the acting commander, and the port governor. A breakaway appoints nobody. The stipend is 18 from headroom, and only when the morning covers every held port. The seat clears when the port's faction changes, the officer leaves the faction, the officer becomes the holder, or on capture, death, and desertion. Secession reads the governor. `ownerId` stays the claimant.
+The roster addendum is ruled. The posts stay the command holder, the acting commander, and the port governor. A breakaway appoints nobody. The stipend is 18 from headroom, and only when the treasury covers 18 for every free mate and every seat. The seat clears when the port's faction changes, the governor leaves the faction, or the governor becomes the holder. Captivity does not clear the seat. Death and desertion clear it because `factionId` changes. Secession reads the governor. `ownerId` stays the claimant.
 
-The questions in section 8 of the port-governor brief, including patronage, were left as a separate decision. Patronage is not ruled. It is unbuilt: there is no `patronageAdjustment` under `src/`.
+The questions in section 8 of the port-governor brief, including patronage, were left as a separate decision. Patronage stays unbuilt. The step is 0.04, and it is not in either re-pin. There is no `patronageAdjustment` under `src/`.
 
 The appointment and the stipend depend on the holder and the mate cap already in the tree. The clear depends on desertion and on death if those have landed. The levy reads the same seat.
 
@@ -138,35 +136,39 @@ Writes `governorId`, the treasury (the stipend), and, if patronage is later rule
 | `taxRate` | News slice 5 (24-tick cap), and the tax step after the levy changes the treasury |
 | `factionId` | Desertion, aging's death |
 | `morale` | The −0.5 pay term. Decisions already read it |
-| Loyalty sum | The scar already in the tree, patronage if it is ruled, alliance `breakAdjustment` if that brief is ruled |
+| Loyalty sum | The scar already in the tree. Alliance `breakAdjustment` of 0.04 is batch 3. Patronage's 0.04 stays unbuilt |
 | Governor seat | Offices appointment, the levy's read, the secession declarer, desertion and death as the clear |
-| Ledger | News slices 2 and 3 store it. Slices 4, 5, and 6 read it. A negotiation pact would read it too |
+| Ledger | News slices 2 and 3 store it. Slices 4, 5, and 6 read it |
 | Contract | Contracts slice 4. Negotiation slice 5 would write the same offer and does not land beside it |
-| Battles and claims | Alliances' no-raid rule, if that brief is ruled. News slice 4 moves travel targets, which moves who fights |
+| Battles and claims | Alliances' no-raid rule, batch 3. News slice 4 moves travel targets, which moves who fights |
 
 ## Order
 
-Two re-pin batches. One batch would be fewer, and its pin was not measured: the news ledger, the levy, the stipend, the contract writer, and the death are not a small harness. The split keeps the measured pin on the current baseline and puts every other hash-moving slice in one later golden re-pin.
+Three batches. Batch 1 is with the Engineer. Batch 2 is the golden re-pin measured below, applied on top of batch 1. Batch 3 is the hash-moving alliance slices. That pin was not measured.
 
-Batch 0 does not exist for the ruled slices. None of them is hash-neutral. The neutral reducers are in the open briefs, and question 1 asks whether they land at all.
+The hash-neutral slices are not a batch. Negotiation slices 2, 4, and 7, and alliance slice 2, fit in the commit that first emits the type. A headless run emits none of them. Negotiation's accepted defaults add no hash-moving slice.
 
-### Batch 1 — tick 1200 only
+### Batch 1 — with the Engineer
 
-The wage collector, the −0.5 term, and the desertion roll, in one commit, on today's baseline. No unbuilt dependency. The 72-tick fixture stays, so the golden file is not regenerated. Tick 1200 is the stack in the measurement section. Free Tide ends at 0.00 on every seed.
-
-Aging keeps the fixture on its own older remeasure. It is not in this batch. Stacking it here would replace the measured pin, and that stack was not run.
+The wage collector, the −0.5 pay term, and the desertion roll, in one commit, on today's baseline. No unbuilt dependency. The 72-tick fixture stays, so the golden file is not regenerated. Tick 1200 is the batch 1 row in the measurement section. Free Tide ends at 0.00 on every seed. This batch is with the Engineer.
 
 ### Batch 2 — one golden re-pin
 
-After batch 1. One commit, one `golden:update`, one new 1200-tick record. The pin was not measured. Inside the commit, this order:
+After batch 1. One commit, one `golden:update`, one new 1200-tick record. The pin is the stack in the measurement section. Inside the commit, this order:
 
-1. Offices appointment, the 18 stipend from headroom, breakaway appoints nobody, and the governor is the secession declarer. No treasurer, no admiral, no patronage unless question 2 says yes.
+1. Offices appointment, the 18 stipend from headroom, breakaway appoints nobody, and the governor is the secession declarer. No treasurer, no admiral. Patronage stays unbuilt at 0.04. Captivity does not clear the seat.
 2. The 0.05 levy, reading that seat.
-3. News slices 2 and 3, then slice 4, then slice 5 at the 24-tick cap, then slice 6. The declarer is the governor from step 1. The stability and loyalty he reads are the ledger, under the cap.
+3. News slices 2 and 3, then slice 4, then slice 5 at the 24-tick cap, then slice 6. The declarer is the governor from step 1. The stability and the followers he reads are the ledger, under the cap. A port the holder is standing in stays live for the tax step. That live exception stays off the secession read.
 4. Contracts slice 4, the 56.25 offer.
 5. Aging: the 180-tick year, `character-aged`, the personal-power penalty once an age is stored, certain death at 120, the side-stream chance from 80 to 120, vacant succession.
 
-Desertion and death are already the seat-clear by the time the stipend is in this commit. The levy, the stipend, the wage collector, and the contract writer share the treasury, so they are not given separate re-pins.
+Desertion and death are already the seat-clear by the time the stipend is in this commit. The levy, the stipend, the wage collector, and the contract writer share the treasury, so they are not given separate re-pins. The fixture moves. Aging by itself does not move tick 72.
+
+### Batch 3 — alliances
+
+After batch 2. Alliance slices 3, 4, 5, and 7: the autonomous accept, the no-raid rule, the sighting copy, and the break cost. Nothing is forced at tick 0. Slice 6, a second attacker, stays out. The break cost is `breakAdjustment` of 0.04. Patronage's 0.04 is not added.
+
+These wait on the governor seat, and on who secedes after the news ledger and the deaths. Batch 2 is already the large re-pin. Stacking the four alliance slices on it is not a small harness, so this run did not measure them. Fleet slices 3–7 stay parked. The levy does not start them.
 
 ## Measurement
 
@@ -201,7 +203,7 @@ Every row below kept the fixture. Tick 72 hashes and event counts are the baseli
 | Batch 1 | 2718 | `b7015fced2f2b04e86e0877142aad82ae4f0b4ea5c54e66e2651edea33581d3e` | 165135 | 3897.32 |
 | Batch 1 | 4096 | `7f0f865b7686a6e479e45b65406b1adc3b49326e0dd354f199b62bcd60bac214` | 168755 | 11953.82 |
 
-Batch 1 is the three together. That row is the re-pin if batch 1 lands on this baseline. It is not the re-pin of batch 2.
+Batch 1 is the three together. That row is the re-pin, and it is with the Engineer. The batch 2 pin is the stack below.
 
 Desertion alone leaves Esme Dusk at tick 546 (0.245) and Bram Tern at tick 930 (0.034) on 1847, Finn Frost at tick 282 (0.244) and Bram Tern at tick 882 (0.085) on 2718, and Mina Vale (0.160) and Esme Dusk (0.238) at tick 312 on 4096.
 
@@ -209,18 +211,86 @@ Batch 1 leaves Finn Frost (0.245) and Bram Tern (0.034) at tick 174 and Esme Dus
 
 `debt-repaid` on the batch 1 row is 121, 19, and 54. Open debts at tick 1200 are 6, 3, and 1. The wage-only open counts, 5, 4, and 3, are the money-at-sea row and were matched by this harness.
 
+### Batch 2 stack
+
+The same harness, with batch 1 still on, then offices, the levy, news slices 2–6, contracts at 56.25, and aging. Flags defaulted off. The run was local and was restored. Node v24.21.0, ICU 78.3. Seeds 1847, 2718, and 4096. A second run of the stack reproduced the hashes below.
+
+Appointment runs at the start of the tick, after aging and the morning desertion check. The cover sort names one anchored member who is not the holder, and only while `spendRole` is `"holder"`. A breakaway appoints nobody. `governorId` is omitted while the seat is empty. Captivity does not clear it. The stipend is silent: `seats × 18` from the treasury into the governors' purses, and only when the treasury covers 18 for every free mate and every seat. A morning that cannot pay emits nothing.
+
+The levy is `round(gross × 0.05, 2)` inside the work tax and the sale tax. It applies when the dock was seated at the start of the tick and the dock still has a faction. The credit follows that faction.
+
+News posts the public item on the port: id, type, `observedTick`, `factionId`, and `taxRate` on a tax item only. Stability and the scarred-follower list sit beside the item. A holder ashore reads the ledger of the port he stands in. A holder at sea reads the bag copied on departure. The tax step keeps the live stability of a port the holder is standing in. An away port counts only while the tax tick minus `observedTick` is at most 24. Secession does not use that live exception. The governor declares when he is anchored, autonomous, and not the holder, the rate is above 0.15, and the beside figure for that port is at or under 55 thousandths. No governor means nobody declares. The event's stability field is the live port stability, so the reducer does not overwrite the port with the news figure. The payload `ownerId` is the governor, so the reducer founds the faction with that captain. Followers are the item's scarred list, still anchored, and not the governor, the holder, or the acting commander.
+
+The contract offer is the contracts ruling: one autonomous captain of the faction that holds an empty shelf, 10 provisions at 56.25, the lowest id who can pay, the carrier the lowest id who passes `carrierBlocked`, deadline `max(travelTicks + 1, 2)` and never past 720. A new offer waits until the next tick.
+
+Aging uses span ages from `DeterministicRng(seed).integer(18, 119)`, in id order `character-01` through `character-30`, not from `world.rngState`. Ages are omitted until the integer year increases. A year is 180 ticks. Once an age is stored, `personalPower` loses 1 over 60 and 3 over 80. Death draws use a second `DeterministicRng` forked from `world.rngState` at setup and not written back. At 80 or under, the chance is 0. At 120 the death is certain and draws nothing. Between those, the birthday kills when the roll is under `((age − 80) / 40) × (1 − strength)`. Succession is vacant. Debts pay the creditor treasury from the purse, in id order. Sailors, troops, and the remainder stay. Ports' `ownerId` becomes null. A holder death clears the acting commander. An acting-commander death writes the next cover or clears the seat.
+
+The 72-tick fixture moves on every seed. The first death is tick 180, so aging is not what moves tick 72.
+
+| Seed | Tick 72 state hash | Events | Tick 1200 state hash | Events | WG | WG rate | FT | FT rate | Secessions | Deaths |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1847 | `f277b5586d18f3a81814f8827eec26e027f7289d541cc58e259690c3d007a682` | 8497 | `924694eb7631d6a8496c6f4df6721793c71f26030179d6310145761a0b88498a` | 112112 | 12021.06 | 0.10 | 1988.92 | 0.14 | 0 | 13 |
+| 2718 | `10acbabbd427a909fb86828aadde45ea79b3a51cc31d0cb9177ec4f8af80db02` | 8548 | `3f682e91b7c9f41b18c3192d740f1bbf7a9f61eee88c17c97947e462f85f8a4f` | 149519 | 10474.79 | 0.08 | 0.00 | 0.23 | 5 | 5 |
+| 4096 | `a8e6794dcddb18dbe67cef4c6038e4016096c073d978160ddcc3c851abbc4c7f` | 8467 | `52c2de69c97c9cbb73deec708a5fbb9b7ab16208647f39e2ac519b7450b699c2` | 138648 | 12758.79 | 0.08 | 0.00 | 0.30 | 2 | 8 |
+
+`news-posted` on that row is 441, 604, and 535. Contract events are 2, 31, and 778.
+
+Deaths, with age. The same list appears when news is removed and when aging sits on batch 1 alone. Offices, the levy, the ledger, and the contract writer do not change who dies.
+
+1847, tick 180: Bram Quill 110, Sable Morrow 108, Iris Stone 95, Lio Crow 115, Dax Pike 91, Vale Gale 97. Tick 360: Finn Frost 114, Niko Crow 96, Sable Sorn 92, Toma Hale 107. Tick 540: Jun Marrow 105. Tick 720: Pax Ash 105, Orin Frost 92.
+
+2718, tick 180: Rook Tern 108, Lio Crow 120, Mara Calder 114. Tick 720: Esme Dusk 120. Tick 900: Orin Rill 101.
+
+4096, tick 180: Toma Reef 111, Sable Sorn 113, Kessa Dusk 118. Tick 540: Rook Tern 104, Mina Vale 99, Esme Dusk 98, Iris Vale 97. Tick 1080: Orin Rill 87.
+
+Lio Crow at 120 on 2718, and Esme Dusk at 120 on 2718, are the certain deaths. The rest are the side-stream chance. The older fixed-only remeasure, deaths 1, 2, and 1, is not this pin.
+
+Secessions on the stack. 1847: none. 2718: Dax Pike at cinder-key, tick 529; Bram Tern at glassport, tick 554; Esme Dusk at cinder-key, tick 591; Corin Hale at cinder-key, tick 715; Zara Gale at glassport, tick 958. 4096: Finn Frost at glassport, tick 698; Corin Hale at cinder-key, tick 965.
+
+Desertions move against the batch 1 row. 1847: Finn Frost 0.245 and Bram Tern 0.034 at tick 264, and Corin Hale 0.407 at tick 450. The 0.407 roll was Esme Dusk at tick 390 on batch 1. 2718: Finn Frost 0.244 at tick 342, where batch 1 had him at tick 282, and Mina Vale 0.085 at tick 1026. 4096: Mina Vale 0.160 and Dax Pike 0.238 at tick 174, where batch 1 had Zara Gale 0.160 and Dax Pike 0.238 at tick 312, and Bram Tern 0.449 at tick 312, where batch 1 had him at tick 438.
+
+The comparisons below used the same harness with one group turned off. They are not a second pin. Tick 72 with aging off matches the stack hashes and the counts 8497, 8548, and 8467. Tick 72 with aging on batch 1 alone stays on the fixture. Tick 72 with news off does not match the stack. Those three hashes were not copied out.
+
+| Run | Seed | Events | WG | WG rate | FT | FT rate | Secessions | Deaths |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| News off | 1847 | 118110 | 13251.98 | 0.13 | 410.72 | 0.11 | 0 | 13 |
+| News off | 2718 | 146611 | 16620.20 | 0.11 | 419.45 | 0.18 | 0 | 5 |
+| News off | 4096 | 136598 | 17799.36 | 0.12 | 60.6 | 0.18 | 0 | 8 |
+| Aging off | 1847 | 164933 | 15818.88 | 0.08 | 0.00 | 0.30 | 2 | 0 |
+| Aging off | 2718 | 164314 | 11480.65 | 0.09 | 0.00 | 0.22 | 3 | 0 |
+| Aging off | 4096 | 165367 | 15554.31 | 0.12 | 0.00 | 0.22 | 1 | 0 |
+| Aging on batch 1 | 1847 | 113194 | 11104.18 | 0.08 | 4.39 | 0.23 | 5 | 13 |
+| Aging on batch 1 | 2718 | 146635 | 11153.57 | 0.13 | 0.00 | 0.15 | 4 | 5 |
+| Aging on batch 1 | 4096 | 138308 | 12804.94 | 0.14 | 0.00 | 0.18 | 4 | 8 |
+
+Aging on batch 1 alone keeps the fixture. Its tick-1200 hashes are `5db84281c7a13bb11c9edfc687e111ecce84a6b7922877dd87fa81b11b861590`, `50c29d5209f00e665aae4e01a0d34922c270a993da37ba3273025c8f41e9c578`, and `23bf6a892f7a57567cbed8799015d08b97a4f41cd75a1c655c6f0960d5cd3bb3`. The news-off and aging-off tick-1200 hashes were not copied out.
+
+Contract events are 350, 660, and 812 with news off, and 839, 344, and 785 with aging off. News events with aging off are 608, 581, and 496. With news off the count is 0.
+
+Free Tide ends at 1988.92 only on 1847 in the stack, the seed where Pax Ash dies at tick 720. Aging on batch 1 alone leaves 4.39 on that seed and 0.00 on the other two. The levy is what the vacant seat then stops spending. On 2718 and 4096 Pax lives, and Free Tide still ends at 0.00 in the stack. The same deaths with the ledger removed leave Free Tide at 410.72, 419.45, and 60.6, so the ledger also decides whether that treasury is spent down.
+
+Secessions are 0, 5, and 2 on the stack, and 5, 4, and 4 when aging sits on batch 1 alone. With the ledger removed the governor declares nobody on any seed. With aging off, 1847 still declares: Zara Gale at crown-harbor, tick 728, and Esme Dusk at glassport, tick 783. Those two do not happen once the deaths are in. 2718 goes from 3 declarations without aging to 5 with the deaths. The three without aging are Corin Hale at crown-harbor, tick 1047; Dax Pike at cinder-key, tick 1181; and Zara Gale at glassport, tick 1199. 4096 goes from 1 to 2. The one without aging is Corin Hale at glassport, tick 1084. Deaths do not only suppress declarations.
+
+Free Tide's ending rate on 4096 is 0.30 only in the full stack. Aging on batch 1 alone ends that rate at 0.18. News removed ends it at 0.18. The cap and the deaths together are what reach 0.30.
+
+Seed 1847's contract events fall to 2 in the stack. Aging off leaves 839. News off leaves 350. Seed 4096 still has 778.
+
+Batch 3 was not measured.
+
 ## Questions
 
-1. **Do the neutral reducers land before batch 1?** Negotiation slices 2, 4, and 7, the alliance propose and break commands, and an offices appoint command with no autonomous caller. A headless run would emit none of them. Default: no. They are not ruled slices, and the event types can land inside the commit that first emits them.
+Settled with this note.
 
-2. **Does patronage join batch 2?** Default: no. The offices ruling left the port-governor brief's questions as a separate decision. The addendum accepted the stipend and rejected the treasurer and the admiral.
+1. **Where do the neutral reducers sit?** In the commit that first emits the type. Negotiation slices 2, 4, and 7, and the alliance propose and break commands. A headless run emits none of them. They are not a re-pin.
 
-3. **Do negotiation and alliances join the order?** Default: no. Both briefs are still open. The unprompted contract offer is already settled by the contracts ruling, at 56.25, and does not need a second writer. An alliances writer on this tip would see the first secession at event tick 477, 574, and 609, so the fixture would stay and tick 1200 would move. That hash was not measured.
+2. **Does patronage join a batch?** It stays unbuilt. The step is 0.04. It is not in batch 2 or batch 3. There is no `patronageAdjustment` under `src/`.
 
-4. **Merge batch 1 into batch 2 so there is one re-pin?** Default: no. Batch 1's tick-1200 pin is the batch 1 row above, and the golden file stays. Folding it into the fixture-movers would replace that pin with one that was not measured.
+3. **Do negotiation and alliances join the order?** Yes, on the accepted defaults. [Negotiation](negotiation.md) is PR #100. [Alliances](alliances.md) is PR #92. Nothing is forced at tick 0. Negotiation adds no hash-moving slice. The hash-moving alliance slices are batch 3.
 
-5. **Does the aging chance from 80 to 120 land with the fixed death?** Default: yes. The ruling accepted both. The chance was not remeasured, on this tip or in the aging remeasure, so batch 2's pin is unknown either way.
+4. **Does batch 1 fold into batch 2?** No. Batch 1 is with the Engineer. Its tick-1200 pin is the batch 1 row, and the golden file stays. Batch 2 was measured on top of it, and that pin is the stack.
 
-6. **Who declares, and what does he read?** Default: the governor declares, and the stability and loyalty he reads are the news ledger under the 24-tick cap. The offices addendum names the declarer. The news ruling names the read. A port the holder is standing in stays live for the tax step. That live exception was not extended to the secession read.
+5. **Does the aging chance from 80 to 120 land with the fixed death?** Yes. Both are in the batch 2 pin. The older fixed-only remeasure, deaths 1, 2, and 1, is a different run.
 
-7. **Do fleet slices 3–7 start once the levy is in?** Default: no. The fleet ruling still says they wait until income can carry them. The levy does not by itself carry a hull price, a crew bill, a repair, or the per-ship wage.
+6. **Who declares, and what does he read?** The governor declares. The stability and the followers he reads are the news ledger under the 24-tick cap. A port the holder is standing in stays live for the tax step. That live exception stays off the secession read. No governor means nobody declares.
+
+7. **Do fleet slices 3–7 start once the levy is in?** They stay parked. The fleet ruling still says they wait until income can carry them. The levy does not by itself carry a hull price, a crew bill, a repair, or the per-ship wage.

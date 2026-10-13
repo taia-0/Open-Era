@@ -189,6 +189,6 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 
 The Lead has ruled.
 
-The defaults in section 9 are accepted, except question 7. The day's-wage collector is the build slice. Purse seizure stays out entirely and is not scaled down. Whole-purse capture is rejected.
+The defaults in section 9 are accepted. The Lead accepted every default with no exceptions. The day's-wage collector is the build slice. Purse seizure stays out entirely and is not scaled down. Whole-purse capture is rejected.
 
 Slice 2 does not land. Slice 3 does not land. Slice 4 does. The 72-tick fixture stays. Tick 1200 moves. The collector's hashes are the wage table in section 7.
