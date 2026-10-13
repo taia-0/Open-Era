@@ -1,6 +1,6 @@
 # Income
 
-**Status: Open / design brief.** Nothing in this note is in the tree. The census is a local readout of the baseline tape. Each lever was applied by a local harness, measured alone, and restored.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). The [payment-order addendum](#addendum-payment-order) is open. Nothing in this note is in the tree. The census is a local readout of the baseline tape. Each lever was applied by a local harness, measured alone, and restored.
 
 Checked on `origin/main` at `33e668fb4734c758751ab41c6af19e84e6df408f` (PR #112). Node v24.21.0, ICU 78.3. `npm test` passed, 432 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline:
 
@@ -257,3 +257,67 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 8. **Do the tax step and the secession gate change?** Default: no. Pressed still steps the rate down. Short still steps it up, on the cooldown of 24, between 0 and 0.30. The walker still wants a rate above 0.15 and stability at or below 55. Under the 0.05 levy the ending rates are World Government 0.10, 0.11, and 0.12, and Free Tide 0.19, 0.08, and 0.17. Declarations are 6, 0, and 3. The wide gate is 71, 0, and 138 port-ticks, with 6, 0, and 3 ready. Low-stability port-ticks fall from 337, 314, and 796 to 262, 236, and 305. Seed 2718 stays at 0.08. Seeds 1847 and 4096 still climb through 0.15.
 
 9. **What moves the hash?** Default: slice 1 and slice 7 stay on the baseline table. Slice 4 re-pins the 72-tick fixture on Node 24.21 / ICU 78.3. Tick 72 hashes are `bb9a546263fd799a70c91505069f6f7c86c169b6fd3752a01bca09176cc18b4e`, `d2c9552adec5b7e9efe844e6167bf01a38078b945568435aa1c0d482c3b4dc1f`, and `41587a43d026e5d6ed914426c5e31f3399f2ad8598acd2ca4a460acde993e8dd`, with 8382, 8315, and 8408 events. The seat is not stored. No new draw. The tick rng stays the wrong stream.
+
+## Ruling
+
+The Lead has ruled.
+
+The 0.05 governor levy stands. While a governor is seated at the start of the tick, work gross and sell gross each pay 0.05, taken from the worker or the seller and credited to the faction that holds the dock. The seat is the offices rule and is not stored. There is no holder cap. Micah ruled on 2026-09-29 that rulers spend from the treasury freely.
+
+## Addendum: payment order
+
+The levy above is the receipt. This addendum changes the morning's payment order and leaves the holder uncapped. The harness was local and was restored.
+
+Checked on `origin/main` at `a369f758916eb1f21f4adaabc30172a28c5e229b`. Node v24.21.0, ICU 78.3. `npm test` passed, 432 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline `acf1b2c25f0f55c3b308177ec621180a515897849bf1ee9ba5aa5bca3b0852c9` / `47c65e2fd676bfd420a36ee4bf13d871d6b474dfd27b6106a3319724f6e75ec9` / `a0ac2cc419d640660cf34c20acb3a0cb42449fef6f13e4eadb4caaaf9d255a1f`, events 164732, 162127, and 159900.
+
+Runs are `createPrototypeWorld` plus `runTick`, no player commands. Seeds 1847, 2718, and 4096, in that order. 1200 ticks. Coins are exact cents. A morning is `tick % 6 === 0` from tick 0 through tick 1194, two hundred mornings. Tick 1200 is not billed. The 18 is shrunk on a morning when free mates exist and the balance share is under 18. The walker is in the tree. A declaration is a `secession-declared` event. A step is a `tax-rate-set`. Pax Ash is `character-14`. His draw is the sum of `treasuryDrawn` on his events.
+
+The free holder's quote is `drawQuotedBill` with the uncapped path. The bill comes out of the treasury. The purse is left alone. Mates draw the balance share, `min(18, treasury / free mates)`, floored to a cent. At the start of a morning the harness reserves that share times the free-mate count. It then pays a stipend of 18 to each seated governor when the headroom covers 18 for every seat that faction holds, and credits the governor's purse. The holder's quote sees the treasury minus whatever of the reserve the mates have not yet drawn. The next morning replaces the reserve. The seat is the offices rule, read at the start of the tick, and not stored. The stipend is a harness write on the purse and the treasury. It is not a new event.
+
+The levy-alone row is the same campaign as section 4 and section 5. The order row is that levy plus the morning above.
+
+| | World Government end | Free Tide end | Shrunk mornings, WG / FT | Pax's draw | End rate, WG / FT | Steps, WG / FT | Declarations |
+| --- | --- | --- | --- | ---: | --- | --- | --- |
+| Baseline | 5501.03 / 6885.06 / 3608.30 | 0.00 / 666.09 / 0.00 | 0 / 0 / 0, 77 / 88 / 113 | 7015.89 / 6899.28 / 5184.07 | 0.07/0.20, 0.11/0.19, 0.00/0.30 | 7/14, 3/27, 14/22 | 6 / 5 / 4 |
+| Levy 0.05 | 15416.78 / 16911.49 / 15642.65 | 0.00 / 1407.46 / 37.19 | 0 / 0 / 0, 72 / 3 / 79 | 9626.72 / 6050.46 / 16922.49 | 0.10/0.19, 0.11/0.08, 0.12/0.17 | 4/19, 3/2, 2/27 | 6 / 0 / 3 |
+| Levy plus order | 8332.48 / 12319.41 / 9797.02 | 519.99 / 3.21 / 0.00 | 0 / 0 / 0, 98 / 74 / 110 | 12570.23 / 10534.22 / 8380.60 | 0.12/0.15, 0.14/0.19, 0.10/0.29 | 2/35, 0/19, 4/27 | 4 / 3 / 7 |
+
+Pax's draw counts are 256, 420, and 206 on the baseline, 363, 843, and 459 under the levy, and 670, 411, and 262 under the order. World Government's share stays 18 on every morning of every row. Stipends paid under the order are Free Tide 1854.00, 2484.00, and 756.00, on 84, 99, and 39 mornings, and World Government 4932.00, 5202.00, and 4248.00, on 191, 180, and 160 mornings.
+
+Free Tide still ends near 0 on two seeds. Seed 2718 ends at 3.21. Seed 4096 ends at 0.00. Seed 1847 ends at 519.99. Seed 2718's levy-alone ending was 1407.46.
+
+Baseline hashes are the table at the top of this note. Levy hashes are the levy-of-0.05 table in section 5, reproduced by this run. The order moves both horizons.
+
+| Seed | Tick 72 | Events | Tick 1200 | Events |
+| ---: | --- | ---: | --- | ---: |
+| 1847 | `c2f6172ef1ac0f7bbb51a0f8b9fcd81ef5643ba3da688be86735b8c2b20d66a5` | 8374 | `dac4e93b259b06b3c4d11ae6156d5eae5e9b1bd78a1b4cd63b16ad28f54de5ac` | 159601 |
+| 2718 | `bea2183de92a1e94a863d24826734bb67a8db55f8ba71f5470a5c4c5e8a916fe` | 8460 | `5430fd66cf6369d7bc3864259bd1128b40056ab8ea55ff375d903a6329c917fd` | 163105 |
+| 4096 | `452d964fd6043391ec80a1d19cc3e5d3d0dd4ad923da79cb64f36bc1f8195b10` | 8379 | `6fa64d468868b7563c54c81e27393953b98733b9ef1880e000ac1566a27c5051` | 158699 |
+
+Tick 72 event counts move from 8413, 8456, and 8261 to 8374, 8460, and 8379. Tick 1200 moves from 164732, 162127, and 159900 to 159601, 163105, and 158699.
+
+### One day's reserve
+
+The order leaves two seeds near 0, so the next measurement is the smallest rule that stays inside [game vision](game-vision.md) and keeps the holder drawing freely. The holder cannot draw the treasury below one day's obligations. One day is 18 for every free mate and 18 for every seated governor, read when the holder quotes. Above that line the draw is still uncapped. The coins stay in the same treasury. The rule does not move World Government's balance into Free Tide, and it does not script a rebellion. This row is the 0.05 levy plus that floor. Stipends are not paid out. The morning order above is off.
+
+| | World Government end | Free Tide end | Shrunk mornings, WG / FT | Pax's draw | End rate, WG / FT | Steps, WG / FT | Declarations |
+| --- | --- | --- | --- | ---: | --- | --- | --- |
+| Levy plus floor | 17001.96 / 18669.71 / 20162.64 | 931.59 / 84.81 / 0.00 | 0 / 0 / 0, 28 / 37 / 64 | 8529.96 / 10360.46 / 11433.60 | 0.13/0.12, 0.13/0.14, 0.08/0.23 | 1/6, 1/12, 6/15 | 0 / 0 / 5 |
+
+Pax's draw counts are 534, 335, and 307. Tick 72 keeps the levy-of-0.05 hashes and the event counts 8382, 8315, and 8408. Tick 1200 moves.
+
+| Seed | Tick 1200 | Events |
+| ---: | --- | ---: |
+| 1847 | `0c332b8d9ec2de259b7a808e4fe30dc485adbdab6d27b7ce465a197d4b04c17f` | 162044 |
+| 2718 | `bfb18a02b586067587e9cea04036bc1fe7b96068df482f821bdc4a98269207d0` | 164221 |
+| 4096 | `bad8c255170ed53785338c134f48886d6c8d1013fa635e27000e5e0a3af6d8ce` | 162297 |
+
+Seed 4096 still ends at 0.00. Seed 2718 ends at 84.81, down from 1407.46 under the levy alone. Seed 1847 ends at 931.59, up from 0.00. The floor does not leave a fund on every seed.
+
+### Questions
+
+1. **Does morning pay the allowance and the stipends before the holder draws?** Default: no. Under the levy plus that order Free Tide ends at 519.99, 3.21, and 0.00. Two seeds are near 0. Pax draws 12570.23, 10534.22, and 8380.60. The 72-tick fixture moves. The holder stays uncapped on the coins that remain.
+
+2. **Does the holder stop at a reserve of one day's obligations?** Default: no. That reserve is the smallest rule that keeps the draw free and leaves the coins in the same treasury. One day is 18 per free mate and 18 per seated governor. Free Tide ends at 931.59, 84.81, and 0.00. Seed 4096 is still 0.00. Seed 2718 falls from 1407.46 to 84.81. Tick 72 stays on the levy hashes. Tick 1200 moves.
+
+3. **What is measured next if every seed should finish above empty?** Default: the holder draws only from that day's tax income above upkeep. Upkeep is the same one-day obligation, 18 per free mate and 18 per seated governor. A higher levy was not run. The surplus rule was not run. The floor was the smaller change, and one seed still finished at 0.00.
