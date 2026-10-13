@@ -9,8 +9,9 @@ import type { SimEvent, WorldState } from "../src/sim/types.ts";
 /**
  * Slice 2. A holding rate above 0.15 subtracts 0.03 of stability per 0.05
  * band on each peaceful upkeep. Scenario rates 0.14 and 0.08 sit at or below
- * the threshold, so a headless run adds nothing. Slice 3, the autonomous
- * choice, is not in this file.
+ * the threshold, so those upkeeps add nothing. The autonomous choice is
+ * tested in `leader-tax-autonomy.test.ts`. A three-tick run still emits no
+ * `tax-rate-set`, because the clock is tick 24.
  */
 
 const PLAYER = "prototype-player";

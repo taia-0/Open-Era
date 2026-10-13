@@ -1,4 +1,5 @@
-import { spendRole } from "./allowance.ts";
+import { freeMateCount, fullAllowance, spendRole } from "./allowance.ts";
+import { CLAIM_STABILITY_FLOOR } from "./state.ts";
 import type { Character, WorldState } from "./types.ts";
 
 /**
@@ -116,4 +117,75 @@ export function taxRateCommandRefusal(
     };
   }
   return null;
+}
+
+/**
+ * One sea tick of passage. The same figure `PASSAGE_COST_PER_TICK` charges.
+ * A day of it is `ticksPerDay * 3`, which is 18, and the short-treasury test
+ * is that day in whole cents: `mates * 1800`.
+ */
+const PASSAGE_PER_TICK = 3;
+
+export interface AutonomousTaxStep {
+  holderId: string;
+  taxRate: number;
+  previousTaxRate: number;
+}
+
+/**
+ * The free command holder of one faction, or null when that seat is empty,
+ * captive, or not this faction's holder. The acting commander is a member
+ * and is not returned.
+ */
+function freeCommandHolder(world: WorldState, factionId: string): Character | null {
+  const holders = Object.values(world.characters)
+    .filter((character) => character.factionId === factionId && spendRole(world, character) === "holder")
+    .sort((left, right) => left.id.localeCompare(right.id));
+  return holders[0] ?? null;
+}
+
+/**
+ * One cent a free holder would apply on this tick, or null.
+ *
+ * The clock is tick `t > 0` with `t % 24 === 0`. Every free holder is
+ * eligible, including a human one. A live session drops her afterward; this
+ * function does not. A missing `taxRateSetTick` means the rate has never
+ * changed. A tick still inside `taxRateSetTick + 24` waits. The same rate
+ * emits nothing; the caller treats null as no event.
+ *
+ * Pressed is the live lowest stability among ports the faction holds, in
+ * thousandths, at or under the claim floor of 55. Short is the allowance
+ * test: free mates exist and the treasury cannot pay each of them one day
+ * of passage. Pressed steps down. Short steps up only when the port is not
+ * pressed. The cent stops at 0 and at 30.
+ */
+export function autonomousTaxStep(world: WorldState, factionId: string): AutonomousTaxStep | null {
+  if (world.tick <= 0 || world.tick % TAX_RATE_COOLDOWN_TICKS !== 0) return null;
+  const faction = world.factions[factionId];
+  if (!faction) return null;
+  const holder = freeCommandHolder(world, factionId);
+  if (!holder) return null;
+  const setTick = faction.taxRateSetTick;
+  if (setTick !== undefined && world.tick < setTick + TAX_RATE_COOLDOWN_TICKS) return null;
+
+  const cents = Math.round(faction.taxRate * 100);
+  const held = Object.values(world.settlements).filter((settlement) => settlement.factionId === factionId);
+  let lowest = Number.POSITIVE_INFINITY;
+  for (const settlement of held) {
+    lowest = Math.min(lowest, Math.round(settlement.stability * 1000));
+  }
+  const pressed = held.length > 0 && lowest <= CLAIM_STABILITY_FLOOR * 1000;
+  const mates = freeMateCount(world, factionId);
+  const dayCents = Math.round(fullAllowance(world, PASSAGE_PER_TICK) * 100);
+  const treasuryCents = Math.round(faction.treasury * 100);
+  const short = mates > 0 && treasuryCents < mates * dayCents;
+  let next = cents;
+  if (pressed && cents > 0) next = cents - 1;
+  else if (!pressed && short && cents < Math.round(TAX_RATE_MAX * 100)) next = cents + 1;
+  if (next === cents) return null;
+  return {
+    holderId: holder.id,
+    taxRate: next / 100,
+    previousTaxRate: faction.taxRate,
+  };
 }
