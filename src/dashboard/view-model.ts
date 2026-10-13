@@ -18,7 +18,7 @@ import { secessionReadout, type SecessionReadout } from "../sim/secession.ts";
 import { marketPrice, partyPowerFromTroops, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { CHECK_IN_READ_CAP } from "../sim/persistence.ts";
 import { RESOURCE_KEYS, type ActiveBattle, type Character, type CombatForecast, type Settlement, type SettlementKnowledge, type SimEvent, type WorldState } from "../sim/types.ts";
-import { captiveIntelFor, projectCharacter, projectEvent, projectFactions, projectSupplyContracts, seaSightingsFor } from "./visibility.ts";
+import { captiveIntelFor, eventPayloadVisible, projectCharacter, projectEvent, projectFactions, projectSupplyContracts, seaSightingsFor } from "./visibility.ts";
 import {
   attentionLabel,
   battleResolvedSentence,
@@ -35,6 +35,7 @@ import {
   publicFeedSentence,
   queuedCommandSentence,
   secessionDeclaredSentence,
+  secessionSuccessorClause,
   recruitDetailSentence,
   settlementClaimedSentence,
 } from "./wording.ts";
@@ -172,8 +173,12 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
       return `${event.data.returning} scattered troops returned to ${actor}`;
     case "settlement-claimed":
       return settlementClaimedSentence(world, event, events);
-    case "secession-declared":
-      return secessionDeclaredSentence(world, event, actor);
+    case "secession-declared": {
+      const base = secessionDeclaredSentence(world, event, actor);
+      if (!reader || !eventPayloadVisible(world, reader, event)) return base;
+      const clause = secessionSuccessorClause(world, event);
+      return clause ? `${base} ${clause}` : base;
+    }
     case "arrived":
       return `${actor} arrived at ${settlement}`;
     case "travel-started":
