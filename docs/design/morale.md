@@ -1,6 +1,6 @@
 # Morale
 
-**Status: Open / design brief.** Nothing in this note is in the tree. The census is a local readout of the baseline tape. The resims were produced by a local harness and were not left in the tree.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). Nothing in this note is in the tree. The census is a local readout of the baseline tape. The resims were produced by a local harness and were not left in the tree.
 
 Checked on `origin/main` at `4753d32944d08decd99c451706b771ef8b529e97` (PR #100). Node v24.21.0, ICU 78.3. `npm test` passed, 405 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture and the 1200-tick baseline:
 
@@ -139,3 +139,9 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 7. **Does patronage raise morale?** Default: no. Patronage stays the +0.04 scarred-loyalty step in [offices](offices.md), which is the line question 2 reads. It is not in this tree and was not resimmed here. A morale bonus on top of that step was not measured.
 
 8. **Does secession read morale?** Default: no. The follow line stays loyalty, the press, and cargo. Desertion is the unpaid exit. It uses the loyalty line and does not declare a break. A walker that opened the follow line from morale was not run.
+
+## Ruling
+
+The Lead has ruled.
+
+Every default in section 6 is accepted, except desertion. Desertion uses slice 4: the gate of 12 short mornings, then one side-stream roll, leaving when the roll is under 0.5. Certain desertion is rejected. It bankrupted Free Tide, which ends at 4.76, 54, and 0. Slice 4 deserts 2, 1, and 2, and Free Tide ends at 62.54, 1030.01, and 188.70.
