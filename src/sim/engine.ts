@@ -1,4 +1,4 @@
-import { noteMorningDesertion } from "./desertion.ts";
+import { applySilentTickStart } from "./tick-start.ts";
 import { DeterministicRng } from "./rng.ts";
 import {
   autonomousShouldRetreat,
@@ -3408,8 +3408,8 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
  * event, so a snapshot in the middle of a streak restores both. The event
  * still carries the roll. A stay emits nothing.
  */
-function resolveMorningDesertion(world: WorldState, events: SimEvent[]): void {
-  for (const notice of noteMorningDesertion(world)) {
+function resolveMorningDesertion(world: WorldState, events: SimEvent[], notices: ReturnType<typeof applySilentTickStart>): void {
+  for (const notice of notices) {
     emit(world, events, {
       type: "character-deserted",
       actorId: notice.characterId,
@@ -3427,7 +3427,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
   const rng = new DeterministicRng(world.rngState);
   const events: SimEvent[] = [];
 
-  resolveMorningDesertion(world, events);
+  resolveMorningDesertion(world, events, applySilentTickStart(world));
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   chooseAutonomousTaxRates(world, events, options.liveSession === true);

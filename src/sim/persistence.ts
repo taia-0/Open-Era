@@ -1,8 +1,9 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { noteMorningDesertion } from "./desertion.ts";
-import { applyEvent, normalizeWorldState, stateHash } from "./state.ts";
+import { transplantGovernorSeats } from "./governor.ts";
+import { normalizeWorldState, stateHash } from "./state.ts";
+import { replayWithSilentStarts } from "./tick-start.ts";
 import type { SimEvent, WorldState } from "./types.ts";
 
 /** Largest event-feed page a player may request in one read. */
@@ -165,6 +166,7 @@ export class WorldStore {
       throw new Error(`Snapshot hash mismatch at sequence ${snapshot.sequence}`);
     }
     normalizeWorldState(state);
+    this.restoreGovernorSeats(state, snapshot.sequence);
 
     const rows = this.database
       .prepare("SELECT * FROM events WHERE sequence > ? ORDER BY sequence")
@@ -179,24 +181,34 @@ export class WorldStore {
   }
 
   /**
+   * The seat is not in the snapshot. Replay from the opening world through
+   * the snapshot's last event, then keep only the seat map. Coins and streaks
+   * stay on the snapshot, which already includes them.
+   */
+  private restoreGovernorSeats(state: WorldState, snapshotSequence: number): void {
+    if (snapshotSequence <= 0) return;
+    const opening = this.database
+      .prepare("SELECT state_json FROM snapshots WHERE sequence = 0")
+      .get() as { state_json: string } | undefined;
+    if (!opening) throw new Error("World store has no opening snapshot");
+    const shadow = JSON.parse(opening.state_json) as WorldState;
+    normalizeWorldState(shadow);
+    const rows = this.database
+      .prepare("SELECT * FROM events WHERE sequence <= ? ORDER BY sequence")
+      .all(snapshotSequence) as unknown as EventRow[];
+    replayWithSilentStarts(shadow, rows.map((row) => this.rowToEvent(row)));
+    transplantGovernorSeats(shadow, state);
+  }
+
+  /**
    * Replay events after a snapshot.
    *
    * A day-boundary snapshot is taken when the clock lands on a morning, before
-   * that morning's desertion. The streak and the side-stream position are not
-   * events, so each replayed tick applies them before its log. A tick that is
-   * not a morning leaves both alone.
+   * that morning's desertion and stipend. Both are reapplied before the
+   * tick's events. A tick that is not a morning still refreshes the seat.
    */
   private replayEvents(state: WorldState, rows: EventRow[]): void {
-    const events = rows.map((row) => this.rowToEvent(row));
-    let atStart = events.length > 0;
-    for (const event of events) {
-      if (atStart) {
-        noteMorningDesertion(state);
-        atStart = false;
-      }
-      applyEvent(state, event);
-      if (event.type === "tick-advanced") atStart = true;
-    }
+    replayWithSilentStarts(state, rows.map((row) => this.rowToEvent(row)));
   }
 
   allEvents(): SimEvent[] {
