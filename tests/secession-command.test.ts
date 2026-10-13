@@ -253,7 +253,7 @@ test("a declaration founds the faction from the event and does not draw", () => 
   );
 });
 
-test("an omitted name uses the owner's, and an unpressed port stores garrison 0", () => {
+test("an omitted builder name is Free plus the port, and an unpressed port stores garrison 0", () => {
   const world = createPrototypeWorld(1847);
   ownCrownHarbor(world);
   const harbor = world.settlements["crown-harbor"];
@@ -262,7 +262,7 @@ test("an omitted name uses the owner's, and an unpressed port stores garrison 0"
   harbor.stocks.provisions = 500;
   world.factions["world-government"].taxRate = 0.14;
   const preview = buildSecessionDeclaration(world, harbor);
-  assert.equal(preview.faction.name, mara(world).name);
+  assert.equal(preview.faction.name, "Free Crown Harbor");
   assert.equal(preview.garrisonFollowed, false);
   assert.equal(preview.garrison, 0);
   assert.equal(preview.previousActingCommanderId, null);
@@ -279,6 +279,32 @@ test("an omitted name uses the owner's, and an unpressed port stores garrison 0"
   runTick(world);
   assert.equal(harbor.garrison, 0);
   assert.equal(world.factions[`secession-${mara(world).id}-crown-harbor-0`].name, "Mara Vane");
+});
+
+test("a player declaration keeps the name the player gives", () => {
+  const world = createPrototypeWorld(1847);
+  ownCrownHarbor(world);
+  world.factions["already-free"] = {
+    id: "already-free",
+    name: "Free Crown Harbor",
+    color: "#111111",
+    treasury: 0,
+    taxRate: 0.08,
+  };
+  const accepted = submitCommand(world, {
+    playerId: PLAYER,
+    type: "declare-secession",
+    settlementId: "crown-harbor",
+    name: "Side Port",
+  });
+  assert.equal(accepted.ok, true);
+  const tick = runTick(world);
+  const declared = tick.events.find((event) => event.type === "secession-declared");
+  assert.ok(declared);
+  const faction = declared.data.faction as { id: string; name: string };
+  assert.equal(faction.name, "Side Port");
+  assert.equal(world.factions[faction.id].name, "Side Port");
+  assert.equal(world.factions["already-free"].name, "Free Crown Harbor");
 });
 
 test("a declaration by someone who does not hold the seat names no successor", () => {

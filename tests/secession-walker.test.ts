@@ -3,7 +3,7 @@ import test from "node:test";
 import { submitCommand } from "../src/sim/commands.ts";
 import { runTick, runTicks } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
-import { autonomousSecessionReady } from "../src/sim/secession.ts";
+import { autonomousFactionName, autonomousSecessionReady, buildSecessionDeclaration } from "../src/sim/secession.ts";
 import { applyEvent, commandHolderId } from "../src/sim/state.ts";
 import type { Character, WorldState } from "../src/sim/types.ts";
 
@@ -39,6 +39,69 @@ function seat(world: WorldState, settlementId: string, owner: Character, stabili
   owner.controller = { kind: "autonomous" };
   world.factions["world-government"].taxRate = taxRate;
 }
+
+test("an autonomous declaration names the faction Free plus the port", () => {
+  const world = createPrototypeWorld(1847);
+  const owner = wgMember(world);
+  seat(world, "crown-harbor", owner, 40, 0.2);
+  const beforeRng = world.rngState;
+  const named = autonomousFactionName(world, world.settlements["crown-harbor"]);
+  assert.equal(named, "Free Crown Harbor");
+  assert.equal(world.rngState, beforeRng);
+  const preview = buildSecessionDeclaration(world, world.settlements["crown-harbor"]);
+  assert.equal(preview.faction.name, "Free Crown Harbor");
+  assert.equal(world.rngState, beforeRng);
+  const tick = runTick(world);
+  const declared = tick.events.find((event) => event.type === "secession-declared");
+  assert.ok(declared);
+  const faction = declared.data.faction as { id: string; name: string };
+  assert.equal(faction.name, "Free Crown Harbor");
+  assert.equal(world.factions[faction.id].name, "Free Crown Harbor");
+  assert.notEqual(faction.name, owner.name);
+});
+
+test("a taken Free port name takes the next roman suffix and does not draw", () => {
+  const world = createPrototypeWorld(1847);
+  const owner = wgMember(world);
+  seat(world, "crown-harbor", owner, 40, 0.2);
+  world.factions["already"] = {
+    id: "already",
+    name: "Free Crown Harbor",
+    color: "#111111",
+    treasury: 0,
+    taxRate: 0.08,
+  };
+  const beforeRng = world.rngState;
+  assert.equal(autonomousFactionName(world, world.settlements["crown-harbor"]), "Free Crown Harbor II");
+  assert.equal(world.rngState, beforeRng);
+  const tick = runTick(world);
+  const declared = tick.events.find((event) => event.type === "secession-declared");
+  assert.ok(declared);
+  assert.equal((declared.data.faction as { name: string }).name, "Free Crown Harbor II");
+
+  const third = createPrototypeWorld(1847);
+  const other = wgMember(third);
+  seat(third, "crown-harbor", other, 40, 0.2);
+  third.factions["already"] = {
+    id: "already",
+    name: "Free Crown Harbor",
+    color: "#111111",
+    treasury: 0,
+    taxRate: 0.08,
+  };
+  third.factions["already-ii"] = {
+    id: "already-ii",
+    name: "Free Crown Harbor II",
+    color: "#222222",
+    treasury: 0,
+    taxRate: 0.08,
+  };
+  assert.equal(buildSecessionDeclaration(third, third.settlements["crown-harbor"]).faction.name, "Free Crown Harbor III");
+  const follow = runTick(third);
+  const again = follow.events.find((event) => event.type === "secession-declared");
+  assert.ok(again);
+  assert.equal((again.data.faction as { name: string }).name, "Free Crown Harbor III");
+});
 
 test("a headless run and a live session emit no secession on the scenario rates", () => {
   for (const seed of [1847, 2718, 4096]) {

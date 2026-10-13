@@ -982,8 +982,7 @@ export function secessionDeclaredSentence(world: WorldState, event: SimEvent, ac
   // in the same tick can credit the faction row. The line says the start, so
   // the row's later balance is not a second founding figure.
   // The name is the new faction's, not the declarer's. An autonomous
-  // declaration passes no name, and the payload then stores the owner's name,
-  // so the sentence names the founder because the faction is named after them.
+  // declaration passes no name, and the payload stores "Free <port name>".
   // A faction with no name yet still says the treasury starts empty.
   if (founded && founded.treasury === 0) {
     const live = world.factions[founded.id]?.name;
