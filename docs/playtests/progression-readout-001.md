@@ -151,3 +151,162 @@ Jun Ash is still distant. `skills` null. `progression.feedCounts` worked 7, voya
 That summary does not contain `rose`.
 
 Stop this process.
+
+## Session
+
+Blind session on `feature/progression-readout` at `fbb2eb1c6a09e42094112f8c1e8a94fa5d54bbc9`. `git rev-parse HEAD` before the first request was `fbb2eb1c6a09e42094112f8c1e8a94fa5d54bbc9`. Node v24.21.0, ICU 78.3. Seed 1847. One process: `npm run dashboard -- --reset --seed 1847` on `http://127.0.0.1:4317`. Viewer Mara Vane, `character-01`, `playerId` `prototype-player`. No command was posted. `beforeSequence` was omitted on every event read. The process was stopped after the second state read. `golden:update` was not run.
+
+### Tick 0, before any advance
+
+`GET /api/health` HTTP 200.
+
+```json
+{"ok":true,"tick":0,"events":0}
+```
+
+`GET /api/state?limit=200` HTTP 200.
+
+- `tick` 0. `day` 0. `commanderId` `character-01`.
+- `player.id` `prototype-player`. `player.displayName` `Mara Vane`. `player.characterId` `character-01`.
+- `eventPage` count 0, limit 200, total 0, `hasMore` false, `oldestSequence` null, `newestSequence` null, `cursor` null.
+- `party.locationId` `crown-harbor`.
+
+Mara Vane, `character-01`:
+
+- `locationId` `crown-harbor`. `skillsNote` null. `intelligence.tier` `self`. `capabilityExact` true.
+- `skills` strategy 72, leadership 77, navigation 38, trade 57.
+- `troops` count 80, experience 0.668, discipline 0.76.
+- `progression.skills` the same four numbers. `progression.troopQuality.band` `veteran`. `progression.feedCounts` worked 0, voyages 0, battles 0. `progression.battleTotals` victories 0, defeats 0.
+
+Kessa Calder, `character-10`:
+
+- `factionId` `world-government`. `locationId` `verdant-cay`. `travel` null. `skillsNote` null.
+- `intelligence.tier` `faction`. `capabilityExact` true. `conditionExact` false.
+- `skills` strategy 29, leadership 67, navigation 32, trade 23. `troops` null.
+- `progression.troopQuality` null. `progression.feedCounts` worked 0, voyages 0, battles 0.
+
+Jun Ash, `character-25`:
+
+- `factionId` null. `locationId` `crown-harbor`. `skillsNote` null.
+- `intelligence.tier` `co-located`. `capabilityExact` true.
+- `skills` strategy 40, leadership 66, navigation 20, trade 24.
+- `progression.troopQuality.band` `ordinary`. Experience 0.25. Discipline 0.652.
+- `progression.feedCounts` worked 0, voyages 0, battles 0.
+
+### Checkpoint 1. Twenty-one ticks, no crossing line
+
+`POST /api/advance` `{"ticks":21}` HTTP 200.
+
+- `ok` true. `tick` 21. `day` 3.5. `ticksAdvanced` 21.
+- `combatUpdated` false. `attentionUpdated` false. `pausedForBattle` false.
+- `eventSequence` 2408.
+
+`GET /api/state?limit=200` HTTP 200.
+
+- `tick` 21. `day` 3.5. `party.locationId` `crown-harbor`.
+- `eventPage` count 200, limit 200, total 2408, `hasMore` true, `oldestSequence` 2209, `newestSequence` 2408, `cursor` 2209.
+- No event summary contains `rose`.
+
+Kessa Calder:
+
+- `locationId` `verdant-cay`. `capabilityExact` true. `troops` null. `progression.troopQuality` null.
+- `skills` strategy 29, leadership 67.429, navigation 32, trade 23.995.
+- `progression.feedCounts` worked 13, voyages 0, battles 0.
+
+Sequence 2342 is `worked`, actor `character-10`, settlement `verdant-cay`, tick 20. `payloadWithheld` true. `data` null. Summary:
+
+`Kessa Calder worked at Verdant Cay.`
+
+The summary does not contain `rose`, `trade`, or `23.995`. Her card trade is 23.995, still under 24.
+
+Jun Ash:
+
+- `locationId` `glassport`. `skills` null. `capabilityExact` false.
+- `skillsNote` `Jun Ash's leadership is withheld on this card. The reading is distant (reputation), so skills stay off the card.`
+- `progression.skills` null. `progression.troopQuality` null.
+- `progression.feedCounts` worked 6, voyages 2, battles 0.
+
+The newest page (sequences 2209 through 2408) has no `worked` row for `character-25`. No summary on that page contains `rose`.
+
+Mara's skills are unchanged: strategy 72, leadership 77, navigation 38, trade 57. `progression.feedCounts` is still 0, 0, 0. `progression.troopQuality.band` is still `veteran`.
+
+### Checkpoint 2. The crossing
+
+`POST /api/advance` `{"ticks":1}` HTTP 200.
+
+- `ok` true. `tick` 22. `day` 3.67. `ticksAdvanced` 1.
+- `combatUpdated` false. `attentionUpdated` false. `pausedForBattle` false.
+- `eventSequence` 2520.
+
+`GET /api/state?limit=200` HTTP 200.
+
+- `tick` 22. `day` 3.67.
+- `eventPage` count 200, limit 200, total 2520, `hasMore` true, `oldestSequence` 2321, `newestSequence` 2520, `cursor` 2321.
+
+Sequence 2342 is still on this page. The summary is still `Kessa Calder worked at Verdant Cay.`
+
+Sequence 2449 is `worked`, actor `character-10`, settlement `verdant-cay`, tick 21, `day` 3.5. `payloadWithheld` true. `data` null. Summary:
+
+`Kessa Calder worked at Verdant Cay. Kessa Calder's trade rose to 24.`
+
+That is the only summary on the log page that contains `rose`. It does not contain `24.071`.
+
+Kessa Calder:
+
+- `skills` strategy 29, leadership 67.462, navigation 32, trade 24.071.
+- `progression.skills.trade` 24.071. `progression.feedCounts.worked` 14. `progression.troopQuality` null.
+
+The card holds the 3-decimal trade. The feed names the whole number she crossed. Leadership moved from 67.429 to 67.462 and the row does not mention leadership.
+
+Jun Ash is still distant. `skills` null. `progression.feedCounts` worked 7, voyages 2, battles 0. Sequence 2501, tick 21, `payloadWithheld` true, `data` null, summary:
+
+`Jun Ash worked at Glassport. Tax of 2.38 went to the treasury.`
+
+That summary does not contain `rose`.
+
+The process was stopped.
+
+## Findings
+
+The hypothesis holds. Through tick 21 the feed stayed quiet while Kessa Calder's trade moved inside 23, from 23 to 23.995. No summary contained `rose`. The next tick added one sentence on her `worked` row, and only there: `Kessa Calder's trade rose to 24.` The card kept `24.071`. Leadership moved from 67.429 to 67.462 and that row did not mention it. Jun Ash's skills were off the card at Glassport, and sequence 2501 did not say `rose`. Mara's trade stayed 57. Kessa's payload stayed withheld (`data` null).
+
+| Checkpoint | Expected | Observed |
+| --- | --- | --- |
+| Health at tick 0 | HTTP 200 `{"ok":true,"tick":0,"events":0}` | Same |
+| Viewer and page at tick 0 | Mara Vane, `character-01`, `prototype-player`, Crown Harbor, empty page | Same |
+| Mara at tick 0 | strategy 72, leadership 77, navigation 38, trade 57, troops 80 / 0.668 / 0.76, band `veteran`, feed 0 / 0 / 0, battles 0 / 0 | Same |
+| Kessa at tick 0 | trade 23, leadership 67, strategy 29, navigation 32, `verdant-cay`, troops null | Same |
+| Jun at tick 0 | strategy 40, leadership 66, navigation 20, trade 24, band `ordinary`, experience 0.25, discipline 0.652 | Same |
+| Advance 21 | `tick` 21, `day` 3.5, `ticksAdvanced` 21, `eventSequence` 2408, no combat, no attention, not paused | Same |
+| Page at tick 21 | count 200, total 2408, `hasMore` true, oldest 2209, newest 2408, cursor 2209, no `rose` | Same |
+| Kessa at tick 21 | trade 23.995, leadership 67.429, worked 13, still at Verdant Cay | Same |
+| Sequence 2342 | `Kessa Calder worked at Verdant Cay.` Payload withheld. No `rose`, `trade`, or `23.995` | Same |
+| Jun at tick 21 | Glassport, skills null, the distant `skillsNote`, worked 6, voyages 2, no `rose` | Same |
+| Mara at tick 21 | skills unchanged, feed 0 / 0 / 0, band `veteran` | Same |
+| Advance 1 | `tick` 22, `day` 3.67, `ticksAdvanced` 1, `eventSequence` 2520 | Same |
+| Page at tick 22 | count 200, total 2520, oldest 2321, newest 2520, cursor 2321 | Same |
+| Sequence 2449 | `Kessa Calder worked at Verdant Cay. Kessa Calder's trade rose to 24.` The only `rose`. No `24.071` | Same |
+| Kessa at tick 22 | trade 24.071, leadership 67.462, worked 14, troop quality null | Same |
+| Sequence 2501 | `Jun Ash worked at Glassport. Tax of 2.38 went to the treasury.` No `rose`. Worked count 7 | Same |
+
+### What worked
+
+- The feed stayed quiet while trade sat at 23.995.
+- The crossing named the whole number, 24, on the existing work row.
+- The card kept the 3-decimal absolute, 24.071.
+- A leadership step that stayed inside 67 did not get a sentence.
+- Jun Ash's withheld card produced no `rose` line.
+
+### Implementation defects
+
+- None observed.
+
+### Follow-up experiments
+
+- None for this plan.
+
+## Verdict
+
+`PROMOTE`
+
+Every reading listed in this plan matched at `fbb2eb1c6a09e42094112f8c1e8a94fa5d54bbc9`. The feed stayed quiet inside a whole number, named the whole number on the one crossing the viewer could already see, and stayed silent where skills were withheld. The card kept the 3-decimal absolute.
