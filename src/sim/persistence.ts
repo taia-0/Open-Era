@@ -36,6 +36,12 @@ interface EventRow {
   data_json: string;
 }
 
+function typeFilter(omitTypes: readonly string[]): { clause: string; params: string[] } {
+  if (omitTypes.length === 0) return { clause: "", params: [] };
+  const placeholders = omitTypes.map(() => "?").join(", ");
+  return { clause: ` AND type NOT IN (${placeholders})`, params: [...omitTypes] };
+}
+
 export class WorldStore {
   readonly database: DatabaseSync;
 
@@ -210,22 +216,27 @@ export class WorldStore {
    * `oldestSequence` as the cursor to walk further back: the query is strictly
    * `sequence < cursor`, so pages never overlap and a client can reconstruct
    * the whole feed without gaps.
+   *
+   * `omitTypes` drops rows before the limit is applied, so a page fills with
+   * the rows the caller will actually return.
    */
-  eventsPage(beforeSequence: number | null, limit: number): SimEvent[] {
+  eventsPage(beforeSequence: number | null, limit: number, omitTypes: readonly string[] = []): SimEvent[] {
     const safeLimit = Math.max(1, Math.min(EVENT_FEED_PAGE_LIMIT, Math.floor(limit)));
+    const filter = typeFilter(omitTypes);
     const rows = (beforeSequence === null
-      ? this.database.prepare("SELECT * FROM events ORDER BY sequence DESC LIMIT ?").all(safeLimit)
+      ? this.database.prepare(`SELECT * FROM events WHERE 1 = 1${filter.clause} ORDER BY sequence DESC LIMIT ?`).all(...filter.params, safeLimit)
       : this.database
-        .prepare("SELECT * FROM events WHERE sequence < ? ORDER BY sequence DESC LIMIT ?")
-        .all(beforeSequence, safeLimit)) as unknown as EventRow[];
+        .prepare(`SELECT * FROM events WHERE sequence < ?${filter.clause} ORDER BY sequence DESC LIMIT ?`)
+        .all(beforeSequence, ...filter.params, safeLimit)) as unknown as EventRow[];
     return rows.reverse().map((row) => this.rowToEvent(row));
   }
 
   /** Counts events strictly older than the cursor, which is how a page reports `hasMore`. */
-  countEventsBefore(beforeSequence: number | null): number {
+  countEventsBefore(beforeSequence: number | null, omitTypes: readonly string[] = []): number {
+    const filter = typeFilter(omitTypes);
     const row = (beforeSequence === null
-      ? this.database.prepare("SELECT COUNT(*) AS count FROM events").get()
-      : this.database.prepare("SELECT COUNT(*) AS count FROM events WHERE sequence < ?").get(beforeSequence)) as { count: number };
+      ? this.database.prepare(`SELECT COUNT(*) AS count FROM events WHERE 1 = 1${filter.clause}`).get(...filter.params)
+      : this.database.prepare(`SELECT COUNT(*) AS count FROM events WHERE sequence < ?${filter.clause}`).get(beforeSequence, ...filter.params)) as { count: number };
     return row.count;
   }
 
@@ -234,8 +245,9 @@ export class WorldStore {
     return row.count;
   }
 
-  eventCount(): number {
-    const row = this.database.prepare("SELECT COUNT(*) AS count FROM events").get() as { count: number };
+  eventCount(omitTypes: readonly string[] = []): number {
+    const filter = typeFilter(omitTypes);
+    const row = this.database.prepare(`SELECT COUNT(*) AS count FROM events WHERE 1 = 1${filter.clause}`).get(...filter.params) as { count: number };
     return row.count;
   }
 

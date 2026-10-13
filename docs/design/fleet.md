@@ -1,6 +1,6 @@
 # Fleet
 
-**Status: Open / design brief.** Nothing in this note is in the tree. The census is a local readout of the baseline tape. The resims were produced by a local harness and were not left in the tree.
+**Status: Ruled.** The Lead's answers are in [Ruling](#ruling). Nothing in this note is in the tree. The census is a local readout of the baseline tape. The resims were produced by a local harness and were not left in the tree.
 
 Checked on `origin/main` at `16bd8e4366316e834b6100741666caaf39af14a5` (PR #102). Node v24.21.0, ICU 78.3. `npm test` passed, 415 tests. The 72-tick fixture passed, including the golden recovery replay of 600 events on seed 1847 split at tick 47. A headless run reproduced the fixture. The 1200-tick baseline below is this tree. It is not the 1200-tick table in [morale](morale.md). That table was measured on `4753d32` (PR #100), before the secession walker in PR #101. The walker is in this tree. The 72-tick hashes are the same. Tick 1200 is not.
 
@@ -140,3 +140,9 @@ The Lead rules on these against [game vision](game-vision.md). Defaults are what
 6. **Does a defeat sink the ship?** Default: no. Sailors stay, which is the tape. Slice 6 sets the crew to 0, refuses later travel, trade, and raid, and leaves the character in place. It sinks 10, 9, and 5 hulls. The forced retreat still sails. The fixture moves. Free Tide ends at 0.01, 0.31, and 0. Named characters are not removed.
 
 7. **Do sailors draw a wage?** Default: no. The 18 stays the officer's allowance, one day of passage, and the holder stays uncapped. Passage stays 3 a tick, flat. Slice 7 charges that 18 once per hull per morning. The treasuries pay World Government 19950.88, 28083.42, and 25908.95, and Free Tide 5588.19, 6632.30, and 8725.72, which is what they had, not the unpaid remainder. Both end at 0. The fixture moves. Eighteen per sailor was not run. On the unchanged tape that bill is 702000, 723600, and 752400 for World Government and 266208, 363177, and 270810 for Free Tide.
+
+## Ruling
+
+The Lead has ruled.
+
+The defaults stand. The character stays the ship, and the one-voyage limit stays. Slice 1, the readout, is OK to build later. Slices 3–7 wait until income can carry them.

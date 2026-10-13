@@ -27,8 +27,8 @@ These documents capture the decisions made during the initial design conversatio
 - [Ransom split](ransom-split.md) — Built: a faction captor's treasury receives the whole ransom. A factionless leader still receives all of it. The 2026-10-01 addendum supersedes the 50/50 split
 - [Treasury spending](treasury-spending.md) — Open / proposal: a faction ransom goes entirely to the treasury, and the command holder spends it while other members spend a daily allowance
 - [Treasury balance](treasury-balance.md) — Open / study: Free Tide's treasury empties under the 18-a-day draw, and the measured next step keeps 18 unless the treasury cannot pay it
-- [Morale](morale.md) — Open / design brief: a short balance share lowers a mate's morale, and a mate under the secession loyalty line leaves after 12 unpaid days
-- [Fleet](fleet.md) — Open / design brief: a character is one hull, sailors are the crew, and buying, repairing, losing, or paying that hull is priced against the 18-a-day allowance
+- [Morale](morale.md) — Ruled: every default stands, except desertion, which is 12 short mornings and one side-stream roll under 0.5
+- [Fleet](fleet.md) — Ruled: the character stays the ship, the one-voyage limit stays, the readout can be built later, and slices 3–7 wait until income can carry them
 - [Political layer](political-layer.md) — Built in M30: the person who already issues a faction's orders is named in command, and a captive commander's seat is covered until release
 - [Leader tax](leader-tax.md) — Open / design brief: the free command holder sets the faction tax rate; the rate is already stored, and the first slice leaves autonomous leaders on the scenario constant
 - [Secession](secession.md) — Open / design brief: a settlement owner declares the break; garrison and local characters follow from tax, stability, provisions, and loyalty, and nothing rebels on its own
