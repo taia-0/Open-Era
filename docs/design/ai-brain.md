@@ -36,7 +36,7 @@ A decision goes to the brain when it does at least one of these:
 3. **Changes a person's allegiance or freedom** (desertion, captivity terms, ransom).
 4. **Breaks a promise by choice** (a contract breach whose cause is `choice` / `better-motive`, or abandoning a negotiated term).
 
-Everything else is the nervous system: the small model, or the rules when the small tier is off. A routine action decision is promoted to the brain only if its legal list contains `raid` or `claim-settlement`; the brain then picks from the whole list, so a raid-capable character can still decide to rest.
+Everything else is the nervous system: the small-model roles in section 3a, or the rules when they are off. Triage can add an escalation but never removes one that a hard test makes. A routine action decision is promoted to the brain only if its legal list contains `raid` or `claim-settlement`; the brain then picks from the whole list, so a raid-capable character can still decide to rest.
 
 The rule names event types, not scores, so it can be checked from the log. It does not depend on the model's own confidence. Confidence-based escalation (a small model that is unsure hands up) is a later option; it makes the routing depend on a model output, which is harder to replay and audit.
 
@@ -125,42 +125,129 @@ Jev is the cheapest API and its Choice primitive matches "pick one legal row" di
 
 DeepSeek peak hours are 01:00–04:00 and 06:00–10:00 UTC on weekdays (18:00–21:00 and 23:00–03:00 PT); off-peak is half price. Whether DeepSeek V4 weights can run locally was not checked and is not assumed. The TypeSafe launch post reports end-to-end response times of 3 to 329 seconds for frontier LLMs in general; that is the vendor's claim about competitors, not a DeepSeek figure, and it is a reason the brain should only see a few hundred calls.
 
-**Both tiers, per run, estimate:** Jev small plus DeepSeek V4 Pro big at peak is 0.147 + 1.504 = **$1.65**. Big tier alone at off-peak is $0.75.
+**Both tiers, per run, estimate:** Jev small plus DeepSeek V4 Pro big at peak is 0.147 + 1.504 = **$1.65**. Big tier alone at off-peak is $0.75. Section 3a splits the small tier into roles and adds triage escalations; the every-role total there is **$1.93**.
+
+## 3a. Nervous system roles
+
+The small tier is not one generic model. It is four roles, each tied to a hook that exists in the tree at `f451793`. Two proposed roles were merged into others and none was kept without a hook.
+
+### Merged or dropped, and why
+
+- **Market and trade evaluator → merged into the action picker.** The market has no decision of its own in the tree. `buy-provisions`, `trade-local`, and the price-gap term on `travel` are rows on the same `buildCandidates` list. A separate evaluator would score the same rows a second time and need a second call per decision. The picker gets the believed prices in its input instead.
+- **Perception and news summarizer → merged into the context reader.** `knowledge-updated` exists (6,036 / 6,137 / 6,031 per run). The news slices 2–6 are batch 2 and not built, so there is nothing to summarize yet beyond the character's own knowledge entries. What a character knows is only needed when the brain is asked, so it rides on that call.
+- **Social and relationship reader → merged into the context reader, read-only.** `relationship-changed` exists (4,070 / 4,136 / 4,309 per run), and loyalty, morale, and the desertion streak are on the character. But every one of those changes is written by a rule. Letting a model write the deltas would make loyalty a model output on about 4,000 events a run and move the hash everywhere. The reader only interprets the stored numbers for the brain. It never writes them.
+- **Dialogue and wording voice → kept, split by hook.** Feed and chronicle lines are built at read time in `src/dashboard/wording.ts` (`publicFeedSentence`, `battleResolvedSentence`, `secessionDeclaredSentence`, `taxRateSetSentence`, and the rest). They are projection, not world state, so a model voice there is hash-neutral. Character speech goes through `DialogueProvider.respond` (`src/sim/conversations.ts`), which is already async and stores the reply on `conversation-reply-created`. That reply is in `conversationMessages` on the world, so it is **not** hash-neutral. Headless runs send no messages, so it has 0 calls per run. Speech is listed but stays off in every default.
+- **Triage → kept.** It is cheap only because it rides in the action picker's request (below).
+
+### Role table
+
+Tokens and prices as in section 3. Calls are seeds 1847 / 2718 / 4096. Costs use the highest seed and are estimates. "Assumed" token sizes are not measured.
+
+| Role | Hook | Inputs | Output and legal set | Model and reason | Calls per run | Cost per run (estimate) | Timeout | Fallback |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Action picker** (work, rest, travel, trade, buy, recruit, contract accept or refuse, standing order accept or refuse) | `buildCandidates` → `candidates[0]`; `assessSupplyContract`; `assessStandingOrder` | Actor traits, purse, provisions, plan, goal, believed prices, the legal rows (action, target, resource) | Jev **Choice** over the legal rows. JSON: `{ "index": int in [0, n) }`, plus Jev's probability per option. n ≤ 255 (Jev's published cardinality) | **Jev.** The task is "pick one of a declared set", which is Jev's Choice primitive; typed output cannot be off-list; cheapest input price found ($0.042 / M, output free). Local alternative: `qwen3:0.6b`, at 3,410 ms per prompt (carried from `baee32a`) | 27,067 / 27,309 / 28,136. Measured `decision-made` without raid or claim, plus contract and standing-order answers (contract counts from the docs) | 28,136 × 124.62 = 3,506,308 tokens × $0.042 / M = **$0.147** | 2,000 ms | `candidates[0]`, or the existing accept rule |
+| **Triage** | Same request as the picker | Same `state`, one extra question | Jev **Noul**: `{ "escalate": p in [0,1] }`. Flags when p ≥ 0.8 | **Jev**, as a second question on the picker's request. Its docs say a request may carry any number of questions against one `state` | Same 27,067 / 27,309 / 28,136 questions; no extra requests | Assumed 30 extra tokens per question: 28,136 × 30 = 844,080 × $0.042 / M = **$0.035**. If the `state` is billed again per question (the docs do not say), it is another 3,506,308 tokens, **$0.147** | inside the picker's 2,000 ms | No flag |
+| **Context reader** (social + perception) | Runs only before a brain call | The actor's relationships, loyalty, morale and short-pay streak, captivity, knowledge entries with their age; faction ports and treasury | JSON schema, every value an id or enum from the state: `{ "grudges": [{ "id", "weight": "low"\|"mid"\|"high" }], "allies": [id], "loyaltyRead": "firm"\|"wavering"\|"breaking", "knownPorts": [{ "port", "holder", "garrisonBelief", "ageTicks" }], "staleKnowledge": [port] }`. Ids not in the state are dropped | **Jev**, one Score or Choice question per field; same price advantage, and fields cannot be invented. Local alternative: `qwen3:1.7b` with JSON output | Brain calls: 309 / 356 / 348, plus at most 50 triage escalations (default 3): ≤ 406 | Assumed 1,500 tokens: 406 × 1,500 = 609,000 × $0.042 / M = **$0.026** | 2,000 ms | A deterministic serializer of the same fields with the interpretation enums omitted |
+| **Voice** (feed and chronicle lines) | `src/dashboard/wording.ts`, read time | The event, the deterministic sentence, the names | Plain text, ≤ 60 tokens, must name the same actors, ports, and numbers as the deterministic sentence (checked by string match, else rejected) | **Not Jev.** TypeSafe's launch post says Jev gives up string generation. `gpt-5-nano` for the cheapest API text, or local `qwen3:1.7b` through Ollama, which is free and fine offline because nothing waits on it | Headline lines only: `battle-resolved`, `settlement-claimed`, `character-captured`, `captivity-released`, `secession-declared`, `tax-rate-set`, `character-deserted`. 166 / 154 / 103, measured | Assumed 300 in, 60 out: 166 × 300 = 49,800 × $0.05 / M + 166 × 60 = 9,960 × $0.40 / M = **$0.0065** on nano; **$0** local (about 166 × 10.665 s = 29.5 min, estimate from the `baee32a` benchmark figure) | 10,000 ms, off the tick path | The deterministic sentence |
+| **Speech** (character replies) | `DialogueProvider.respond` | Thread, persona, knowledge | Text reply, as today | Same as voice | 0 headless | $0 headless | existing | `DeterministicDialogueProvider` |
+
+### Triage and the hard tests
+
+The four escalation tests in section 1 still decide. Triage can only **add** an escalation, never remove one:
+
+- A decision that meets a hard test goes to the brain without asking triage.
+- A routine decision goes to the brain only if triage flags it (p ≥ 0.8), the run's triage budget (50) is not spent, and the actor has not been triage-escalated in the last 24 ticks.
+- If the brain fails on a triage escalation, the decision falls back to the picker's answer, then to `candidates[0]`.
+
+Hard tests are rule checks on the legal list and the event type, so they replay exactly. Triage is a model output, so its flag is recorded.
+
+### Handoffs
+
+```mermaid
+flowchart TD
+  R[Rules: buildCandidates / readout, same RNG draws] --> H{Hard escalation test?}
+  H -- yes --> C[Context reader]
+  H -- no --> P[Action picker + triage, one Jev request]
+  P -- triage flag, budget left --> C
+  P -- no flag --> E[emit event with data.ai]
+  C --> B[Brain]
+  B --> E
+  B -- fail --> F[Fallback: picker answer, then scorer]
+  P -- fail --> F2[Fallback: scorer]
+  F --> E
+  F2 --> E
+  E --> A[applyEvent]
+  A -. read time .-> V[Voice: feed line, cache outside world]
+```
+
+Order for one autonomous character's turn inside `runTick`. The character loop stays in id order, as now.
+
+1. The rules build the legal list or readout and make their draws.
+2. Hard tests run on that list.
+3. If no hard test fires: one picker request (Choice + triage Noul).
+4. If a hard test fires or triage flags: the context reader, then the brain.
+5. One event is emitted with the final choice in its normal fields and the whole chain in `data.ai`. `applyEvent` runs. The effect events follow.
+6. After the tick, off the tick path, the voice may write lines for that tick's headline events.
+
+### Recording the chain
+
+Each decision event carries everything the chain produced, so replay and audit never need an intermediate call:
+
+```json
+"ai": {
+  "picker":  { "model": "jev-1.14.0", "promptVersion": "…", "inputHash": "…", "outcome": "model", "index": 2, "p": [0.1, 0.2, 0.7] },
+  "triage":  { "p": 0.84, "flagged": true, "budgetLeft": 41 },
+  "context": { "model": "jev-1.14.0", "promptVersion": "…", "inputHash": "…", "outcome": "model", "briefing": { "loyaltyRead": "wavering" } },
+  "brain":   { "model": "deepseek-v4-pro", "promptVersion": "…", "inputHash": "…", "outcome": "model", "choice": "raid:glassport" }
+}
+```
+
+- `applyEvent` reads only the event's normal fields (`data.goal`, `data.chosen`, `taxRate`, and so on), never `data.ai`. The context briefing is stored whole, so a reader can see what the brain was told.
+- The triage budget and the 24-tick per-actor cooldown are counters the next decision depends on. Two options: (a) put them on the world and write them in the reducer from `data.ai.triage`, which is hash-moving only when triage is on; or (b) recompute them from the log. Option (a) follows the M33 rule and is the default. With triage off the field is absent, so flag-off hashes stay identical.
+- Voice lines go to a side file keyed by event sequence and prompt version, outside the world and outside `stateHash`. A missing line shows the deterministic sentence.
+- Flags are per role: `ai.picker`, `ai.triage` (needs `ai.picker`), `ai.context` (needs `ai.brain`), `ai.brain.<decision>`, `ai.voice`, `ai.speech`. All off by default. With all of them off, no `data.ai` field and no counter is written, so state and event bodies are byte-identical to today.
+
+### Total per run, every role on (estimate, highest seed)
+
+0.147 (picker) + 0.035 (triage) + 0.026 (context) + 406 × 0.004224 = 1.715 (brain, `deepseek-v4-pro` peak, 356 hard + 50 triage) + 0.0065 (voice, nano) = **$1.93**.
+
+If Jev bills the `state` once per triage question, add 0.147 − 0.035 = 0.112: **$2.04**. With the brain off-peak (406 × 0.002112 = 0.857): **$1.07**. The brain is 89% of the peak total (1.715 / 1.93).
 
 ## 4. Pilot
 
-**One decision type: Free Tide's holder tax step, on the brain tier only.** Behind `ai.brain.taxStep`, off by default.
+**Free Tide's holder tax step on the brain, then the context reader on the same calls.** Two steps, both behind flags that are off by default, stubs only until Micah picks a vendor and supplies a key.
 
-- 22 / 25 / 26 calls per run. Cost on `deepseek-v4-pro` at peak, estimate: 26 × (2,000 × 1.32 + 400 × 3.96) / 1,000,000 = 26 × 0.004224 = **$0.11** per run.
-- The legal set is what the readout already allows: down one step, hold, or up one step of 0.01, inside the bounds the readout already enforces ([leader tax](leader-tax.md)), and frozen when the faction holds no port (the batch 2 ruling). The model may only pick a member of that set.
-- The scorer's readout runs and draws as now. The model's step is written to `tax-rate-set.data.taxRate` with `data.ai`.
-- It is small and visible: a faction-wide number, read by news and secession, and the [news](news.md) and [secession](secession.md) notes already trace what a rate change does. The action stream, the small tier, and contract walk stay on the rules.
-
-Why not Pax Ash's action choice (the `baee32a` pilot)? It is 932–1,010 calls a run on the small tier and needs batching to be bearable. The tax step tests the brain path, recording, fallback, and replay with about 25 calls. Pax is the natural second slice, for the small tier.
+- **Step A, `ai.brain.taxStep`.** 22 / 25 / 26 calls per run. Cost on `deepseek-v4-pro` at peak, estimate: 26 × (2,000 × 1.32 + 400 × 3.96) / 1,000,000 = 26 × 0.004224 = **$0.11** per run. The model may only pick down one step, hold, or up one step of 0.01, inside the bounds the readout already enforces ([leader tax](leader-tax.md)), and frozen when the faction holds no port (the batch 2 ruling). The readout runs and draws as now, and the step is written to `tax-rate-set.data.taxRate` with `data.ai.brain`.
+- **Step B, add `ai.context`.** The context reader briefs the same 22–26 calls: 26 × 1,500 = 39,000 tokens × $0.042 / M = **$0.0016**. This is the smallest slice that tests a handoff: the briefing must be recorded on `data.ai.context` and replay must not call either role.
+- Picker, triage, and voice wait. The picker is the natural next slice (Pax Ash's 932–1,010 decisions, as `baee32a` proposed), then triage on top of it.
 
 Success, all of them:
 
-1. Flag off: the 72-tick fixture and the 600-event split recovery pass unchanged, and the 1200-tick hashes stay `7314d632` / `b7015fce` / `7f0f865b` on this tree (or the current pin when the slice is built).
-2. Flag on with a stub provider that returns the readout's step: same hashes and event counts as flag off.
-3. Stub that throws, times out, or answers outside the legal set: every event is a fallback, the world matches flag off, and `data.ai.outcome` names the cause.
-4. Stub that returns a different legal step: `WorldStore.recover` from an earlier snapshot reaches the live `stateHash` without calling the provider.
-5. The provider is called only for autonomous `tax-rate-set`, never during recovery.
-6. A real model is only connected after Micah chooses a vendor and supplies a key. Until then the slice ships with stubs.
+1. All flags off: the 72-tick fixture and the 600-event split recovery pass unchanged, and the 1200-tick hashes stay `7314d632` / `b7015fce` / `7f0f865b` on this tree (or the current pin when built).
+2. Flag on with a stub that returns the readout's step: same hashes and event counts as flags off.
+3. Stubs that throw, time out, or answer outside the legal set or schema: every event is a fallback, the world matches flags off, and `data.ai.*.outcome` names the cause.
+4. Stubs that return a different legal step: `WorldStore.recover` from an earlier snapshot reaches the live `stateHash` and calls neither the brain nor the context reader.
+5. Providers are called only for autonomous `tax-rate-set`, never during recovery.
+6. Step B with a stub context reader that returns garbage ids: the ids are dropped, the brain still gets a valid briefing, and the hash matches step A with the same brain stub.
 
 ## 5. Defaults
 
-1. `ai.enabled` = **false**. With it off, nothing in this note runs and every hash is byte-identical.
-2. Escalation rule = **the four tests in section 1** (port at stake, faction-wide number, allegiance or freedom, breach by choice). No confidence-based escalation in the first slices.
-3. Routine actions with `raid` or `claim-settlement` on the legal list = **big**.
-4. Plan reviews and autonomous retreat = **rules**, not a model.
-5. Small tier default provider = **none** (rules). First candidate when turned on: **Jev**, versioned ID, batched per tick.
-6. Big tier default provider = **none** (rules). First candidate: **`deepseek-v4-pro`**, non-thinking, off-peak when possible.
-7. Model IDs = **versioned only** (`jev-1.14.0`, not `jev-latest`). Changing a model or prompt is a new run.
-8. Timeout = **2,000 ms small, 30,000 ms big**. Proposed, not measured.
-9. Fallback = **the current scorer's choice**, recorded with its reason.
-10. Model-only sampling = **a side RNG stream** keyed by seed, tick, and actor.
-11. Answer cache = **on, keyed by input hash**, outside the world, never needed for replay.
-12. Replay = **never calls a model**.
-13. Output token cap = **16 small, 400 big**.
-14. Pilot = **Free Tide holder's tax step on the big tier**, behind `ai.brain.taxStep`, off by default, stubs only until Micah picks a vendor.
-15. Budget guard = **stop calling and fall back** once a run's estimated spend passes **$5**. Proposed, about three times the both-tier estimate above.
+1. `ai.enabled` = **false**, and every per-role flag (`ai.picker`, `ai.triage`, `ai.context`, `ai.brain.<decision>`, `ai.voice`, `ai.speech`) = **false**. With all off, hashes and event bodies are byte-identical.
+2. Escalation = **the four hard tests in section 1**. They always decide.
+3. Triage may **only add** escalations: threshold **p ≥ 0.8**, budget **50 per run**, cooldown **24 ticks per actor**. Budget and cooldown are stored on the world from `data.ai.triage` only when triage is on.
+4. Routine actions with `raid` or `claim-settlement` on the legal list = **big**.
+5. Plan reviews, autonomous retreat, and relationship deltas = **rules**, never a model.
+6. Action picker = **Jev Choice**, versioned ID, one request per decision, triage as a second question on it.
+7. Context reader = **Jev**, one question per briefing field, runs only before a brain call. Fallback is the deterministic serializer.
+8. Brain = **`deepseek-v4-pro`**, non-thinking, off-peak when possible.
+9. Voice = **local `qwen3:1.7b`** (free, off the tick path); `gpt-5-nano` if no local machine. Headline events only. Lines live in a side file, never in the world.
+10. Speech = **`DeterministicDialogueProvider`**. A model reply would be world state and move the hash.
+11. Timeouts = **2,000 ms** picker and triage, **2,000 ms** context, **30,000 ms** brain, **10,000 ms** voice. Proposed, not measured.
+12. Fallback chain = **brain → picker answer → scorer**; **picker → scorer**; **context → serializer**; **voice → deterministic sentence**. Every fallback records its reason.
+13. Model IDs = **versioned only**; the prompt template is pinned by hash. Changing either is a new run.
+14. Model-only sampling = **a side RNG stream** keyed by seed, tick, and actor.
+15. Answer cache = **on, keyed by input hash**, outside the world, never needed for replay.
+16. Replay = **never calls a model**; the full chain is on `data.ai`.
+17. Output caps = **16 tokens** picker, **400** brain, **60** voice.
+18. Pilot = **step A, the Free Tide tax step on the brain; step B adds the context reader** (section 4).
+19. Budget guard = **stop calling and fall back** once a run's estimated spend passes **$5**. Proposed; about 2.6 times the every-role peak estimate of $1.93.
