@@ -605,8 +605,10 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
       return `${actor} amended a contract.`;
     case "contract-accepted":
       return `${actor} accepted a contract.`;
-    case "contract-refused":
-      return `${actor} refused a contract.`;
+    case "contract-refused": {
+      const why = publicRefusalReason(event);
+      return why ? `${actor} refused a contract: ${why}.` : `${actor} refused a contract.`;
+    }
     case "contract-fulfilled":
       return `${actor} fulfilled a contract.`;
     case "contract-breached":
@@ -760,6 +762,24 @@ export const SHORT_PAY_UPKEEP_LINE = "Pay was short, so morale fell by 0.5.";
  * The public offer line: who offered, who would carry, and the cargo.
  * The price, the payout, and the escrow stay off this sentence.
  */
+/**
+ * The refusal reason anyone may read: the gate `assessSupplyContract` already
+ * stored on `contract-refused`, in words with no figure. Null when the event
+ * has no gate. The parties read the stored reason and figures instead.
+ */
+export function publicRefusalReason(event: SimEvent): string | null {
+  switch (event.data.gate) {
+    case "travel":
+      return "they could not make the voyage";
+    case "purse":
+      return "their purse could not cover the cargo";
+    case "score":
+      return "the terms did not suit them";
+    default:
+      return null;
+  }
+}
+
 export function contractOfferedSentence(world: WorldState, event: SimEvent, actor: string): string {
   const contract = event.data.contract as
     | { carrierId?: string; quantity?: number; good?: string; destinationId?: string }
