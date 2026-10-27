@@ -217,13 +217,13 @@ test("an autonomous secession with no successor ends with no leader yet", () => 
       break;
     }
   }
-  assert.equal(world.tick, 481);
+  assert.equal(world.tick, 857);
   assert.equal(declared.length, 1);
-  assert.equal(declared[0]?.tick, 480);
+  assert.equal(declared[0]?.tick, 856);
   const view = projectEventFeed(world, "character-01", declared, siblings);
   assert.equal(
     view.find((row) => row.settlementId === "glassport")?.summary,
-    "Corin Hale declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)",
+    "Dax Pike declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)",
   );
   assert.equal(view.every((row) => row.payloadWithheld === true && row.data === null), true);
   assert.equal(declared.every((event) => event.data.successorId === null), true);

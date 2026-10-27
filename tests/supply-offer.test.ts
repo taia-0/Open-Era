@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assessSupplyContract } from "../src/sim/contracts.ts";
-import { offerAutonomousSupply } from "../src/sim/engine.ts";
+import { offerAutonomousSupply, runTicks } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import type { SimEvent, WorldState } from "../src/sim/types.ts";
 
@@ -73,4 +73,15 @@ test("the offer stays open for a later tick, and the same pair is not hired agai
     return next?.buyerId === contract.buyerId && next?.carrierId === contract.carrierId;
   });
   assert.equal(duplicate, false);
+});
+
+test("seed 4096 never offers a haul to the buyer himself", () => {
+  // character-02 was once both buyer and carrier on the tick 67 Crown Harbor shelf.
+  const run = runTicks(createPrototypeWorld(4096), 72);
+  const offers = run.events.filter((event) => event.type === "contract-offered");
+  assert.ok(offers.length > 0);
+  for (const event of offers) {
+    const contract = event.data.contract as { buyerId: string; carrierId: string };
+    assert.notEqual(contract.buyerId, contract.carrierId, String(event.sequence));
+  }
 });

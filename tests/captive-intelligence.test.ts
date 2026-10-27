@@ -424,19 +424,12 @@ test("Mina Vale's hold on seed 2718 matches the note.", () => {
   assert.equal(release.settlementId, "crown-harbor");
   assert.equal(release.factionId, "world-government");
   assert.equal(release.captorFactionId, "world-government");
-  assert.equal(release.garrison, 191);
+  assert.equal(release.garrison, 160);
   assert.equal(release.observedTick, 161);
   assert.equal(release.ageTicks, 1);
   assert.deepEqual(
     release.parties.map((party) => [party.characterId, party.troops, party.partyPower]),
-    [
-      ["character-01", 75, 209.302],
-      ["character-13", 28, 94.372],
-      ["character-14", 0, 0],
-      ["character-27", 14, 74.274],
-      ["character-28", 15, 75.566],
-      ["character-29", 111, 151.88],
-    ],
+    [ [ 'character-01', 75, 209.302 ], [ 'character-07', 22, 83.252 ], [ 'character-13', 28, 94.38 ], [ 'character-14', 0, 0 ], [ 'character-27', 14, 74.274 ] ],
   );
 });
 
@@ -493,15 +486,15 @@ function recoverThrough(seed: number, splitAt: number, through: number, characte
   }
 }
 
-test("Mara Vane's release at tick 814 recovers from the tick 814 snapshot", () => {
-  // Batch 2 moved the held-captain release on seed 1847 to Mara Vane at tick 814. Mara Calder is not taken inside 1200 ticks.
-  const live = runTicks(createPrototypeWorld(1847), 815).state;
+test("Mara Vane's release at tick 753 recovers from the tick 753 snapshot", () => {
+  // Batch 2 moved the held-captain release on seed 1847 to Mara Vane at tick 753, from Cinder Key.
+  const live = runTicks(createPrototypeWorld(1847), 754).state;
   const mara = live.characters["character-01"];
   assert.equal(mara.name, "Mara Vane");
   assert.equal(mara.captivity, null);
-  assert.equal(mara.releaseSighting?.observedTick, 814);
-  assert.equal(mara.releaseSighting?.garrison, 8);
-  const split = recoverThrough(1847, 814, 815, "character-01");
+  assert.equal(mara.releaseSighting?.observedTick, 753);
+  assert.equal(mara.releaseSighting?.garrison, 12);
+  const split = recoverThrough(1847, 753, 754, "character-01");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));
   assert.deepEqual(split.rebuiltRecord, mara.releaseSighting);
@@ -513,7 +506,7 @@ test("Mina Vale's release recovers from the tick 138 snapshot", () => {
   const mina = live.characters["character-15"];
   assert.equal(mina.name, "Mina Vale");
   assert.equal(mina.releaseSighting?.observedTick, 161);
-  assert.equal(mina.releaseSighting?.garrison, 191);
+  assert.equal(mina.releaseSighting?.garrison, 160);
   const split = recoverThrough(2718, 80, 164, "character-15");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));

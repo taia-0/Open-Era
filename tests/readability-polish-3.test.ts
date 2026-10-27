@@ -29,46 +29,19 @@ test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick chec
     briefing: { attentionCount: number; omittedInfoCount: number; items: Array<{ title: string }> };
   };
   assert.equal(counted[0]?.tick, 126);
-  assert.deepEqual(countedView.briefing.items.map((item) => item.title), [
-    "The party is starving",
-    "Intelligence is stale",
-    "Intelligence is stale",
-    "Intelligence is stale",
-    "Intelligence is stale",
-    "A captain was released",
-    "A captain was taken",
-    "Scattered troops came back.",
-  ]);
-  assert.equal(countedView.briefing.attentionCount, 7);
+  assert.deepEqual(countedView.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A captain was taken', 'A battle was decided', 'Scattered troops came back.' ]);
+  assert.equal(countedView.briefing.attentionCount, 8);
   assert.equal(countedView.briefing.omittedInfoCount, 0);
 
   const windowed = checkInEvents(run.events, run.state.tick);
   assert.equal(windowed[0]?.tick, 0);
-  assert.equal(windowed.length, 20171);
+  assert.equal(windowed.length, 20218);
   assert.equal(windowed.length, run.events.length);
   const view = dashboardState(run.state, windowed, fullEventFeed(windowed)) as {
     briefing: { attentionCount: number; omittedInfoCount: number; items: Array<{ title: string }> };
   };
-  assert.deepEqual(view.briefing.items.map((item) => item.title), [
-    "The party is starving",
-    "Intelligence is stale",
-    "Intelligence is stale",
-    "Intelligence is stale",
-    "Intelligence is stale",
-    "A captain was released",
-    "A captain was taken",
-    "A battle was decided",
-    "A captain was taken",
-    "An order was not followed, 5 times.",
-    "A battle was decided",
-    "A battle was decided",
-    "An order was not followed, 3 times.",
-    "An order was refused",
-    "An order was refused",
-    "An order was refused",
-    "An order was refused",
-  ]);
-  assert.equal(view.briefing.attentionCount, 17);
+  assert.deepEqual(view.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A captain was taken', 'A battle was decided', 'A battle was decided', 'A captain was taken', 'An order was not followed, 5 times.', 'A battle was decided', 'A battle was decided', 'An order was not followed, 3 times.', 'An order was refused', 'An order was refused', 'An order was refused', 'An order was refused' ]);
+  assert.equal(view.briefing.attentionCount, 18);
   assert.equal(view.briefing.omittedInfoCount, 8);
   assert.equal(stateHash(run.state), before);
 });
@@ -99,7 +72,7 @@ test("the store read is the same tick window, and the cap keeps the newest rows"
 test("seed 2718 tick 79 states the captured troops on the captor's feed and not on a rival's", () => {
   // The skill step moved Mina Vale's capture to seed 2718, tick 79.
   const run = runTicks(createPrototypeWorld(2718), 80);
-  const capture = run.events.find((event) => event.sequence === 9197);
+  const capture = run.events.find((event) => event.sequence === 9195);
   assert.ok(capture);
   assert.equal(capture.type, "character-captured");
   assert.equal(capture.tick, 77);
@@ -158,20 +131,20 @@ test("seed 1847 names both captains and does not say each one took the port", ()
 });
 
 test("seed 1847 tick 429 says morale gave out, and does not say nerve broke", () => {
-  // Batch 2 moved this fight to Dax Pike at Crown Harbor on tick 429.
+  // The batch 2 pin moved this fight to Jun Marrow at Crown Harbor on tick 429.
   const run = runTicks(createPrototypeWorld(1847), 430);
-  const battle = run.events.find((event) => event.sequence === 52373);
+  const battle = run.events.find((event) => event.sequence === 52877);
   assert.ok(battle);
   assert.equal(battle.type, "battle-resolved");
   assert.equal(battle.tick, 429);
-  assert.equal(battle.actorId, "character-20");
+  assert.equal(battle.actorId, "character-05");
   assert.equal(battle.settlementId, "crown-harbor");
   assert.equal(battle.data.outcome, "attacker-victory");
   assert.equal(typeof battle.data.battleId, "string");
   const [row] = projectEventFeed(run.state, "character-01", [battle]);
   assert.equal(row?.payloadWithheld, true);
   assert.equal(row?.data, null);
-  assert.equal(row?.summary, "Dax Pike won the fight at Crown Harbor on a higher score, after morale gave out. A surrender was offered.");
+  assert.equal(row?.summary, "Jun Marrow won the fight at Crown Harbor on a higher score, after morale gave out. A surrender was offered.");
   assert.equal(String(row?.summary).includes("nerve"), false);
   assert.equal(String(row?.summary).includes("outscore"), false);
 });
