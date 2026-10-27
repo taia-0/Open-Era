@@ -34,21 +34,24 @@ function declaration(name: string | undefined): SimEvent {
 }
 
 test("a named new faction is the subject of the empty-treasury sentence", () => {
+  // Breakaway polish ruling 1: the founder clause replaces "(no leader yet)".
   const world = createPrototypeWorld(1847);
   assert.equal(
     secessionDeclaredSentence(world, declaration("Breakwater"), "Corin Hale"),
-    "Corin Hale declared Crown Harbor separate from Free Tide Compact. Breakwater starts with an empty treasury. (no leader yet)",
+    "Corin Hale declared Crown Harbor separate from Free Tide Compact. Breakwater starts with an empty treasury, founded by Corin Hale, who sets its tax until a leader gives orders.",
   );
 });
 
 test("a new faction with no name yet still says the treasury starts empty", () => {
+  // Breakaway polish ruling 1: the founder clause replaces "(no leader yet)".
   const world = createPrototypeWorld(1847);
-  const expected = "Corin Hale declared Crown Harbor separate from Free Tide Compact. The new faction starts with an empty treasury. (no leader yet)";
+  const expected = "Corin Hale declared Crown Harbor separate from Free Tide Compact. The new faction starts with an empty treasury, founded by Corin Hale, who sets its tax until a leader gives orders.";
   assert.equal(secessionDeclaredSentence(world, declaration(undefined), "Corin Hale"), expected);
   assert.equal(secessionDeclaredSentence(world, declaration("   "), "Corin Hale"), expected);
 });
 
 test("an omitted event name uses the faction already in the world", () => {
+  // Breakaway polish ruling 1: the founder clause replaces "(no leader yet)".
   const world = createPrototypeWorld(1847);
   const founded: Faction = {
     id: "secession-character-16-crown-harbor-439",
@@ -60,6 +63,6 @@ test("an omitted event name uses the faction already in the world", () => {
   world.factions[founded.id] = founded;
   assert.equal(
     secessionDeclaredSentence(world, declaration(undefined), "Corin Hale"),
-    "Corin Hale declared Crown Harbor separate from Free Tide Compact. Crown Harbor Compact starts with an empty treasury. (no leader yet)",
+    "Corin Hale declared Crown Harbor separate from Free Tide Compact. Crown Harbor Compact starts with an empty treasury, founded by Corin Hale, who sets its tax until a leader gives orders.",
   );
 });
