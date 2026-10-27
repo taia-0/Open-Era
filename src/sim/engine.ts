@@ -27,7 +27,8 @@ import {
 import { assessSupplyContract, contractRelationship, contractTravelTicks, openSupplyContract } from "./contracts.ts";
 import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
-import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
+import { autonomousTaxStep, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
+import { parseTaxChoice, RAW_ANSWER_MAX, TAX_STEP_PROMPT_VERSION, taxStepInputHash, type TaxStepProvider, type TaxStepRequest } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3428,6 +3429,16 @@ function metrics(world: WorldState): Record<string, unknown> {
  */
 export interface TickOptions {
   liveSession?: boolean;
+  /**
+   * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
+   * today's path, writes no `data.ai` and keeps no trace. A run option, never
+   * on `WorldState`, so it does not enter `stateHash`.
+   */
+  ai?: TickAiOptions;
+}
+
+export interface TickAiOptions {
+  brainTaxStep?: TaxStepProvider;
 }
 
 /**
@@ -3478,25 +3489,83 @@ function declareAutonomousSecessions(world: WorldState, events: SimEvent[], live
   }
 }
 
-function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSession: boolean): void {
+function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSession: boolean, ai?: TickAiOptions): void {
   if (world.tick <= 0 || world.tick % TAX_RATE_COOLDOWN_TICKS !== 0) return;
   const factionIds = Object.keys(world.factions).sort((left, right) => left.localeCompare(right));
   for (const factionId of factionIds) {
-    const step = autonomousTaxStep(world, factionId);
+    const provider = ai?.brainTaxStep;
+    if (!provider) {
+      // Flag off: exactly the scorer path.
+      const step = autonomousTaxStep(world, factionId);
+      if (!step) continue;
+      if (liveSession && world.characters[step.holderId]?.controller.kind === "human") continue;
+      emit(world, events, {
+        type: "tax-rate-set",
+        actorId: step.holderId,
+        targetId: factionId,
+        data: {
+          factionId,
+          taxRate: step.taxRate,
+          previousTaxRate: step.previousTaxRate,
+          taxRateSetTick: world.tick,
+        },
+      });
+      continue;
+    }
+    const step = taxStepOptions(world, factionId);
     if (!step) continue;
     if (liveSession && world.characters[step.holderId]?.controller.kind === "human") continue;
+    const decided = consultTaxStep(world, factionId, step, provider);
+    if (decided.finalChoice === "hold") continue;
+    const faction = world.factions[factionId];
     emit(world, events, {
       type: "tax-rate-set",
       actorId: step.holderId,
       targetId: factionId,
       data: {
         factionId,
-        taxRate: step.taxRate,
-        previousTaxRate: step.previousTaxRate,
+        taxRate: taxChoiceCents(step.rateCents, decided.finalChoice) / 100,
+        previousTaxRate: faction.taxRate,
         taxRateSetTick: world.tick,
+        ai: decided,
       },
     });
   }
+}
+
+function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptions, provider: TaxStepProvider) {
+  const request: TaxStepRequest = {
+    tick: world.tick,
+    factionId,
+    holderId: step.holderId,
+    rateCents: step.rateCents,
+    pressed: step.pressed,
+    short: step.short,
+    lowestStabilityThousandths: step.lowestStabilityThousandths,
+    treasuryCents: step.treasuryCents,
+    freeMates: step.freeMates,
+    options: step.options,
+    scorerChoice: step.scorerChoice,
+    promptVersion: TAX_STEP_PROMPT_VERSION,
+  };
+  const answer = provider.decide(request);
+  const parsedChoice = parseTaxChoice(answer.raw, step.options);
+  return {
+    role: "brain.taxStep",
+    provider: provider.name,
+    model: provider.model,
+    promptVersion: TAX_STEP_PROMPT_VERSION,
+    inputHash: taxStepInputHash(request),
+    options: step.options,
+    scorerChoice: step.scorerChoice,
+    rawAnswer: answer.raw === null ? null : answer.raw.slice(0, RAW_ANSWER_MAX),
+    parsedChoice,
+    finalChoice: parsedChoice ?? step.scorerChoice,
+    outcome: parsedChoice ? "model" : "fallback",
+    fallbackReason: null,
+    latencyMs: answer.latencyMs,
+    context: null,
+  };
 }
 
 /**
@@ -3729,7 +3798,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   resolveMorningDesertion(world, events, notices);
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
-  chooseAutonomousTaxRates(world, events, options.liveSession === true);
+  chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai);
   declareAutonomousSecessions(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
