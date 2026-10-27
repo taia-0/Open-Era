@@ -2,14 +2,14 @@
 
 This is the plan for a blind operator. It is not a completed session. Do not run it as part of writing the change. Do not open `src/`, `tests/`, the branch diff, or `docs/design/` during the session. Use only the dashboard HTTP JSON.
 
-One process. Seed 1847. Mara Vane stays the viewer. Issue no command. The first tick's treasury line is the morning spending. The tax sentence on that same tick names one figure and does not add a second line. Tick 72 still has two factions and no contract. A later advance names unrest on a Free Tide cut. The advance after that offers a contract and does not print the price. The advance that ends at tick 504 declares Glassport and names no leader.
+One process. Seed 1847. Mara Vane stays the viewer. Issue no command. The first tick's treasury line is the morning spending. The tax sentence on that same tick names one figure and does not add a second line. Tick 72 still has two factions and no contract. A later advance names unrest on a Free Tide cut. The advance after that offers a contract and does not print the price. The advance that ends at tick 864 declares Glassport and names no leader.
 
-The values below were read from one process on this branch at `8dd8da3`, seed 1847, `playerId` `prototype-player`, no command. A live session skips her autonomous tax step. World Government's rate stays 0.14 through this plan. A headless run is a different tape after tick 72.
+The values below were read from one process on this branch after the buyer-as-carrier fix and the batch 2 re-pin, seed 1847, `playerId` `prototype-player`, no command. A live session skips her autonomous tax step. World Government's rate stays 0.14 through this plan. A headless run is a different tape after tick 72.
 
 ## Setup
 
 - Node `v24.21.0` (`nvm use 24.21.0` if `node -v` is not that). `npm ci` first if `node_modules` is missing.
-- Branch `feature/batch2`. Record `git rev-parse HEAD` before the first request. These readings are from `8dd8da3`. A later commit that does not change `src/` should match.
+- Branch `feature/batch2`. Record `git rev-parse HEAD` before the first request. These readings are from the batch 2 re-pin. A later commit that does not change `src/` should match.
 - One process. `npm run dashboard -- --reset --seed 1847` on `http://127.0.0.1:4317`. Do not start a second seed.
 - `GET /api/health` should be HTTP 200 `{"ok":true,"tick":0,"events":0}`.
 - The player is already Mara Vane, `character-01`, `playerId` `prototype-player`. Do not pass another character. Do not post a command.
@@ -19,7 +19,7 @@ The values below were read from one process on this branch at `8dd8da3`, seed 18
 
 ## Hypothesis and ambition
 
-**Hypothesis.** The first morning's treasury line shows spending of 54 beside tax income of 1.58. A withheld trade on that tick says the tax was 1.58 and does not add a levy sentence. At tick 72 World Government is still 0.14, the treasury is 17904.84, there is no third faction, and `contracts` is empty. The advance that ends at tick 120 says Pax Ash lowered Free Tide to 7% because of unrest, and the row withholds the payload. The advance that ends at tick 144 offers a contract and does not print 56.25. The advance that ends at tick 504 says Corin Hale declared Glassport, the new treasury starts empty, and there is no leader yet.
+**Hypothesis.** The first morning's treasury line shows spending of 54 beside tax income of 1.58. A withheld trade on that tick says the tax was 1.58 and does not add a levy sentence. At tick 72 World Government is still 0.14, the treasury is 17904.84, there is no third faction, and `contracts` is empty. The advance that ends at tick 120 says Pax Ash lowered Free Tide to 7% because of unrest, and the row withholds the payload. The advance that ends at tick 144 offers a contract and does not print 56.25. The advance that ends at tick 864 says Dax Pike declared Glassport, the new treasury starts empty, and there is no leader yet.
 
 **Ambition.** Read the tick-1 treasury line and Zara Gale's tax sentence. Read tick 72. Read the unrest cut. Read Bram Quill's offer. Read the Glassport declaration.
 
@@ -33,7 +33,7 @@ The values below were read from one process on this branch at `8dd8da3`, seed 18
 | Zara Gale | `character-17` | The tick-0 trade whose tax sentence is 1.58. |
 | Pax Ash | `character-14` | Lowers Free Tide to 7% on the tick-120 advance, reason unrest. |
 | Bram Quill | `character-02` | Offers a contract on the tick-144 advance. The summary does not name the price. |
-| Corin Hale | `character-16` | Declares Glassport on the tick-504 advance. |
+| Dax Pike | `character-20` | Declares Glassport on the tick-864 advance. |
 
 ## Tick 0, before any advance
 
@@ -152,7 +152,7 @@ HTTP 200.
 
 - `ok` true. `tick` 144. `day` 24. `ticksAdvanced` 24.
 - `combatUpdated` false. `attentionUpdated` false. `pausedForBattle` false.
-- `eventSequence` 16964.
+- `eventSequence` 16956.
 
 In that response, sequence 16039 is `contract-offered`, actor `character-02`, tick 136. `payloadWithheld` true. Summary:
 
@@ -162,26 +162,26 @@ The summary does not contain `56.25`.
 
 ## Checkpoint 5. Glassport
 
-From tick 144, `POST /api/advance` with `{"ticks":24}` fifteen times. The fifteenth call ends at tick 504. None of these calls paused on this reading. If one returns `attentionUpdated` true or `pausedForBattle` true, stop and record that call. Do not issue a command to get past it.
+From tick 144, `POST /api/advance` with `{"ticks":24}` thirty times. The thirtieth call ends at tick 864. None of these calls paused on this reading. If one returns `attentionUpdated` true or `pausedForBattle` true, stop and record that call. Do not issue a command to get past it.
 
-The call that ends at tick 504:
+The call that ends at tick 864:
 
-- `ok` true. `tick` 504. `ticksAdvanced` 24.
+- `ok` true. `tick` 864. `ticksAdvanced` 24.
 - `combatUpdated` false. `attentionUpdated` false. `pausedForBattle` false.
-- `eventSequence` 62338.
+- `eventSequence` 118034.
 
-In that response, sequence 59102 is `secession-declared`, tick 480, `settlementId` `glassport`. `payloadWithheld` true. `data` null. Summary:
+In that response, sequence 116792 is `secession-declared`, tick 856, `settlementId` `glassport`. `payloadWithheld` true. `data` null. Summary:
 
-`Corin Hale declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)`
+`Dax Pike declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)`
 
-Sequence 59100, same response, is `tax-rate-set`, tick 480. Summary:
+Sequence 114296, same response, is `tax-rate-set`, tick 840. Summary:
 
-`Pax Ash raised the Free Tide Compact tax to 16% (treasury short).`
+`Pax Ash lowered the Free Tide Compact tax to 21% (unrest at Glassport).`
 
-`GET /api/state?limit=1`. HTTP 200. `tick` 504.
+`GET /api/state?limit=1`. HTTP 200. `tick` 864.
 
 - World Government `taxRate` 0.14.
-- Free Tide Compact `taxRate` 0.16. `treasury` null.
+- Free Tide Compact `taxRate` 0.21. `treasury` null.
 - A faction named `Free Glassport` is present. Its `taxRate` is 0.08. Its `treasury` is null.
 
 ## Outcome
