@@ -1,6 +1,6 @@
 # Contract fulfilment
 
-**Status: Open / design.** On the [batch 2 contracts pin](build-order.md), a carrier who accepts the 56.25 haul is still left to breach. This note is the follow-up: the carrier buys the provisions it is short of, when the purse allows, and sails to deliver before the deadline. A breach names a real cause. Nothing here is in the tree. The harness was local and was restored.
+**Status: Open / design.** On the [batch 2 contracts pin](build-order.md), a carrier who accepts the 56.25 haul is still left to breach. This note is the follow-up: the carrier buys the provisions it is short of, when the purse allows, and sails to deliver before the deadline. A breach names a real cause. The Lead has ruled the weight and the cancellation, in the section of that name. Nothing here is in the tree. The harness was local and was restored.
 
 Checked after `git fetch origin`. `origin/main` is `b421c70` (`b421c7015227886a5733f19967cf4a9c1fc74083`), the merge of PR #122. Node v24.21.0, ICU 78.3. `npm test` passed, 456 tests, 0 failed. The 72-tick fixture matched: `86507558d49cee305c5f663e1699aacc19d66356ce518d4c32ac1e07085d8687` (8426), `c6268c398c5b8a674a1bef8a675cd74c747392e3fb767a67e1ebd8bc1a4143f6` (8335), `d62ab7f9c9e840b55c012fb1d8f2fe6929a61359178b4daf7b5eb10cbf7bca95` (8266).
 
@@ -144,3 +144,198 @@ Build the haul on the batch 2 contracts pin. Keep 56.25, keep `round(0.54 + ambi
 Fulfilments rise from 36, 13, and 60 to 63, 16, and 87. The breaches that remain are the carrier's choice and the two purse rows on 1847: 47, 30, and 56 took a better motive, 105, 39, and 58 are the consumed row, and 55, 25, and 49 missed the deadline. A purse too short to buy is 0. Capture is 0. Hazard is 0. The short ports stay at 4.50. The offer count moves with the voyages: 338, 143, and 328, against 268, 145, and 316 on the walk.
 
 Leave the weight at `round(score * 100, 2)`. The 1000 weight does raise fulfilments to 91, 55, and 96, and it clears the better-motive row. Consumed and deadline-infeasible still make up the breaches, and the world moves with the override: World Government on 4096 ends at 4094.70 with the rate at 0.02, and offers rise to 334, 227, and 406. [Game vision](game-vision.md) keeps the plan on the carrier's own motive. The score that accepted the haul is that motive.
+
+The Lead's ruling is the next section. It keeps this weight. A shelf that has been refilled cancels the haul, and `choice` / `consumed` is not the cause on that build.
+
+## Lead's ruling
+
+Checked after `git fetch origin`. `origin/main` is `57bbb54` (`57bbb54f8b6ad253399b4e60a1d891b586643063`), the merge of PR #124. Node v24.21.0, ICU 78.3. `npm test` passed, 459 tests, 0 failed. The 72-tick fixture matched: `86507558d49cee305c5f663e1699aacc19d66356ce518d4c32ac1e07085d8687` (8426), `c6268c398c5b8a674a1bef8a675cd74c747392e3fb767a67e1ebd8bc1a4143f6` (8335), `d62ab7f9c9e840b55c012fb1d8f2fe6929a61359178b4daf7b5eb10cbf7bca95` (8266). The harness was local and was restored. Seeds 1847, 2718, and 4096, in that order, in one process, 1200 ticks, no player commands. The governor seats sit in a module map and are not cleared between seeds.
+
+Three rulings.
+
+The haul builds with weight = score, as `round(score * 100, 2)`. A tie goes to the haul. The 1000 weight stays the alternative measured above. It does not build.
+
+`choice` / `consumed` becomes a cancellation. If the destination shelf is refilled before landing, `stocks.provisions >= 1`, the contract is cancelled. That test is the inverse of the offer gate. There is no breach, no loyalty hit, and no reputation hit. There is no payout. The carrier keeps any cargo it bought. The event is `contract-cancelled` with reason `no-longer-needed`. The escrow returns to the buyer. A shelf that is still empty does not cancel. A short carrier standing on it, once this cause is gone, is `choice` / `deadline-infeasible`.
+
+The threshold in this section is the run that was measured here. The ruling below raises it to the full contract quantity.
+
+`choice` / `deadline-infeasible` stays a breach.
+
+[Game vision](game-vision.md) keeps the plan on the carrier's own motive, and goods move physically. The score that accepted the haul is that motive. The cancellation is the shelf the buyer no longer needs, applied before the landing pay.
+
+The same harness remeasured the batch 2 stack, the walk, and the haul without cancellation, and each matched the table already in this note and in [build order](build-order.md). The stack at tick 1200 is `a8395215c3c71ed5b896c76937861222ed095ec77f05891a512cd366cd5064b1` (164059, World Government 16227.45 at 0.06, Free Tide 16.20 at 0.17), `a4ccfe817476ffd2f657917e41fa51447e143a946ec140ba2095b47aae9b9a9e` (158477, 8197.81 at 0.04, Free Tide 0.00 at 0.18), and `210a73dc2487f94dc66763af4c891dcd8790966499c28be0fe3c35f1a2202c60` (162522, 12349.44 at 0.09, Free Tide 16.05 at 0.07). The walk is `acde8d6b`, `633868b0`, and `9d5cfc38`. The haul without cancellation is `926490c5`, `f1bcc842`, and `0709ed3f`. The run below is that haul with the cancellation on.
+
+### Tick 1200, haul with cancellation
+
+| Seed | Hash | Events | Offered | Accepted | Fulfilled | Breached | Cancelled | WG | FT |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1847 | `f92a0d8b315d6d81164610e002ad7946d9c84a4aa5c0d8a96740e178e32d7cb1` | 162785 | 487 | 379 | 36 | 101 | 242 | 13673.38 at 0.06 | 462.70 at 0.10 |
+| 2718 | `bb69fdfaab4172fdd5ba7bfed1735c41a417c999c506b72427fa6a59a57d3adf` | 157325 | 272 | 219 | 28 | 53 | 138 | 6045.56 at 0.08 | 0.00 at 0.19 |
+| 4096 | `f6adf11f72518d4af49c645fb46513af24f5e0d98875a4702b6843d879db8965` | 165672 | 633 | 477 | 86 | 113 | 278 | 6195.28 at 0.08 | 0.00 at 0.17 |
+
+Every acceptance issued an order: ordered equals accepted, 379, 219, and 477. Every acceptance is closed: 36 + 101 + 242 = 379, 28 + 53 + 138 = 219, and 86 + 113 + 278 = 477. Refusals are 108, 53, and 155. Offers answered are the whole of 487 and 272. On 4096, 155 + 477 = 632, and one of the 633 offers is still unanswered. The maximum Free Tide rate is 0.15, 0.19, and 0.17. News events are 601, 552, and 503.
+
+Against the haul without cancellation, World Government on 1847 rises from 8308.59 to 13673.38. On 2718 it falls from 11281.75 to 6045.56. On 4096 it falls from 12120.63 to 6195.28. Against the walk, 1847 ends 130.04 higher (13543.34 to 13673.38), 2718 ends 887.50 higher (5158.06 to 6045.56), and 4096 ends 6241.37 lower (12436.65 to 6195.28). Fulfilments are 36, 28, and 86, against 63, 16, and 87 on the haul and 36, 13, and 60 on the walk. The consumed row is gone.
+
+#### Breaches by cause
+
+| Cause | 1847 | 2718 | 4096 |
+| --- | ---: | ---: | ---: |
+| `capture` | 0 | 0 | 0 |
+| `hazard` | 0 | 0 | 0 |
+| `purse` / `buy` | 0 | 0 | 0 |
+| `purse` / `passage` | 0 | 1 | 0 |
+| `choice` / `better-motive` | 22 | 11 | 39 |
+| `choice` / `hold-full` | 0 | 0 | 0 |
+| `choice` / `consumed` | 0 | 0 | 0 |
+| `choice` / `deadline-infeasible` | 79 | 41 | 74 |
+
+The rows sum to the breaches: 101, 53, and 113. On the haul without cancellation the consumed row was 105, 39, and 58, and deadline-infeasible was 55, 25, and 49. The 242, 138, and 278 cancellations are not those consumed rows replayed. The world forks at the first cancellation, on 1847 at tick 164, so the later breaches are the new campaign. An empty shelf still breaches, and that breach is now deadline-infeasible.
+
+#### Secessions and deaths
+
+Deaths match the walk, the haul, and the stack pin. 1847, tick 1080: Lio Crow (`character-12`), World Government. 2718, tick 180: Lio Crow, World Government; tick 720: Esme Dusk (`character-19`), Free Tide. 4096, tick 540: Kessa Dusk (`character-30`), unaffiliated.
+
+Secessions. 1847, none, where the walk had five and the haul had four. 2718, four, where the haul had none: Zara Gale (`character-17`) at crown-harbor, tick 671, Free Crown Harbor; Corin Hale (`character-16`) at glassport, tick 691, Free Glassport; Dax Pike (`character-20`) at cinder-key, tick 753, Free Cinder Key; Mara Calder (`character-21`) at crown-harbor, tick 761, Free Crown Harbor II. 4096, two, where the haul had four and the walk had one: Corin Hale at cinder-key, tick 1024, Free Cinder Key; Zara Gale at crown-harbor, tick 1038, Free Crown Harbor.
+
+#### Shelves and offers
+
+Ending provisions stock, then price. Ports are cinder-key, crown-harbor, glassport, verdant-cay. 1847: 0, 0, 0, 1656.958 at 4.50, 4.50, 4.50, 0.99. 2718: 0, 0, 0.687, 1956.293 at 4.50, 4.50, 4.50, 0.99. 4096: 0, 0, 0.704, 848.616 at 4.50, 4.50, 4.50, 0.99. The three short ports stay on the scarce clamp. Verdant Cay stays on 0.99, and it ends higher than the haul on 1847 and 4096 (1297.626 to 1656.958, and 526.942 to 848.616) and lower on 2718 (8547.824 to 1956.293).
+
+Shelves under 1 are 1559, 1739, and 1731. Shelves with a carrier in reach and nobody who would accept are 629, 946, and 471. Offers are 487, 272, and 633, above both the walk (268, 145, 316) and the haul (338, 143, 328) on every seed.
+
+### World Government on 1847
+
+The walk ends at 13543.34. The haul without cancellation ends at 8308.59. The drop is 5234.75. The haul with cancellation ends at 13673.38, which is 130.04 above the walk and 5364.79 above the haul. Cancellation changes the picture. The drop does not survive. The books close on every run: opening treasury 18000 plus the lines below equals the ending treasury. The levy line is the 0.05 slice inside the work tax and the sale tax. It is already inside those two credits.
+
+| Line | Walk | Haul | Cancel |
+| --- | ---: | ---: | ---: |
+| Work tax in | 10388.24 | 8088.12 | 9214.76 |
+| Sale tax in | 21929.62 | 18257.96 | 19981.30 |
+| Purchases out | −15874.35 | −15956.03 | −14264.05 |
+| Levy inside the two taxes | 10563.48 | 8261.91 | 9352.42 |
+| Stipends out | −6552.00 | −5580.00 | −6714.00 |
+| Recruitment out | −8960.96 | −7938.73 | −7812.00 |
+| Passage out | −6481.49 | −7229.80 | −6207.34 |
+| Contract escrow out | −2032.40 | −1921.44 | −3141.15 |
+| Breach refund in | 1357.80 | 1068.24 | 722.88 |
+| Refusal refund in | 451.90 | 344.61 | 799.88 |
+| Cancellation refund in | 0.00 | 0.00 | 1363.39 |
+| Ransom in | 761.76 | 788.99 | 234.67 |
+| Wage collector in | 555.22 | 386.67 | 1495.04 |
+| Ending treasury | 13543.34 | 8308.59 | 13673.38 |
+
+Work tax is `worked`. Sale tax is `market-trade` credited to the treasury. Purchases are `market-trade` drawn from it. Passage is `character-upkeep`: allowance first, then the purse, and the free holder draws the treasury. Recruitment is the same draw on `recruited`. The stipend is silent in the event log. The wage collector is `debt-repaid`. A fulfilment pays the carrier's purse from escrow and does not move this treasury: `contract-fulfilled` is absent from the lines, on all three runs. Desertion sets `factionId` null and is absent from the lines. A capture reaches the treasury when the ransom is credited, which is `captivity-released`.
+
+The haul's contract coins are a small part of the drop. Escrow out, breach refunds, and refusal refunds net to −222.70 on the walk, −508.59 on the haul, and −255.00 with cancellation. The haul is 285.89 worse than the walk on those coins. Purchases are 81.68 worse (−15956.03 against −15874.35). The drop is the tax. Sale tax falls by 3671.66 (21929.62 to 18257.96). Work tax falls by 2300.12 (10388.24 to 8088.12). Together that is 5971.78. The levy inside them falls by 2301.57 (10563.48 to 8261.91), which is 2301.57 of that 5971.78 and is not a second loss. Offsets on the haul are less recruitment (1022.23), less stipend (972.00), and a slightly smaller escrow posting (110.96). Passage is 748.31 heavier. The wage collector is 168.55 lighter. Those lines, with the tax, sum to the 5234.75 drop.
+
+Port-ticks World Government holds, out of 1200. Verdant Cay is neutral for all 1200 ticks on every run.
+
+| Port | Walk | Haul | Cancel |
+| --- | ---: | ---: | ---: |
+| crown-harbor | 1139 | 1043 | 878 |
+| cinder-key | 208 | 579 | 731 |
+| glassport | 838 | 307 | 653 |
+| All three | 127 | 62 | 171 |
+| None | 9 | 55 | 0 |
+
+Glassport is the dock the haul loses: 838 ticks against 307. The haul also spends 55 ticks holding none of the three, where the walk spends 9 and the cancellation spends 0. With cancellation, 1847 has no secession, and the faction holds all three ports on 171 ticks.
+
+Treasury samples, World Government, seed 1847.
+
+| Tick | Walk | Haul | Cancel |
+| ---: | ---: | ---: | ---: |
+| 120 | 17994.46 | 17994.46 | 17994.46 |
+| 240 | 16494.66 | 16460.62 | 16395.64 |
+| 360 | 17438.38 | 17457.10 | 17745.95 |
+| 480 | 18781.59 | 17324.85 | 19707.63 |
+| 600 | 19511.26 | 16026.55 | 18791.12 |
+| 720 | 18996.37 | 15845.85 | 18374.32 |
+| 840 | 17919.76 | 14645.60 | 16798.84 |
+| 960 | 16547.63 | 12348.97 | 15265.91 |
+| 1080 | 14710.30 | 9883.90 | 14204.36 |
+| 1200 | 13543.34 | 8308.59 | 13673.38 |
+
+The streams match at tick 120. At tick 240 the haul is 34.04 behind. At tick 360 the haul is 18.72 ahead. The gap opens from 360 to 480: the walk rises to 18781.59 and the haul falls to 17324.85. It keeps widening. Both runs end at rate 0.07. The cancellation ends at 0.06, stepped at ticks 73, 313, 481, 577, 673, 793, 865, and 961.
+
+The first event difference between the walk and the haul is sequence 19089, tick 161. The streams are identical through sequence 19088, which is `contract-accepted`, actor Iris Stone (`character-06`), target Bram Quill (`character-02`). The walk's next event is `character-upkeep` for `character-01`. The haul inserts `contract-order-issued` for the same pair. Port holdings still match through the snapshot taken after tick 307. The haul's secessions start at tick 801, after the treasury gap is already open. The early loss of the dock is a claim: Finn Frost (`character-18`) takes glassport from World Government at tick 476 (`settlement-claimed`). The walk has no claim on that tick, and it keeps glassport until the secession at tick 591. Toma Reef (`character-07`) takes glassport back from Free Tide at tick 600. From 476 to 600 the haul is collecting Free Tide's sale tax and work tax on that dock, and the sample gap is the same window.
+
+The first event difference between the haul and the cancellation is sequence 19448, tick 164. The streams are identical through sequence 19447. The haul's next event is `character-upkeep` for `character-01`. The cancellation emits `contract-cancelled`, actor Iris Stone, target Bram Quill, reason `no-longer-needed`. That is the order from tick 161. Three ticks later the destination shelf is already at or above 1, so the first delivery is cancelled and the campaigns fork. The 105 consumed breaches on the haul are not a map onto the 242 cancellations.
+
+Nothing in the 1847 drop is an accounting bug. The fulfilment payout never touches the World Government treasury, and the escrow, the refunds, the levy, and the taxes each land on the line the tree already writes. The haul earns less because the carriers sail and the ports change hands. Cancellation takes the loyalty hit and the payout off a shelf that has been refilled, and on this seed World Government ends at 13673.38 with no secession.
+
+## Full quantity
+
+Checked after `git fetch origin`. `origin/main` is `57bbb54` (`57bbb54f8b6ad253399b4e60a1d891b586643063`), the merge of PR #124. It has not moved past that commit. Node v24.21.0, ICU 78.3. `npm test` passed, 459 tests, 0 failed. The 72-tick fixture matched: `86507558d49cee305c5f663e1699aacc19d66356ce518d4c32ac1e07085d8687` (8426), `c6268c398c5b8a674a1bef8a675cd74c747392e3fb767a67e1ebd8bc1a4143f6` (8335), `d62ab7f9c9e840b55c012fb1d8f2fe6929a61359178b4daf7b5eb10cbf7bca95` (8266). The harness was local and was restored. Seeds 1847, 2718, and 4096, in that order, in one process, 1200 ticks, no player commands. The governor seats sit in a module map and are not cleared between seeds.
+
+Cancel only once the destination shelf holds the full contract quantity, `stocks.provisions >= 10`, before landing. The quantity on this haul is 10. Below 10 the haul continues. The rest of the cancellation is unchanged. There is no breach, no loyalty hit, and no reputation hit, and no payout. The carrier keeps any cargo it bought. The event is `contract-cancelled` with reason `no-longer-needed`. The escrow returns to the buyer. The offer gate stays `< 1`. `choice` / `deadline-infeasible` stays a breach. A short carrier on a shelf that is still under 10 is that breach, and `choice` / `consumed` stays off once cancellation is on.
+
+The same harness remeasured the batch 2 stack, the walk, and the haul without cancellation. Each matched the tables already in this note. The stack at tick 1200 is `a8395215`, `a4ccfe81`, and `210a73dc`. The walk is `acde8d6b`, `633868b0`, and `9d5cfc38`. The haul without cancellation is `926490c5`, `f1bcc842`, and `0709ed3f`. The run below is that haul with cancellation at `>= 10`.
+
+### Tick 1200, cancellation at 10
+
+| Seed | Hash | Events | Accepted | Fulfilled | Breached | Cancelled | WG | FT |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1847 | `d8a222fbe4bf7fcd293ff7f8cb5e3e15d79c8653d5bd253eebac2342b2d406f8` | 162633 | 260 | 60 | 197 | 3 | 8387.75 at 0.06 | 0.00 at 0.20 |
+| 2718 | `0df2fcc581874d724b04c81f86dbdc49330171d9a5b16fafff2bababc2ce689e` | 158265 | 147 | 49 | 92 | 4 | 12581.89 at 0.07 | 0.00 at 0.17 |
+| 4096 | `2b7906851ab91c9c025243066f3c35fd70120b04ed9452a7cfa0a57fa47df229` | 164166 | 337 | 101 | 220 | 16 | 6244.37 at 0.08 | 0.00 at 0.17 |
+
+Every acceptance issued an order: ordered equals accepted, 260, 147, and 337. On 1847 and 4096 every acceptance is closed: 60 + 197 + 3 = 260, and 101 + 220 + 16 = 337. On 2718, 49 + 92 + 4 = 145, and two of the 147 acceptances are still open at tick 1200. Refusals are 60, 39, and 93. Offers are 320, 186, and 430, and every offer has been answered. The maximum Free Tide rate is 0.20, 0.17, and 0.17. News events are 616, 540, and 492.
+
+Against cancellation at `>= 1` (`f92a0d8b` / `bb69fdfa` / `f6adf11f`), fulfilments move from 36, 28, and 86 to 60, 49, and 101. Cancellations fall from 242, 138, and 278 to 3, 4, and 16. Against the haul with no cancellation (`926490c5` / `f1bcc842` / `0709ed3f`), fulfilments move from 63, 16, and 87 to 60, 49, and 101. World Government ends at 8387.75, 12581.89, and 6244.37, against 8308.59, 11281.75, and 12120.63 with no cancellation, and against 13673.38, 6045.56, and 6195.28 at `>= 1`.
+
+#### Breaches by cause
+
+| Cause | 1847 | 2718 | 4096 |
+| --- | ---: | ---: | ---: |
+| `capture` | 0 | 0 | 0 |
+| `hazard` | 0 | 0 | 0 |
+| `purse` / `buy` | 0 | 1 | 1 |
+| `purse` / `passage` | 2 | 0 | 1 |
+| `choice` / `better-motive` | 49 | 45 | 61 |
+| `choice` / `hold-full` | 0 | 0 | 0 |
+| `choice` / `consumed` | 0 | 0 | 0 |
+| `choice` / `deadline-infeasible` | 146 | 46 | 157 |
+
+The rows sum to the breaches: 197, 92, and 220.
+
+#### Secessions and deaths
+
+Deaths match the walk, the haul, and the stack pin. 1847, tick 1080: Lio Crow (`character-12`), World Government. 2718, tick 180: Lio Crow, World Government; tick 720: Esme Dusk (`character-19`), Free Tide. 4096, tick 540: Kessa Dusk (`character-30`), unaffiliated.
+
+Secessions. 1847, three, where cancellation at `>= 1` had none and the haul had four: Mara Calder (`character-21`) at glassport, tick 801, Free Glassport; Bram Tern (`character-22`) at crown-harbor, tick 815, Free Crown Harbor; Dax Pike (`character-20`) at cinder-key, tick 931, Free Cinder Key. 2718, two, where the haul had none and cancellation at `>= 1` had four: Zara Gale (`character-17`) at crown-harbor, tick 981, Free Crown Harbor; Mara Calder at cinder-key, tick 995, Free Cinder Key. 4096, three, where the haul had four and cancellation at `>= 1` had two: Zara Gale at crown-harbor, tick 706, Free Crown Harbor; Corin Hale (`character-16`) at cinder-key, tick 778, Free Cinder Key; Mara Calder at crown-harbor, tick 800, Free Crown Harbor II.
+
+#### What happened to each acceptance
+
+The rows below sum to the acceptances. On 2718 the last row is the two still open.
+
+| End | 1847 | 2718 | 4096 |
+| --- | ---: | ---: | ---: |
+| Fulfilled | 60 | 49 | 101 |
+| Cancelled | 3 | 4 | 16 |
+| `choice` / `better-motive` | 49 | 45 | 61 |
+| `choice` / `deadline-infeasible` | 146 | 46 | 157 |
+| `purse` / `passage` | 2 | 0 | 1 |
+| `purse` / `buy` | 0 | 1 | 1 |
+| Still open | 0 | 2 | 0 |
+
+A carrier already on the shelf accepts with `travelTicks` 0. Every other acceptance has `travelTicks` equal to the ticks left, so the deadline is the voyage. Those two groups are 183 and 77, 82 and 65, and 204 and 133.
+
+Fulfilments split the same way. Already on the shelf: 53, 32, and 76. A voyage, `travelTicks` above 0: 7, 17, and 25. Of the voyage fulfilments, the haul's own cast-off is 5, 11, and 19. The other 2, 6, and 6 reached the shelf without that cast-off, already holding the grain.
+
+Every better-motive breach ended without a haul cast-off. Every deadline-infeasible breach ended the same way. Those deadline breaches closed before the grain was aboard with a voyage that no longer fit.
+
+The short carrier already on the shelf is the large row. Accepted there, cargo under 10, and the haul never cast off: 129, 48, and 123, all of them breaches.
+
+| That row | 1847 | 2718 | 4096 |
+| --- | ---: | ---: | ---: |
+| Still on the shelf, `deadline-infeasible` | 94 | 28 | 90 |
+| Left by sea, `deadline-infeasible` | 22 | 5 | 27 |
+| Still on the shelf, `better-motive` | 8 | 10 | 4 |
+| Left by sea, `better-motive` | 5 | 5 | 2 |
+
+The 94, 28, and 90 were short at acceptance and still short at the breach, with `travelTicks` 0. The shelf they stood on was still under 1. The buy is where the carrier stands, and that shelf is the one the offer found under 1. The haul does not sail to another port. Cancellation at `>= 10` leaves the haul in place, and the deadline then breaches it.
+
+The two still open on 2718 were both accepted at tick 1198. Toma Reef (`character-07`) owes crown-harbor 10 by tick 1202, holds 0.639, and is standing at glassport. Crown Harbor's shelf is 0. Bram Quill (`character-02`) owes glassport 10 by tick 1200, holds 57.977, and is at sea for cinder-key with 4 ticks left. Glassport's shelf is 0.
+
+One change follows from that row, and it was not measured. Do not accept a carrier who is already standing on the destination and short of the quantity. The shelf cannot sell the shortfall, and this haul will not go and fetch it.

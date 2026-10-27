@@ -417,7 +417,31 @@ Secessions. 1847, five: Dax Pike (`character-20`) at cinder-key, tick 529, Free 
 
 Deaths are the same names and ticks as the stack pin. 1847, tick 1080: Lio Crow (`character-12`), World Government. 2718, tick 180: Lio Crow, World Government; tick 720: Esme Dusk (`character-19`), Free Tide. 4096, tick 540: Kessa Dusk (`character-30`), unaffiliated.
 
-The follow-up, a carrier who has accepted buying the shortfall and sailing, is [contract fulfilment](contract-fulfilment.md). It is measured on this pin. It is unbuilt.
+The follow-up, a carrier who has accepted buying the shortfall and sailing, is the haul slice below. The measurement is [contract fulfilment](contract-fulfilment.md). It is ruled. It is unbuilt.
+
+## Haul slice
+
+After the batch 2 pin. This is its own slice. It is not a step inside the pin's commit, and it does not replace contracts slice 4. Batch 3 stays the alliance slices.
+
+Checked after `git fetch origin`. `origin/main` is `57bbb54` (`57bbb54f8b6ad253399b4e60a1d891b586643063`), the merge of PR #124. Node v24.21.0, ICU 78.3. `npm test` passed, 459 tests, 0 failed. The 72-tick fixture matched: `86507558d49cee305c5f663e1699aacc19d66356ce518d4c32ac1e07085d8687` (8426), `c6268c398c5b8a674a1bef8a675cd74c747392e3fb767a67e1ebd8bc1a4143f6` (8335), `d62ab7f9c9e840b55c012fb1d8f2fe6929a61359178b4daf7b5eb10cbf7bca95` (8266). The harness was local and was restored. The same run reproduced the stack pin, the walk, and the haul without cancellation. The tables are in [contract fulfilment](contract-fulfilment.md).
+
+The Lead's rulings.
+
+Build the haul with weight = score, as `round(score * 100, 2)`. On acceptance, emit `contract-order-issued` and keep that score. Buy the shortfall where the carrier stands. The 16% depth cap does not apply to that buy. Sail on that tick when the grain, the deadline, and the passage allow it. Pay a landing before the deadline breach. The weight of 1000 stays the measured alternative. It does not build.
+
+Cancel only once the destination shelf holds the full contract quantity, `stocks.provisions >= 10`, before landing. The quantity is 10. Below 10 the haul continues. There is no breach, no loyalty hit, no reputation hit, and no payout. The carrier keeps any cargo it bought. The event is `contract-cancelled` with reason `no-longer-needed`. `choice` / `deadline-infeasible` stays a breach. The earlier bar, `stocks.provisions >= 1`, stays the recorded run in [contract fulfilment](contract-fulfilment.md).
+
+Depends on the batch 2 contracts pin: the walk, the 56.25 payout, and the `< 1` offer gate. The cancellation test is the full quantity. The offer gate stays `< 1`.
+
+Checked after `git fetch origin`. `origin/main` is still `57bbb54`. Node v24.21.0, ICU 78.3. `npm test` passed, 459 tests, 0 failed. The 72-tick fixture matched. The harness was local and was restored. The same run reproduced the stack pin (`a8395215`, `a4ccfe81`, `210a73dc`), the walk (`acde8d6b`, `633868b0`, `9d5cfc38`), and the haul without cancellation (`926490c5`, `f1bcc842`, `0709ed3f`).
+
+Tick 1200 with cancellation at `>= 10`: `d8a222fbe4bf7fcd293ff7f8cb5e3e15d79c8653d5bd253eebac2342b2d406f8` (162633), `0df2fcc581874d724b04c81f86dbdc49330171d9a5b16fafff2bababc2ce689e` (158265), and `2b7906851ab91c9c025243066f3c35fd70120b04ed9452a7cfa0a57fa47df229` (164166). Accepted, fulfilled, breached, and cancelled are 260 / 60 / 197 / 3, 147 / 49 / 92 / 4, and 337 / 101 / 220 / 16. Two of the 147 acceptances on 2718 are still open. World Government ends at 8387.75, 12581.89, and 6244.37. Free Tide ends at 0.00, 0.00, and 0.00, rates 0.20, 0.17, and 0.17. Offers are 320, 186, and 430. The account of each acceptance is in [contract fulfilment](contract-fulfilment.md).
+
+Cancellation at `>= 1` stays the comparison: `f92a0d8b` / `bb69fdfa` / `f6adf11f`, accepted, fulfilled, breached, and cancelled 379 / 36 / 101 / 242, 219 / 28 / 53 / 138, and 477 / 86 / 113 / 278. World Government there ends at 13673.38, 6045.56, and 6195.28. The haul without cancellation is `926490c5`, `f1bcc842`, and `0709ed3f`, fulfilments 63, 16, and 87, World Government 8308.59, 11281.75, and 12120.63. The walk is `acde8d6b`, `633868b0`, and `9d5cfc38`, World Government 13543.34, 5158.06, and 12436.65.
+
+On seed 1847 the haul without cancellation ends 5234.75 below the walk. The account is in the fulfilment note. Sale tax and work tax are the loss. Contract coins are 285.89 of it. With cancellation at `>= 1`, that seed ends at 13673.38, above the walk, and it has no secession. The books close. The drop is the campaign. At `>= 10` the same seed ends at 8387.75, with three secessions.
+
+Writes `contract-order-issued`, the buy, the cast-off, the landing, and `contract-cancelled`. The same escrow and the same purses as contracts slice 4. A cancellation writes no loyalty and no reputation. A deadline breach still does.
 
 ## Questions
 
