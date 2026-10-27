@@ -1,6 +1,6 @@
 import { freeMateCount, fullAllowance, spendRole } from "./allowance.ts";
 import { newsStabilityThousandths } from "./news.ts";
-import { CLAIM_STABILITY_FLOOR } from "./state.ts";
+import { CLAIM_STABILITY_FLOOR, commandHolderId } from "./state.ts";
 import type { Character, WorldState } from "./types.ts";
 
 /**
@@ -142,7 +142,15 @@ function freeCommandHolder(world: WorldState, factionId: string): Character | nu
   const holders = Object.values(world.characters)
     .filter((character) => character.factionId === factionId && spendRole(world, character) === "holder")
     .sort((left, right) => left.id.localeCompare(right.id));
-  return holders[0] ?? null;
+  if (holders[0]) return holders[0];
+  // Founder tax seat (breakaway-tax.md, ruling 1): until someone issues an order,
+  // the declaring owner holds the tax seat of a breakaway if alive, still a member,
+  // and not captive. Nothing else reads this fallback.
+  const founderId = world.factions[factionId]?.founderId;
+  if (!founderId || commandHolderId(world, factionId) !== null) return null;
+  const founder = world.characters[founderId];
+  if (!founder || founder.dead || founder.factionId !== factionId || founder.captivity) return null;
+  return founder;
 }
 
 /**
