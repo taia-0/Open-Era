@@ -416,4 +416,48 @@ Examples from the run:
 
 The accept gate checks the purse against the shortfall's cost. It does not check whether the shelf under the carrier holds the shortfall.
 
-**One suggested fix, not measured.** Extend the skip to the carrier's own shelf: the walk also skips a carrier whose current port cannot supply its shortfall (`stocks.provisions` below `quantity + ration − cargo`). It is the same "cannot do the job from where it stands" test, and it involves no detour.
+**One suggested fix, since ruled in (see Own-port extension).** Extend the skip to the carrier's own shelf: the walk also skips a carrier whose current port cannot supply its shortfall (`stocks.provisions` below `quantity + ration − cargo`). It is the same "cannot do the job from where it stands" test, and it involves no detour.
+
+## Own-port extension
+
+### Lead's ruling
+
+The Lead accepted the walk skip and the three harness choices above as recorded (the haul replaces the ordinary action only on a tick when it can buy or sail; no extra landing pass after the character loop; block marks kept per world, not on the contract), and ruled the own-port extension in.
+
+The walk additionally skips a carrier whose current port cannot supply its shortfall: the port's `stocks.provisions` below `quantity + provisionDemand × voyage − cargo.provisions`, with the voyage `travelDuration` from that port to the destination. The deadline stays `offerTick + voyage + 1`, with no slack.
+
+### Measured on `feature/batch2`
+
+Same base and method as the walk-skip section: `b7895c0`, Node v24.21.0, ICU 78.3, a fresh process per seed, the harness in a scratch worktree outside the repository, removed afterwards. Before (c), the same patched tree reproduced the pin (`e95a9f81` / `8f0b7daa` / `f19aa3d1`) with every flag off and (b) (`14bf17b2` / `f18834c5` / `2a320157`) with the haul and the skip on. (c) is pin + haul + skip + own-port. Not comparable to `d8a222fb`.
+
+| Seed | Run | Hash | Events | Offers | Accepted | Fulfilled | Breached | Cancelled | Refused | WG end | FT end | Secessions | Deaths |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: |
+| 1847 | pin | `e95a9f81` | 162438 | 264 | 212 | 41 | 171 | 0 | 52 | 10909.93 at 0.06 | 0.00 at 0.20 | 4 | 1 |
+| 1847 | (b) | `14bf17b2` | 162250 | 255 | 193 | 88 | 95 | 9 | 62 | 9167.65 at 0.07 | 12.45 at 0.16 | 4 | 1 |
+| 1847 | (c) | `99ed1d07410f75d3dc8692d0e8d2c20d521f134a7a59f9e3fb65eb837305544e` | 163679 | 229 | 163 | 107 | 44 | 12 | 66 | 5487.13 at 0.03 | 908.99 at 0.14 | 4 | 1 |
+| 2718 | pin | `8f0b7daa` | 163070 | 152 | 121 | 26 | 95 | 0 | 31 | 10881.57 at 0.11 | 312.58 at 0.14 | 4 | 2 |
+| 2718 | (b) | `f18834c5` | 158885 | 130 | 100 | 44 | 56 | 0 | 30 | 12153.67 at 0.09 | 264.52 at 0.10 | 0 | 2 |
+| 2718 | (c) | `0b69526e0288c58c6755414170a2233ccdf4519084406b8c95fed3de878eba32` | 159149 | 124 | 98 | 73 | 23 | 1 | 26 | 8592.86 at 0.06 | 0.00 at 0.18 | 2 | 2 |
+| 4096 | pin | `f19aa3d1` | 164176 | 360 | 267 | 68 | 198 | 0 | 93 | 9637.43 at 0.07 | 0.00 at 0.24 | 1 | 1 |
+| 4096 | (b) | `2a320157` | 163172 | 275 | 231 | 98 | 106 | 27 | 44 | 4645.75 at 0.09 | 0.00 at 0.17 | 1 | 1 |
+| 4096 | (c) | `21205e9aa8bd0eb5118be8cfdb755b86a4440d63f9fb2d6ad8bf509bbd51e484` | 161880 | 345 | 273 | 153 | 84 | 36 | 72 | 4979.26 at 0.03 | 26.89 at 0.15 | 2 | 1 |
+
+(c) at 72 ticks: `6efa334f` (8496), `e8f9cfab` (8566), `8ac8529b` (8483), against the pin's `6efa334f` / `f8af3edf` / `2b32bffb`. Every (c) acceptance issued an order. Every acceptance is closed except one on 2718: 73 + 23 + 1 = 97 of 98.
+
+| Cause, (c) | 1847 | 2718 | 4096 |
+| --- | ---: | ---: | ---: |
+| `capture`, `hazard`, `purse` / `buy`, `choice` / `hold-full` | 0 | 0 | 0 |
+| `purse` / `passage` | 1 | 0 | 11 |
+| `choice` / `better-motive` | 33 | 18 | 60 |
+| `choice` / `consumed` | 2 | 1 | 3 |
+| `choice` / `deadline-infeasible` | 8 | 4 | 10 |
+
+On 2718, `deadline-infeasible` falls from 34 to 4, below `better-motive` (18). On 4096, fulfilments are 153, against 98 in (b) and 154 in (a). `better-motive` is now the largest cause on every seed.
+
+The remaining deadline breaches, by the carrier's first haul decision (1847 / 2718 / 4096):
+
+- No haul decision before the deadline, because the carrier was at sea on another voyage by then: 4 / 1 / 4.
+- Shelf under the carrier emptied between the offer and the first decision, so it was short: 3 / 1 / 2.
+- Shelf too thin at the first decision: 1 / 1 / 1.
+- Already past the time limit at the first decision: 0 / 0 / 3.
+- Accepted while standing on the destination: 0 / 1 / 0.

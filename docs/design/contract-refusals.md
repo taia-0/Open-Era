@@ -150,3 +150,7 @@ Keep 56.25, keep `round(0.54 + ambition * 0.08)`, and offer the lowest id who wo
 ## Lead's ruling: walk skip
 
 The offer walk skips any carrier that cannot do the job from where it stands. A carrier standing on the destination port with less than the quantity aboard (`cargo.provisions < 10`) is not offered the job, and the walk moves on to the next carrier who would accept. Taking a job you cannot possibly do is not a choice the motive rule protects. Sailing elsewhere to buy is deferred. Measured in [contract fulfilment](contract-fulfilment.md#walk-skip) on `feature/batch2` `e2e3d53` / `b7895c0`, not comparable to `d8a222fb`.
+
+## Lead's ruling: own-port extension
+
+The Lead accepted the walk skip and the three harness choices above as recorded (the haul replaces the ordinary action only on a tick when it can buy or sail; no extra landing pass after the character loop; block marks kept per world, not on the contract), and ruled the own-port extension in. The walk additionally skips a carrier whose current port cannot supply its shortfall: the port's `stocks.provisions` below `quantity + provisionDemand × voyage − cargo.provisions`, with the voyage `travelDuration` from that port to the destination. The deadline stays `offerTick + voyage + 1`, with no slack. Measured as (c) in [contract fulfilment](contract-fulfilment.md#own-port-extension).
