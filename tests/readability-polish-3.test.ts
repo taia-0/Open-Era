@@ -16,9 +16,11 @@ import { runTick, runTicks } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";
-import type { SimEvent } from "../src/sim/types.ts";
+import type { SimEvent, WorldState } from "../src/sim/types.ts";
+
 
 test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick check-in", () => {
+  // Re-pinned for the contract haul: hauls on 2718 change the titles and counts in this check-in.
   // Treasury spending moved the titles inside this check-in. The window still starts at tick 0.
   const run = runTicks(createPrototypeWorld(2718), 168);
   const before = stateHash(run.state);
@@ -29,19 +31,19 @@ test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick chec
     briefing: { attentionCount: number; omittedInfoCount: number; items: Array<{ title: string }> };
   };
   assert.equal(counted[0]?.tick, 126);
-  assert.deepEqual(countedView.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A captain was taken', 'A battle was decided', 'Scattered troops came back.' ]);
-  assert.equal(countedView.briefing.attentionCount, 8);
+  assert.deepEqual(countedView.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'Scattered troops came back.' ]);
+  assert.equal(countedView.briefing.attentionCount, 4);
   assert.equal(countedView.briefing.omittedInfoCount, 0);
 
   const windowed = checkInEvents(run.events, run.state.tick);
   assert.equal(windowed[0]?.tick, 0);
-  assert.equal(windowed.length, 20218);
+  assert.equal(windowed.length, 20195);
   assert.equal(windowed.length, run.events.length);
   const view = dashboardState(run.state, windowed, fullEventFeed(windowed)) as {
     briefing: { attentionCount: number; omittedInfoCount: number; items: Array<{ title: string }> };
   };
-  assert.deepEqual(view.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A captain was taken', 'A battle was decided', 'A battle was decided', 'A captain was taken', 'An order was not followed, 5 times.', 'A battle was decided', 'A battle was decided', 'An order was not followed, 3 times.', 'An order was refused', 'An order was refused', 'An order was refused', 'An order was refused' ]);
-  assert.equal(view.briefing.attentionCount, 18);
+  assert.deepEqual(view.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A battle was decided', 'A captain was taken', 'An order was not followed, 5 times.', 'A battle was decided', 'A battle was decided', 'An order was not followed, 3 times.', 'An order was refused', 'An order was refused', 'An order was refused', 'An order was refused' ]);
+  assert.equal(view.briefing.attentionCount, 14);
   assert.equal(view.briefing.omittedInfoCount, 8);
   assert.equal(stateHash(run.state), before);
 });
@@ -70,9 +72,10 @@ test("the store read is the same tick window, and the cap keeps the newest rows"
 });
 
 test("seed 2718 tick 79 states the captured troops on the captor's feed and not on a rival's", () => {
+  // Re-pinned for the contract haul: the capture event moved to sequence 9199.
   // The skill step moved Mina Vale's capture to seed 2718, tick 79.
   const run = runTicks(createPrototypeWorld(2718), 80);
-  const capture = run.events.find((event) => event.sequence === 9195);
+  const capture = run.events.find((event) => event.sequence === 9199);
   assert.ok(capture);
   assert.equal(capture.type, "character-captured");
   assert.equal(capture.tick, 77);
@@ -130,13 +133,13 @@ test("seed 1847 names both captains and does not say each one took the port", ()
   }
 });
 
-test("seed 1847 tick 429 says morale gave out, and does not say nerve broke", () => {
-  // The batch 2 pin moved this fight to Jun Marrow at Crown Harbor on tick 429.
-  const run = runTicks(createPrototypeWorld(1847), 430);
-  const battle = run.events.find((event) => event.sequence === 52877);
+test("seed 1847 tick 484 says morale gave out, and does not say nerve broke", () => {
+  // Re-pinned for the contract haul: this fight moved to Jun Marrow at Crown Harbor on tick 484.
+  const run = runTicks(createPrototypeWorld(1847), 485);
+  const battle = run.events.find((event) => event.sequence === 60632);
   assert.ok(battle);
   assert.equal(battle.type, "battle-resolved");
-  assert.equal(battle.tick, 429);
+  assert.equal(battle.tick, 484);
   assert.equal(battle.actorId, "character-05");
   assert.equal(battle.settlementId, "crown-harbor");
   assert.equal(battle.data.outcome, "attacker-victory");

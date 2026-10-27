@@ -7,10 +7,22 @@ import { createDashboardApp } from "../src/dashboard/server.ts";
 import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
 import { projectCharacter, projectEvent, seaSightingsFor } from "../src/dashboard/visibility.ts";
 import { eventBriefingTitle } from "../src/dashboard/wording.ts";
-import { provisionRunway, runTicks, travelDuration } from "../src/sim/engine.ts";
+import { provisionRunway, runTick, runTicks, travelDuration } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { round, stateHash } from "../src/sim/state.ts";
 import type { Character, PartySighting, SimEvent, WorldState } from "../src/sim/types.ts";
+
+/**
+ * Seed 1847 in the live session, the run the dashboard shows. The contract
+ * haul moved Mara Vane's Crown Harbor hold (tick 528 to 612) out of the
+ * headless run; the live run keeps it.
+ */
+function liveTicks(seed: number, ticks: number): { state: WorldState; events: SimEvent[] } {
+  const state = createPrototypeWorld(seed);
+  const events: SimEvent[] = [];
+  while (state.tick < ticks) events.push(...runTick(state, { liveSession: true }).events);
+  return { state, events };
+}
 
 function commanderOf(world: WorldState): Character {
   return world.characters[world.players["prototype-player"].characterId];
@@ -277,7 +289,7 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
 
 test("seed 1847 at tick 530 names Verdant Cay while she is held", () => {
   // The batch 2 pin moved Mara's hold to Crown Harbor, captured on tick 528.
-  const result = runTicks(createPrototypeWorld(1847), 530);
+  const result = liveTicks(1847, 530);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
     day: number;
@@ -308,7 +320,7 @@ test("seed 1847 at tick 530 names Verdant Cay while she is held", () => {
 
 test("seed 1847 at tick 613 shows only the rounded scarred loyalty", () => {
   // The batch 2 pin moved Mara's scar to the release at tick 612.
-  const world = runTicks(createPrototypeWorld(1847), 613).state;
+  const world = liveTicks(1847, 613).state;
   const commander = commanderOf(world);
   const card = projectCharacter(world, commander, commander);
   assert.equal(world.tick, 613);

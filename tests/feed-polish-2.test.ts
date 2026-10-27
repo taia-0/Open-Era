@@ -205,10 +205,11 @@ test("an autonomous tax set names the reason, and settlementId is null", () => {
 });
 
 test("an autonomous secession with no successor ends with no leader yet", () => {
-  const world = createPrototypeWorld(1847);
+  // Re-pinned for the contract haul: the first live secession with no successor is now Corin Hale at Cinder Key, seed 4096, tick 1088.
+  const world = createPrototypeWorld(4096);
   const declared: SimEvent[] = [];
   let siblings: SimEvent[] = [];
-  for (let index = 0; index < 900; index += 1) {
+  for (let index = 0; index < 1200; index += 1) {
     const tick = runTick(world, { liveSession: true });
     const rows = tick.events.filter((event) => event.type === "secession-declared");
     if (rows.length > 0) {
@@ -217,13 +218,13 @@ test("an autonomous secession with no successor ends with no leader yet", () => 
       break;
     }
   }
-  assert.equal(world.tick, 857);
+  assert.equal(world.tick, 1089);
   assert.equal(declared.length, 1);
-  assert.equal(declared[0]?.tick, 856);
+  assert.equal(declared[0]?.tick, 1088);
   const view = projectEventFeed(world, "character-01", declared, siblings);
   assert.equal(
-    view.find((row) => row.settlementId === "glassport")?.summary,
-    "Dax Pike declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)",
+    view.find((row) => row.settlementId === "cinder-key")?.summary,
+    "Corin Hale declared Cinder Key separate from Free Tide Compact. Free Cinder Key starts with an empty treasury. (no leader yet)",
   );
   assert.equal(view.every((row) => row.payloadWithheld === true && row.data === null), true);
   assert.equal(declared.every((event) => event.data.successorId === null), true);
