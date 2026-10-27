@@ -148,6 +148,17 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-26 — Contract feed polish: folded offers, merged orders, refusal reasons
+- **Agent** — Open Era Engineer. **Branch** — `fix/contract-feed-polish`, from `feature/breakaway-tax` at `0f02352`. **Commits** — `6d52f8f`, `0050223`, `2406999`, then this entry and the blind plan. **Type** — Projection.
+- **Changed** — `projectEventFeed` passes its rows through `foldContractRows` (`src/dashboard/view-model.ts:893`, `:924`).
+  - (c) A `contract-accepted` row and the `contract-order-issued` row for the same carrier, contract, and tick become one line: "Iris Stone accepted the contract and took the order to carry 10 provisions to Crown Harbor." Each half keeps the words this viewer may read. The row keeps the acceptance's sequence, payload, and visibility, and `foldedSequences` names the order.
+  - (a) Repeated identical offers fold into the newest one, with "(N times)" after the offer sentence, plus `count` and `foldedSequences`. Identical means the same buyer, carrier, cargo, quantity, and port, the same summary for this viewer, and the same visibility. The window is one feed page or advance. A run continues only while each offer's contract ended the same way on that page (fulfilled, refused, breached, cancelled, or still open).
+  - (b) A refusal gives a reason. The public line maps the stored `gate` to words with no figure: "they could not make the voyage", "their purse could not cover the cargo", or "the terms did not suit them" (`src/dashboard/wording.ts:608`, `:770`). The parties read the stored `reason`, the score against the threshold, or the cost basis (`src/dashboard/view-model.ts:239`).
+- **Why** — The Lead's rulings (a)–(c) from the contract-haul blind read. No sim change and no cooldown.
+- **Hashes** — Unchanged: 72 ticks `6efa334f` / `e8f9cfab` / `8ac8529b` (8496 / 8566 / 8486); 1200 ticks `c4d99822` / `738181c0` / `cbd66565` (163679 / 159177 / 161386).
+- **Verified** — `npm test` and `./scripts/evaluate-milestone.sh contract-feed-polish` on Node v24.21.0; results are in the hand-off to the Lead.
+- **Left open** — Folded offers leave their acceptance and landing rows in place. The blind plan [contract-feed-polish-001](docs/playtests/contract-feed-polish-001.md) has not been run.
+
 ### 2026-10-26 — Breakaway tax: the founder holds the tax seat
 - **Agent** — Open Era Engineer. **Branch** — `feature/breakaway-tax`, from `feature/contract-haul` at `ecb5181`. **Commits** — `bea658c` (the founder seat), `bdd8cf7` (the founder is not a mate; tests), this entry and the blind plan. **Type** — Behavior.
 - **Changed** — `secession-declared` stores `founderId` from `data.ownerId` on the new faction (`src/sim/state.ts:1062`, `src/sim/types.ts:32`). Inside `freeCommandHolder` only, a faction with no command holder uses its founder for the tax step while the founder is alive, still a member, and not captive (`src/sim/tax-rate.ts:149`). Allowance, `spendRole`, orders, and cover still read `commandHolderId`. The tax step takes the founder back out of the mate count, so a one-person breakaway never steps up for short (`src/sim/tax-rate.ts:197`).
