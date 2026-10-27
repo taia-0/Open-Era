@@ -64,8 +64,16 @@ From tick 144, `POST /api/advance` with `{"ticks":24}` until the call that ends 
 
 ## Outcome
 
-Leave this blank until the session.
+Session run by a blind operator on 2026-10-26 on branch `fix/batch2-polish` at `73479d078cf9821a159a5e7087344c37a96f86a0`. Node `v24.21.0`. One process, seed 1847, viewer `prototype-player`, no command. `GET /api/health` returned `{"ok":true,"tick":0,"events":0}`.
+
+Checkpoint 1 (dry hold): match. Advance 72 ended at tick 72, `eventSequence` 8496, `attentionUpdated` false, `pausedForBattle` false. Seq 7191 tick 61 `character-upkeep`, withheld false: "Mara Vane's upkeep was recorded." Seq 7314 tick 62: "Mara Vane's upkeep was recorded. The hold was short 0.288 provisions, so morale fell to 94.79 and health to 99.77." Seq 7443 tick 63: "Mara Vane's upkeep was recorded. The hold was short 0.576 provisions, so morale fell to 93.41 and health to 99.31." Mara's `morale` at tick 72: 82.4.
+
+Checkpoint 2 (offer): match. Calls ended at ticks 96/120/144, `eventSequence` 11366/14219/16956. Seq 16039 `contract-offered`, tick 136, withheld true: "Bram Quill offered Iris Stone a contract to carry 10 provisions to Crown Harbor." No `56.25`.
+
+Checkpoint 3 (rate history): match. 30 calls from 144 to 864, none with `attentionUpdated` or `pausedForBattle` true. Tick 840 call `eventSequence` 114287 holds seq 110580 tick 816: "Pax Ash raised the Free Tide Compact tax from 21% to 22% (treasury short)." Tick 864 call `eventSequence` 118034 holds seq 114296 tick 840: "Pax Ash lowered the Free Tide Compact tax from 22% to 21% (unrest at Glassport)." Raises seen from tick 336 onward, each one point and "(treasury short)": 7→8 (336), 8→9 (360), 9→10 (384), 10→11 (408), 11→12 (528), 12→13 (552), 13→14 (576), 14→15 (648), 15→16 (672), 16→17 (696), 17→18 (720), 18→19 (744), 19→20 (768), 20→21 (792), 21→22 (816).
+
+Findings: no mismatch. Every string, sequence and value matched the plan word for word.
 
 ## Recommendation
 
-Leave this blank until the session. `PROMOTE`, `REVISE`, or `ABANDON` belongs to the operator.
+PROMOTE. All three checkpoints matched exactly. The hypothesis holds: the dry hold explains morale, the offer names carrier and cargo without the price, and every tax step names the rate before and after.
