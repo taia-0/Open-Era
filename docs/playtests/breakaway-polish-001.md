@@ -67,6 +67,26 @@ Then `POST /api/advance` with `{"ticks":24}`. The call ends at tick 1148, `event
 - Free Tide Compact: `taxRate` 0.21, `treasury` null, `treasuryNote` `not visible to you`.
 - World Government: `treasury` 12022.55, `treasuryNote` null.
 
+## Second checkpoint set. Seed 1847 contract lines
+
+Restart the one process with `npm run dashboard -- --reset --seed 1847`, same `playerId`, no command. Values were read from a live run of that process on this branch.
+
+### Checkpoint 4. The cancellation
+
+`POST /api/advance` with `{"ticks":144}`: ends at tick 144, `eventSequence` 16958. Then `{"ticks":24}`: ends at tick 168, `eventSequence` 19796. That call has sequence 17788, `contract-cancelled`, tick 151, `payloadWithheld` true:
+
+`Lio Crow's contract for Iris Stone was cancelled because the port no longer needs it.`
+
+The line names no escrow and no figure.
+
+### Checkpoint 5. The breach and the folded row
+
+`POST /api/advance` with `{"ticks":48}`: ends at tick 216, `eventSequence` 25265. Neither call in this set returns `attentionUpdated` or `pausedForBattle` true. The call has:
+- sequence 23032, `contract-breached`, tick 196, `payloadWithheld` true: `Bram Quill missed a contract: the carrier chose other work.`
+- sequence 24468, `contract-offered`, tick 209, `payloadWithheld` true: `Iris Stone offered Toma Reef a contract to carry 10 provisions to Crown Harbor (2 times since tick 194).`
+
+No feed line in either call has `(World Government)` or another faction tag after a name.
+
 ## Outcome
 
 Not yet run.
