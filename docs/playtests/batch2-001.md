@@ -184,10 +184,25 @@ Sequence 114296, same response, is `tax-rate-set`, tick 840. Summary:
 - Free Tide Compact `taxRate` 0.21. `treasury` null.
 - A faction named `Free Glassport` is present. Its `taxRate` is 0.08. Its `treasury` is null.
 
+## Session
+
+Blind operator, 2026-10-26 (PT). Node v24.21.0. HEAD before the first request `e2e3d53233ddcad8dafdbb410a6cab4a97ba0140`. One process, `npm run dashboard -- --reset --seed 1847`. No command posted. No advance paused (all `attentionUpdated`/`pausedForBattle` false).
+
+- Tick 0: health `{"ok":true,"tick":0,"events":0}`. Player Mara Vane `character-01`, `crown-harbor`, money 108, morale 93. WG 0.14 / 18000 / `Tax income 0, spending 0, over the last 180 ticks.` FT 0.08 / null / null. Two factions. `contracts` `[]`.
+- Checkpoint 1: tick 1, day 0.17, eventSequence 182. Seq 108 `market-trade` character-17 tick 0, withheld: `Zara Gale traded at Crown Harbor. Tax of 1.58 went to the treasury.` No `levy`. WG 17911.58, `Tax income 1.58, spending 54, over the last 180 ticks.` Money 108, contracts `[]`.
+- Checkpoint 2: tick 72, day 12, eventSequence 8496. WG 17904.84, 0.14, `Tax income 2547.49, spending 2210.65, over the last 180 ticks.` FT 0.08/null. Two factions. `contracts` `[]`. Mara morale 82.4.
+- Checkpoint 3: tick 96 (seq 11366), then tick 120, day 20, eventSequence 14219. Seq 11375 `tax-rate-set` character-14 tick 96, withheld, data null: `Pax Ash lowered the Free Tide Compact tax to 7% (unrest).`
+- Checkpoint 4: tick 144, day 24, eventSequence 16956. Seq 16039 `contract-offered` character-02 tick 136, withheld: `Bram Quill offered a contract.` No `56.25`.
+- Checkpoint 5: 30 calls, no pause. Tick 864, eventSequence 118034. Seq 116792 `secession-declared` tick 856 glassport, withheld, data null: `Dax Pike declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)`. Seq 114296 tick 840: `Pax Ash lowered the Free Tide Compact tax to 21% (unrest at Glassport).` State: WG 0.14; FT 0.21/null; Free Glassport 0.08/null. Contract rows on her JSON show `quantity`, `price`, `escrow` null.
+
+## Findings
+
+Every checkpoint matched the plan verbatim. No mismatch. Observation outside the criteria: the tick-840 line says "lowered ... to 21%" while FT was at 7% earlier in this plan (rate rose in between, unobserved); a reader may find "lowered to 21%" surprising.
+
 ## Outcome
 
-Leave this blank until the session. Do not fill it while writing the plan.
+Hypothesis confirmed on every point.
 
 ## Recommendation
 
-Leave this blank until the session. `PROMOTE`, `REVISE`, or `ABANDON` belongs to the operator.
+PROMOTE.
