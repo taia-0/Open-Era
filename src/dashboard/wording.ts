@@ -82,6 +82,22 @@ export function qualifyCollidingNames(world: WorldState, text: string): string {
     .replaceAll(/Toma Hale(?! \()/g, hale);
 }
 
+/**
+ * Feed sentences carry no faction tag on any name (breakaway polish, ruling 5).
+ * Toma Reef and Toma Hale already differ by surname, so the tag is not needed
+ * there, and the rows' visibility does not depend on it. Cards keep it.
+ */
+export function unqualifiedFeedNames(world: WorldState, text: string): string {
+  let out = text;
+  for (const id of [TOMA_REEF_ID, TOMA_HALE_ID]) {
+    const character = world.characters[id];
+    if (!character) continue;
+    const tagged = characterName(world, id, character.name);
+    if (tagged !== character.name) out = out.replaceAll(tagged, character.name);
+  }
+  return out.replaceAll(/(Toma (?:Reef|Hale)) \((?:[^()]*)\)/g, "$1");
+}
+
 export function settlementName(world: WorldState, id: string | undefined, fallback: string): string {
   if (!id) return fallback;
   return world.settlements[id]?.name ?? id;
@@ -611,12 +627,17 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
     }
     case "contract-fulfilled":
       return `${actor} fulfilled a contract.`;
-    case "contract-breached":
-      return `${actor} missed a contract.`;
-    case "contract-cancelled":
+    case "contract-breached": {
+      const why = publicBreachReason(event);
+      return why ? `${actor} missed a contract: ${why}.` : `${actor} missed a contract.`;
+    }
+    case "contract-cancelled": {
+      const buyer = contractBuyerName(world, event);
+      const whose = buyer ? `${actor}'s contract for ${buyer}` : `${actor}'s contract`;
       return event.data.reason === "no-longer-needed"
-        ? `${actor}'s contract was cancelled because the port no longer needs it.`
+        ? `${whose} was cancelled because the port no longer needs it.`
         : `${actor} cancelled a contract.`;
+    }
     case "contract-order-issued": {
       const destination = typeof event.data.destinationId === "string"
         ? ` to ${settlementName(world, event.data.destinationId, "the port")}`
@@ -778,6 +799,42 @@ export function publicRefusalReason(event: SimEvent): string | null {
     default:
       return null;
   }
+}
+
+/**
+ * The breach reason anyone may read: the `cause` and `detail` the haul stored
+ * on `contract-breached`, in words with no figure. Null when no cause is stored.
+ */
+export function publicBreachReason(event: SimEvent): string | null {
+  const key = `${String(event.data.cause ?? "")}/${String(event.data.detail ?? "")}`;
+  switch (key) {
+    case "capture/":
+      return "the carrier was taken captive";
+    case "hazard/":
+      return "a hazard stopped the ship";
+    case "purse/buy":
+      return "the carrier could not pay for the cargo";
+    case "purse/passage":
+      return "the carrier could not pay for the passage";
+    case "choice/better-motive":
+      return "the carrier chose other work";
+    case "choice/hold-full":
+      return "the carrier's hold was full";
+    case "choice/consumed":
+      return "the cargo was used up before it landed";
+    case "choice/deadline-infeasible":
+      return "the deadline could not be met";
+    default:
+      return null;
+  }
+}
+
+/** The buyer named on a contract event, for any reader. Null when the event names none. */
+export function contractBuyerName(world: WorldState, event: SimEvent): string | null {
+  const buyerId = typeof event.data.buyerId === "string"
+    ? event.data.buyerId
+    : (event.data.contract as { buyerId?: string } | undefined)?.buyerId;
+  return buyerId ? characterName(world, buyerId, buyerId) : null;
 }
 
 export function contractOfferedSentence(world: WorldState, event: SimEvent, actor: string): string {

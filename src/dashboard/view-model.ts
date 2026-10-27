@@ -30,6 +30,9 @@ import {
   characterName,
   eventBriefingTitle,
   qualifyCollidingNames,
+  publicBreachReason,
+  contractBuyerName,
+  unqualifiedFeedNames,
   passageUpkeepSentence,
   executedActionSentence,
   marketTradeSentence,
@@ -251,12 +254,20 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     }
     case "contract-fulfilled":
       return `${actor} landed ${event.data.quantity} provisions at ${destinationName(world, event)}.`;
-    case "contract-breached":
-      return `${actor} missed the provisions deadline. The escrow returned.`;
-    case "contract-cancelled":
+    case "contract-breached": {
+      // The parties read the same stored cause, and the escrow's return.
+      const why = publicBreachReason(event);
+      return why
+        ? `${actor} missed the provisions deadline: ${why}. The escrow returned.`
+        : `${actor} missed the provisions deadline. The escrow returned.`;
+    }
+    case "contract-cancelled": {
+      const buyer = contractBuyerName(world, event);
+      const whose = buyer ? `${actor}'s provisions contract for ${buyer}` : `${actor}'s provisions contract`;
       return event.data.reason === "no-longer-needed"
-        ? `${actor}'s provisions contract was cancelled: ${destinationName(world, event)} already holds the quantity. The escrow returned.`
+        ? `${whose} was cancelled: ${destinationName(world, event)} already holds the quantity. The escrow returned.`
         : `${actor} cancelled the provisions contract.`;
+    }
     case "contract-order-issued":
       return `${actor} took the order to carry ${event.data.quantity} provisions to ${destinationName(world, event)} by tick ${event.data.deadlineTick}.`;
     case "goal-evolved":
@@ -966,7 +977,7 @@ export function foldContractRows(
     const id = (event.data.contract as { id?: string } | undefined)?.id;
     if (id) endings.set(id, event.type);
   }
-  type Run = { index: number; count: number; sequences: unknown[]; ending: string | null; summary: string; withheld: unknown };
+  type Run = { index: number; count: number; sequences: unknown[]; ending: string | null; summary: string; withheld: unknown; firstTick: number };
   const runs = new Map<string, Run>();
   const folded: Run[] = [];
   for (let index = 0; index < events.length; index += 1) {
@@ -983,7 +994,7 @@ export function foldContractRows(
       run.index = index;
       run.count += 1;
     } else {
-      const next = { index, count: 1, sequences: [], ending, summary: String(row.summary), withheld: row.payloadWithheld };
+      const next = { index, count: 1, sequences: [], ending, summary: String(row.summary), withheld: row.payloadWithheld, firstTick: event.tick };
       runs.set(key, next);
       folded.push(next);
     }
@@ -994,12 +1005,15 @@ export function foldContractRows(
     rows[run.index] = {
       ...row,
       // The count follows the offer sentence, before any price or draw sentence.
-      summary: String(row.summary).replace(/\.( |$)/, ` (${run.count} times).$1`),
+      summary: String(row.summary).replace(/\.( |$)/, ` (${run.count} times since tick ${run.firstTick}).$1`),
+      firstTick: run.firstTick,
       count: run.count,
       foldedSequences: run.sequences,
     };
   }
-  return rows.filter((_, index) => !drop.has(index));
+  return rows
+    .filter((_, index) => !drop.has(index))
+    .map((row) => typeof row.summary === "string" ? { ...row, summary: unqualifiedFeedNames(world, row.summary) } : row);
 }
 
 /**
