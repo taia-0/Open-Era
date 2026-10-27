@@ -29,7 +29,7 @@ import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
-import { CONTEXT_PROMPT_VERSION, sha256, parseTaxChoice, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { CONTEXT_PROMPT_VERSION, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3593,7 +3593,10 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
   // Pilot B: the reader runs after the cap check, before the brain, and its
   // validated briefing is part of the brain's request (and its inputHash).
   const context = ai.context ? readTaxStepContext(world, factionId, step.holderId, ai.context, capped) : null;
-  if (context) request.briefing = context.briefing;
+  if (context) {
+    request.briefing = context.briefing;
+    request.promptVersion = TAX_STEP_PROMPT_VERSION_BRIEFED;
+  }
   let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
   if (!capped) {
     ai.calls = (ai.calls ?? 0) + 1;
@@ -3613,7 +3616,7 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     role: "brain.taxStep" as const,
     provider: provider.name,
     model: provider.model,
-    promptVersion: TAX_STEP_PROMPT_VERSION,
+    promptVersion: request.promptVersion,
     inputHash: taxStepInputHash(request),
     options: step.options,
     scorerChoice: step.scorerChoice,

@@ -53,6 +53,16 @@ export function sha256(text: string): string {
 
 export const TAX_STEP_PROMPT_VERSION = sha256(TAX_STEP_PROMPT_TEMPLATE);
 
+/**
+ * Pilot B (slice B3): the brain's template with the briefing. Runs with a
+ * context reader send this version; runs without one keep the pilot A version.
+ */
+export const TAX_STEP_PROMPT_TEMPLATE_BRIEFED = [
+  TAX_STEP_PROMPT_TEMPLATE,
+  "Briefing on the holder (validated, at most 1,024 bytes): {briefing}.",
+].join("\n");
+export const TAX_STEP_PROMPT_VERSION_BRIEFED = sha256(TAX_STEP_PROMPT_TEMPLATE_BRIEFED);
+
 /** Brain timeout from ai-brain.md. Proposed, not measured; stubs never reach it. */
 export const TAX_STEP_TIMEOUT_MS = 30_000;
 /** Default per-run call cap (section 7, default 9). */
