@@ -943,9 +943,14 @@ export function foldContractRows(
     const orderRow = rows[orderIndex];
     // Each half keeps the words this viewer may read; the order row adds no payload.
     const order = String(orderRow.summary);
-    const actor = world.characters[accepted.actorId ?? ""]?.name ?? accepted.actorId ?? "";
-    const took = order.startsWith(`${actor} took `) ? order.slice(actor.length + 1) : null;
-    if (!took) continue;
+    const accept = String(row.summary);
+    // Both lines open with the same carrier label, which can carry a faction qualifier.
+    const tookAt = order.indexOf(" took the order");
+    const acceptAt = accept.indexOf(" accepted ");
+    if (tookAt < 0 || acceptAt < 0) continue;
+    const actor = accept.slice(0, acceptAt);
+    if (order.slice(0, tookAt) !== actor) continue;
+    const took = order.slice(tookAt + 1);
     const contract = row.payloadWithheld ? "the contract" : "the provisions contract";
     rows[index] = {
       ...row,
