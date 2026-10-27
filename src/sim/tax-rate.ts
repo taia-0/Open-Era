@@ -168,7 +168,30 @@ function freeCommandHolder(world: WorldState, factionId: string): Character | nu
  * of passage. Pressed steps down. Short steps up only when the port is not
  * pressed. The cent stops at 0 and at 30.
  */
-export function autonomousTaxStep(world: WorldState, factionId: string): AutonomousTaxStep | null {
+/** One step of the autonomous tax clock (ai-pilot-a.md, slice A0). */
+export type TaxChoice = "down" | "hold" | "up";
+
+/**
+ * What the scorer sees at one open clock point. Pure, no draw, writes nothing.
+ * `options` is the legal set in the fixed order down, hold, up: hold always,
+ * down when cents > 0, up when cents < 30. A faction with no port is frozen by
+ * the tree already, so its set is hold only and `landless` is true.
+ */
+export interface TaxStepOptions {
+  holderId: string;
+  rateCents: number;
+  pressed: boolean;
+  short: boolean;
+  lowestStabilityThousandths: number | null;
+  treasuryCents: number;
+  freeMates: number;
+  landless: boolean;
+  options: TaxChoice[];
+  scorerChoice: TaxChoice;
+}
+
+/** Null when the clock gate is closed: not a 24-tick point, no free holder, or cooldown. */
+export function taxStepOptions(world: WorldState, factionId: string): TaxStepOptions | null {
   if (world.tick <= 0 || world.tick % TAX_RATE_COOLDOWN_TICKS !== 0) return null;
   const faction = world.factions[factionId];
   if (!faction) return null;
@@ -178,9 +201,16 @@ export function autonomousTaxStep(world: WorldState, factionId: string): Autonom
   if (setTick !== undefined && world.tick < setTick + TAX_RATE_COOLDOWN_TICKS) return null;
 
   const cents = Math.round(faction.taxRate * 100);
+  const maxCents = Math.round(TAX_RATE_MAX * 100);
+  const treasuryCents = Math.round(faction.treasury * 100);
   const held = Object.values(world.settlements).filter((settlement) => settlement.factionId === factionId);
   // A faction with no port does not step up or down until it holds one again.
-  if (held.length === 0) return null;
+  if (held.length === 0) {
+    return {
+      holderId: holder.id, rateCents: cents, pressed: false, short: false, lowestStabilityThousandths: null,
+      treasuryCents, freeMates: 0, landless: true, options: ["hold"], scorerChoice: "hold",
+    };
+  }
   let lowest = Number.POSITIVE_INFINITY;
   let known = false;
   for (const settlement of held) {
@@ -196,15 +226,34 @@ export function autonomousTaxStep(world: WorldState, factionId: string): Autonom
   const founderSeat = commandHolderId(world, factionId) === null;
   const mates = freeMateCount(world, factionId) - (founderSeat ? 1 : 0);
   const dayCents = Math.round(fullAllowance(world, PASSAGE_PER_TICK) * 100);
-  const treasuryCents = Math.round(faction.treasury * 100);
   const short = mates > 0 && treasuryCents < mates * dayCents;
-  let next = cents;
-  if (pressed && cents > 0) next = cents - 1;
-  else if (!pressed && short && cents < Math.round(TAX_RATE_MAX * 100)) next = cents + 1;
-  if (next === cents) return null;
+  let scorerChoice: TaxChoice = "hold";
+  if (pressed && cents > 0) scorerChoice = "down";
+  else if (!pressed && short && cents < maxCents) scorerChoice = "up";
+  const options: TaxChoice[] = [];
+  if (cents > 0) options.push("down");
+  options.push("hold");
+  if (cents < maxCents) options.push("up");
   return {
-    holderId: holder.id,
-    taxRate: next / 100,
+    holderId: holder.id, rateCents: cents, pressed, short,
+    lowestStabilityThousandths: known ? lowest : null,
+    treasuryCents, freeMates: mates, landless: false, options, scorerChoice,
+  };
+}
+
+/** The rate a choice lands on, in cents. */
+export function taxChoiceCents(rateCents: number, choice: TaxChoice): number {
+  return rateCents + (choice === "up" ? 1 : choice === "down" ? -1 : 0);
+}
+
+/** Thin wrapper over `taxStepOptions`: null for a closed gate or a hold. */
+export function autonomousTaxStep(world: WorldState, factionId: string): AutonomousTaxStep | null {
+  const step = taxStepOptions(world, factionId);
+  if (!step || step.scorerChoice === "hold") return null;
+  const faction = world.factions[factionId];
+  return {
+    holderId: step.holderId,
+    taxRate: taxChoiceCents(step.rateCents, step.scorerChoice) / 100,
     previousTaxRate: faction.taxRate,
   };
 }
