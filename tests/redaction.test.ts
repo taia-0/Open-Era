@@ -860,7 +860,7 @@ test("a contract's price is visible only to the two parties", () => {
   );
   assert.equal(withheld.payloadWithheld, true);
   assert.equal(withheld.data, null);
-  assert.equal(withheld.summary, `${commander.name} offered a contract.`);
+  assert.equal(withheld.summary, `${commander.name} offered Zara Gale a contract to carry 10 provisions to Crown Harbor.`);
   assert.equal(String(withheld.summary).includes(String(price)), false);
 
   const view = dashboardState(world, [], fullEventFeed([])) as { contracts: Array<{ price: number | null }> };

@@ -600,7 +600,7 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
     case "reporting-officer-assigned":
       return "A reporting officer was assigned.";
     case "contract-offered":
-      return `${actor} offered a contract.`;
+      return contractOfferedSentence(world, event, actor);
     case "contract-amended":
       return `${actor} amended a contract.`;
     case "contract-accepted":
@@ -746,6 +746,36 @@ export function debtRepaidSentence(world: WorldState, event: SimEvent, withAmoun
 
 /** The short-pay clause on a character-upkeep row. The 0.5 is the morale term. */
 export const SHORT_PAY_UPKEEP_LINE = "Pay was short, so morale fell by 0.5.";
+
+/**
+ * The public offer line: who offered, who would carry, and the cargo.
+ * The price, the payout, and the escrow stay off this sentence.
+ */
+export function contractOfferedSentence(world: WorldState, event: SimEvent, actor: string): string {
+  const contract = event.data.contract as
+    | { carrierId?: string; quantity?: number; good?: string; destinationId?: string }
+    | undefined;
+  if (!contract?.carrierId || typeof contract.quantity !== "number" || !contract.good) return `${actor} offered a contract.`;
+  const carrier = characterName(world, contract.carrierId, "a captain");
+  const good = contract.good === "shipMaterials" ? "ship materials" : contract.good;
+  const place = contract.destinationId ? ` to ${settlementName(world, contract.destinationId, "the port")}` : "";
+  return `${actor} offered ${carrier} a contract to carry ${contract.quantity} ${good}${place}.`;
+}
+
+/**
+ * Why morale fell on an upkeep row, for the same readers as the pay clause.
+ * The row stores the shortage and the new morale and health absolutes.
+ * Null when the hold covered the ration.
+ */
+export function provisionShortageUpkeepLine(event: SimEvent): string | null {
+  if (event.type !== "character-upkeep") return null;
+  const shortage = event.data.shortage;
+  const morale = event.data.morale;
+  const health = event.data.health;
+  if (typeof shortage !== "number" || shortage <= 0 || typeof morale !== "number") return null;
+  const healthPart = typeof health === "number" ? ` and health to ${round(health, 2)}` : "";
+  return `The hold was short ${round(shortage, 3)} provisions, so morale fell to ${round(morale, 2)}${healthPart}.`;
+}
 
 /** The short-pay clause on a character card. The 0.5 is the morale term. */
 export const SHORT_PAY_CARD_LINE = "Pay is short, so morale loses 0.5 on upkeep.";
@@ -1125,7 +1155,7 @@ export function taxRateSetSentence(
   if (autonomous && previous !== null && previous !== rate) {
     const verb = rate > previous ? "raised" : "lowered";
     const reason = rate > previous ? "treasury short" : unrestReason(world, event, factionId, siblings);
-    return `${actor} ${verb} the ${faction} tax to ${Math.round(rate * 100)}% (${reason}).`;
+    return `${actor} ${verb} the ${faction} tax from ${Math.round(previous * 100)}% to ${Math.round(rate * 100)}% (${reason}).`;
   }
   return `${actor} set the ${faction} tax rate to ${Math.round(rate * 100)}%.`;
 }

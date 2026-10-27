@@ -170,7 +170,7 @@ test("an autonomous tax set names the reason, and settlementId is null", () => {
   const raisedEvent = raisedTick.events.find((event) => event.type === "tax-rate-set");
   assert.ok(raisedEvent);
   const raisedRow = projectEventFeed(raised, "character-01", [raisedEvent], raisedTick.events)[0];
-  assert.equal(raisedRow.summary, "Pax Ash raised the Free Tide Compact tax to 9% (treasury short).");
+  assert.equal(raisedRow.summary, "Pax Ash raised the Free Tide Compact tax from 8% to 9% (treasury short).");
   assert.equal(raisedRow.settlementId, null);
   assert.equal(Object.hasOwn(raisedRow, "settlementId"), true);
   assert.equal(raisedRow.payloadWithheld, true);
@@ -189,7 +189,7 @@ test("an autonomous tax set names the reason, and settlementId is null", () => {
   const loweredEvent = loweredTick.events.find((event) => event.type === "tax-rate-set");
   assert.ok(loweredEvent);
   const loweredRow = projectEventFeed(lowered, "character-01", [loweredEvent], loweredTick.events)[0];
-  assert.equal(loweredRow.summary, "Pax Ash lowered the Free Tide Compact tax to 7% (unrest at Cinder Key).");
+  assert.equal(loweredRow.summary, "Pax Ash lowered the Free Tide Compact tax from 8% to 7% (unrest at Cinder Key).");
   assert.equal(loweredRow.settlementId, null);
 
   const player = createPrototypeWorld(1847);

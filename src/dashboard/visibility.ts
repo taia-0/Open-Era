@@ -1090,7 +1090,12 @@ export function projectEvent(
   const actor = event.actorId ? world.characters[event.actorId]?.name ?? event.actorId : "World";
   const raw = `${actor}: ${event.type.replaceAll("-", " ")}`;
   let summary = richSummary === raw ? publicFeedSentence(world, event) : richSummary;
-  if (!visible && !summaryStaysWhenWithheld(event.type)) {
+  if (!visible && event.type === "contract-offered") {
+    // The offer line names the carrier and the cargo. A mate's treasury draw follows it.
+    const draw = treasuryDrawSentence(world, commander.factionId, event);
+    const offer = publicFeedSentence(world, event);
+    summary = draw ? `${offer} ${draw}` : offer;
+  } else if (!visible && !summaryStaysWhenWithheld(event.type)) {
     summary = ownedPortTaxSentence(world, commander.factionId, event)
       ?? withheldRecruitSentence(world, commander.factionId, event)
       ?? treasuryDrawSentence(world, commander.factionId, event)
