@@ -160,6 +160,8 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
 - **Clock points** — The built gate asks 33 / 27 / 30 times per 1200-tick run, not the brief's 45 / 45 / 42: the tree already has the landless freeze, so a landless Free Tide gets a hold-only set, which is not sent.
 - **Tests** — `tests/ai-pilot-a-options.test.ts` (A0) and `tests/ai-pilot-a.test.ts` (the six checks of section 5).
 - **Left open** — See the hand-off: the landless freeze already in the tree, no `flag-off` trace entries, the cap counter on the options object, and recovery having no provider parameter. No dashboard switch, so the blind plan [ai-pilot-a-001](docs/playtests/ai-pilot-a-001.md) is flag-off only.
+- **Verified** — Blind playtest [ai-pilot-a-001](docs/playtests/ai-pilot-a-001.md) at `7a52452`, seed 1847, flag off: all three checkpoints matched verbatim (eventSequence 16958 / 19796; tick-96 "Pax Ash lowered the Free Tide Compact tax from 8% to 7% (unrest at Glassport)."; free-tide 0.07, set tick 96, treasury hidden; no `"ai"`/brain/stub/model in any body). Verdict PROMOTE.
+- **Links** — [ai-pilot-a-001](docs/playtests/ai-pilot-a-001.md)
 
 ### 2026-10-26 — Breakaway polish: the founder line and the pressed port
 - **Agent** — Open Era Engineer. **Branch** — `fix/breakaway-polish`, from `fix/contract-feed-polish` at `127a733`. **Commits** — `accdcdd` (wording), `cc9cba2` (tests), then this entry and the blind plan. **Type** — Projection.

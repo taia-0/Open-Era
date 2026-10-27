@@ -37,10 +37,23 @@ Then `GET /api/state?limit=1`. The `free-tide` faction row has `taxRate` 0.07, `
 
 Search both advance bodies and the state body for `"ai"`, `brain`, `stub`, and `model`. None appears as a key or a value.
 
+## Session
+
+Blind operator, 2026-10-26 (PT). HEAD `7a52452f3f9c57354ed3b3859d8c571517057d50`, Node v24.21.0, fresh clone, one process, seed 1847, no commands.
+- Health: `{"ok":true,"tick":0,"events":0}`.
+- Advance 144: tick 144, `eventSequence` 16958, `attentionUpdated` false, `pausedForBattle` false. Only `tax-rate-set`: sequence 11375, tick 96, actor `character-14`, target `free-tide`, `payloadWithheld` true, `data` null, summary `Pax Ash lowered the Free Tide Compact tax from 8% to 7% (unrest at Glassport).`
+- Advance 24: tick 168, `eventSequence` 19796, no `tax-rate-set`.
+- State limit=1: `free-tide` `taxRate` 0.07, `taxRateSetTick` 96, `treasury` null, `treasuryNote` `not visible to you`.
+- Search of all three bodies for `"ai"`, `brain`, `stub`, `model`: zero hits.
+
+## Findings
+
+All three checkpoints matched verbatim. No mismatch. No AI wording or new field visible.
+
 ## Outcome
 
-Not yet run.
+Hypothesis confirmed: with no AI option the flag-off run reads exactly as planned.
 
 ## Recommendation
 
-Pending the blind session.
+**Verdict: PROMOTE.** Every checkpoint matched and no model wording appears.
