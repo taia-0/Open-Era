@@ -146,3 +146,7 @@ Score refusals that remain unreachable at the cap are 774, 650, and 867. One off
 ## Recommendation
 
 Keep 56.25, keep `round(0.54 + ambition * 0.08)`, and offer the lowest id who would accept. That is the walk measured above. It is the change that asks a captain whose score already clears, which is what [game vision](game-vision.md) requires of a motive, and it is the change that lands 36, 13, and 60 hauls on this pin. A higher payout has no required price on a row whose margin is already 0.25. The flat threshold of 0.54 accepts 61, 60, and 136, fewer than the walk, and it does so by setting ambition aside.
+
+## Lead's ruling: walk skip
+
+The offer walk skips any carrier that cannot do the job from where it stands. A carrier standing on the destination port with less than the quantity aboard (`cargo.provisions < 10`) is not offered the job, and the walk moves on to the next carrier who would accept. Taking a job you cannot possibly do is not a choice the motive rule protects. Sailing elsewhere to buy is deferred. Measured in [contract fulfilment](contract-fulfilment.md#walk-skip) on `feature/batch2` `e2e3d53` / `b7895c0`, not comparable to `d8a222fb`.

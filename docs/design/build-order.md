@@ -443,6 +443,10 @@ On seed 1847 the haul without cancellation ends 5234.75 below the walk. The acco
 
 Writes `contract-order-issued`, the buy, the cast-off, the landing, and `contract-cancelled`. The same escrow and the same purses as contracts slice 4. A cancellation writes no loyalty and no reputation. A deadline breach still does.
 
+### Walk skip
+
+The offer walk skips any carrier that cannot do the job from where it stands. A carrier standing on the destination port with less than the quantity aboard (`cargo.provisions < 10`) is not offered the job, and the walk moves on to the next carrier who would accept. Taking a job you cannot possibly do is not a choice the motive rule protects. Sailing elsewhere to buy is deferred. It builds with the haul slice. Measured on the Engineer's re-pin, `feature/batch2` `e2e3d53` / `b7895c0`, in [contract fulfilment](contract-fulfilment.md#walk-skip). Pin + haul + skip at tick 1200: `14bf17b2` (162250), `f18834c5` (158885), `2a320157` (163172). Not comparable to `d8a222fb`.
+
 ## Questions
 
 Settled with this note.
