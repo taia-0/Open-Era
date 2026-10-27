@@ -123,3 +123,35 @@ export function stubScript(seed: number, table: Record<string, string>): TaxStep
     }),
   };
 }
+
+export type TaxStepFallbackReason = "timeout" | "error" | "illegal" | "cap";
+
+/** The `data.ai` record on a `tax-rate-set` (ai-pilot-a.md section 2). The reducer never reads it. */
+export interface TaxStepAiRecord {
+  role: "brain.taxStep";
+  provider: string;
+  model: string;
+  promptVersion: string;
+  inputHash: string;
+  options: TaxChoice[];
+  scorerChoice: TaxChoice;
+  rawAnswer: string | null;
+  parsedChoice: TaxChoice | null;
+  finalChoice: TaxChoice;
+  outcome: "model" | "fallback";
+  fallbackReason: TaxStepFallbackReason | null;
+  latencyMs: number;
+  context: null;
+}
+
+/**
+ * One consultation, kept in run memory beside the events and outside the
+ * world. A hold (the provider's or a fallback's) lives only here; a step is
+ * also on its `tax-rate-set` as `data.ai`. Replay never reads the trace.
+ */
+export interface TaxStepTraceEntry {
+  tick: number;
+  factionId: string;
+  applied: boolean;
+  ai: TaxStepAiRecord;
+}

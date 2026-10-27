@@ -28,7 +28,7 @@ import { assessSupplyContract, contractRelationship, contractTravelTicks, openSu
 import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
-import { parseTaxChoice, RAW_ANSWER_MAX, TAX_STEP_PROMPT_VERSION, taxStepInputHash, type TaxStepProvider, type TaxStepRequest } from "./ai-provider.ts";
+import { parseTaxChoice, RAW_ANSWER_MAX, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3489,7 +3489,7 @@ function declareAutonomousSecessions(world: WorldState, events: SimEvent[], live
   }
 }
 
-function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSession: boolean, ai?: TickAiOptions): void {
+function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSession: boolean, ai?: TickAiOptions, trace?: TaxStepTraceEntry[]): void {
   if (world.tick <= 0 || world.tick % TAX_RATE_COOLDOWN_TICKS !== 0) return;
   const factionIds = Object.keys(world.factions).sort((left, right) => left.localeCompare(right));
   for (const factionId of factionIds) {
@@ -3515,7 +3515,10 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
     const step = taxStepOptions(world, factionId);
     if (!step) continue;
     if (liveSession && world.characters[step.holderId]?.controller.kind === "human") continue;
+    // A one-option set (the landless freeze) is not sent (section 7, default 4).
+    if (step.options.length < 2) continue;
     const decided = consultTaxStep(world, factionId, step, provider);
+    trace?.push({ tick: world.tick, factionId, applied: decided.finalChoice !== "hold", ai: decided });
     if (decided.finalChoice === "hold") continue;
     const faction = world.factions[factionId];
     emit(world, events, {
@@ -3533,7 +3536,7 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
   }
 }
 
-function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptions, provider: TaxStepProvider) {
+function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptions, provider: TaxStepProvider): TaxStepAiRecord {
   const request: TaxStepRequest = {
     tick: world.tick,
     factionId,
@@ -3548,21 +3551,31 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     scorerChoice: step.scorerChoice,
     promptVersion: TAX_STEP_PROMPT_VERSION,
   };
-  const answer = provider.decide(request);
-  const parsedChoice = parseTaxChoice(answer.raw, step.options);
+  let answer: TaxStepAnswer;
+  try {
+    answer = provider.decide(request);
+  } catch {
+    answer = { raw: null, latencyMs: 0, error: "error" };
+  }
+  // Fallback order: the provider's own error, then the timeout, then an answer outside the set.
+  const fallbackReason: TaxStepFallbackReason | null = answer.error
+    ?? (answer.latencyMs > TAX_STEP_TIMEOUT_MS ? "timeout" : null);
+  const raw = fallbackReason ? null : answer.raw;
+  const parsedChoice = fallbackReason ? null : parseTaxChoice(raw, step.options);
+  const reason = fallbackReason ?? (parsedChoice ? null : "illegal");
   return {
-    role: "brain.taxStep",
+    role: "brain.taxStep" as const,
     provider: provider.name,
     model: provider.model,
     promptVersion: TAX_STEP_PROMPT_VERSION,
     inputHash: taxStepInputHash(request),
     options: step.options,
     scorerChoice: step.scorerChoice,
-    rawAnswer: answer.raw === null ? null : answer.raw.slice(0, RAW_ANSWER_MAX),
+    rawAnswer: raw === null ? null : raw.slice(0, RAW_ANSWER_MAX),
     parsedChoice,
     finalChoice: parsedChoice ?? step.scorerChoice,
-    outcome: parsedChoice ? "model" : "fallback",
-    fallbackReason: null,
+    outcome: reason ? "fallback" : "model",
+    fallbackReason: reason,
     latencyMs: answer.latencyMs,
     context: null,
   };
@@ -3798,7 +3811,8 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   resolveMorningDesertion(world, events, notices);
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
-  chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai);
+  const aiTrace: TaxStepTraceEntry[] | undefined = options.ai?.brainTaxStep ? [] : undefined;
+  chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
   declareAutonomousSecessions(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
@@ -3921,13 +3935,16 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     type: "tick-advanced",
     data: { nextTick: world.tick + 1, rngState: rng.state },
   });
-  return { state: world, events };
+  return aiTrace ? { state: world, events, aiTrace } : { state: world, events };
 }
 
-export function runTicks(world: WorldState, count: number, options: TickOptions = {}): { state: WorldState; events: SimEvent[] } {
+export function runTicks(world: WorldState, count: number, options: TickOptions = {}): { state: WorldState; events: SimEvent[]; aiTrace?: TaxStepTraceEntry[] } {
   const events: SimEvent[] = [];
+  const aiTrace: TaxStepTraceEntry[] = [];
   for (let index = 0; index < count; index += 1) {
-    events.push(...runTick(world, options).events);
+    const result = runTick(world, options);
+    events.push(...result.events);
+    if (result.aiTrace) aiTrace.push(...result.aiTrace);
   }
-  return { state: world, events };
+  return options.ai?.brainTaxStep ? { state: world, events, aiTrace } : { state: world, events };
 }
