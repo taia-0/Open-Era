@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { canonicalJson } from "./state.ts";
+import type { ContextRecord, TaxStepBriefing } from "./ai-context.ts";
 import type { TaxChoice } from "./tax-rate.ts";
 
 /**
@@ -21,6 +22,8 @@ export interface TaxStepRequest {
   options: TaxChoice[];
   scorerChoice: TaxChoice;
   promptVersion: string;
+  /** Pilot B: the validated briefing, present only when a context reader is set. */
+  briefing?: TaxStepBriefing;
 }
 
 export interface TaxStepAnswer {
@@ -56,6 +59,15 @@ export const TAX_STEP_TIMEOUT_MS = 30_000;
 export const TAX_STEP_DEFAULT_CAP = 50;
 /** `rawAnswer` is capped at this many characters. */
 export const RAW_ANSWER_MAX = 400;
+
+/** The context reader's prompt template, pinned like the brain's. */
+export const CONTEXT_PROMPT_TEMPLATE = [
+  "You brief {holderId}, who holds the tax seat of {factionId} at tick {tick}.",
+  "Here is what they know, from the state: {serializer}.",
+  "Return the same JSON shape. You may set loyaltyRead to firm, wavering or breaking,",
+  "and a grudge weight to low, mid or high. Use only ids that appear above.",
+].join("\n");
+export const CONTEXT_PROMPT_VERSION = sha256(CONTEXT_PROMPT_TEMPLATE);
 
 export function taxStepInputHash(request: TaxStepRequest): string {
   return sha256(canonicalJson(request));
@@ -141,7 +153,8 @@ export interface TaxStepAiRecord {
   outcome: "model" | "fallback";
   fallbackReason: TaxStepFallbackReason | null;
   latencyMs: number;
-  context: null;
+  /** Null in pilot A and whenever no context reader is set. */
+  context: ContextRecord | null;
 }
 
 /**

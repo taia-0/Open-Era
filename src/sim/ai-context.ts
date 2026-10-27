@@ -164,3 +164,95 @@ export function validateBriefing(world: WorldState, value: unknown): ValidatedBr
   while (over() && briefing.grudges.length > 0) briefing.grudges.pop();
   return { briefing, droppedIds, truncated };
 }
+
+/** What the reader is asked. `serializer` is the deterministic briefing it may refine. */
+export interface ContextRequest {
+  tick: number;
+  factionId: string;
+  holderId: string;
+  serializer: TaxStepBriefing;
+  promptVersion: string;
+}
+
+export interface ContextAnswer {
+  raw: string | null;
+  latencyMs: number;
+  error?: "timeout" | "error";
+}
+
+/** Synchronous, like `TaxStepProvider`. */
+export interface ContextReader {
+  readonly name: string;
+  readonly model: string;
+  read(request: ContextRequest): ContextAnswer;
+}
+
+/** Reader timeout from ai-brain.md. Proposed, not measured; stubs never reach it. */
+export const CONTEXT_TIMEOUT_MS = 2_000;
+
+export type ContextFallbackReason = "timeout" | "error" | "illegal" | "cap";
+
+/** `data.ai.context` (ai-pilot-b.md section 3). The reducer never reads it. */
+export interface ContextRecord {
+  role: "context.taxStep";
+  provider: string;
+  model: string;
+  promptVersion: string;
+  inputHash: string;
+  briefing: TaxStepBriefing;
+  outcome: "model" | "fallback";
+  fallbackReason: ContextFallbackReason | null;
+  droppedIds: number;
+  truncated: boolean;
+  latencyMs: number;
+}
+
+/** Returns the serializer output. Deterministic. */
+export function stubContextEcho(): ContextReader {
+  return {
+    name: "stub-context-echo",
+    model: "stub-context-echo@1",
+    read: (request) => ({ raw: JSON.stringify(request.serializer), latencyMs: 0 }),
+  };
+}
+
+export type StubContextFailMode = "timeout" | "error" | "illegal" | "cycle";
+
+/** As `stubFail`: fixed modes, or `cycle` rotating timeout, error, illegal. `illegal` is not an object. */
+export function stubContextFail(mode: StubContextFailMode): ContextReader {
+  let calls = 0;
+  const order = ["timeout", "error", "illegal"] as const;
+  return {
+    name: "stub-context-fail",
+    model: "stub-context-fail@1",
+    read: () => {
+      const kind = mode === "cycle" ? order[calls % order.length] : mode;
+      calls += 1;
+      if (kind === "illegal") return { raw: JSON.stringify("sideways"), latencyMs: 0 };
+      return { raw: null, latencyMs: 0, error: kind };
+    },
+  };
+}
+
+/**
+ * Valid shape, wrong content: ids not in the state, an out-of-set
+ * `loyaltyRead` and grudge weight, an unknown faction, and a 4 KB padding field.
+ */
+export function stubContextGarbage(): ContextReader {
+  return {
+    name: "stub-context-garbage",
+    model: "stub-context-garbage@1",
+    read: (request) => ({
+      raw: JSON.stringify({
+        ...request.serializer,
+        loyaltyRead: "ecstatic",
+        grudges: [{ id: "character-999", grievance: 9, weight: "enormous" }, ...request.serializer.grudges],
+        allies: [{ id: "ghost-ally", trust: 1 }, ...request.serializer.allies],
+        knownPorts: [...request.serializer.knownPorts, { port: "atlantis", holder: "no-such-faction", garrison: 5, ageTicks: 1 }],
+        staleKnowledge: [...request.serializer.staleKnowledge, "el-dorado"],
+        padding: "x".repeat(4096),
+      }),
+      latencyMs: 0,
+    }),
+  };
+}
