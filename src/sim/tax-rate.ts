@@ -190,7 +190,11 @@ export function autonomousTaxStep(world: WorldState, factionId: string): Autonom
     lowest = Math.min(lowest, figure);
   }
   const pressed = known && lowest <= CLAIM_STABILITY_FLOOR * 1000;
-  const mates = freeMateCount(world, factionId);
+  // The founder seat is not a mate (breakaway-tax.md, ruling 2): a faction with
+  // no mates does not step up for short. freeMateCount counts the founder,
+  // since only this step reads the fallback, so take the founder back out.
+  const founderSeat = commandHolderId(world, factionId) === null;
+  const mates = freeMateCount(world, factionId) - (founderSeat ? 1 : 0);
   const dayCents = Math.round(fullAllowance(world, PASSAGE_PER_TICK) * 100);
   const treasuryCents = Math.round(faction.treasury * 100);
   const short = mates > 0 && treasuryCents < mates * dayCents;
