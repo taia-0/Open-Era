@@ -1101,6 +1101,11 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       break;
     case "metrics-recorded":
       break;
+    case "contract-order-issued": {
+      const c = world.contracts?.[String(event.data.contractId)];
+      if (c) c.order = { score: Number(event.data.score), destinationId: String(event.data.destinationId), quantity: Number(event.data.quantity), deadlineTick: Number(event.data.deadlineTick) };
+      break;
+    }
     case "contract-offered":
     case "contract-amended":
     case "contract-accepted":

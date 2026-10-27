@@ -383,6 +383,13 @@ export type SupplyContractStatus =
  * to the faction treasury and `escrowFromPurse` back to the purse. It does
  * not restore today's allowance.
  */
+export interface SupplyContractOrder {
+  score: number;
+  destinationId: string;
+  quantity: number;
+  deadlineTick: number;
+}
+
 export interface SupplyContract {
   id: string;
   buyerId: string;
@@ -408,6 +415,8 @@ export interface SupplyContract {
   acceptedTick: number | null;
   status: SupplyContractStatus;
   revision: number;
+  /** The carrier's haul order, set by `contract-order-issued` on acceptance. */
+  order?: SupplyContractOrder;
   /** Tick of the last status change. The projection's age is `tick - observedTick`. */
   observedTick: number;
 }
