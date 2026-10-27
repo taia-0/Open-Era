@@ -3537,11 +3537,17 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
     const buyer = buyers[0];
     if (!buyer) continue;
     const carriers = Object.values(world.characters)
-      .filter((character) => !character.dead && !carrierBlocked(world, character))
+      .filter((character) => !character.dead && character.id !== buyer.id && !carrierBlocked(world, character))
       .sort((left, right) => left.id.localeCompare(right.id));
     let chosen: Character | null = null;
     let deadlineTick = 0;
-    for (const carrier of carriers) {
+    if (process.env.OPEN_ERA_SUPPLY_WALK === "off") {
+      // Measurement toggle only: the pre-walk offer, to the lowest unblocked carrier.
+      const first = carriers[0];
+      if (!first || openSupplyContract(world, buyer.id, first.id)) continue;
+      chosen = first;
+      deadlineTick = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(contractTravelTicks(world, first, settlement.id) + 1, 2));
+    } else for (const carrier of carriers) {
       if (openSupplyContract(world, buyer.id, carrier.id)) continue;
       const travelTicks = contractTravelTicks(world, carrier, settlement.id);
       const deadline = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1, 2));
