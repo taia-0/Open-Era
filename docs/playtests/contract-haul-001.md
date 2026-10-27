@@ -57,10 +57,38 @@ In that response, all `payloadWithheld` true:
 - Sequence 17788, `contract-cancelled`, tick 151: `Lio Crow's contract was cancelled because the port no longer needs it.`
 - No `contract-fulfilled` or `contract-breached` row for Lio Crow in that response.
 
+## Session
+
+Blind operator, 2026-10-26. Fresh clone, branch `feature/contract-haul`, HEAD `ecb5181355da75ac3af8d8d25295f293f3999999` before the first request. Node `v24.21.0`. One process, `npm run dashboard -- --reset --seed 1847`. No command issued.
+
+- Health: HTTP 200 `{"ok":true,"tick":0,"events":0}`.
+- Checkpoint 1: HTTP 200, `tick` 72, `eventSequence` 8496, `attentionUpdated` false, `pausedForBattle` false. No `contract-` row. Match.
+- Checkpoint 2: ticks 96 / 120 / 144, `eventSequence` 11366 / 14219 / 16958, all flags false. Third response, all `payloadWithheld` true:
+  - 16039 `contract-offered` tick 136: `Bram Quill offered Iris Stone a contract to carry 10 provisions to Crown Harbor.` (no `56.25`)
+  - 16163 `contract-accepted` tick 137: `Iris Stone accepted a contract.`
+  - 16164 `contract-order-issued` tick 137: `Iris Stone took the order to carry 10 provisions to Crown Harbor.`
+  - 16723 `contract-fulfilled` tick 142: `Iris Stone fulfilled a contract.`
+  Match.
+- Checkpoint 3: tick 168, `eventSequence` 19796, flags false. All `payloadWithheld` true:
+  - 17546 `contract-accepted` tick 149: `Lio Crow accepted a contract.`
+  - 17547 `contract-order-issued` tick 149: `Lio Crow took the order to carry 10 provisions to Crown Harbor.`
+  - 17788 `contract-cancelled` tick 151: `Lio Crow's contract was cancelled because the port no longer needs it.`
+  - No `contract-fulfilled` or `contract-breached` row for Lio Crow. Match.
+
+## Findings
+
+- Every checkpoint matched verbatim. No mismatch.
+- Iris Stone and Bram Quill trade hauls to Crown Harbor back and forth every two or so ticks between 145 and 161 (eight offers in the tick-168 window); one is refused at 161.
+- Some offer rows append a treasury/purse line visible to Mara (e.g. 17548 `Bram Quill drew 6 from the treasury and paid 50.25 from the purse.`), consistent with the faction-mates ruling.
+
+## Verdict
+
+PROMOTE. The haul is followable from offer to landing, the cancellation gives its reason, and no hidden term leaked into the summaries.
+
 ## Outcome
 
-Not yet run.
+Run blind on 2026-10-26; all checkpoints matched.
 
 ## Recommendation
 
-Pending the blind session.
+Promote `feature/contract-haul`.
