@@ -1119,15 +1119,19 @@ export function secessionDeclaredSentence(world: WorldState, event: SimEvent, ac
   // The name is the new faction's, not the declarer's. An autonomous
   // declaration passes no name, and the payload stores "Free <port name>".
   // A faction with no name yet still says the treasury starts empty.
+  // An autonomous declaration names no successor. Its founder sets the tax
+  // until a leader gives orders; the order seat itself stays unnamed.
+  const founderClause = event.type === "secession-declared" && !namedSuccessor(event)
+    ? `founded by ${actor}, who sets its tax until a leader gives orders`
+    : null;
   if (founded && founded.treasury === 0) {
     const live = world.factions[founded.id]?.name;
     const named = founded.name || (typeof live === "string" ? live.trim() : "");
-    sentence += ` ${named || "The new faction"} starts with an empty treasury.`;
-  }
-  // An autonomous declaration names no successor. The new seat stays unnamed.
-  // A holder who leaves names the successor in a separate clause.
-  if (event.type === "secession-declared" && !namedSuccessor(event)) {
-    sentence += " (no leader yet)";
+    sentence += founderClause
+      ? ` ${named || "The new faction"} starts with an empty treasury, ${founderClause}.`
+      : ` ${named || "The new faction"} starts with an empty treasury.`;
+  } else if (founderClause) {
+    sentence += ` It was ${founderClause}.`;
   }
   return sentence;
 }
@@ -1239,7 +1243,14 @@ function pressedPortName(
       bestThousandths = thousandths;
     }
   }
-  if (!bestId) return null;
+  if (!bestId) {
+    // The step reads the holder's own figure, which can sit under the floor
+    // while the same-tick upkeep row is just above it. A faction that held a
+    // single port could only have been pressed there, so name it.
+    const heldIds = [...owner].filter(([, holder]) => holder === factionId).map(([id]) => id);
+    if (heldIds.length !== 1) return null;
+    bestId = heldIds[0];
+  }
   return world.settlements[bestId]?.name ?? bestId;
 }
 
