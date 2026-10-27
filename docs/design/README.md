@@ -44,6 +44,7 @@ These documents capture the decisions made during the initial design conversatio
 - [Progression](progression.md) — Ruled: every default stands, and the skill step ships first with a fixture re-pin
 - [News](news.md) — Ruled: every default stands, except the tax step, which keeps the port under the holder live and counts an away port's ledger stability for 24 ticks
 - [Negotiation](negotiation.md) — Open / design brief: ransom, contract, pact, and tribute offers are a scored shortlist, a logged choice, and a deadline, and this tape pays ransoms without bargaining
+- [AI brain](ai-brain.md) — Open / design: four small-model roles (action picker with triage, context reader, voice, speech) and a big model only for port, faction-tax, allegiance, and breach-by-choice decisions; triage only adds escalations, the whole chain rides on the existing event, replay never calls a model, and the pilot is Free Tide's tax step behind a flag that is off
 - [Loyalty drift](loyalty-drift.md) — Open / proposal: loyalty falls by 0.04 when a release leaves the ransom unpaid, and nothing else reads that change except who covers the seat
 - [Loyalty scar remeasure](loyalty-scar-remeasure.md) — Open / remeasure: with the dock rule patched on and M30's cover sort live, a −0.04 unpaid-release scar does not rename a cover or move the 72-tick fixture
 - [Autonomous orders](autonomous-orders.md) — Open / proposal: Free Tide does not mint protect orders after tick 0; once a report has closed, the four-day sketch accepts the next one and rewrites the first 72 ticks
