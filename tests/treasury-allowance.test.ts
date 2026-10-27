@@ -168,7 +168,7 @@ test("seed 1847 tick 534 binds the acting commander and does not uncap the capti
   assert.equal(stateHash(world), before);
 });
 
-test("seed 1847 sequence 43 qualifies Toma Reef on the order row Mara can read", () => {
+test("seed 1847 sequence 43 names Toma Reef untagged on the feed row and tagged on the confirmation card", () => {
   const run = runTicks(createPrototypeWorld(1847), 1);
   const stored = run.events.find((event) => event.sequence === 43);
   assert.ok(stored);
@@ -178,7 +178,7 @@ test("seed 1847 sequence 43 qualifies Toma Reef on the order row Mara can read",
   const [row] = projectEventFeed(run.state, "character-01", [stored]);
   assert.equal(row?.payloadWithheld, false);
   assert.equal((row?.data as { summary: string }).summary, "Toma Reef accepted the trade supplies order.");
-  assert.equal(row?.summary, "Toma Reef (World Government) accepted the trade supplies order.");
+  assert.equal(row?.summary, "Toma Reef accepted the trade supplies order.");
   const toma = card(run.state, run.state.characters["character-01"], run.state.characters["character-07"]);
   const report = toma.standingOrders.map((order) => order.lastReport?.summary).find((summary) => summary?.includes("Toma Reef"));
   assert.equal(report, "Toma Reef (World Government) reports the supply transaction at Cinder Key complete and requests confirmation.");
@@ -187,11 +187,12 @@ test("seed 1847 sequence 43 qualifies Toma Reef on the order row Mara can read",
     .find((summary) => summary?.includes("Toma Reef"));
   assert.equal(storedReport, "Toma Reef reports the supply transaction at Cinder Key complete and requests confirmation.");
   assert.equal(run.state.characters["character-07"].name, "Toma Reef");
-  const bare = /Toma Reef(?! \()|Toma Hale(?! \()/;
+  // Re-pinned for ruling 5 (breakaway polish): feed sentences carry no faction tag.
+  const tagged = /Toma (Reef|Hale) \(/;
   for (const event of run.events) {
     if (!event.type.startsWith("standing-order-") && event.type !== "market-trade") continue;
     const [shown] = projectEventFeed(run.state, "character-01", [event]);
-    assert.equal(bare.test(String(shown?.summary)), false, `${event.sequence} ${shown?.summary}`);
+    assert.equal(tagged.test(String(shown?.summary)), false, `${event.sequence} ${shown?.summary}`);
   }
   assert.equal(stateHash(run.state), before);
 });

@@ -21,7 +21,7 @@ test("Iris Stone's page folds her three identical landed offers to Bram Quill in
   const before = stateHash(world);
   const rows = projectEventFeed(world, "character-06", page) as Row[];
   const folded = rows.find((row) => row.sequence === 18624);
-  assert.equal(folded?.summary, "Iris Stone offered Bram Quill a contract to carry 10 provisions to Crown Harbor (3 times). The price is 56.25.");
+  assert.equal(folded?.summary, "Iris Stone offered Bram Quill a contract to carry 10 provisions to Crown Harbor (3 times since tick 154). The price is 56.25.");
   assert.equal(folded?.count, 3);
   assert.deepEqual(folded?.foldedSequences, [18148, 18376]);
   assert.equal(rows.some((row) => row.sequence === 18148 || row.sequence === 18376), false);
@@ -75,15 +75,15 @@ test("each refusal gate has a public reason without figures", () => {
   assert.equal(publicRefusalReason({ ...base, data: {} }), null);
 });
 
-test("a qualified carrier name merges, and Mara's tick-216 page folds Iris Stone's two offers to Toma Reef", () => {
+test("an untagged Toma Reef merges, and Mara's tick-216 page folds Iris Stone's two offers to Toma Reef", () => {
   const world = createPrototypeWorld(1847);
   const events: SimEvent[] = [];
   while (world.tick < 216) events.push(...runTick(world, { liveSession: true }).events);
   const page = events.filter((event) => event.tick >= 192);
   const rows = projectEventFeed(world, "character-01", page) as Row[];
   const folded = rows.find((row) => row.sequence === 24468);
-  assert.equal(folded?.summary, "Iris Stone offered Toma Reef (World Government) a contract to carry 10 provisions to Crown Harbor (2 times).");
+  assert.equal(folded?.summary, "Iris Stone offered Toma Reef a contract to carry 10 provisions to Crown Harbor (2 times since tick 194).");
   assert.deepEqual(folded?.foldedSequences, [22795]);
-  assert.equal(rows.find((row) => row.sequence === 24591)?.summary, "Toma Reef (World Government) accepted the contract and took the order to carry 10 provisions to Crown Harbor.");
+  assert.equal(rows.find((row) => row.sequence === 24591)?.summary, "Toma Reef accepted the contract and took the order to carry 10 provisions to Crown Harbor.");
   assert.equal(rows.some((row) => row.sequence === 24592), false);
 });
