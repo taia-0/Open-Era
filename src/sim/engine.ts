@@ -3697,7 +3697,7 @@ function runHaul(world: WorldState, character: Character, contract: any, plan: R
     resolveDecision(world, character, { action: "travel", score: 0, reason: "deliver the accepted provisions contract", targetId: plan.dest }, events, rng);
   }
 }
-function breachCause(world: WorldState, contract: any, carrier: Character): { cause: string; detail?: string } {
+function breachCause(world: WorldState, contract: SupplyContract, carrier: Character): { cause: string; detail?: string } {
   const m = marksFor(world, contract.id);
   if (carrier.captivity) return { cause: "capture" };
   if (m.purseBuy) return { cause: "purse", detail: "buy" };

@@ -1036,7 +1036,8 @@ test("an open offer can be restated, identical terms are no-change, and accepted
     error: "The offer does not change the contract",
   });
 
-  const revised = offerToZara(world, 20, contract.deadlineTick - world.tick);
+  // An empty destination shelf floors the margin, so the restated price is 80.
+  const revised = offerToZara(world, 80, contract.deadlineTick - world.tick);
   assert.equal(revised.ok, true);
   if (revised.ok && revised.command.type === "offer-contract") {
     assert.equal(revised.command.contractId, contract.id);
@@ -1045,8 +1046,13 @@ test("an open offer can be restated, identical terms are no-change, and accepted
   carrier.locationId = "crown-harbor";
   carrier.travel = null;
   carrier.cargo.provisions = 9;
+  // The haul cancels a contract whose destination shelf already holds the quantity, so empty it.
+  world.settlements["crown-harbor"].stocks.provisions = 0;
   runTick(world);
   assert.equal(world.contracts?.[contract.id].status, "accepted");
+  // With nothing to buy, the haul leaves her ordinary action, which may cast off.
+  carrier.locationId = "crown-harbor";
+  carrier.travel = null;
   const frozen = offerToZara(world, 22, 12);
   assert.deepEqual(frozen, {
     ok: false,
