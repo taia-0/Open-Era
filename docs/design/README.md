@@ -52,6 +52,9 @@ These documents capture the decisions made during the initial design conversatio
 - [Generated mockups](../assets/mockups/README.md) — all 13 image concepts produced during the conversation
 - [Development and playtest pipeline](../development-pipeline.md) — branch roles, automated gates, adaptive player protocol, and promotion rules
 - [Roadmap](../roadmap.md) — documented systems that are not built, and whether their deferral is recorded anywhere
+- [AI brain](ai-brain.md) — Open / design: four small-model roles (action picker with triage, context reader, voice, speech) and a big model only for port, faction-tax, allegiance, and breach-by-choice decisions; triage only adds escalations, the whole chain rides on the existing event, replay never calls a model, and the pilot is Free Tide's tax step behind a flag that is off
+- [AI pilot A](ai-pilot-a.md) — Built on `feature/ai-pilot-a`, accepted at `7531ffc`: Free Tide's tax step asks a stub brain only at clock points where Free Tide has a legal set wider than hold only, that is, while it holds a port (33 / 27 / 30 calls per 1,200-tick run; the A4 landless freeze was already in the tree), records `data.ai` on `tax-rate-set` only, keeps holds off the log, and leaves every hash byte-identical with the flag off
+- [AI pilot B](ai-pilot-b.md) — Built on `feature/ai-pilot-b` (B1–B4): a read-only context reader briefs Free Tide's tax step on the same 33 / 27 / 30 calls, the validated briefing (≤ 1,024 bytes, measured max 625) is recorded on `data.ai.context`, stubs only, and replay calls neither role
 
 ## Evidence record
 
