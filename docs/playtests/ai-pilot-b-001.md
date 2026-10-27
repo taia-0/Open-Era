@@ -39,8 +39,14 @@ Search both advance bodies and the state body for the keys `"ai"` and `"context"
 
 ## Outcome
 
-Not yet run.
+Blind session run at `d61cc6a7d70b992048c9f970f837ac885f1327af`, Node v24.21.0, one process, seed 1847, no commands. Health: HTTP 200 `{"ok":true,"tick":0,"events":0}`.
+
+- **Checkpoint 1 — match.** Ended tick 144, `eventSequence` 16958, `attentionUpdated` false, `pausedForBattle` false (16839 events). Only `tax-rate-set`: sequence 11375, tick 96, actor `character-14`, target `free-tide`, `payloadWithheld` true, `data` null: `Pax Ash lowered the Free Tide Compact tax from 8% to 7% (unrest at Glassport).`
+- **Checkpoint 2 — match.** Ended tick 168, `eventSequence` 19796, no `tax-rate-set` (2812 events). `free-tide`: `taxRate` 0.07, `taxRateSetTick` 96, `treasury` null, `treasuryNote` `not visible to you`.
+- **Checkpoint 3 — match.** `"ai"`, `"context"`, `stub`, `model`: 0 hits in both advance bodies and the state body. `briefing` appears 7 times in the state body only (the dashboard commander briefing). Advance body keys unchanged: ok, tick, day, ticksAdvanced, combatUpdated, attentionUpdated, pausedForBattle, pauseNote, eventSequence, events.
+
+Findings: no mismatch. The hypothesis holds; the flag-off session reads as on `fix/breakaway-polish`.
 
 ## Recommendation
 
-Pending the blind session.
+**PROMOTE.** Every checkpoint matched verbatim and nothing in the responses mentions a model or reader.
