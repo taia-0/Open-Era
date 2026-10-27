@@ -68,8 +68,16 @@ The tick-216 call has, all `payloadWithheld` true:
 
 ## Outcome
 
-Not yet run.
+Run 2026-10-26 by the blind operator. HEAD `127a733e11e59f045ded656b805119bd101e8569`, Node v24.21.0, one process, seed 1847, no command issued. `/api/health` returned `{"ok":true,"tick":0,"events":0}`.
+
+**Checkpoint 1: match.** Advances ended at ticks 72 / 96 / 120 / 144 with `eventSequence` 8496 / 11366 / 14219 / 16958. Every call returned `attentionUpdated` false and `pausedForBattle` false. The first three calls had no `contract-` rows. The tick-144 call had exactly three, all `payloadWithheld` true: 16039 (t136) "Bram Quill offered Iris Stone a contract to carry 10 provisions to Crown Harbor."; 16163 (t137) "Iris Stone accepted the contract and took the order to carry 10 provisions to Crown Harbor." with `foldedSequences` [16164] and no 16164 row; and 16723 (t142) "Iris Stone fulfilled a contract."
+
+**Checkpoint 2: match.** The call ended at tick 168 with `eventSequence` 19796 and had 20 `contract-` rows, all withheld. The merged acceptances were 17666 (t150, Iris), and 18264 / 18495 / 18750 (t155 / 157 / 159, Bram), each with the order folded in. Iris's offers at 18148 (t154) and 18624 (t158) were not folded. 18376 (t156) carried "Iris Stone drew 18 from the treasury and paid 38.25 from the purse." 18876 (t160) was the offer line, unfolded. 18994 (t161) read "Bram Quill refused a contract: they could not make the voyage." 17788 (t151) read "Lio Crow's contract was cancelled because the port no longer needs it." None of 16164, 17202, 17547, 17667, 18265, 18496, or 18751 appeared.
+
+**Checkpoint 3: match.** The calls ended at ticks 192 / 216 with `eventSequence` 22556 / 25265 (18 and 31 contract rows). 24468 (t209) read "Iris Stone offered Toma Reef (World Government) a contract to carry 10 provisions to Crown Harbor (2 times)." with `count` 2 and `foldedSequences` [22795], and there was no 22795 row. 24591 (t210) and 22906 (t195) carried the Toma Reef acceptance line, merged.
+
+**Findings.** No mismatches. Side observations: "Bram Quill missed a contract." (t196, `contract-breached`) gives no reason, unlike refusals. Lio Crow refused three times with the same "could not make the voyage" (t182, t196, t213).
 
 ## Recommendation
 
-Pending the blind session.
+**PROMOTE.** Every checkpoint matched verbatim, and the hypothesis held: acceptances read as one line naming the order, the tick-161 refusal gives a figure-free reason, and Iris's two offers to Toma fold within one advance. The ambition was met: ticks 136–168 have fewer lines and no unexplained refusal. A possible follow-up is a reason on `contract-breached` lines.

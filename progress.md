@@ -156,7 +156,8 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
   - (b) A refusal gives a reason. The public line maps the stored `gate` to words with no figure: "they could not make the voyage", "their purse could not cover the cargo", or "the terms did not suit them" (`src/dashboard/wording.ts:608`, `:770`). The parties read the stored `reason`, the score against the threshold, or the cost basis (`src/dashboard/view-model.ts:239`).
 - **Why** — The Lead's rulings (a)–(c) from the contract-haul blind read. No sim change and no cooldown.
 - **Hashes** — Unchanged: 72 ticks `6efa334f` / `e8f9cfab` / `8ac8529b` (8496 / 8566 / 8486); 1200 ticks `c4d99822` / `738181c0` / `cbd66565` (163679 / 159177 / 161386).
-- **Verified** — `npm test` and `./scripts/evaluate-milestone.sh contract-feed-polish` on Node v24.21.0; results are in the hand-off to the Lead.
+- **Verified** — `npm test` and `./scripts/evaluate-milestone.sh contract-feed-polish` on Node v24.21.0; results are in the hand-off to the Lead. Blind playtest [contract-feed-polish-001](docs/playtests/contract-feed-polish-001.md) at `127a733`, seed 1847: all three checkpoints matched verbatim (eventSequence 8496 / 11366 / 14219 / 16958 / 19796 / 22556 / 25265; merged acceptances, the tick-161 refusal reason, the tick-209 "(2 times)" fold). Verdict PROMOTE.
+- **Links** — [contract-feed-polish-001](docs/playtests/contract-feed-polish-001.md)
 - **Left open** — Folded offers leave their acceptance and landing rows in place. The blind plan [contract-feed-polish-001](docs/playtests/contract-feed-polish-001.md) has not been run.
 
 ### 2026-10-26 — Breakaway tax: the founder holds the tax seat
