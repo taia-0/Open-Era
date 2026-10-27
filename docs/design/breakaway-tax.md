@@ -1,6 +1,6 @@
 # Breakaway tax
 
-**Status: Open / diagnosis and proposal.** No game code was committed. The measurement used a scratch worktree of `origin/feature/batch2` at `b7895c0` (`b7895c054b731ddb665d9cea2d6a9395c61f8c3c`), outside the repository, removed afterwards. Node v24.21.0, ICU 78.3. A fresh process per seed, 1200 ticks, no player commands. With every harness flag off, the worktree reproduced the Engineer's pin: `e95a9f81` (162438), `8f0b7daa` (163070), `f19aa3d1` (164176). Line numbers are on `b7895c0`.
+**Status: Ruled.** The Lead accepted the founder tax seat as proposed, and ruled that a faction with no mates does not step up for short. No game code was committed. The measurement used a scratch worktree of `origin/feature/batch2` at `b7895c0` (`b7895c054b731ddb665d9cea2d6a9395c61f8c3c`), outside the repository, removed afterwards. Node v24.21.0, ICU 78.3. A fresh process per seed, 1200 ticks, no player commands. With every harness flag off, the worktree reproduced the Engineer's pin: `e95a9f81` (162438), `8f0b7daa` (163070), `f19aa3d1` (164176). Line numbers are on `b7895c0`.
 
 The Engineer reported two problems. Every breakaway faction stays at 0.08 and never steps, for example Free Glassport (treasury 3253) and Free Cinder Key III (treasury 0). And Free Tide ends broke at 0.20–0.24 on 1847 and 4096, below the 0.30 cap.
 
@@ -49,13 +49,13 @@ Recruitment is the largest drain on every seed. That matches the income ruling: 
 - **Graded drift and tax stability** (the leader-tax addenda): a rate above 0.15 drifts held-port stability. They say nothing about breakaways.
 - Nothing in the record says breakaways should step, or that they should not.
 
-## 4. Proposed ruling
+## 4. Ruling (accepted)
 
 **The founder holds the tax seat of a breakaway until someone issues an order.** In `freeCommandHolder` only: when `commandHolderId` is null and the faction came from a secession, the declaring owner counts as the free holder for the tax step if they are alive, still a member, and not captive. Nothing else reads the fallback. Allowance, `spendRole`, orders, and cover stay on `commandHolderId`, so no other seat-dependent rule moves. A build would store `founderId` on the faction from `secession-declared.data.ownerId`. The harness read it from the faction id (`secession-<ownerId>-<port>-<tick>`).
 
-**Default: adopt it.** Without it a breakaway can never use a lever every other faction has. The [secession](secession.md) default against minting an order still stands.
+**Accepted by the Lead as proposed.** The fallback lives only inside `freeCommandHolder`, and the build stores `founderId` from the declaration. Without it a breakaway can never use a lever every other faction has. The [secession](secession.md) default against minting an order still stands.
 
-**Free Tide: no ruling change.** The freeze and the spending are both ruled behavior.
+**Free Tide: no change (accepted).** The freeze and the spending are both ruled behavior.
 
 ## 5. Measured, harness only
 
@@ -92,9 +92,9 @@ Per faction at tick 1200. Steps, end rate (maximum), treasury, holder by `comman
 
 In the pin, every breakaway has 0 holder ticks and 0 of its 1–22 clock points with a holder. World Government and Free Tide have a holder on all 1200 ticks and on 49 of 49 clock points. Clock points with a holder and a port: World Government 49 / 49 / 49, Free Tide 32 / 42 / 40. Free Tide ends with 0 / 0 / 0 ports and 1 / 1 / 2 members.
 
-**What the fix does.** The seat makes the step reachable, but it fires rarely: 2 steps on one breakaway on 1847 and one on 2718, none on 4096. The reason is the step rule itself. Most breakaways are one or two people, so `freeMateCount` is 0 and `short` (`tax-rate.ts:188`) is false. Only a pressed port moves the rate, and only down. Free Glassport on 1847, with 3466 in its treasury, still never steps. Whether a single-member faction should also step up when short is a separate question. This note does not propose it.
+**What the fix does.** The seat makes the step reachable, but it fires rarely: 2 steps on one breakaway on 1847 and one on 2718, none on 4096. The reason is the step rule itself. Most breakaways are one or two people, so `freeMateCount` is 0 and `short` (`tax-rate.ts:188`) is false. Only a pressed port moves the rate, and only down. Free Glassport on 1847, with 3466 in its treasury, still never steps. **Ruled: a faction with no mates does not step up for short.** Short means the faction cannot pay its mates, and with no mates there is nobody to pay. The existing rule at `tax-rate.ts:188` stands.
 
-## Questions for the Lead
+## Rulings
 
-1. **Founder seat for the tax step?** Default: yes, in `freeCommandHolder` only, with `founderId` stored from the declaration.
-2. **Free Tide below the cap?** Default: no change. The landless freeze and the holder's spending are ruled.
+1. **Founder seat for the tax step: accepted as proposed.** It applies only inside `freeCommandHolder`. The build stores `founderId` from `secession-declared.data.ownerId`. No change to Free Tide.
+2. **A faction with no mates does not step up for short.** Short means the faction cannot pay its mates. With no mates there is nobody to pay, so the existing rule stands.
