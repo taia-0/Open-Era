@@ -148,6 +148,16 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-26 — Breakaway polish: the founder line and the pressed port
+- **Agent** — Open Era Engineer. **Branch** — `fix/breakaway-polish`, from `fix/contract-feed-polish` at `127a733`. **Commits** — `accdcdd` (wording), `cc9cba2` (tests), then this entry and the blind plan. **Type** — Projection.
+- **Changed** — An autonomous declaration with no successor names the founder in place of "(no leader yet)": "Free Cinder Key starts with an empty treasury, founded by Corin Hale, who sets its tax until a leader gives orders." (`src/dashboard/wording.ts:1124`). A tax cut keeps Free Tide's port rule, the same-tick upkeep at or under 55, and when no upkeep qualifies but the faction held exactly one port at the step, names that port (`src/dashboard/wording.ts:1250`). The step reads the holder's own figure, which can sit under the floor while the upkeep row is just above it.
+- **Why** — The Lead's rulings 1, 2, and 4 from the breakaway-tax blind read. Ruling 3 keeps the tax-cut logic unchanged.
+- **Treasury (ruling 4)** — No change needed. `projectFactions` (`src/dashboard/visibility.ts:958`) already lists every faction, breakaways included, and shows a treasury only to its own members. A test pins that for Free Cinder Key.
+- **Re-pinned** — Three `secession-founder-name` and one `feed-polish-2` sentence for the founder line. The `batch2-polish` tick-96 Free Tide cut now reads "(unrest at Glassport)", because Free Tide held only Glassport then.
+- **Hashes** — Unchanged: 72 ticks `6efa334f` / `e8f9cfab` / `8ac8529b`; 1200 ticks `c4d99822` / `738181c0` / `cbd66565`.
+- **Verified** — `npm test` and `./scripts/evaluate-milestone.sh breakaway-polish` on Node v24.21.0; results are in the hand-off to the Lead.
+- **Left open** — The ruling's example "(unrest at Cinder Key)" does not happen on 4096: World Government took Cinder Key on the declaration tick, and the breakaway's only port at tick 1104 was Glassport. The blind plan [breakaway-polish-001](docs/playtests/breakaway-polish-001.md) has not been run.
+
 ### 2026-10-26 — Contract feed polish: folded offers, merged orders, refusal reasons
 - **Agent** — Open Era Engineer. **Branch** — `fix/contract-feed-polish`, from `feature/breakaway-tax` at `0f02352`. **Commits** — `6d52f8f`, `0050223`, `2406999`, then this entry and the blind plan. **Type** — Projection.
 - **Changed** — `projectEventFeed` passes its rows through `foldContractRows` (`src/dashboard/view-model.ts:893`, `:924`).
