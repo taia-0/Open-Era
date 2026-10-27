@@ -28,7 +28,7 @@ import { assessSupplyContract, contractRelationship, contractTravelTicks, openSu
 import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
-import { parseTaxChoice, RAW_ANSWER_MAX, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { parseTaxChoice, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3439,7 +3439,18 @@ export interface TickOptions {
 
 export interface TickAiOptions {
   brainTaxStep?: TaxStepProvider;
+  /** Per-run call cap (section 5, check 6). Default 50. */
+  cap?: number;
+  /**
+   * Run memory: provider calls made so far under these options. The engine
+   * increments it. Not on the world, so it does not survive recovery; a
+   * binding cap across recovery is out of scope (section 5).
+   */
+  calls?: number;
 }
+
+/** Slice A3: only Free Tide's tax step is put to the provider. */
+export const AI_TAX_STEP_FACTION_ID = "free-tide";
 
 /**
  * Free holders step the rate on the 24-tick clock, after player commands,
@@ -3494,7 +3505,8 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
   const factionIds = Object.keys(world.factions).sort((left, right) => left.localeCompare(right));
   for (const factionId of factionIds) {
     const provider = ai?.brainTaxStep;
-    if (!provider) {
+    // Slice A3: World Government and every breakaway keep the scorer, as with the flag off.
+    if (!provider || factionId !== AI_TAX_STEP_FACTION_ID) {
       // Flag off: exactly the scorer path.
       const step = autonomousTaxStep(world, factionId);
       if (!step) continue;
@@ -3517,7 +3529,25 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
     if (liveSession && world.characters[step.holderId]?.controller.kind === "human") continue;
     // A one-option set (the landless freeze) is not sent (section 7, default 4).
     if (step.options.length < 2) continue;
-    const decided = consultTaxStep(world, factionId, step, provider);
+    // Free autonomous holder only (section 7, default 2). Any other holder keeps the scorer.
+    const decided = world.characters[step.holderId]?.controller.kind === "autonomous"
+      ? consultTaxStep(world, factionId, step, provider, ai!)
+      : null;
+    if (!decided) {
+      if (step.scorerChoice === "hold") continue;
+      emit(world, events, {
+        type: "tax-rate-set",
+        actorId: step.holderId,
+        targetId: factionId,
+        data: {
+          factionId,
+          taxRate: taxChoiceCents(step.rateCents, step.scorerChoice) / 100,
+          previousTaxRate: world.factions[factionId].taxRate,
+          taxRateSetTick: world.tick,
+        },
+      });
+      continue;
+    }
     trace?.push({ tick: world.tick, factionId, applied: decided.finalChoice !== "hold", ai: decided });
     if (decided.finalChoice === "hold") continue;
     const faction = world.factions[factionId];
@@ -3536,7 +3566,7 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
   }
 }
 
-function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptions, provider: TaxStepProvider): TaxStepAiRecord {
+function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptions, provider: TaxStepProvider, ai: TickAiOptions): TaxStepAiRecord {
   const request: TaxStepRequest = {
     tick: world.tick,
     factionId,
@@ -3551,14 +3581,19 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     scorerChoice: step.scorerChoice,
     promptVersion: TAX_STEP_PROMPT_VERSION,
   };
-  let answer: TaxStepAnswer;
-  try {
-    answer = provider.decide(request);
-  } catch {
-    answer = { raw: null, latencyMs: 0, error: "error" };
+  // Past the cap the provider is not called; the scorer's choice applies.
+  const capped = (ai.calls ?? 0) >= (ai.cap ?? TAX_STEP_DEFAULT_CAP);
+  let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
+  if (!capped) {
+    ai.calls = (ai.calls ?? 0) + 1;
+    try {
+      answer = provider.decide(request);
+    } catch {
+      answer = { raw: null, latencyMs: 0, error: "error" };
+    }
   }
-  // Fallback order: the provider's own error, then the timeout, then an answer outside the set.
-  const fallbackReason: TaxStepFallbackReason | null = answer.error
+  // Fallback order: the cap, the provider's own error, the timeout, then an answer outside the set.
+  const fallbackReason: TaxStepFallbackReason | null = capped ? "cap" : answer.error
     ?? (answer.latencyMs > TAX_STEP_TIMEOUT_MS ? "timeout" : null);
   const raw = fallbackReason ? null : answer.raw;
   const parsedChoice = fallbackReason ? null : parseTaxChoice(raw, step.options);
