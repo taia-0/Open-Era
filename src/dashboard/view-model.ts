@@ -245,7 +245,11 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     case "contract-breached":
       return `${actor} missed the provisions deadline. The escrow returned.`;
     case "contract-cancelled":
-      return `${actor} cancelled the provisions contract.`;
+      return event.data.reason === "no-longer-needed"
+        ? `${actor}'s provisions contract was cancelled: ${destinationName(world, event)} already holds the quantity. The escrow returned.`
+        : `${actor} cancelled the provisions contract.`;
+    case "contract-order-issued":
+      return `${actor} took the order to carry ${event.data.quantity} provisions to ${destinationName(world, event)} by tick ${event.data.deadlineTick}.`;
     case "goal-evolved":
       return `${actor}'s ambitions changed after ${event.data.trigger}`;
     case "settlement-shortage":

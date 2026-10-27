@@ -3654,7 +3654,7 @@ function activeHaul(world: WorldState, character: Character): SupplyContract | n
     .filter((c) => c.carrierId === character.id && c.status === "accepted" && !c.settled && c.order)
     .sort((a, b) => a.id.localeCompare(b.id))[0] ?? null;
 }
-function haulPlan(world: WorldState, character: Character, contract: any) {
+function haulPlan(world: WorldState, character: Character, contract: SupplyContract) {
   const dest = contract.destinationId as string;
   const here = character.locationId!;
   const sea = here === dest ? 0 : travelDuration(world, character, dest);
@@ -3672,7 +3672,7 @@ function haulPlan(world: WorldState, character: Character, contract: any) {
   const sailOk = here !== dest && cargoAfter >= target && timeOk && passageOk;
   return { dest, here, sea, target, need, stock, spare, price, affordable, qty, timeOk, passageOk, sailOk, canAct: qty > 0 || sailOk };
 }
-function runHaul(world: WorldState, character: Character, contract: any, plan: ReturnType<typeof haulPlan>, events: SimEvent[], rng: DeterministicRng): void {
+function runHaul(world: WorldState, character: Character, contract: SupplyContract, plan: ReturnType<typeof haulPlan>, events: SimEvent[], rng: DeterministicRng): void {
   const marks = marksFor(world, contract.id);
   if (plan.qty > 0) {
     const gross = round(plan.qty * plan.price, 2);

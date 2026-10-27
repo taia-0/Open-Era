@@ -3,7 +3,8 @@ import test from "node:test";
 import { submitCommand } from "../src/sim/commands.ts";
 import { runTick } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
-import type { WorldState } from "../src/sim/types.ts";
+import type { SimEvent, WorldState } from "../src/sim/types.ts";
+import { projectEventFeed } from "../src/dashboard/view-model.ts";
 
 // An empty destination shelf floors the margin, so these offers pay 80 to clear the threshold.
 function offer(world: WorldState, expiresInTicks = 12) {
@@ -109,4 +110,24 @@ test("the walk never offers the job to a carrier docked on the destination witho
     }
   }
   assert.ok(offers > 0, "the walk offered at least once");
+});
+
+test("seed 1847 live names the haul order and a cancellation in the feed", () => {
+  const world = createPrototypeWorld(1847);
+  const events: SimEvent[] = [];
+  while (world.tick < 152) events.push(...runTick(world, { liveSession: true }).events);
+  const order = events.find((event) => event.sequence === 16164);
+  assert.equal(order?.type, "contract-order-issued");
+  const [mara] = projectEventFeed(world, "character-01", [order!], events);
+  assert.equal(mara?.payloadWithheld, true);
+  assert.equal(mara?.summary, "Iris Stone took the order to carry 10 provisions to Crown Harbor.");
+  const [iris] = projectEventFeed(world, "character-06", [order!], events);
+  assert.equal(iris?.payloadWithheld, false);
+  assert.equal(iris?.summary, "Iris Stone took the order to carry 10 provisions to Crown Harbor by tick 141.");
+  const cancelled = events.find((event) => event.sequence === 17788);
+  assert.equal(cancelled?.type, "contract-cancelled");
+  const [rival] = projectEventFeed(world, "character-01", [cancelled!], events);
+  assert.equal(rival?.summary, "Lio Crow's contract was cancelled because the port no longer needs it.");
+  const [lio] = projectEventFeed(world, "character-12", [cancelled!], events);
+  assert.equal(lio?.summary, "Lio Crow's provisions contract was cancelled: Crown Harbor already holds the quantity. The escrow returned.");
 });
