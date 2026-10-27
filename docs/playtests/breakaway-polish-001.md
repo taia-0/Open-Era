@@ -89,8 +89,17 @@ No feed line in either call has `(World Government)` or another faction tag afte
 
 ## Outcome
 
-Not yet run.
+Run by a blind operator on 2026-10-26 at `b5b2261`, Node v24.21.0, two fresh processes (seed 4096, then seed 1847), no command. Health was `{"ok":true,"tick":0,"events":0}` both times.
+
+**Session.**
+- Checkpoint 1: calls ended at 144/288/320/404/548/692/836/980 with eventSequence 17459/36330/40710/52249/73133/93205/112675/132600; attentionUpdated true only at 320 ("Time stopped. Free Tide Compact took Mara Vane on the dock at Crown Harbor after Esme Dusk won there on a higher score.") and 404 ("Time stopped. Mara Vane was released from Crown Harbor."). No pausedForBattle. Match.
+- Checkpoint 2: 1004/1028/1052/1076/1100, eventSequence 136002/139445/142882/146271/149659. Sequence 147966 `secession-declared` tick 1088 payloadWithheld true: `Corin Hale declared Cinder Key separate from Free Tide Compact. Free Cinder Key starts with an empty treasury, founded by Corin Hale, who sets its tax until a leader gives orders.` No "(no leader yet)". Match.
+- Checkpoint 3: 1124 / 152972; sequence 150201 `tax-rate-set` tick 1104 payloadWithheld true: `Corin Hale lowered the Free Cinder Key tax from 8% to 7% (unrest at Glassport).` Then 1148 / 156347. Factions: Free Cinder Key 0.07, treasury null, "not visible to you"; Free Tide Compact 0.21, null, "not visible to you"; World Government treasury 12022.55, note null. Match.
+- Checkpoint 4 (seed 1847): 144/16958, 168/19796; sequence 17788 `contract-cancelled` tick 151 payloadWithheld true: `Lio Crow's contract for Iris Stone was cancelled because the port no longer needs it.` No escrow or figure. Match.
+- Checkpoint 5: 216/25265; 23032 `contract-breached` tick 196: `Bram Quill missed a contract: the carrier chose other work.`; 24468 `contract-offered` tick 209: `Iris Stone offered Toma Reef a contract to carry 10 provisions to Crown Harbor (2 times since tick 194).` (firstTick 194, count 2). No attentionUpdated/pausedForBattle; no "(World Government)" in any feed event. Match.
+
+**Findings.** Every checkpoint matched verbatim. No mismatch.
 
 ## Recommendation
 
-Pending the blind session.
+**PROMOTE.** The founder line names who sets the tax, the cut names the pressed port, the breakaway treasury stays hidden, and the seed-1847 contract lines read as planned.
