@@ -28,6 +28,7 @@ import { assessSupplyContract, contractRelationship, contractTravelTicks, openSu
 import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
+import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
 import { CONTEXT_PROMPT_VERSION, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
@@ -3454,6 +3455,11 @@ export interface TickAiOptions {
    * before a brain call; it shares the brain's per-run cap.
    */
   context?: ContextReader;
+  /**
+   * A5: the run's cost ledger, shared by the vendor providers. The engine
+   * only reports the lines each tick added, as `TickResult.aiCost`.
+   */
+  ledger?: CostLedger;
 }
 
 /** Slice A3: only Free Tide's tax step is put to the provider. */
@@ -3903,6 +3909,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   const aiTrace: TaxStepTraceEntry[] | undefined = options.ai?.brainTaxStep ? [] : undefined;
+  const costBefore = options.ai?.ledger?.lines.length ?? 0;
   chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
   declareAutonomousSecessions(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
@@ -4026,7 +4033,9 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     type: "tick-advanced",
     data: { nextTick: world.tick + 1, rngState: rng.state },
   });
-  return aiTrace ? { state: world, events, aiTrace } : { state: world, events };
+  if (!aiTrace) return { state: world, events };
+  const ledger = options.ai?.ledger;
+  return ledger ? { state: world, events, aiTrace, aiCost: ledger.lines.slice(costBefore) } : { state: world, events, aiTrace };
 }
 
 export function runTicks(world: WorldState, count: number, options: TickOptions = {}): { state: WorldState; events: SimEvent[]; aiTrace?: TaxStepTraceEntry[] } {
