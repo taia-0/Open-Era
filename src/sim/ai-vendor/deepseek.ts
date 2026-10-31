@@ -6,7 +6,7 @@ import type { SyncTransport } from "./sync-http.ts";
 /** A5 brain: DeepSeek, non-thinking, JSON output (ai-providers.md sections 1 and 2). */
 export const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 export const DEEPSEEK_MODEL = "deepseek-v4-pro";
-export const DEEPSEEK_MAX_TOKENS = 32;
+export const DEEPSEEK_MAX_TOKENS = 64;
 export const DEEPSEEK_SYSTEM = "Answer as JSON: {\"choice\":\"<option>\"}.";
 
 export interface DeepSeekBrainOptions {
@@ -25,9 +25,28 @@ export function fillTemplate(template: string, values: Record<string, unknown>):
     name in values ? (typeof values[name] === "string" ? values[name] as string : canonicalJson(values[name])) : match);
 }
 
+const OPTION_TEXT: Record<string, string> = {
+  down: "down = cut the rate one point (calms unrest, less income)",
+  hold: "hold = keep the rate",
+  up: "up = raise the rate one point (more income, more unrest)",
+};
+
+/** Plain-language slots for the briefed template (ai-brain-hold-bias.md). Derived from the request only. */
+export function taxStepPromptSlots(request: TaxStepRequest): Record<string, string> {
+  const low = request.lowestStabilityThousandths;
+  const unrestText = low === null
+    ? "no current stability report from your ports."
+    : `lowest port stability ${(low / 1000).toFixed(2)}; revolt risk at or below 55.00. ${request.pressed ? "PRESSED: a port is at the revolt line." : "Not pressed."}`;
+  const payText = request.short ? "SHORT: the treasury cannot cover a day's pay for the mates." : "The treasury covers a day's pay.";
+  const scorerReason = request.scorerChoice === "down" ? "a port is at the revolt line, so cut."
+    : request.scorerChoice === "up" ? "the treasury is short and no port is pressed, so raise."
+    : "no port is pressed and pay is covered, so hold.";
+  return { unrestText, payText, scorerReason, optionsText: request.options.map((option) => OPTION_TEXT[option]).join("; ") + "." };
+}
+
 export function deepSeekRequestBody(request: TaxStepRequest): string {
   const template = request.briefing ? TAX_STEP_PROMPT_TEMPLATE_BRIEFED : TAX_STEP_PROMPT_TEMPLATE;
-  const user = fillTemplate(template, request as unknown as Record<string, unknown>);
+  const user = fillTemplate(template, { ...taxStepPromptSlots(request), ...(request as unknown as Record<string, unknown>) });
   return JSON.stringify({
     model: DEEPSEEK_MODEL,
     messages: [

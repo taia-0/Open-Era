@@ -58,8 +58,15 @@ export const TAX_STEP_PROMPT_VERSION = sha256(TAX_STEP_PROMPT_TEMPLATE);
  * context reader send this version; runs without one keep the pilot A version.
  */
 export const TAX_STEP_PROMPT_TEMPLATE_BRIEFED = [
-  TAX_STEP_PROMPT_TEMPLATE,
-  "Briefing on the holder (validated, at most 1,024 bytes): {briefing}.",
+  "You hold the tax seat of {factionId} at tick {tick}. Your job is to keep the faction's ports from revolting and its crew paid.",
+  "Tax rate: {rateCents}% (allowed 0% to 30%, one point per step).",
+  "Unrest: {unrestText}",
+  "Pay: {payText}",
+  "Treasury: {treasuryCents} cents for {freeMates} free mates.",
+  "The standing rule recommends {scorerChoice}: {scorerReason}",
+  "Options: {optionsText}",
+  "Briefing on you (validated, at most 1,024 bytes): {briefing}.",
+  "Reply as JSON with a reason of at most 12 words, then the choice: {\"reason\":\"...\",\"choice\":\"<option>\"}.",
 ].join("\n");
 export const TAX_STEP_PROMPT_VERSION_BRIEFED = sha256(TAX_STEP_PROMPT_TEMPLATE_BRIEFED);
 
