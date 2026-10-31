@@ -30,7 +30,7 @@ import { fullAllowance, resolvePassageCharge, resolveQuotedSpend, shortPayMember
 import { autonomousTaxStep, PASSAGE_PER_TICK, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
 import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
-import { CONTEXT_PROMPT_VERSION, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3646,6 +3646,10 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     fallbackReason: reason,
     latencyMs: answer.latencyMs,
     context,
+    ...(context ? {
+      railBlocked: !fallbackReason && parsedChoice === null && parseTaxChoice(raw, step.options) !== null,
+      reasonCheck: checkTaxStepReason(raw),
+    } : {}),
   };
 }
 

@@ -211,6 +211,51 @@ export interface TaxStepAiRecord {
   latencyMs: number;
   /** Null in pilot A and whenever no context reader is set. */
   context: ContextRecord | null;
+  /** Judgment v3, with a context reader only: the answer was a legal option the safety rail refused. */
+  railBlocked?: boolean;
+  /** Judgment v3, with a context reader only: whether the reason names a trait or situation. Recorded; never changes the choice. */
+  reasonCheck?: ReasonCheck;
+}
+
+/**
+ * Judgment v3 reason check (ai-brain-judgment.md section 4, "stated and
+ * tied"): the reason must name a temperament trait or a situation field that
+ * is in the prompt. `named` lists the terms found. `unnamed` has a reason
+ * with none; `missing` has no reason string. Audit only: the choice stands.
+ */
+export interface ReasonCheck {
+  status: "named" | "unnamed" | "missing";
+  terms: string[];
+}
+
+/** Term → the word stems that count as naming it. Traits first, then situation fields. */
+export const REASON_TERMS: Record<string, RegExp> = {
+  ambition: /\bambiti/i,
+  aggression: /\baggress/i,
+  caution: /\bcauti/i,
+  commerce: /\b(commerc|trade|trading)/i,
+  loyalty: /\bloyal/i,
+  unrest: /\b(unrest|stabilit|stable|unstable|revolt)/i,
+  pressed: /\bpressed\b/i,
+  pay: /\b(pay|paid|wages?|short)\b/i,
+  treasury: /\b(treasury|coffers?|funds?|reserves?)\b/i,
+  mates: /\b(mates?|crew)\b/i,
+  morale: /\bmorale\b/i,
+  grudge: /\b(grudges?|grievances?)\b/i,
+  allies: /\b(ally|allies)\b/i,
+};
+
+export function checkTaxStepReason(raw: string | null): ReasonCheck {
+  let reason: unknown = null;
+  try {
+    const parsed = raw === null ? null : JSON.parse(raw);
+    reason = parsed && typeof parsed === "object" ? (parsed as { reason?: unknown }).reason : null;
+  } catch {
+    reason = null;
+  }
+  if (typeof reason !== "string" || reason.trim() === "") return { status: "missing", terms: [] };
+  const terms = Object.entries(REASON_TERMS).filter(([, pattern]) => pattern.test(reason as string)).map(([term]) => term);
+  return { status: terms.length > 0 ? "named" : "unnamed", terms };
 }
 
 /**
