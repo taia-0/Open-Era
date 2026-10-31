@@ -59,6 +59,7 @@ These documents capture the decisions made during the initial design conversatio
 - [AI pilot A](ai-pilot-a.md) — Built on `feature/ai-pilot-a`, accepted at `7531ffc`: Free Tide's tax step asks a stub brain only at clock points where Free Tide has a legal set wider than hold only, that is, while it holds a port (33 / 27 / 30 calls per 1,200-tick run; the A4 landless freeze was already in the tree), records `data.ai` on `tax-rate-set` only, keeps holds off the log, and leaves every hash byte-identical with the flag off
 - [AI pilot B](ai-pilot-b.md) — Built on `feature/ai-pilot-b` (B1–B4): a read-only context reader briefs Free Tide's tax step on the same 33 / 27 / 30 calls, the validated briefing (≤ 1,024 bytes, measured max 625) is recorded on `data.ai.context`, stubs only, and replay calls neither role
 - [AI providers](ai-providers.md) — Open / build brief (A5): a DeepSeek `deepseek-v4-pro` brain and a Jev `jev-1.14.0` context reader behind the pilot A and B seams, keys from the environment and never recorded, a cost line per call, a $0.25 per-run spend cap that falls back to the scorer or serializer, offline tests only, and nothing switched on without Micah's go-ahead
+- [Jev capabilities](jev-capabilities.md) — Open / research map: Jev returns typed answers, not text; a Noul is one P(yes), and the weighted output is Choice/Score `probabilities` (sum to 1) that can be sampled with the seeded RNG; fits action picking, social reading and triage, not dialogue; four capped probes await Micah's OK
 
 ## Evidence record
 
