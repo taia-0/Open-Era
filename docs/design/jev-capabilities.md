@@ -1,6 +1,6 @@
 # Jev capabilities: what TypeSafe's Jev can do, and where it fits in Open Era
 
-Status: Open / research map. Design only, no API calls made for this note. Base: `feature/ai-providers` d14323b.
+Status: Open / research map. The first version made no API calls; section 9 records the six probe calls Micah approved on 2026-10-31. Base: `feature/ai-providers` d14323b.
 
 Every claim is tagged **[verified: source]** or **[unverified]**. Doc sources were all checked on 2026-10-31. "Live run" means `/workspace/open-era/simulation-output/ai-providers/live-1847-240` (seed 1847, 240 ticks, `summary.json`, `cost.jsonl`, `trace.json`), the first vendor run on `feature/ai-providers` d14323b.
 
@@ -94,7 +94,7 @@ This is the only part of Jev that gives us more than a single pick; DeepSeek's b
 | Latency at larger fan-out (many options/questions) | not measured | unverified |
 | Price | $0.042 per million input tokens; output tokens free | verified: D-models |
 | Cost (live) | 742–821 input tokens per call, 82–83 output; $0.0000312–$0.0000345 per call; $0.000260 for all 8 (run total incl. DeepSeek $0.001962) | verified: cost.jsonl, summary.json |
-| Determinism | docs state nothing on whether identical requests return identical probabilities; no seed/temperature parameter exists | unverified |
+| Determinism | docs state nothing; no seed/temperature parameter exists. Probes: identical requests return **different** probabilities (firm 0.58–0.62) with the same argmax | verified: probes P1–P2 (section 9) |
 | Version drift | aliases move; pin `jev-1.14.0` and log response `model` | verified: D-models |
 
 Determinism for Open Era therefore rests on recording outputs in `data.ai` and never calling at replay, as already ruled.
@@ -112,10 +112,12 @@ Determinism for Open Era therefore rests on recording outputs in `data.ai` and n
 
 ## 6. Still unverified
 
-1. Real `probabilities` on our briefings (none recorded).
-2. Whether returned probabilities sum to exactly 1 after rounding.
-3. Whether identical requests return identical outputs.
-4. Latency and token use for a wide action Choice (dozens of options) or many questions.
+Items 1–3 were settled by the probes in section 9; item 4 is settled for 10 options.
+
+1. ~~Real `probabilities` on our briefings~~ verified (P1).
+2. ~~Sum to 1~~ verified: every returned distribution summed to 1.00 (two decimals) (P1–P3).
+3. ~~Identical outputs~~ verified: **not** identical; argmax stable (P2).
+4. Latency and tokens for **dozens** of options or many questions (10 options measured in P3).
 5. Calibration and quality on game states.
 6. Our organization's rate limits.
 
@@ -135,3 +137,27 @@ Total cap for all probes: 6 calls, $0.005, logged to `cost.jsonl` in the same fo
 ## 8. Proposed decision
 
 Keep Jev as the context reader, and plan it for action picking (weighted sampling) and escalation triage. Do not use it for dialogue. Start by storing `probabilities` and `confidence` in `data.ai.context`, so the next live run settles items 1–3 at no extra spend.
+
+## 9. Probe results (2026-10-31)
+
+Approved by Micah (relayed by the Lead): "Yes, run both live checks, capped at about 6.5 cents total". Hard limits applied: 6 calls and $0.005. Each call was checked against the limits before it was sent, using worst-case cost = request bytes × $0.042/Mtok. Key from `JEV_API_KEY` in the environment, never logged. Raw requests and responses: `docs/playtests/jev-probes-2026-10-31/probes.jsonl`. Model `jev-1.14.0`; every response's `model` was `jev-1.14.0`; all six returned HTTP 200.
+
+The P1 request is the live run's exact tick-24 reader request: rebuilt from `trace.json`, it reproduces the recorded `inputHash` (`sha256:c11d2210…`) with holder `character-14`.
+
+| Probe | What | Latency (box wall clock) | Input / output tokens | Cost |
+|---|---|---|---|---|
+| P1 | tick-24 reader request | 146 ms | 742 / 82 | $0.0000312 |
+| P2a–c | same request ×3 | 47, 49, 49 ms | 742 / 82 each | $0.0000312 each |
+| P3 | one Choice, 10 actions for character-14 | 49 ms | 807 / 133 | $0.0000339 |
+| P4 | four triage Nouls on the tick-168 tax event | 46 ms | 684 / 80 | $0.0000287 |
+
+**Actual total: 6 calls, $0.000187** (input tokens × $0.042/Mtok; output free).
+
+Findings:
+
+- **P1, raw output.** `loyaltyRead`: choice `firm`, confidence 0.40, probabilities firm 0.60 / wavering 0.40 / breaking 0. `grudge_0`: `low` 0.99 / mid 0.01 / high 0, confidence 0.98. The live run recorded only "firm", hiding a near 60/40 split. **[verified: probes.jsonl]**
+- **Sums.** Every distribution summed to 1.00 at the two decimals returned (P1–P3). **[verified]**
+- **Repeatability (P2).** Not identical. loyaltyRead firm was 0.60, 0.62, 0.58, 0.59 across the four identical requests (confidence 0.40, 0.43, 0.37, 0.38); grudge_0 was identical (0.99) each time; the argmax never changed. Recording outputs in `data.ai` is therefore required for replay, as ruled. **[verified]**
+- **P3, weighted action pick.** sail-to-verdant-cay 0.54, patrol-home-waters 0.24, sail-to-glassport 0.08, raid-merchant 0.04, recruit-crew 0.03, sail-to-crown-harbor 0.02, accept-contract 0.02, hold-in-port / buy-provisions / repair-ship 0.01 each; confidence 0.49. That is a usable distribution for seeded sampling (section 3). The action list was written for the probe, not taken from engine legality. **[verified: shape; quality unverified]**
+- **P4, triage Nouls.** port_holding 0.57, faction_number 0.09, allegiance_freedom 0.74, broken_promise 0.20. A tax event *is* a faction-wide number, so 0.09 is a miss on the instruction as worded; prompt wording needs work before triage relies on it. **[verified: values; judgment is ours]**
+- **Latency.** 46–49 ms for warm calls, 146 ms for the first (connection set-up likely, unverified). The live run's 133–165 ms were measured inside the engine's sync transport, so the two are not directly comparable.
