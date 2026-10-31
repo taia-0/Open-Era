@@ -1,6 +1,5 @@
 import { parseTaxChoice, TAX_STEP_BRIEFED_WORDING, TAX_STEP_PROMPT_TEMPLATE, TAX_STEP_PROMPT_TEMPLATE_BRIEFED, TAX_STEP_TIMEOUT_MS, type TaxStepAnswer, type TaxStepProvider, type TaxStepRequest } from "../ai-provider.ts";
 import { canonicalJson, CLAIM_STABILITY_FLOOR } from "../state.ts";
-import { TAX_RATE_MAX } from "../tax-rate.ts";
 import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, type CostLine } from "./cost.ts";
 import type { SyncTransport } from "./sync-http.ts";
 
@@ -30,7 +29,7 @@ export function fillTemplate(template: string, values: Record<string, unknown>):
 
 const W = TAX_STEP_BRIEFED_WORDING;
 
-/** Plain-language slots for the briefed template (ai-brain-hold-bias.md). Derived from the request only; prompt text only. */
+/** Plain-language slots for the briefed template (ai-brain-hold-bias.md, ai-brain-judgment.md v3). Derived from the request only; prompt text only. */
 export function taxStepPromptSlots(request: TaxStepRequest): Record<string, string> {
   const low = request.lowestStabilityThousandths;
   const unrestText = low === null
@@ -40,14 +39,15 @@ export function taxStepPromptSlots(request: TaxStepRequest): Record<string, stri
       .replace("{floor}", CLAIM_STABILITY_FLOOR.toFixed(2))
       .replace("{pressedText}", request.pressed ? W.pressed : W.notPressed);
   const payText = request.short ? W.short : W.covered;
-  const maxCents = Math.round(TAX_RATE_MAX * 100);
-  // The scorer's hold at a rate bound says why. Nothing here reaches the sim or an event.
-  const scorerReason = request.scorerChoice === "down" ? W.reasonDown
-    : request.scorerChoice === "up" ? W.reasonUp
-    : request.pressed && request.rateCents <= 0 ? W.reasonHoldFloor
-    : !request.pressed && request.short && request.rateCents >= maxCents ? W.reasonHoldMax.replace("{max}", String(maxCents))
-    : W.reasonHold;
-  return { unrestText, payText, scorerReason, optionsText: request.options.map((option) => W[option]).join("; ") + "." };
+  const days = request.payDaysCovered;
+  const payDaysText = days === null || days === undefined ? W.noMates : W.payDays.replace("{days}", String(days));
+  const persona = request.persona;
+  const personaText = persona
+    ? W.persona.replace(/\{(\w+)\}/g, (match, name: string) => name in persona ? String(persona[name as keyof typeof persona]) : match)
+    : W.personaUnknown;
+  // Judgment v3: the scorer's pick and reason are not shown. Prompt text only.
+  const safetyText = W.safety.replace("{floor}", CLAIM_STABILITY_FLOOR.toFixed(2));
+  return { unrestText, payText, payDaysText, personaText, safetyText, optionsText: request.options.map((option) => W[option]).join("; ") + "." };
 }
 
 export function deepSeekRequestBody(request: TaxStepRequest): string {

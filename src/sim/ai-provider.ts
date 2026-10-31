@@ -24,7 +24,13 @@ export interface TaxStepRequest {
   promptVersion: string;
   /** Pilot B: the validated briefing, present only when a context reader is set. */
   briefing?: TaxStepBriefing;
+  /** Judgment v3 (ai-brain-judgment.md): the holder's personality, two decimals. Present only with a context reader. */
+  persona?: TaxStepPersona;
+  /** Judgment v3: whole days of the mates' pay the treasury covers; null with no mates. Present only with a context reader. */
+  payDaysCovered?: number | null;
 }
+
+export interface TaxStepPersona { ambition: number; aggression: number; caution: number; commerce: number; loyalty: number }
 
 export interface TaxStepAnswer {
   raw: string | null;
@@ -57,36 +63,46 @@ export const TAX_STEP_PROMPT_VERSION = sha256(TAX_STEP_PROMPT_TEMPLATE);
  * Pilot B (slice B3): the brain's template with the briefing. Runs with a
  * context reader send this version; runs without one keep the pilot A version.
  */
+/**
+ * Judgment v3 hard rail (ai-brain-judgment.md section 3, option C): no raise
+ * when pressed; no cut when short and not pressed. Applied in code to the
+ * parse whenever a context reader is set; a railed answer is `illegal`.
+ */
+export function railedOptions(options: TaxChoice[], pressed: boolean, short: boolean): TaxChoice[] {
+  return options.filter((option) => !(pressed && option === "up") && !(!pressed && short && option === "down"));
+}
+
 export const TAX_STEP_PROMPT_TEMPLATE_BRIEFED = [
-  "You hold the tax seat of {factionId} at tick {tick}. Your job is to keep the faction's ports from revolting and its crew paid.",
+  "You are {holderId}, who holds the tax seat of {factionId} at tick {tick}. Decide as this person would, from their temperament and situation.",
   "Tax rate: {rateCents}% (allowed 0% to 30%, one point per step).",
   "Unrest: {unrestText}",
-  "Pay: {payText}",
-  "Treasury: {treasuryCents} cents for {freeMates} free mates.",
-  "The standing rule recommends {scorerChoice}: {scorerReason}",
+  "Pay: {payText} Treasury {treasuryCents} cents, {payDaysText} for {freeMates} free mates.",
+  "Your temperament (0 to 1): {personaText}",
+  "Safety: {safetyText}",
   "Options: {optionsText}",
   "Briefing on you (validated, at most 1,024 bytes): {briefing}.",
-  "Reply as JSON with a reason of at most 12 words, then the choice: {\"reason\":\"...\",\"choice\":\"<option>\"}.",
+  "Reply as JSON with a reason of at most 12 words naming what in your temperament or situation decides it, then the choice: {\"reason\":\"...\",\"choice\":\"<option>\"}.",
 ].join("\n");
 /**
  * The fixed wording the briefed prompt's slots and system message use. It is
  * part of the prompt, so it is part of `TAX_STEP_PROMPT_VERSION_BRIEFED`: a
  * wording change moves the version even when the template is unchanged.
- * `{floor}` and `{max}` are filled from CLAIM_STABILITY_FLOOR and TAX_RATE_MAX.
+ * `{floor}` is filled from CLAIM_STABILITY_FLOOR. Judgment v3 hides the
+ * scorer's pick and reason, so those phrases are gone.
  */
 export const TAX_STEP_BRIEFED_WORDING = {
-  system: "Answer as JSON: {\"reason\":\"<at most 12 words>\",\"choice\":\"<option>\"}.",
+  system: "Answer as JSON: {\"reason\":\"<at most 12 words naming the trait or situation that decides it>\",\"choice\":\"<option>\"}.",
   noReport: "no current stability report from your ports.",
   unrest: "lowest port stability {low}; revolt risk at or below {floor}. {pressedText}",
   pressed: "PRESSED: a port is at or below the revolt line.",
   notPressed: "Not pressed.",
   short: "SHORT: the treasury cannot cover a day's pay for the mates.",
   covered: "The treasury covers a day's pay.",
-  reasonDown: "a port is at or below the revolt line, so cut.",
-  reasonUp: "the treasury is short and no port is pressed, so raise.",
-  reasonHoldFloor: "a port is at or below the revolt line, but the rate is already 0%, so hold.",
-  reasonHoldMax: "the treasury is short, but the rate is already at the {max}% maximum, so hold.",
-  reasonHold: "no port is pressed and pay is covered, so hold.",
+  payDays: "{days} days of pay",
+  noMates: "no mates to pay",
+  persona: "ambition {ambition}, aggression {aggression}, caution {caution}, commerce {commerce}, loyalty {loyalty}.",
+  personaUnknown: "unknown.",
+  safety: "when a port is at or below the revolt line ({floor}) you may not raise; when pay is short and no port is pressed you may not cut. An answer that breaks this is refused.",
   down: "down = cut the rate one point (calms unrest, less income)",
   hold: "hold = keep the rate",
   up: "up = raise the rate one point (more income, more unrest)",
