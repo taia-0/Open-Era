@@ -50,6 +50,8 @@ export interface CostLine {
   responseModel: string | null;
   /** DeepSeek only, from the response; null otherwise. */
   systemFingerprint?: string | null;
+  /** DeepSeek only: `choices[0].finish_reason` from the response (ai-brain-hold-bias.md item 8); null when none came back. */
+  finishReason?: string | null;
   tokensIn: number;
   tokensInCacheHit: number;
   tokensOut: number;

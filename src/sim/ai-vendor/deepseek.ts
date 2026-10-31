@@ -1,5 +1,6 @@
 import { parseTaxChoice, TAX_STEP_PROMPT_TEMPLATE, TAX_STEP_PROMPT_TEMPLATE_BRIEFED, TAX_STEP_TIMEOUT_MS, type TaxStepAnswer, type TaxStepProvider, type TaxStepRequest } from "../ai-provider.ts";
-import { canonicalJson } from "../state.ts";
+import { canonicalJson, CLAIM_STABILITY_FLOOR } from "../state.ts";
+import { TAX_RATE_MAX } from "../tax-rate.ts";
 import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, type CostLine } from "./cost.ts";
 import type { SyncTransport } from "./sync-http.ts";
 
@@ -8,6 +9,8 @@ export const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 export const DEEPSEEK_MODEL = "deepseek-v4-pro";
 export const DEEPSEEK_MAX_TOKENS = 64;
 export const DEEPSEEK_SYSTEM = "Answer as JSON: {\"choice\":\"<option>\"}.";
+/** Prompt v2: the system message for the briefed template, matching its reply format. */
+export const DEEPSEEK_SYSTEM_BRIEFED = "Answer as JSON: {\"reason\":\"<at most 12 words>\",\"choice\":\"<option>\"}.";
 
 export interface DeepSeekBrainOptions {
   transport: SyncTransport;
@@ -36,10 +39,14 @@ export function taxStepPromptSlots(request: TaxStepRequest): Record<string, stri
   const low = request.lowestStabilityThousandths;
   const unrestText = low === null
     ? "no current stability report from your ports."
-    : `lowest port stability ${(low / 1000).toFixed(2)}; revolt risk at or below 55.00. ${request.pressed ? "PRESSED: a port is at the revolt line." : "Not pressed."}`;
+    : `lowest port stability ${(low / 1000).toFixed(2)}; revolt risk at or below ${CLAIM_STABILITY_FLOOR.toFixed(2)}. ${request.pressed ? "PRESSED: a port is at or below the revolt line." : "Not pressed."}`;
   const payText = request.short ? "SHORT: the treasury cannot cover a day's pay for the mates." : "The treasury covers a day's pay.";
-  const scorerReason = request.scorerChoice === "down" ? "a port is at the revolt line, so cut."
+  const maxCents = Math.round(TAX_RATE_MAX * 100);
+  // Prompt text only: the scorer's hold at a rate bound says why. Nothing here reaches the sim or an event.
+  const scorerReason = request.scorerChoice === "down" ? "a port is at or below the revolt line, so cut."
     : request.scorerChoice === "up" ? "the treasury is short and no port is pressed, so raise."
+    : request.pressed && request.rateCents <= 0 ? "a port is at or below the revolt line, but the rate is already 0%, so hold."
+    : !request.pressed && request.short && request.rateCents >= maxCents ? `the treasury is short, but the rate is already at the ${maxCents}% maximum, so hold.`
     : "no port is pressed and pay is covered, so hold.";
   return { unrestText, payText, scorerReason, optionsText: request.options.map((option) => OPTION_TEXT[option]).join("; ") + "." };
 }
@@ -50,7 +57,7 @@ export function deepSeekRequestBody(request: TaxStepRequest): string {
   return JSON.stringify({
     model: DEEPSEEK_MODEL,
     messages: [
-      { role: "system", content: DEEPSEEK_SYSTEM },
+      { role: "system", content: request.briefing ? DEEPSEEK_SYSTEM_BRIEFED : DEEPSEEK_SYSTEM },
       { role: "user", content: user },
     ],
     thinking: { type: "disabled" },
@@ -73,7 +80,7 @@ export function deepSeekBrain(options: DeepSeekBrainOptions): TaxStepProvider {
   const now = options.now ?? (() => new Date());
   const timeoutMs = options.timeoutMs ?? TAX_STEP_TIMEOUT_MS;
   const base = (tick: number): Omit<CostLine, "runSpendUsd" | "outcome" | "fallbackReason" | "status" | "pricePeriod"> => ({
-    tick, role: "brain.taxStep", provider: "deepseek", model: DEEPSEEK_MODEL, responseModel: null, systemFingerprint: null,
+    tick, role: "brain.taxStep", provider: "deepseek", model: DEEPSEEK_MODEL, responseModel: null, systemFingerprint: null, finishReason: null,
     tokensIn: 0, tokensInCacheHit: 0, tokensOut: 0, estimatedCostUsd: 0,
     priceSource: DEEPSEEK_PRICES.source, priceCheckedOn: DEEPSEEK_PRICES.checkedOn,
   });
@@ -118,6 +125,7 @@ export function deepSeekBrain(options: DeepSeekBrainOptions): TaxStepProvider {
         ...base(request.tick),
         responseModel: typeof parsed?.model === "string" ? parsed.model : null,
         systemFingerprint: typeof parsed?.system_fingerprint === "string" ? parsed.system_fingerprint : null,
+        finishReason: typeof parsed?.choices?.[0]?.finish_reason === "string" ? String(parsed.choices[0].finish_reason).slice(0, 40) : null,
         tokensIn: miss + hit, tokensInCacheHit: hit, tokensOut: out, estimatedCostUsd: cost,
         pricePeriod: period, status: response.status,
       };
