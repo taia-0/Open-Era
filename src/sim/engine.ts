@@ -28,7 +28,8 @@ import { assessSupplyContract, contractRelationship, contractTravelTicks, openSu
 import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
-import { parseTaxChoice, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
+import { CONTEXT_PROMPT_VERSION, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -49,6 +50,7 @@ import {
   settlementClaimAvailableTo,
   surrenderStabilityLimit,
   SURRENDER_GARRISON_THRESHOLD,
+  canonicalJson,
 } from "./state.ts";
 import {
   RESOURCE_KEYS,
@@ -3447,6 +3449,11 @@ export interface TickAiOptions {
    * binding cap across recovery is out of scope (section 5).
    */
   calls?: number;
+  /**
+   * Pilot B: the context reader. Unset means pilot A exactly. Read only right
+   * before a brain call; it shares the brain's per-run cap.
+   */
+  context?: ContextReader;
 }
 
 /** Slice A3: only Free Tide's tax step is put to the provider. */
@@ -3583,6 +3590,13 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
   };
   // Past the cap the provider is not called; the scorer's choice applies.
   const capped = (ai.calls ?? 0) >= (ai.cap ?? TAX_STEP_DEFAULT_CAP);
+  // Pilot B: the reader runs after the cap check, before the brain, and its
+  // validated briefing is part of the brain's request (and its inputHash).
+  const context = ai.context ? readTaxStepContext(world, factionId, step.holderId, ai.context, capped) : null;
+  if (context) {
+    request.briefing = context.briefing;
+    request.promptVersion = TAX_STEP_PROMPT_VERSION_BRIEFED;
+  }
   let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
   if (!capped) {
     ai.calls = (ai.calls ?? 0) + 1;
@@ -3602,7 +3616,7 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     role: "brain.taxStep" as const,
     provider: provider.name,
     model: provider.model,
-    promptVersion: TAX_STEP_PROMPT_VERSION,
+    promptVersion: request.promptVersion,
     inputHash: taxStepInputHash(request),
     options: step.options,
     scorerChoice: step.scorerChoice,
@@ -3612,7 +3626,49 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     outcome: reason ? "fallback" : "model",
     fallbackReason: reason,
     latencyMs: answer.latencyMs,
-    context: null,
+    context,
+  };
+}
+
+/** Read-only. On any fallback the briefing is the serializer output. */
+function readTaxStepContext(world: WorldState, factionId: string, holderId: string, reader: ContextReader, capped: boolean): ContextRecord {
+  const serializer = buildTaxStepBriefing(world, holderId);
+  const request: ContextRequest = { tick: world.tick, factionId, holderId, serializer, promptVersion: CONTEXT_PROMPT_VERSION };
+  let answer: ContextAnswer = { raw: null, latencyMs: 0 };
+  if (!capped) {
+    try {
+      answer = reader.read(request);
+    } catch {
+      answer = { raw: null, latencyMs: 0, error: "error" };
+    }
+  }
+  let reason: ContextFallbackReason | null = capped ? "cap" : answer.error
+    ?? (answer.latencyMs > CONTEXT_TIMEOUT_MS ? "timeout" : null);
+  let validated: ReturnType<typeof validateBriefing> = null;
+  if (!reason) {
+    let parsed: unknown = null;
+    try {
+      parsed = answer.raw === null ? null : JSON.parse(answer.raw);
+    } catch {
+      parsed = null;
+    }
+    validated = validateBriefing(world, parsed);
+    if (!validated) reason = "illegal";
+  }
+  const fallback = validateBriefing(world, serializer)!;
+  const chosen = validated ?? fallback;
+  return {
+    role: "context.taxStep",
+    provider: reader.name,
+    model: reader.model,
+    promptVersion: CONTEXT_PROMPT_VERSION,
+    inputHash: sha256(canonicalJson(request)),
+    briefing: chosen.briefing,
+    outcome: reason ? "fallback" : "model",
+    fallbackReason: reason,
+    droppedIds: validated ? validated.droppedIds : 0,
+    truncated: chosen.truncated,
+    latencyMs: answer.latencyMs,
   };
 }
 
