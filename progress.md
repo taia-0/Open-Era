@@ -142,11 +142,26 @@ Git remains the complete history. This file exists for three things git does not
 | `localeCompare` sorts precede RNG draws, so ICU changes between Node builds could alter history | Latent risk | Unassigned | Dormant; identical hashes on Node 22.23.2, Node 24.21.0, and GitHub's `ubuntu-latest` runner. Recheck after 2026-10-19, when `ubuntu-latest` migrates to Ubuntu 26 and its ICU may change |
 | Pinned GitHub Actions target Node 20 and are forced onto Node 24, with a deprecation warning on every run | Hygiene | Cursor | **Fixed** in this sweep. `actions/checkout`, `actions/setup-node` and `actions/upload-artifact` move from `v4` to `v7`, which are the current published majors and run on Node 24 natively |
 | `engine.ts` decomposition, scenario data-loading, per-tick indexing | Refactor | Unassigned | Deferred until golden hashes and CI existed; both now do |
+| Player note (breakaway-polish blind run): "Chose other work" on a breach does not say which work. | Readability | Unassigned | Queued |
+| Player note: the public cancelled line ("…because the port no longer needs it") does not name the port. | Readability | Unassigned | Queued |
+| Player note: "Not visible to you" could give a rough treasury estimate instead. | Readability | Unassigned | Queued |
+| Player note: Glassport changing hands is not surfaced near the tax cut that names it. | Readability | Unassigned | Queued |
+| Player note: Mara's capture at tick 320 (seed 1847) came with no warning. | Readability | Unassigned | Queued |
 | Deeper personality branching, faction offices, settlement management, debt enforcement, rescue, inheritance, multiplayer auth | Deferred scope | ChatGPT partner | Tracked in [README](README.md#current-boundary) |
 
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-26 — AI pilot A: Free Tide's tax step behind a provider seam (stubs only)
+- **Agent** — Open Era Engineer. **Branch** — `feature/ai-pilot-a`, from `fix/breakaway-polish` at `d57cd92`. **Spec** — `docs/design/ai-pilot-a.md` on `docs/ai-pilot-a` at `753514e`. **Type** — Behavior seam, off by default.
+- **Changed** — A0: `taxStepOptions` in `src/sim/tax-rate.ts` returns the holder, the scorer's choice and the legal set; `autonomousTaxStep` is its thin wrapper. A1: `src/sim/ai-provider.ts` (`TaxStepProvider`, `stubAgree`, `stubFail`, `stubScript`, prompt hash, parser) and `TickOptions.ai.brainTaxStep` in `src/sim/engine.ts`. A2: `data.ai` on a stepped `tax-rate-set`, fallbacks `timeout` / `error` / `illegal`, and holds in `TickResult.aiTrace` (also returned by `runTicks`), never on the world. A3: only `free-tide` with a free autonomous holder is consulted; World Government and breakaways keep the scorer; per-run cap `ai.cap` (default 50) counted in `ai.calls`, fallback `cap`.
+- **Hashes** — Flag off, unchanged: 72 ticks `6efa334f` / `e8f9cfab` / `8ac8529b`; 1200 ticks `c4d99822` / `738181c0` / `cbd66565` (163679 / 159177 / 161386 events). No `golden:update`. Agree stub and each failing stub at 1200 ticks: same hashes and counts.
+- **Clock points** — The built gate asks 33 / 27 / 30 times per 1200-tick run, not the brief's 45 / 45 / 42: the tree already has the landless freeze, so a landless Free Tide gets a hold-only set, which is not sent.
+- **Tests** — `tests/ai-pilot-a-options.test.ts` (A0) and `tests/ai-pilot-a.test.ts` (the six checks of section 5).
+- **Left open** — See the hand-off: the landless freeze already in the tree, no `flag-off` trace entries, the cap counter on the options object, and recovery having no provider parameter. No dashboard switch, so the blind plan [ai-pilot-a-001](docs/playtests/ai-pilot-a-001.md) is flag-off only.
+- **Verified** — Blind playtest [ai-pilot-a-001](docs/playtests/ai-pilot-a-001.md) at `7a52452`, seed 1847, flag off: all three checkpoints matched verbatim (eventSequence 16958 / 19796; tick-96 "Pax Ash lowered the Free Tide Compact tax from 8% to 7% (unrest at Glassport)."; free-tide 0.07, set tick 96, treasury hidden; no `"ai"`/brain/stub/model in any body). Verdict PROMOTE.
+- **Links** — [ai-pilot-a-001](docs/playtests/ai-pilot-a-001.md)
 
 ### 2026-10-26 — Breakaway polish: the founder line and the pressed port
 - **Agent** — Open Era Engineer. **Branch** — `fix/breakaway-polish`, from `fix/contract-feed-polish` at `127a733`. **Commits** — `accdcdd` (wording), `cc9cba2` (tests), then this entry and the blind plan. **Type** — Projection.

@@ -814,6 +814,8 @@ export interface EventDraft {
 export interface TickResult {
   state: WorldState;
   events: SimEvent[];
+  /** AI pilot A: present only when `TickOptions.ai.brainTaxStep` is set. Never on the world. */
+  aiTrace?: import("./ai-provider.ts").TaxStepTraceEntry[];
 }
 
 export const RESOURCE_KEYS: ResourceKey[] = [
