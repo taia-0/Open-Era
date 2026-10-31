@@ -799,7 +799,8 @@ function offerProvisions(world: WorldState, price: number, expiresInTicks: numbe
 }
 
 function assertEscrowConserved(events: { type: string; data: Record<string, unknown> }[], expected: number): void {
-  const moved = events.filter((event) => event.type.startsWith("contract-"));
+  // contract-order-issued moves no money, so it carries no purse fields.
+  const moved = events.filter((event) => event.type.startsWith("contract-") && event.type !== "contract-order-issued");
   assert.ok(moved.length > 0);
   for (const event of moved) {
     const sum = round(
@@ -897,18 +898,22 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   const expired = createPrototypeWorld(1847);
   const expireBuyer = expired.characters["character-01"];
   const expireCarrier = expired.characters["character-17"];
-  assert.equal(offerProvisions(expired, 18, 1).ok, true);
+  // An empty shelf floors the margin, so the offer pays 80 to clear the threshold.
+  assert.equal(offerProvisions(expired, 80, 1).ok, true);
   const shortOffer = runTick(expired);
-  assertEscrowConserved(shortOffer.events, round(108 + 93 + 18, 2));
+  assertEscrowConserved(shortOffer.events, round(108 + 93 + 80, 2));
   expireCarrier.locationId = "crown-harbor";
   expireCarrier.travel = null;
+  // The haul cancels a contract whose shelf holds the quantity and lands a carrier holding it.
+  expired.settlements["crown-harbor"].stocks.provisions = 0;
+  expireCarrier.cargo.provisions = 0;
   const open = Object.values(expired.contracts ?? {})[0];
   const beforeBreach = round(expireBuyer.money + expireCarrier.money + open.escrow, 2);
   const breachTick = runTick(expired);
   // Acceptance still holds the escrow. The breach returns the treasury part, so that
-  // event's purse-and-escrow sum drops by 18. Adding the treasury refund back
-  // keeps the coins accounted for. The purse used to rise to 126 instead.
-  for (const event of breachTick.events.filter((candidate) => candidate.type.startsWith("contract-"))) {
+  // event's purse-and-escrow sum drops by 80. Adding the treasury refund back
+  // keeps the coins accounted for. The purse used to rise above 108 instead.
+  for (const event of breachTick.events.filter((candidate) => candidate.type.startsWith("contract-") && candidate.type !== "contract-order-issued")) {
     const sum = round(
       Number(event.data.buyerMoney) +
         Number(event.data.carrierMoney) +

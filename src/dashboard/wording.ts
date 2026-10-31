@@ -612,7 +612,16 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
     case "contract-breached":
       return `${actor} missed a contract.`;
     case "contract-cancelled":
-      return `${actor} cancelled a contract.`;
+      return event.data.reason === "no-longer-needed"
+        ? `${actor}'s contract was cancelled because the port no longer needs it.`
+        : `${actor} cancelled a contract.`;
+    case "contract-order-issued": {
+      const destination = typeof event.data.destinationId === "string"
+        ? ` to ${settlementName(world, event.data.destinationId, "the port")}`
+        : "";
+      const quantity = typeof event.data.quantity === "number" ? ` ${event.data.quantity}` : "";
+      return `${actor} took the order to carry${quantity} provisions${destination}.`;
+    }
     default:
       return `${actor} had a ${event.type.replaceAll("-", " ")} recorded.`;
   }

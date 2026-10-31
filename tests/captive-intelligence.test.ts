@@ -424,12 +424,13 @@ test("Mina Vale's hold on seed 2718 matches the note.", () => {
   assert.equal(release.settlementId, "crown-harbor");
   assert.equal(release.factionId, "world-government");
   assert.equal(release.captorFactionId, "world-government");
-  assert.equal(release.garrison, 160);
+  // Re-pinned for the contract haul: the Crown Harbor garrison and the parties there moved.
+  assert.equal(release.garrison, 191);
   assert.equal(release.observedTick, 161);
   assert.equal(release.ageTicks, 1);
   assert.deepEqual(
     release.parties.map((party) => [party.characterId, party.troops, party.partyPower]),
-    [ [ 'character-01', 75, 209.302 ], [ 'character-07', 22, 83.252 ], [ 'character-13', 28, 94.38 ], [ 'character-14', 0, 0 ], [ 'character-27', 14, 74.274 ] ],
+    [ [ 'character-01', 75, 209.302 ], [ 'character-06', 128, 230.357 ], [ 'character-12', 32, 75.134 ], [ 'character-24', 92, 144.77 ] ],
   );
 });
 
@@ -486,19 +487,21 @@ function recoverThrough(seed: number, splitAt: number, through: number, characte
   }
 }
 
-test("Mara Vane's release at tick 753 recovers from the tick 753 snapshot", () => {
-  // Batch 2 moved the held-captain release on seed 1847 to Mara Vane at tick 753, from Cinder Key.
-  const live = runTicks(createPrototypeWorld(1847), 754).state;
-  const mara = live.characters["character-01"];
-  assert.equal(mara.name, "Mara Vane");
-  assert.equal(mara.captivity, null);
-  assert.equal(mara.releaseSighting?.observedTick, 753);
-  assert.equal(mara.releaseSighting?.garrison, 12);
-  const split = recoverThrough(1847, 753, 754, "character-01");
+test("Zara Gale's release at tick 791 recovers from the tick 791 snapshot", () => {
+  // Re-pinned for the contract haul: Mara Vane is no longer released on headless 1847 by tick 754.
+  // The held-captain release used here is Zara Gale's at tick 791, from Crown Harbor.
+  const live = runTicks(createPrototypeWorld(1847), 792).state;
+  const zara = live.characters["character-17"];
+  assert.equal(zara.name, "Zara Gale");
+  assert.equal(zara.captivity, null);
+  assert.equal(zara.releaseSighting?.observedTick, 791);
+  assert.equal(zara.releaseSighting?.garrison, 13);
+  const split = recoverThrough(1847, 791, 792, "character-17");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));
-  assert.deepEqual(split.rebuiltRecord, mara.releaseSighting);
+  assert.deepEqual(split.rebuiltRecord, zara.releaseSighting);
 });
+
 
 test("Mina Vale's release recovers from the tick 138 snapshot", () => {
   // Batch 2 moved her release to seed 2718, tick 161.
@@ -506,7 +509,8 @@ test("Mina Vale's release recovers from the tick 138 snapshot", () => {
   const mina = live.characters["character-15"];
   assert.equal(mina.name, "Mina Vale");
   assert.equal(mina.releaseSighting?.observedTick, 161);
-  assert.equal(mina.releaseSighting?.garrison, 160);
+  // Re-pinned for the contract haul: the Crown Harbor garrison at her release moved.
+  assert.equal(mina.releaseSighting?.garrison, 191);
   const split = recoverThrough(2718, 80, 164, "character-15");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));

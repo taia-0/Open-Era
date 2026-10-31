@@ -4,10 +4,22 @@ import { allowanceCap, drawQuotedBill, projectAllowance } from "../src/dashboard
 import { treasuryDrawSentence } from "../src/dashboard/wording.ts";
 import { projectCharacter, projectFactions } from "../src/dashboard/visibility.ts";
 import { dashboardState, fullEventFeed, projectEventFeed } from "../src/dashboard/view-model.ts";
-import { runTicks } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";
-import type { Character, WorldState } from "../src/sim/types.ts";
+import type { Character, SimEvent, WorldState } from "../src/sim/types.ts";
+
+/**
+ * Seed 1847 in the live session, the run the dashboard shows. The contract
+ * haul moved Mara Vane's Crown Harbor hold (tick 528 to 612) out of the
+ * headless run; the live run keeps it.
+ */
+function liveTicks(seed: number, ticks: number): { state: WorldState; events: SimEvent[] } {
+  const state = createPrototypeWorld(seed);
+  const events: SimEvent[] = [];
+  while (state.tick < ticks) events.push(...runTick(state, { liveSession: true }).events);
+  return { state, events };
+}
 
 function card(world: WorldState, reader: Character, character: Character) {
   return projectCharacter(world, reader, character) as {
@@ -121,8 +133,9 @@ test("a Free Tide reader sees none of World Government's allowance or balance", 
 });
 
 test("seed 1847 tick 534 binds the acting commander and does not uncap the captive holder", () => {
+  // Re-pinned for the contract haul: Mara's Crown Harbor hold is read from the live session.
   // Batch 2 seats Jun Marrow while Mara is held at Crown Harbor. Tick 534 is a day boundary.
-  const run = runTicks(createPrototypeWorld(1847), 534);
+  const run = liveTicks(1847, 534);
   const world = run.state;
   assert.equal(world.tick, 534);
   const mara = world.characters["character-01"];
@@ -184,28 +197,29 @@ test("seed 1847 sequence 43 qualifies Toma Reef on the order row Mara can read",
 });
 
 test("seed 1847 tick 613 hides the Free Tide balance and keeps the paid amount", () => {
-  // Batch 2 moved the hidden balance to Mara's own release. The payment is 108. The balance on the event is 121.91.
-  const run = runTicks(createPrototypeWorld(1847), 613);
+  // Re-pinned for the contract haul: the live session keeps this release; sequence, balance and debt moved.
+  // Batch 2 moved the hidden balance to Mara's own release. The payment is 108. The balance on the event is 123.7.
+  const run = liveTicks(1847, 613);
   const world = run.state;
   assert.equal(world.tick, 613);
-  const release = run.events.find((event) => event.sequence === 78722);
+  const release = run.events.find((event) => event.sequence === 79032);
   assert.ok(release);
   const balance = (release.data.ransom as { factionTreasury: number }).factionTreasury;
-  assert.equal(balance, 121.91);
+  assert.equal(balance, 123.7);
   const before = stateHash(world);
-  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 128.84 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
+  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 80.85 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
   const [maraRow] = projectEventFeed(world, "character-01", [release]);
   assert.equal(maraRow?.payloadWithheld, false);
   assert.equal((maraRow?.data as { ransom: { factionTreasury?: number } }).ransom.factionTreasury, undefined);
   assert.equal(maraRow?.summary, line);
-  // The Free Tide balance on the event is 121.91, and the sentence is pinned above as well.
+  // The Free Tide balance on the event is 123.7, and the sentence is pinned above as well.
   assert.equal(String(maraRow?.summary).includes("not visible to you"), true);
   const [paxRow] = projectEventFeed(world, "character-14", [release]);
   assert.equal(paxRow?.payloadWithheld, true);
   assert.equal(paxRow?.data, null);
   assert.equal(
     paxRow?.summary,
-    "Mara Vane was released from Crown Harbor. 108 was paid and 128.84 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.",
+    "Mara Vane was released from Crown Harbor. 108 was paid and 80.85 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.",
   );
   assert.equal(String(paxRow?.summary).includes("not visible to you"), false);
   const view = dashboardState(world, run.events, fullEventFeed(run.events)) as {
@@ -215,7 +229,7 @@ test("seed 1847 tick 613 hides the Free Tide balance and keeps the paid amount",
   const freeTide = view.factions.find((faction) => faction.id === "free-tide");
   assert.equal(freeTide?.treasury, null);
   assert.equal(freeTide?.treasuryNote, "not visible to you");
-  const shown = view.events.find((event) => event.sequence === 78722);
+  const shown = view.events.find((event) => event.sequence === 79032);
   assert.equal(shown?.summary, line);
   assert.equal(shown?.data?.ransom?.factionTreasury, undefined);
   assert.equal(stateHash(world), before);

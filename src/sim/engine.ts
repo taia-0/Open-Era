@@ -2353,6 +2353,9 @@ function resolveOfferedContracts(world: WorldState, events: SimEvent[]): void {
         ticksLeft: assessment.ticksLeft,
         costBasis: assessment.costBasis,
       });
+      emit(world, events, { type: "contract-order-issued", actorId: parties.carrier.id, targetId: parties.buyer.id, data: {
+        contractId: contract.id, score: assessment.score, threshold: assessment.threshold,
+        destinationId: contract.destinationId, quantity: contract.quantity, deadlineTick: contract.deadlineTick } });
       continue;
     }
     refundEscrow(world, events, contract, "refused", "contract-refused", parties.carrier.id, {
@@ -2380,10 +2383,21 @@ function resolveContractOutcomes(world: WorldState, events: SimEvent[]): void {
   for (const contract of accepted) {
     const parties = contractParties(world, contract);
     if (!parties) continue;
-    if (world.tick >= contract.deadlineTick) {
-      refundEscrow(world, events, contract, "breached", "contract-breached", parties.carrier.id);
-      const current = contractParties(world, contract);
-      if (current) writeContractRelationships(world, events, current.buyer, current.carrier, false, "supply contract breached");
+    const c = parties.carrier;
+    const landedNow = c.locationId === contract.destinationId && !c.travel && c.cargo.provisions >= contract.quantity;
+    if (!landedNow) {
+      // The cancellation test is the full quantity on the destination shelf.
+      if (world.settlements[contract.destinationId].stocks.provisions >= contract.quantity) {
+        refundEscrow(world, events, contract, "cancelled", "contract-cancelled", c.id, { reason: "no-longer-needed" });
+        continue;
+      }
+      if (world.tick >= contract.deadlineTick) {
+        // A loaded carrier one tick out lands next tick instead of breaching.
+        if (c.travel && c.travel.toId === contract.destinationId && c.travel.remainingTicks === 1 && c.cargo.provisions >= contract.quantity) continue;
+        refundEscrow(world, events, contract, "breached", "contract-breached", c.id, { ...breachCause(world, contract, c) });
+        const current = contractParties(world, contract);
+        if (current) writeContractRelationships(world, events, current.buyer, current.carrier, false, "supply contract breached");
+      }
       continue;
     }
     const { carrier, buyer } = parties;
@@ -3549,6 +3563,14 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
       deadlineTick = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(contractTravelTicks(world, first, settlement.id) + 1, 2));
     } else for (const carrier of carriers) {
       if (openSupplyContract(world, buyer.id, carrier.id)) continue;
+      // Walk skip: standing on the destination without the quantity aboard.
+      if (carrier.locationId === settlement.id && carrier.cargo.provisions < SUPPLY_QUANTITY) continue;
+      // Own-port extension: this port cannot supply the shortfall for the voyage.
+      if (carrier.locationId && carrier.locationId !== settlement.id) {
+        const voyage = travelDuration(world, carrier, settlement.id);
+        const shortfall = SUPPLY_QUANTITY + provisionDemand(carrier) * voyage - carrier.cargo.provisions;
+        if (world.settlements[carrier.locationId].stocks.provisions < shortfall) continue;
+      }
       const travelTicks = contractTravelTicks(world, carrier, settlement.id);
       const deadline = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1, 2));
       const assessment = assessSupplyContract(world, carrier, {
@@ -3612,6 +3634,78 @@ function resolveAgingDeaths(world: WorldState, events: SimEvent[]): void {
       data: { ...agingDeathData(world, character) },
     });
   }
+}
+
+/**
+ * The contract haul: an accepted carrier buys the shortfall and sails.
+ *
+ * The haul replaces the ordinary action only on a tick when it can buy or
+ * sail. There is no extra landing pass after the character loop. Block marks
+ * are kept per world, not on the contract, and only name a breach cause.
+ */
+type HaulMarks = { purseBuy?: boolean; passage?: boolean; diverted?: boolean; holdFull?: boolean; stockBlocked?: boolean; castOff?: boolean };
+const haulMarks = new WeakMap<WorldState, Map<string, HaulMarks>>();
+function marksFor(world: WorldState, id: string): HaulMarks {
+  let m = haulMarks.get(world); if (!m) { m = new Map(); haulMarks.set(world, m); }
+  let x = m.get(id); if (!x) { x = {}; m.set(id, x); } return x;
+}
+function activeHaul(world: WorldState, character: Character): SupplyContract | null {
+  return Object.values(world.contracts ?? {})
+    .filter((c) => c.carrierId === character.id && c.status === "accepted" && !c.settled && c.order)
+    .sort((a, b) => a.id.localeCompare(b.id))[0] ?? null;
+}
+function haulPlan(world: WorldState, character: Character, contract: SupplyContract) {
+  const dest = contract.destinationId as string;
+  const here = character.locationId!;
+  const sea = here === dest ? 0 : travelDuration(world, character, dest);
+  const target = contract.quantity + provisionDemand(character) * sea;
+  const need = round(Math.max(0, target - character.cargo.provisions));
+  const settlement = world.settlements[here];
+  const stock = settlement.stocks.provisions;
+  const spare = Math.max(0, cargoCapacity(character) - cargoLoad(character));
+  const price = marketPrice(world, here, "provisions");
+  const affordable = price > 0 ? spendableAmount(world, character, PASSAGE_COST_PER_TICK) / price : 0;
+  const qty = need > 0 ? round(Math.max(0, Math.min(need, stock, spare, affordable))) : 0;
+  const cargoAfter = character.cargo.provisions + qty;
+  const timeOk = sea <= contract.deadlineTick - world.tick;
+  const passageOk = here !== dest ? quotedPassage(world, character, dest).affordable : false;
+  const sailOk = here !== dest && cargoAfter >= target && timeOk && passageOk;
+  return { dest, here, sea, target, need, stock, spare, price, affordable, qty, timeOk, passageOk, sailOk, canAct: qty > 0 || sailOk };
+}
+function runHaul(world: WorldState, character: Character, contract: SupplyContract, plan: ReturnType<typeof haulPlan>, events: SimEvent[], rng: DeterministicRng): void {
+  const marks = marksFor(world, contract.id);
+  if (plan.qty > 0) {
+    const gross = round(plan.qty * plan.price, 2);
+    const spent = resolveQuotedSpend(world, character, gross, PASSAGE_COST_PER_TICK);
+    if (!spent.ok) { marks.purseBuy = true; }
+    else {
+      const settlement = world.settlements[plan.here];
+      const characterCargo = cloneResources(character.cargo);
+      const settlementStocks = cloneResources(settlement.stocks);
+      characterCargo.provisions = round(characterCargo.provisions + plan.qty);
+      settlementStocks.provisions = round(settlementStocks.provisions - plan.qty);
+      emit(world, events, { type: "market-trade", actorId: character.id, settlementId: plan.here, data: {
+        direction: "bought", resource: "provisions", quantity: plan.qty, unitPrice: plan.price, gross, tax: 0,
+        characterMoney: spent.characterMoney, characterCargo, settlementStocks, ...spendData(spent) } });
+    }
+  }
+  if (plan.here === plan.dest) return;
+  const passage = quotedPassage(world, character, plan.dest);
+  if (!passage.affordable) { marks.passage = true; return; }
+  if (character.cargo.provisions >= plan.target && plan.timeOk) {
+    marks.castOff = true;
+    resolveDecision(world, character, { action: "travel", score: 0, reason: "deliver the accepted provisions contract", targetId: plan.dest }, events, rng);
+  }
+}
+function breachCause(world: WorldState, contract: SupplyContract, carrier: Character): { cause: string; detail?: string } {
+  const m = marksFor(world, contract.id);
+  if (carrier.captivity) return { cause: "capture" };
+  if (m.purseBuy) return { cause: "purse", detail: "buy" };
+  if (m.passage) return { cause: "purse", detail: "passage" };
+  if (m.diverted) return { cause: "choice", detail: "better-motive" };
+  if (m.holdFull) return { cause: "choice", detail: "hold-full" };
+  if (carrier.locationId === contract.destinationId && !carrier.travel && carrier.cargo.provisions < contract.quantity) return { cause: "choice", detail: "consumed" };
+  return { cause: "choice", detail: "deadline-infeasible" };
 }
 
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
@@ -3689,6 +3783,27 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     const candidates = buildCandidates(world, character, rng);
     const chosen = candidates[0];
     if (!chosen) continue;
+    const haul = activeHaul(world, character);
+    if (haul) {
+      const plan = haulPlan(world, character, haul);
+      const marks = marksFor(world, haul.id);
+      if (plan.need > 0 && plan.stock <= 0) marks.stockBlocked = true;
+      if (plan.here !== plan.dest && !plan.passageOk) marks.passage = true;
+      if (plan.need > 0 && plan.spare <= 0) marks.holdFull = true;
+      if (plan.need > 0 && plan.stock > 0 && plan.spare > 0 && plan.affordable < Math.min(plan.need, plan.stock, plan.spare)) marks.purseBuy = true;
+      const weight = round(haul.order!.score * 100, 2);
+      if (plan.canAct) {
+        if (chosen.score > weight) marks.diverted = true;
+        else {
+          const haulChoice = { action: "haul", score: weight, reason: "deliver the accepted provisions contract", targetId: plan.dest };
+          emit(world, events, { type: "decision-made", actorId: character.id, settlementId: character.locationId ?? undefined, targetId: plan.dest,
+            data: { archetype: character.archetype, goal: "haul", chosen: haulChoice, candidates: candidates.slice(0, 6) } });
+          runHaul(world, character, haul, plan, events, rng);
+          evolveLocalRelationship(world, character, events, rng);
+          continue;
+        }
+      }
+    }
     emit(world, events, {
       type: "decision-made",
       actorId: character.id,

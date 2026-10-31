@@ -3,10 +3,22 @@ import test from "node:test";
 import { checkInEvents, dashboardState, fullEventFeed, projectEventFeed } from "../src/dashboard/view-model.ts";
 import { projectCharacter } from "../src/dashboard/visibility.ts";
 import { captivityReleasedParts } from "../src/dashboard/wording.ts";
-import { runTicks } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { round, stateHash } from "../src/sim/state.ts";
 import type { SimEvent, WorldState } from "../src/sim/types.ts";
+
+/**
+ * Seed 1847 in the live session, the run the dashboard shows. The contract
+ * haul moved Mara Vane's Crown Harbor hold (tick 528 to 612) out of the
+ * headless run; the live run keeps it.
+ */
+function liveTicks(seed: number, ticks: number): { state: WorldState; events: SimEvent[] } {
+  const state = createPrototypeWorld(seed);
+  const events: SimEvent[] = [];
+  while (state.tick < ticks) events.push(...runTick(state, { liveSession: true }).events);
+  return { state, events };
+}
 
 function rawTypeLine(world: WorldState, event: SimEvent): string {
   const actor = event.actorId ? world.characters[event.actorId]?.name ?? event.actorId : "World";
@@ -93,6 +105,7 @@ test("seed 2718 Mina Vale at tick 80 rounds the held troop figures", () => {
 });
 
 test("briefing titles on a held captain and on returned troops are sentences", () => {
+  // Re-pinned for the contract haul: hauls on 2718 change the check-in titles and counts.
   // Treasury spending moved the tick 168 check-in and the first troop returns.
   const scattered = runTicks(createPrototypeWorld(2718), 168);
   // GET /api/state builds the check-in from the last 180 ticks, capped at
@@ -103,14 +116,14 @@ test("briefing titles on a held captain and on returned troops are sentences", (
   };
   assert.equal(counted.length, 5_000);
   assert.equal(counted[0]?.tick, 126);
-  assert.equal(countedView.briefing.attentionCount, 8);
+  assert.equal(countedView.briefing.attentionCount, 4);
   assert.equal(countedView.briefing.omittedInfoCount, 0);
   const windowed = checkInEvents(scattered.events, scattered.state.tick);
   const full = dashboardState(scattered.state, windowed, fullEventFeed(windowed)) as {
     briefing: { items: Array<{ title: string; summary: string }>; attentionCount: number; omittedInfoCount: number };
   };
-  assert.deepEqual(full.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A captain was taken', 'A battle was decided', 'A battle was decided', 'A captain was taken', 'An order was not followed, 5 times.', 'A battle was decided', 'A battle was decided', 'An order was not followed, 3 times.', 'An order was refused', 'An order was refused', 'An order was refused', 'An order was refused' ]);
-  assert.equal(full.briefing.attentionCount, 18);
+  assert.deepEqual(full.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A battle was decided', 'A captain was taken', 'An order was not followed, 5 times.', 'A battle was decided', 'A battle was decided', 'An order was not followed, 3 times.', 'An order was refused', 'An order was refused', 'An order was refused', 'An order was refused' ]);
+  assert.equal(full.briefing.attentionCount, 14);
   assert.equal(full.briefing.omittedInfoCount, 8);
   const returnedRun = runTicks(createPrototypeWorld(2718), 200);
   const returnsOnly = dashboardState(
@@ -127,7 +140,7 @@ test("briefing titles on a held captain and on returned troops are sentences", (
   assert.deepEqual(returns.map((event) => event.tick), [167, 173, 179, 185, 191, 197]);
 
   // The batch 2 pin moved Mara's hold to Crown Harbor, captured on tick 528. Tick 534 is a day boundary during that hold.
-  const held = runTicks(createPrototypeWorld(1847), 534);
+  const held = liveTicks(1847, 534);
   assert.equal(held.state.characters["character-01"].captivity?.settlementId, "crown-harbor");
   const heldView = dashboardState(held.state, held.events, fullEventFeed(held.events)) as {
     briefing: { items: Array<{ id: string; title: string }> };
@@ -149,8 +162,9 @@ test("the loyalty note uses plain words and only the rounded figure", () => {
 });
 
 test("seed 1847 shows the release debt and the ransom credit the line already states", () => {
+  // Re-pinned for the contract haul: the live session keeps both debts; the figures moved.
   // The batch 2 pin leaves Corin Hale's Crown Harbor debt, and Mara's own Crown Harbor debt, on the cards at tick 613.
-  const at613 = runTicks(createPrototypeWorld(1847), 613);
+  const at613 = liveTicks(1847, 613);
   const before = stateHash(at613.state);
   const mara = at613.state.characters["character-01"];
   const dax = at613.state.characters["character-16"];
@@ -159,32 +173,33 @@ test("seed 1847 shows the release debt and the ransom credit the line already st
   assert.equal(dax.name, "Corin Hale");
   assert.equal(dax.captivity, null);
   assert.equal(daxCard.debts, null);
-  assert.equal(daxCard.releaseDebtNote, "Owes 62.66 from the release at Crown Harbor.");
-  assert.equal(maraCard.releaseDebtNote, "Owes 128.84 from the release at Crown Harbor.");
+  assert.equal(daxCard.releaseDebtNote, "Owes 79.38 from the release at Crown Harbor.");
+  assert.equal(maraCard.releaseDebtNote, "Owes 80.85 from the release at Crown Harbor.");
   assert.equal(maraCard.ransomIncomeNote, null);
   assert.equal(stateHash(at613.state), before);
 });
 
 test("seed 1847 tick 612 separates the ransom from the Crown Harbor work", () => {
+  // Re-pinned for the contract haul: the live session keeps this release; sequences, the debt and the worker moved.
   // The batch 2 pin put Mara's release and Crown Harbor work on tick 612. They stay different sentences.
-  const run = runTicks(createPrototypeWorld(1847), 613);
+  const run = liveTicks(1847, 613);
   const before = stateHash(run.state);
-  const release = run.events.find((event) => event.sequence === 78722);
-  const cinderUpkeep = run.events.find((event) => event.sequence === 78715);
-  const crownUpkeep = run.events.find((event) => event.sequence === 78717);
-  const glassUpkeep = run.events.find((event) => event.sequence === 78719);
-  const verdantUpkeep = run.events.find((event) => event.sequence === 78721);
-  const traded = run.events.find((event) => event.sequence === 78779);
+  const release = run.events.find((event) => event.sequence === 79032);
+  const cinderUpkeep = run.events.find((event) => event.sequence === 79025);
+  const crownUpkeep = run.events.find((event) => event.sequence === 79027);
+  const glassUpkeep = run.events.find((event) => event.sequence === 79029);
+  const verdantUpkeep = run.events.find((event) => event.sequence === 79031);
+  const traded = run.events.find((event) => event.sequence === 79062);
   assert.ok(release && cinderUpkeep && crownUpkeep && glassUpkeep && verdantUpkeep && traded);
   const mara = run.state.characters["character-01"];
-  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 128.84 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
+  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 80.85 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
   const [releaseRow] = projectEventFeed(run.state, "character-01", [release]);
   assert.equal(releaseRow?.payloadWithheld, false);
   assert.equal(releaseRow?.summary, line);
   assert.deepEqual(releaseRow?.details, captivityReleasedParts(run.state, release, false, mara));
   assert.deepEqual(releaseRow?.details, [
     "Mara Vane was released from Crown Harbor.",
-    "108 was paid and 128.84 was recorded as debt.",
+    "108 was paid and 80.85 was recorded as debt.",
     "Loyalty fell.",
     "108 went to the Free Tide Compact treasury. The balance is not visible to you.",
     "The ransom line covers only the ransom.",
@@ -199,19 +214,19 @@ test("seed 1847 tick 612 separates the ransom from the Crown Harbor work", () =>
   assert.equal(cinder?.summary, "Cinder Key kept its stores.");
   assert.equal(cinder?.payloadWithheld, false);
   assert.equal(crown?.summary, "Crown Harbor kept its stores.");
-  assert.equal(crown?.payloadWithheld, false);
+  assert.equal(crown?.payloadWithheld, true);
   assert.equal(glass?.summary, "Glassport kept its stores.");
-  assert.equal(glass?.payloadWithheld, true);
+  assert.equal(glass?.payloadWithheld, false);
   assert.equal(verdant?.summary, "Verdant Cay kept its stores.");
   assert.equal(verdant?.payloadWithheld, true);
 
   const [workRow] = projectEventFeed(run.state, "character-01", [traded]);
   assert.equal(traded.type, "worked");
-  assert.equal(traded.actorId, "character-13");
+  assert.equal(traded.actorId, "character-08");
   assert.equal(workRow?.payloadWithheld, true);
   assert.equal(workRow?.data, null);
-  assert.equal(workRow?.summary, "Ada Sorn worked at Crown Harbor. Tax of 1.76 went to the treasury.");
+  assert.equal(workRow?.summary, "Vale Drake worked at Crown Harbor.");
   assert.equal(String(workRow?.summary).includes("108"), false);
-  assert.equal(String(workRow?.summary).includes("128.84"), false);
+  assert.equal(String(workRow?.summary).includes("80.85"), false);
   assert.equal(stateHash(run.state), before);
 });

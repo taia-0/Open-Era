@@ -11,8 +11,9 @@ function attentionStop(events: SimEvent[], playerId: string): SimEvent | undefin
   return events.find((event) => event.actorId === playerId && ATTENTION.has(event.type));
 }
 
-test("seed 2718 stops on Mara's capture and her release, and the response says why", () => {
-  const world = createPrototypeWorld(2718);
+test("seed 1847 stops on Mara's capture and her release, and the response says why", () => {
+  // Re-pinned for the contract haul: live 2718 no longer takes Mara; live 1847 takes her at tick 528 and releases her at 612.
+  const world = createPrototypeWorld(1847);
   const playerId = world.players["prototype-player"].characterId;
   const notes: Array<{ tick: number; type: string; sequence: number; eventTick: number; note: string | null }> = [];
 
@@ -34,20 +35,5 @@ test("seed 2718 stops on Mara's capture and her release, and the response says w
     });
   }
 
-  assert.deepEqual(notes, [
-    {
-      tick: 639,
-      type: "character-captured",
-      sequence: 81846,
-      eventTick: 638,
-      note: "Time stopped. Free Tide Compact took Mara Vane on the dock at Crown Harbor after Finn Frost won there on a higher score.",
-    },
-    {
-      tick: 723,
-      type: "captivity-released",
-      sequence: 93853,
-      eventTick: 722,
-      note: "Time stopped. Mara Vane was released from Crown Harbor.",
-    },
-  ]);
+  assert.deepEqual(notes, [ { tick: 529, type: 'character-captured', sequence: 66897, eventTick: 528, note: 'Time stopped. Free Tide Compact took Mara Vane on the dock at Crown Harbor after Mara Calder won there on a higher score.' }, { tick: 613, type: 'captivity-released', sequence: 79032, eventTick: 612, note: 'Time stopped. Mara Vane was released from Crown Harbor.' } ]);
 });

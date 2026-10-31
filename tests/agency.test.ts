@@ -648,7 +648,6 @@ test("Zara accepts price 18 and refuses price 8 at the opening factors, and scor
   const mara = world.characters["character-01"];
   const zara = world.characters["character-17"];
   assert.equal(zara.name, "Zara Gale");
-  assert.equal(zara.locationId, "crown-harbor");
   assert.equal(zara.cargo.provisions, 32);
   assert.equal(zara.money, 93);
   assert.equal(mara.money, 108);
@@ -932,15 +931,18 @@ test("fulfilling a delivery of 10 adds 10 provisions to Crown Harbor, pays the c
 test("a hold of 9 does not fulfil a delivery of 10", () => {
   const world = createPrototypeWorld(1847);
   const zara = world.characters["character-17"];
-  const submission = offerDelivery(world, 18);
+  const submission = offerDelivery(world, 80);
   assert.equal(submission.ok, true);
   runTick(world);
   pinCarrier(world);
   zara.cargo.provisions = 9;
+  // The haul cancels a contract whose destination shelf already holds the quantity, so empty it;
+  // an empty shelf scores the margin at its floor, so the offer pays 80 to clear the threshold.
+  world.settlements["crown-harbor"].stocks.provisions = 0;
   const judged = runTick(world);
   const contract = Object.values(world.contracts ?? {})[0];
   assert.equal(contract.status, "accepted");
-  assert.equal(contract.escrow, 18);
+  assert.equal(contract.escrow, 80);
   assert.equal(contract.settled, false);
   assert.equal(judged.events.some((event) => event.type === "contract-accepted"), true);
   assert.equal(judged.events.some((event) => event.type === "contract-fulfilled"), false);
@@ -950,10 +952,15 @@ test("a passed deadline returns the escrow and writes the defeat deltas", () => 
   const world = createPrototypeWorld(1847);
   const mara = world.characters["character-01"];
   const zara = world.characters["character-17"];
-  const submission = offerDelivery(world, 18, 10, 1);
+  const submission = offerDelivery(world, 80, 10, 1);
   assert.equal(submission.ok, true);
   runTick(world);
   pinCarrier(world);
+  // The haul cancels a contract whose destination shelf already holds the quantity, so empty it.
+  world.settlements["crown-harbor"].stocks.provisions = 0;
+  // A carrier standing on the destination with the quantity lands it, so she arrives empty;
+  // the empty shelf floors the margin, so the offer pays 80 to clear the threshold.
+  zara.cargo.provisions = 0;
   const beforeBuyer = mara.relationships[zara.id];
   const beforeCarrier = zara.relationships[mara.id];
   const carrierMoney = zara.money;
@@ -965,10 +972,10 @@ test("a passed deadline returns the escrow and writes the defeat deltas", () => 
   assert.equal(contract.status, "breached");
   assert.equal(contract.escrow, 0);
   assert.equal(contract.settled, true);
-  // The treasury-funded 18 returns to the treasury. The purse stays 108.
-  // It used to be credited to the purse, which raised buyerMoney to 126.
+  // The treasury-funded 80 returns to the treasury. The purse stays 108.
+  // It used to be credited to the purse, which raised buyerMoney above 108.
   assert.equal(breached.data.buyerMoney, 108);
-  assert.equal(breached.data.treasuryRefunded, 18);
+  assert.equal(breached.data.treasuryRefunded, 80);
   assert.equal(breached.data.purseRefunded, 0);
   assert.equal(breached.data.carrierMoney, carrierMoney);
   assert.equal(breached.data.escrow, 0);
