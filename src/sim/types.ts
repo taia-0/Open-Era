@@ -24,6 +24,12 @@ export interface Faction {
    * Absent, not null, once that holder is free. The holder is not stored here.
    */
   actingCommanderId?: string;
+  /**
+   * The owner who declared this breakaway, from `secession-declared.data.ownerId`.
+   * Absent on every faction that did not come from a secession. Only the
+   * autonomous tax step reads it, while the faction has no command holder.
+   */
+  founderId?: string;
 }
 
 /**

@@ -1059,6 +1059,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
         color: String(faction.color),
         treasury: faction.treasury,
         taxRate: faction.taxRate,
+        founderId: ownerId,
       };
       owner.factionId = faction.id;
       const successorId = typeof event.data.successorId === "string" ? event.data.successorId : null;

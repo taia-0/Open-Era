@@ -1,6 +1,6 @@
 import { freeMateCount, fullAllowance, spendRole } from "./allowance.ts";
 import { newsStabilityThousandths } from "./news.ts";
-import { CLAIM_STABILITY_FLOOR } from "./state.ts";
+import { CLAIM_STABILITY_FLOOR, commandHolderId } from "./state.ts";
 import type { Character, WorldState } from "./types.ts";
 
 /**
@@ -142,7 +142,15 @@ function freeCommandHolder(world: WorldState, factionId: string): Character | nu
   const holders = Object.values(world.characters)
     .filter((character) => character.factionId === factionId && spendRole(world, character) === "holder")
     .sort((left, right) => left.id.localeCompare(right.id));
-  return holders[0] ?? null;
+  if (holders[0]) return holders[0];
+  // Founder tax seat (breakaway-tax.md, ruling 1): until someone issues an order,
+  // the declaring owner holds the tax seat of a breakaway if alive, still a member,
+  // and not captive. Nothing else reads this fallback.
+  const founderId = world.factions[factionId]?.founderId;
+  if (!founderId || commandHolderId(world, factionId) !== null) return null;
+  const founder = world.characters[founderId];
+  if (!founder || founder.dead || founder.factionId !== factionId || founder.captivity) return null;
+  return founder;
 }
 
 /**
@@ -182,7 +190,11 @@ export function autonomousTaxStep(world: WorldState, factionId: string): Autonom
     lowest = Math.min(lowest, figure);
   }
   const pressed = known && lowest <= CLAIM_STABILITY_FLOOR * 1000;
-  const mates = freeMateCount(world, factionId);
+  // The founder seat is not a mate (breakaway-tax.md, ruling 2): a faction with
+  // no mates does not step up for short. freeMateCount counts the founder,
+  // since only this step reads the fallback, so take the founder back out.
+  const founderSeat = commandHolderId(world, factionId) === null;
+  const mates = freeMateCount(world, factionId) - (founderSeat ? 1 : 0);
   const dayCents = Math.round(fullAllowance(world, PASSAGE_PER_TICK) * 100);
   const treasuryCents = Math.round(faction.treasury * 100);
   const short = mates > 0 && treasuryCents < mates * dayCents;
