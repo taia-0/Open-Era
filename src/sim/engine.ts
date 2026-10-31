@@ -1,5 +1,6 @@
+import { beginGovernorLevy, endGovernorLevy, governorId, governorLevyRate } from "./governor.ts";
+import { applySilentTickStart } from "./tick-start.ts";
 import { DeterministicRng } from "./rng.ts";
-import { createPrototypeWorld } from "./scenario.ts";
 import {
   autonomousShouldRetreat,
   battleRisk,
@@ -23,15 +24,18 @@ import {
   planActionBoost,
   reviewPlan,
 } from "./agency.ts";
-import { assessSupplyContract, contractRelationship } from "./contracts.ts";
+import { assessSupplyContract, contractRelationship, contractTravelTicks, openSupplyContract } from "./contracts.ts";
+import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
 import { autonomousTaxStep, taxDrift, taxRateCommandRefusal, TAX_RATE_COOLDOWN_TICKS } from "./tax-rate.ts";
-import { autonomousSecessionReady, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
   applyEvent,
   captorPartyLeader,
   CLAIM_STABILITY_FLOOR,
   clamp,
+  commandHolderId,
   distanceBetween,
   factionPower,
   marketPrice,
@@ -187,7 +191,39 @@ function emit(world: WorldState, events: SimEvent[], draft: EventDraft): SimEven
   };
   applyEvent(world, event);
   events.push(event);
+  postPublicNews(world, events, event);
   return event;
+}
+
+/**
+ * One public item, posted at the port the event names.
+ * A tax step is posted where the holder is standing. At sea, the tax reducer
+ * already put it in the bag. A `news-posted` does not post again.
+ */
+function postPublicNews(world: WorldState, events: SimEvent[], event: SimEvent): void {
+  if (!PUBLIC_NEWS_TYPES.has(event.type)) return;
+  if (event.type === "tax-rate-set") {
+    const holder = event.actorId ? world.characters[event.actorId] : undefined;
+    if (!holder?.locationId) return;
+    const record = newsRecordFor(world, event, null);
+    if (ledgerHas(world.settlements[holder.locationId].news, record.item.id)) return;
+    emit(world, events, {
+      type: "news-posted",
+      actorId: holder.id,
+      settlementId: holder.locationId,
+      data: { record },
+    });
+    return;
+  }
+  if (!event.settlementId || !world.settlements[event.settlementId]) return;
+  const record = newsRecordFor(world, event, event.settlementId);
+  if (ledgerHas(world.settlements[event.settlementId].news, record.item.id)) return;
+  emit(world, events, {
+    type: "news-posted",
+    actorId: event.actorId,
+    settlementId: event.settlementId,
+    data: { record },
+  });
 }
 
 /**
@@ -463,9 +499,14 @@ export function tradeAmounts(
   unitPrice: number,
   taxRate: number,
   direction: "buy" | "sell",
+  levyRate = 0,
 ): { gross: number; tax: number; net: number } {
   const gross = round(quantity * unitPrice, 2);
-  const tax = direction === "sell" ? round(gross * taxRate, 2) : 0;
+  // The faction rate and the governor levy each round to a cent, then add.
+  // A buy is not taxed and pays no levy.
+  const tax = direction === "sell"
+    ? round(round(gross * taxRate, 2) + round(gross * levyRate, 2), 2)
+    : 0;
   return { gross, tax, net: round(gross - tax, 2) };
 }
 
@@ -526,7 +567,8 @@ export function tradeQuote(
 
   const quantity = round(Math.max(0, Math.min(requested, maxQuantity)), 3);
   const taxRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
-  const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction);
+  const levyRate = governorLevyRate(world, settlement.id);
+  const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction, levyRate);
 
   // Named so a refusal can say which limit was reached rather than only that one
   // was. A partial fill the player did not ask for is the defect this replaces.
@@ -783,7 +825,8 @@ function travelCandidates(world: WorldState, character: Character): DecisionCand
       const tradeOpportunity = carried
         ? Math.max(0, believedPrice(world, character, settlement.id, carried) - marketPrice(world, character.locationId!, carried)) * tradableAmount(character, carried)
         : 0;
-      const factionInterest = settlement.factionId !== character.factionId && character.personality.ambition > 0.6 ? 8 : 0;
+      const knownFaction = character.knowledge[settlement.id]?.factionId;
+      const factionInterest = knownFaction !== character.factionId && character.personality.ambition > 0.6 ? 8 : 0;
       const score =
         8 +
         character.personality.curiosity * 22 +
@@ -867,7 +910,7 @@ function buildCandidates(
   // raids at 8. Troops, cooldown, hostility, and the open-battle check stay.
   const landless =
     character.factionId !== null &&
-    !Object.values(world.settlements).some((held) => held.factionId === character.factionId);
+    !Object.values(world.settlements).some((held) => character.knowledge[held.id]?.factionId === character.factionId);
   if (
     hostileTerritory &&
     character.factionId !== null &&
@@ -917,7 +960,8 @@ function tradeTax(world: WorldState, settlementId: string, gross: number): { tax
   const settlement = world.settlements[settlementId];
   if (!settlement.factionId) return { tax: 0, treasury: 0 };
   const faction = world.factions[settlement.factionId];
-  const tax = round(gross * faction.taxRate, 2);
+  const levyRate = governorLevyRate(world, settlementId);
+  const tax = round(round(gross * faction.taxRate, 2) + round(gross * levyRate, 2), 2);
   return { tax, treasury: round(faction.treasury + tax, 2) };
 }
 
@@ -1166,6 +1210,7 @@ function selectOutscoreDockPrisoner(
   if (!losingFactionId) return null;
   const ranked = Object.values(world.characters)
     .filter((candidate) =>
+      !candidate.dead &&
       candidate.factionId === losingFactionId &&
       candidate.locationId === settlementId &&
       candidate.travel === null &&
@@ -1497,8 +1542,9 @@ function progressActiveBattles(world: WorldState, events: SimEvent[], rng: Deter
   const participants = new Set<string>();
   for (const battle of Object.values(world.activeBattles).sort((left, right) => left.id.localeCompare(right.id))) {
     if (battle.startedTick >= world.tick) continue;
-    participants.add(battle.attackerId);
     const attacker = world.characters[battle.attackerId];
+    if (!attacker || attacker.dead) continue;
+    participants.add(battle.attackerId);
     if (attacker.controller.kind === "autonomous" && autonomousShouldRetreat(world, battle)) {
       retreatFromBattle(world, battle, events, rng);
     } else {
@@ -1723,6 +1769,7 @@ function processCaptivityDeadlines(
   rng: DeterministicRng,
 ): void {
   for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    if (character.dead) continue;
     const captivity = character.captivity;
     if (!captivity || world.tick < captivity.mandatoryReleaseTick) continue;
     const physicalAverage = Object.values(character.attributes).reduce((sum, value) => sum + value, 0) / 4;
@@ -1794,7 +1841,7 @@ function collectCaptivityDebts(world: WorldState, events: SimEvent[]): void {
   if (world.ticksPerDay <= 0 || world.tick % world.ticksPerDay !== 0) return;
   const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
   for (const character of characters) {
-    if (character.captivity) continue;
+    if (character.dead || character.captivity) continue;
     const debt = character.debts
       .filter((row) =>
         row.remainingValue > 0 &&
@@ -1827,6 +1874,7 @@ function collectCaptivityDebts(world: WorldState, events: SimEvent[]): void {
 
 function progressTroopRecoveries(world: WorldState, events: SimEvent[]): void {
   for (const character of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    if (character.dead) continue;
     const recovery = character.troopRecovery;
     if (!recovery || character.captivity || world.tick < recovery.nextReturnTick) continue;
     const returning = Math.min(recovery.remaining, Math.max(1, Math.ceil(recovery.total / 7)));
@@ -2825,12 +2873,13 @@ function expireStandingOrders(world: WorldState, events: SimEvent[]): void {
  */
 function confirmUnansweredOrders(world: WorldState, events: SimEvent[]): void {
   for (const holder of Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id))) {
+    if (holder.dead) continue;
     for (const order of holder.standingOrders) {
       if (order.status !== "awaiting-confirmation") continue;
       const waited = world.tick - order.statusChangedTick;
       if (waited < 1) continue;
       const issuer = world.characters[order.issuerId];
-      const judges = issuer !== undefined && issuer.controller.kind === "autonomous" && issuer.captivity === null;
+      const judges = issuer !== undefined && !issuer.dead && issuer.controller.kind === "autonomous" && issuer.captivity === null;
       if (!judges && waited < world.ticksPerDay) continue;
       const issuerName = issuer?.name ?? order.issuerId;
       const reason = judges ? "issuer-judgment" : "issuer-silent";
@@ -2992,7 +3041,8 @@ function resolveDecision(
       const quantity = round(Math.max(0, Math.min(chosen.quantity ?? 0, limit)), 3);
       if (quantity <= 0) break;
       const taxRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
-      const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction);
+      const levyRate = governorLevyRate(world, settlement.id);
+      const { gross, tax, net } = tradeAmounts(quantity, unitPrice, taxRate, direction, levyRate);
       const characterCargo = cloneResources(character.cargo);
       const settlementStocks = cloneResources(settlement.stocks);
       characterCargo[resource] = round(characterCargo[resource] + (direction === "buy" ? quantity : -quantity));
@@ -3268,6 +3318,7 @@ function partySightingsAt(
 ): PartySighting[] {
   return Object.values(world.characters)
     .filter((candidate) =>
+      !candidate.dead &&
       candidate.id !== observerId &&
       candidate.locationId === settlementId &&
       candidate.travel === null
@@ -3301,12 +3352,24 @@ function progressTravel(world: WorldState, character: Character, events: SimEven
     },
   });
   if (remainingTicks === 0) {
+    const bag = character.carriedNews ? [...character.carriedNews] : [];
+    const destinationId = travel.toId;
     emit(world, events, {
       type: "arrived",
       actorId: character.id,
-      settlementId: travel.toId,
-      data: { locationId: travel.toId, fromId: travel.fromId },
+      settlementId: destinationId,
+      data: { locationId: destinationId, fromId: travel.fromId },
     });
+    const destination = world.settlements[destinationId];
+    for (const record of bag) {
+      if (ledgerHas(destination.news, record.item.id)) continue;
+      emit(world, events, {
+        type: "news-posted",
+        actorId: character.id,
+        settlementId: destinationId,
+        data: { record },
+      });
+    }
     const knowledge = directObservation(world, character);
     if (knowledge) {
       emit(world, events, {
@@ -3368,8 +3431,29 @@ export interface TickOptions {
 function declareAutonomousSecessions(world: WorldState, events: SimEvent[], liveSession: boolean): void {
   const settlements = Object.values(world.settlements).sort((left, right) => left.id.localeCompare(right.id));
   for (const settlement of settlements) {
-    if (!autonomousSecessionReady(world, settlement, liveSession)) continue;
-    const declared = buildSecessionDeclaration(world, settlement);
+    if (!settlement.factionId) continue;
+    const seated = governorId(world, settlement.id);
+    if (!seated) continue;
+    const governor = world.characters[seated];
+    if (!governor || governor.dead || governor.controller.kind !== "autonomous") continue;
+    if (governor.locationId !== settlement.id || governor.travel !== null || governor.captivity !== null) continue;
+    if (governor.factionId !== settlement.factionId) continue;
+    const holderId = commandHolderId(world, settlement.factionId);
+    if (holderId === governor.id) continue;
+    const taxRate = world.factions[settlement.factionId]?.taxRate ?? 0;
+    if (!(taxRate > 0.15)) continue;
+    const figure = newsStabilityThousandths(world, governor, settlement.id, false);
+    if (figure === null || figure > CLAIM_STABILITY_FLOOR * 1000) continue;
+    if (settlement.secessionDeclaredBy === governor.id) continue;
+    const actingId = world.factions[settlement.factionId]?.actingCommanderId ?? null;
+    const followerIds = newsFollowerIds(world, governor, settlement.id).filter((id) => {
+      const character = world.characters[id];
+      if (!character || character.dead) return false;
+      if (character.locationId !== settlement.id || character.travel !== null || character.captivity !== null) return false;
+      if (character.id === governor.id || character.id === holderId || character.id === actingId) return false;
+      return true;
+    });
+    const declared = buildGovernorSecession(world, settlement, governor, followerIds, true);
     emit(world, events, {
       type: "secession-declared",
       actorId: declared.ownerId,
@@ -3401,74 +3485,161 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
   }
 }
 
-const shortStreaks = new WeakMap<Character, number>();
-const desertionStreams = new WeakMap<WorldState, DeterministicRng>();
-
-/**
- * Side stream for the desertion roll.
- *
- * Forked from `rngState` at the start of tick 0. It is not written back, and
- * it is not stored on the world, so a morning that does not roll leaves the
- * hash alone.
- */
-function desertionRng(world: WorldState): DeterministicRng {
-  let rng = desertionStreams.get(world);
-  if (!rng) {
-    rng = new DeterministicRng(createPrototypeWorld(world.seed).rngState);
-    desertionStreams.set(world, rng);
-  }
-  return rng;
-}
-
 /**
  * Twelve short mornings, then one side-stream roll.
  *
- * Read at the start of the morning, before production. A short mate's streak
- * grows by one. Any other morning resets it. On the morning the streak becomes
- * 12, a mate whose loyalty is under 0.75 draws one `next()`. The roll is stored
- * to 3 decimals. Under 0.5, `factionId` becomes null. Place, travel, and troops
- * stay. The cap is the cap at the start of the morning.
+ * The streak and the stream position are written on the world before the
+ * event, so a snapshot in the middle of a streak restores both. The event
+ * still carries the roll. A stay emits nothing.
  */
-function resolveMorningDesertion(world: WorldState, events: SimEvent[]): void {
-  if (world.ticksPerDay <= 0 || world.tick % world.ticksPerDay !== 0) return;
-  const characters = Object.values(world.characters).sort((left, right) => left.id.localeCompare(right.id));
-  const short = new Set(
-    characters.filter((character) => shortPayMember(world, character, PASSAGE_COST_PER_TICK)).map((character) => character.id),
-  );
-  for (const character of characters) {
-    const next = short.has(character.id) ? (shortStreaks.get(character) ?? 0) + 1 : 0;
-    if (next === 0) shortStreaks.delete(character);
-    else shortStreaks.set(character, next);
-    if (next !== 12) continue;
-    const loyalty = character.personality.loyalty + (character.loyaltyAdjustment ?? 0);
-    if (!(loyalty < 0.75)) continue;
-    const roll = desertionRng(world).next();
-    if (!(roll < 0.5)) continue;
-    const previousFactionId = character.factionId;
+function resolveMorningDesertion(world: WorldState, events: SimEvent[], notices: ReturnType<typeof applySilentTickStart>): void {
+  for (const notice of notices) {
     emit(world, events, {
       type: "character-deserted",
-      actorId: character.id,
-      targetId: previousFactionId ?? undefined,
+      actorId: notice.characterId,
+      targetId: notice.previousFactionId ?? undefined,
       data: {
-        roll: round(roll, 3),
+        roll: notice.roll,
         factionId: null,
-        previousFactionId,
+        previousFactionId: notice.previousFactionId,
       },
     });
   }
 }
 
+/**
+ * One short shelf, one offer. The buyer is the lowest autonomous captain of
+ * the faction that holds it, standing on it, who can pay 56.25. The carrier
+ * is the lowest id who is docked and free and whom `assessSupplyContract`
+ * would already accept. Nobody else is offered. A new offer waits until the
+ * next tick. A pair that is still open is not offered again.
+ */
+const SUPPLY_QUANTITY = 10;
+const SUPPLY_PRICE = 56.25;
+const SUPPLY_DEADLINE_CAP = 720;
+
+export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): void {
+  const settlements = Object.values(world.settlements).sort((left, right) => left.id.localeCompare(right.id));
+  for (const settlement of settlements) {
+    if (!(settlement.stocks.provisions < 1) || !settlement.factionId) continue;
+    const buyers = Object.values(world.characters)
+      .filter((character) =>
+        !character.dead &&
+        character.factionId === settlement.factionId &&
+        character.controller.kind === "autonomous" &&
+        character.locationId === settlement.id &&
+        character.travel === null &&
+        character.captivity === null &&
+        !Object.values(world.activeBattles).some((battle) => battle.attackerId === character.id) &&
+        resolveQuotedSpend(world, character, SUPPLY_PRICE, PASSAGE_COST_PER_TICK).ok
+      )
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const buyer = buyers[0];
+    if (!buyer) continue;
+    const carriers = Object.values(world.characters)
+      .filter((character) => !character.dead && character.id !== buyer.id && !carrierBlocked(world, character))
+      .sort((left, right) => left.id.localeCompare(right.id));
+    let chosen: Character | null = null;
+    let deadlineTick = 0;
+    if (process.env.OPEN_ERA_SUPPLY_WALK === "off") {
+      // Measurement toggle only: the pre-walk offer, to the lowest unblocked carrier.
+      const first = carriers[0];
+      if (!first || openSupplyContract(world, buyer.id, first.id)) continue;
+      chosen = first;
+      deadlineTick = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(contractTravelTicks(world, first, settlement.id) + 1, 2));
+    } else for (const carrier of carriers) {
+      if (openSupplyContract(world, buyer.id, carrier.id)) continue;
+      const travelTicks = contractTravelTicks(world, carrier, settlement.id);
+      const deadline = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1, 2));
+      const assessment = assessSupplyContract(world, carrier, {
+        buyerId: buyer.id,
+        quantity: SUPPLY_QUANTITY,
+        price: SUPPLY_PRICE,
+        destinationId: settlement.id,
+        deadlineTick: deadline,
+      });
+      if (!assessment.accepted) continue;
+      chosen = carrier;
+      deadlineTick = deadline;
+      break;
+    }
+    if (!chosen) continue;
+    const escrow = resolveQuotedSpend(world, buyer, SUPPLY_PRICE, PASSAGE_COST_PER_TICK);
+    if (!escrow.ok) continue;
+    const contract: SupplyContract = {
+      id: `supply-${settlement.id}-${world.tick}`,
+      buyerId: buyer.id,
+      carrierId: chosen.id,
+      good: "provisions",
+      quantity: SUPPLY_QUANTITY,
+      destinationId: settlement.id,
+      price: SUPPLY_PRICE,
+      escrow: SUPPLY_PRICE,
+      escrowFromTreasury: escrow.treasuryDrawn,
+      escrowFromPurse: escrow.purseDrawn,
+      settled: false,
+      deadlineTick,
+      issuedTick: world.tick,
+      acceptedTick: null,
+      status: "offered",
+      revision: 1,
+      observedTick: world.tick,
+    };
+    emitContract(world, events, "contract-offered", contract, escrow.characterMoney, chosen.money, buyer.id, {
+      ...spendData(escrow),
+      characterMoney: escrow.characterMoney,
+    });
+  }
+}
+
+/**
+ * Fixed deaths before desertion, the seat, and the stipend.
+ *
+ * The event carries the absolutes. Replay applies that event and does not
+ * roll a second death. Ages are not written on the character.
+ */
+function resolveAgingDeaths(world: WorldState, events: SimEvent[]): void {
+  const ids = Object.keys(world.characters).sort((left, right) => left.localeCompare(right));
+  for (const id of ids) {
+    const character = world.characters[id];
+    if (!character || character.dead) continue;
+    if (!diesOfOldAge(world.seed, id, world.tick)) continue;
+    const ashore = character.locationId !== null && character.travel === null;
+    emit(world, events, {
+      type: "character-died",
+      actorId: character.id,
+      settlementId: ashore ? character.locationId ?? undefined : undefined,
+      data: { ...agingDeathData(world, character) },
+    });
+  }
+}
+
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+  const leading: SimEvent[] = [];
+  resolveAgingDeaths(world, leading);
+  const notices = applySilentTickStart(world);
+  beginGovernorLevy(world);
+  try {
+    const result = runTickBody(world, options, notices);
+    result.events.unshift(...leading);
+    return result;
+  } finally {
+    endGovernorLevy(world);
+  }
+}
+
+function runTickBody(world: WorldState, options: TickOptions, notices: ReturnType<typeof applySilentTickStart>): TickResult {
   const rng = new DeterministicRng(world.rngState);
   const events: SimEvent[] = [];
 
-  resolveMorningDesertion(world, events);
+  resolveMorningDesertion(world, events, notices);
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   chooseAutonomousTaxRates(world, events, options.liveSession === true);
   declareAutonomousSecessions(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
+  offerAutonomousSupply(world, events);
   processCaptivityDeadlines(world, events, rng);
   collectCaptivityDebts(world, events);
   progressTroopRecoveries(world, events);
@@ -3477,6 +3648,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
   confirmUnansweredOrders(world, events);
 
   for (const character of Object.values(world.characters).sort((a, b) => a.id.localeCompare(b.id))) {
+    if (character.dead) continue;
     const inActiveBattle = Object.values(world.activeBattles).some((battle) => battle.attackerId === character.id);
     if (battleParticipants.has(character.id) || inActiveBattle) continue;
     if (character.captivity) continue;

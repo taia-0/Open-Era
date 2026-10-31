@@ -203,7 +203,8 @@ test("the next world day pays one day's wages toward the oldest open debt", () =
   assert.equal(repayment.data.paid, wage);
   assert.equal(repayment.data.remainingValue, round(500 - wage, 2));
   assert.equal(repayment.data.characterMoney, round(wage, 2));
-  assert.equal(repayment.data.factionTreasury, round(treasuryBefore + wage, 2));
+  // The morning stipend of one seat is drawn before the wage is credited.
+  assert.equal(repayment.data.factionTreasury, round(treasuryBefore - 18 + wage, 2));
   assert.equal(repayment.data.closed, false);
   assert.equal(commander.debts.find((debt) => debt.id === older.id)?.remainingValue, round(500 - wage, 2));
   assert.equal(commander.debts.find((debt) => debt.id === newer.id)?.remainingValue, newer.remainingValue);

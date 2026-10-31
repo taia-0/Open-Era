@@ -319,6 +319,47 @@ export function autonomousFactionName(world: WorldState, settlement: Settlement)
  * because that cover has taken the seat. A holder with no successor is
  * refused before this runs.
  */
+/**
+ * A governor's declaration. `ownerId` on the payload is the governor, even
+ * when the port's `ownerId` is still null. Stability on the payload is the
+ * live port figure. Followers are the news list, already filtered.
+ */
+export function buildGovernorSecession(
+  world: WorldState,
+  settlement: Settlement,
+  governor: Character,
+  followerIds: readonly string[],
+  pressed: boolean,
+): SecessionDeclaredData {
+  if (!settlement.factionId) throw new Error("A governor declaration requires a faction port");
+  const previousFactionId = settlement.factionId;
+  const previousActing = world.factions[previousFactionId]?.actingCommanderId ?? null;
+  const holderId = commandHolderId(world, previousFactionId);
+  const leaving = [governor.id, ...followerIds];
+  const actingCommanderId = previousActing !== null && leaving.includes(previousActing)
+    ? actingCoverId(world, previousFactionId, holderId, leaving)
+    : previousActing;
+  const garrisonFollowed = pressed && settlement.garrison > 0;
+  return {
+    previousFactionId,
+    ownerId: governor.id,
+    followerIds: [...followerIds],
+    garrisonFollowed,
+    garrison: garrisonFollowed ? settlement.garrison : 0,
+    stability: settlement.stability,
+    faction: {
+      id: secessionFactionId(governor.id, settlement.id, world.tick),
+      name: autonomousFactionName(world, settlement),
+      color: SECESSION_FACTION_COLOR,
+      treasury: 0,
+      taxRate: SECESSION_FOUNDING_TAX_RATE,
+    },
+    previousActingCommanderId: previousActing,
+    actingCommanderId,
+    successorId: null,
+  };
+}
+
 export function buildSecessionDeclaration(
   world: WorldState,
   settlement: Settlement,

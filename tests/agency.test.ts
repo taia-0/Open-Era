@@ -101,6 +101,11 @@ test("after a claim at garrison 13, regrowth reaches 15 and a hostile raid is of
   const anchor = world.settlements["verdant-cay"];
   anchor.factionId = raider.factionId;
   anchor.garrison = 7;
+  // Landlessness reads knowledge, not the live flag. The anchor has to be known.
+  for (const character of Object.values(world.characters)) {
+    const belief = character.knowledge[anchor.id];
+    if (belief) belief.factionId = anchor.factionId;
+  }
   claimant.locationId = settlement.id;
   claimant.travel = null;
   settlement.garrison = 13;
@@ -220,6 +225,10 @@ test("a claimed port is not claimed or raided again while its garrison stays und
   const anchor = world.settlements["verdant-cay"];
   anchor.factionId = "free-tide";
   anchor.garrison = 7;
+  for (const character of Object.values(world.characters)) {
+    const belief = character.knowledge[anchor.id];
+    if (belief) belief.factionId = anchor.factionId;
+  }
 
   const claimed = runTick(world);
   assert.ok(claimed.events.some((event) =>
@@ -280,6 +289,12 @@ test("a landless faction is offered a raid at garrison 8, and not below it or wh
     const world = createPrototypeWorld(1847);
     world.settlements["cinder-key"].factionId = "world-government";
     assert.equal(Object.values(world.settlements).some((settlement) => settlement.factionId === "free-tide"), false);
+    for (const character of Object.values(world.characters)) {
+      if (character.factionId !== "free-tide") continue;
+      for (const belief of Object.values(character.knowledge)) {
+        if (belief.factionId === "free-tide") belief.factionId = "world-government";
+      }
+    }
     const placed = place(world, garrison);
     const result = runTick(world);
     return { world, ...placed, result };
@@ -298,6 +313,12 @@ test("a landless faction is offered a raid at garrison 8, and not below it or wh
 
   const fight = createPrototypeWorld(1847);
   fight.settlements["cinder-key"].factionId = "world-government";
+  for (const character of Object.values(fight.characters)) {
+    if (character.factionId !== "free-tide") continue;
+    for (const belief of Object.values(character.knowledge)) {
+      if (belief.factionId === "free-tide") belief.factionId = "world-government";
+    }
+  }
   const attacker = place(fight, 8);
   attacker.settlement.population = 0;
   attacker.settlement.fortification = 1;

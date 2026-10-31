@@ -362,32 +362,32 @@ test("a stale port belief warns, and the person row does not.", () => {
 });
 
 test("Mina Vale's hold on seed 2718 matches the note.", () => {
-  // The skill step moved this capture to seed 2718, tick 79. She is still held at Crown Harbor by World Government.
+  // Batch 2 moved this capture to seed 2718, tick 77. She is still held at Crown Harbor by World Government.
   const world = createPrototypeWorld(2718);
-  runTicks(world, 80);
+  runTicks(world, 78);
   const mara = world.characters["character-01"];
   const mina = world.characters["character-15"];
-  assert.equal(world.tick, 80);
+  assert.equal(world.tick, 78);
   assert.equal(mara.locationId, "crown-harbor");
   assert.equal(mara.travel, null);
   assert.equal(mina.locationId, "crown-harbor");
   assert.equal(mina.troops.count, 0);
   assert.equal(partyPower(mina), 0);
-  assert.equal(mina.captivity?.scatteredTroops.count, 9);
-  assert.equal(mina.captivity?.capturedTick, 79);
+  assert.equal(mina.captivity?.scatteredTroops.count, 12);
+  assert.equal(mina.captivity?.capturedTick, 77);
   assert.equal(mina.captivity?.captorFactionId, "world-government");
 
   const seen = row(world, mara, mina);
   assert.ok(seen);
-  assert.equal(seen.troops, 9);
-  assert.equal(seen.partyPower, 58.944);
-  assert.equal(seen.leadership, 27.364);
-  assert.equal(seen.observedTick, 79);
+  assert.equal(seen.troops, 12);
+  assert.equal(seen.partyPower, 62.809);
+  assert.equal(seen.leadership, 27.145);
+  assert.equal(seen.observedTick, 77);
   assert.equal(seen.ageTicks, 1);
   assert.equal(seen.confidence, 1);
   assert.equal(seen.source, "direct");
   assert.equal(seen.settlementId, "crown-harbor");
-  assert.equal(seen.ports.length, 1);
+  assert.equal(seen.ports.length, 2);
   assert.equal(seen.portsNote, null);
   assert.equal("garrisonEstimate" in seen, false);
   const encoded = JSON.stringify(seen);
@@ -398,7 +398,7 @@ test("Mina Vale's hold on seed 2718 matches the note.", () => {
   assert.equal(stateHash(world), hash);
 
   runTicks(world, 84);
-  assert.equal(world.tick, 164);
+  assert.equal(world.tick, 162);
   assert.equal(mina.captivity, null);
   assert.equal(row(world, mara, mina), null);
   const projected = projectCharacter(world, mara, mina);
@@ -408,9 +408,9 @@ test("Mina Vale's hold on seed 2718 matches the note.", () => {
   assert.equal(projected.releaseSighting, null);
   assert.equal(mara.releaseSighting, undefined);
   assert.equal(mina.travel?.fromId, "crown-harbor");
-  assert.equal(mina.travel?.toId, "cinder-key");
-  assert.equal(mina.travel?.remainingTicks, 3);
-  assert.equal(mina.travel?.totalTicks, 4);
+  assert.equal(mina.travel?.toId, "glassport");
+  assert.equal(mina.travel?.remainingTicks, 2);
+  assert.equal(mina.travel?.totalTicks, 3);
 
   const release = projectCharacter(world, mina, mina).releaseSighting as {
     settlementId: string;
@@ -424,16 +424,12 @@ test("Mina Vale's hold on seed 2718 matches the note.", () => {
   assert.equal(release.settlementId, "crown-harbor");
   assert.equal(release.factionId, "world-government");
   assert.equal(release.captorFactionId, "world-government");
-  assert.equal(release.garrison, 187);
-  assert.equal(release.observedTick, 163);
+  assert.equal(release.garrison, 160);
+  assert.equal(release.observedTick, 161);
   assert.equal(release.ageTicks, 1);
   assert.deepEqual(
     release.parties.map((party) => [party.characterId, party.troops, party.partyPower]),
-    [
-      ["character-01", 75, 208.719],
-      ["character-12", 32, 75.179],
-      ["character-16", 18, 78.116],
-    ],
+    [ [ 'character-01', 75, 209.302 ], [ 'character-07', 22, 83.252 ], [ 'character-13', 28, 94.38 ], [ 'character-14', 0, 0 ], [ 'character-27', 14, 74.274 ] ],
   );
 });
 
@@ -490,27 +486,27 @@ function recoverThrough(seed: number, splitAt: number, through: number, characte
   }
 }
 
-test("Mara Calder's release at tick 1110 recovers from the tick 1110 snapshot", () => {
-  // Batch 1 moved this release to seed 1847, tick 1110.
-  const live = runTicks(createPrototypeWorld(1847), 1111).state;
-  const calder = live.characters["character-21"];
-  assert.equal(calder.name, "Mara Calder");
-  assert.equal(calder.captivity, null);
-  assert.equal(calder.releaseSighting?.observedTick, 1110);
-  assert.equal(calder.releaseSighting?.garrison, 10);
-  const split = recoverThrough(1847, 1110, 1111, "character-21");
+test("Mara Vane's release at tick 753 recovers from the tick 753 snapshot", () => {
+  // Batch 2 moved the held-captain release on seed 1847 to Mara Vane at tick 753, from Cinder Key.
+  const live = runTicks(createPrototypeWorld(1847), 754).state;
+  const mara = live.characters["character-01"];
+  assert.equal(mara.name, "Mara Vane");
+  assert.equal(mara.captivity, null);
+  assert.equal(mara.releaseSighting?.observedTick, 753);
+  assert.equal(mara.releaseSighting?.garrison, 12);
+  const split = recoverThrough(1847, 753, 754, "character-01");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));
-  assert.deepEqual(split.rebuiltRecord, calder.releaseSighting);
+  assert.deepEqual(split.rebuiltRecord, mara.releaseSighting);
 });
 
 test("Mina Vale's release recovers from the tick 138 snapshot", () => {
-  // The skill step moved her release to seed 2718, tick 163.
+  // Batch 2 moved her release to seed 2718, tick 161.
   const live = runTicks(createPrototypeWorld(2718), 164).state;
   const mina = live.characters["character-15"];
   assert.equal(mina.name, "Mina Vale");
-  assert.equal(mina.releaseSighting?.observedTick, 163);
-  assert.equal(mina.releaseSighting?.garrison, 187);
+  assert.equal(mina.releaseSighting?.observedTick, 161);
+  assert.equal(mina.releaseSighting?.garrison, 160);
   const split = recoverThrough(2718, 80, 164, "character-15");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));

@@ -5,7 +5,9 @@ import { freeMateCount, memberAllowanceCap, resolveQuotedSpend, spendRole } from
 import { submitCommand } from "../src/sim/commands.ts";
 import { PASSAGE_COST_PER_TICK, runTick, runTicks } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
+import { transplantGovernorSeats } from "../src/sim/governor.ts";
 import { applyEvent, round, stateHash } from "../src/sim/state.ts";
+import { applySilentTickStart } from "../src/sim/tick-start.ts";
 import type { Character, WorldState } from "../src/sim/types.ts";
 
 const PLAYER = "prototype-player";
@@ -145,6 +147,8 @@ test("a fractional share across 7 mates is exact cents and does not exceed the t
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
 
   const replay = before;
+  transplantGovernorSeats(world, replay);
+  applySilentTickStart(replay);
   for (const event of result.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
   assert.equal(replay.characters[bram.id].allowanceRemaining, 0);
@@ -252,7 +256,7 @@ test("the daily reset recomputes the share", () => {
   assert.ok(recruited);
   assert.equal(recruited.data.treasuryDrawn, 18);
   assert.equal(recruited.data.purseDrawn, 6);
-  assert.equal(recruited.data.factionTreasury, round(treasuryBefore - 18, 2));
+  assert.equal(recruited.data.factionTreasury, round(treasuryBefore - 36 - 18, 2));
 });
 
 test("a rival still sees no allowance, and a hidden treasury stays hidden", () => {
@@ -323,6 +327,8 @@ test("a treasury-paid escrow refunds to the treasury and the holder's purse does
   assert.equal("allowanceRemaining" in cancelled.data, false);
 
   const replay = before;
+  transplantGovernorSeats(world, replay);
+  applySilentTickStart(replay);
   for (const event of cancelledTick.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
   assert.equal(replay.characters[mara.id].money, 108);

@@ -153,8 +153,8 @@ test("Breakwater's line says the treasury starts empty, and the breakdown is the
   );
   assert.equal(line?.data?.faction?.treasury, 0);
   const breakwater = view.factions.find((faction) => faction.name === "Breakwater");
-  assert.equal(breakwater?.treasury, 2.69);
-  assert.equal(breakwater?.treasuryLine, "Tax income 2.69, spending 0, over the last 180 ticks.");
+  assert.equal(breakwater?.treasury, 4.37);
+  assert.equal(breakwater?.treasuryLine, "Tax income 4.37, spending 0, over the last 180 ticks.");
   const rival = view.factions.find((faction) => faction.id === "free-tide");
   assert.equal(rival?.treasuryLine, null);
 });
@@ -182,6 +182,9 @@ test("an autonomous tax set names the reason, and settlementId is null", () => {
     if (settlement.factionId === "free-tide") settlement.stability = 10;
   }
   lowered.factions["free-tide"].treasury = 100_000;
+  // The holder is at Crown Harbor. An away port is pressed only from news, and this jump posted none, so he has to be standing on Cinder Key for the live figure.
+  lowered.characters["character-14"].locationId = "cinder-key";
+  lowered.characters["character-14"].travel = null;
   const loweredTick = runTick(lowered);
   const loweredEvent = loweredTick.events.find((event) => event.type === "tax-rate-set");
   assert.ok(loweredEvent);
@@ -205,7 +208,7 @@ test("an autonomous secession with no successor ends with no leader yet", () => 
   const world = createPrototypeWorld(1847);
   const declared: SimEvent[] = [];
   let siblings: SimEvent[] = [];
-  for (let index = 0; index < 700; index += 1) {
+  for (let index = 0; index < 900; index += 1) {
     const tick = runTick(world, { liveSession: true });
     const rows = tick.events.filter((event) => event.type === "secession-declared");
     if (rows.length > 0) {
@@ -214,13 +217,13 @@ test("an autonomous secession with no successor ends with no leader yet", () => 
       break;
     }
   }
-  assert.equal(world.tick, 495);
+  assert.equal(world.tick, 857);
   assert.equal(declared.length, 1);
-  assert.equal(declared[0]?.tick, 494);
+  assert.equal(declared[0]?.tick, 856);
   const view = projectEventFeed(world, "character-01", declared, siblings);
   assert.equal(
     view.find((row) => row.settlementId === "glassport")?.summary,
-    "Mina Vale declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)",
+    "Dax Pike declared Glassport separate from Free Tide Compact. Free Glassport starts with an empty treasury. (no leader yet)",
   );
   assert.equal(view.every((row) => row.payloadWithheld === true && row.data === null), true);
   assert.equal(declared.every((event) => event.data.successorId === null), true);

@@ -14,6 +14,7 @@ import {
   travelDuration,
   type ProvisionRunway,
 } from "../sim/engine.ts";
+import { governorLevyRate } from "../sim/governor.ts";
 import { secessionReadout, type SecessionReadout } from "../sim/secession.ts";
 import { marketPrice, partyPowerFromTroops, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { CHECK_IN_READ_CAP } from "../sim/persistence.ts";
@@ -88,7 +89,7 @@ export const CHECK_IN_EVENT_CAP = CHECK_IN_READ_CAP;
  * rows repeat it. They keep their sequences in the log and are absent from
  * `events`, `eventPage.count`, and `eventPage.total`.
  */
-export const FEED_OMITTED_TYPES = ["player-action-executed", "player-command-resolved"] as const;
+export const FEED_OMITTED_TYPES = ["player-action-executed", "player-command-resolved", "news-posted"] as const;
 
 /** A submit-time refusal. It is not a stored event and it does not move a hash. */
 export interface DashboardRefusal {
@@ -1184,6 +1185,11 @@ function projectMarket(world: WorldState, commander: Character, settlementId: st
     settlementId,
     /** Fraction of a sale the local faction takes. Zero with no faction. */
     taxRate,
+    /**
+     * Governor levy on a sale while a seat is filled. Zero when the seat is
+     * empty. Added to `taxRate`, not folded into it. A purchase pays neither.
+     */
+    levyRate: governorLevyRate(world, settlementId),
     /** Which side of the board pays `taxRate`. A purchase is not taxed. */
     taxAppliesTo: "sell" as const,
     /**
@@ -1202,7 +1208,7 @@ function projectMarket(world: WorldState, commander: Character, settlementId: st
          * panel runs this through the same cent cascade the boundary charges
          * (`tradeAmounts`), and rounding twice would quote a total the purse
          * disagrees with. One price covers both directions: a purchase adds no
-         * tax, a sale subtracts `taxRate` from the same board figure.
+         * tax, a sale subtracts `taxRate` and `levyRate` from the same board figure.
          */
         price: buy.unitPrice,
         stock: round(settlement.stocks[resource], 3),

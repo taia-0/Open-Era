@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type {
   Character,
   Faction,
+  NewsRecord,
   PartySighting,
   ReleaseParty,
   ReleaseSighting,
@@ -213,7 +214,7 @@ export function partyPowerFromTroops(character: Character, troops: TroopGroup): 
 }
 
 export function partyPower(character: Character): number {
-  if (character.captivity) return 0;
+  if (character.dead || character.captivity) return 0;
   return partyPowerFromTroops(character, character.troops);
 }
 
@@ -454,6 +455,7 @@ export function actingCoverId(
   const ranked = Object.values(world.characters)
     .filter((character) =>
       character.factionId === factionId &&
+      !character.dead &&
       !excluded.has(character.id) &&
       character.captivity === null
     )
@@ -632,6 +634,34 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       faction.taxRateSetTick = typeof event.data.taxRateSetTick === "number"
         ? event.data.taxRateSetTick
         : event.tick;
+      // A holder at sea carries the item. The next landfall posts it.
+      if (actor && actor.locationId === null) {
+        const record: NewsRecord = {
+          item: {
+            id: `news-${event.sequence}`,
+            type: "tax-rate-set",
+            observedTick: event.tick,
+            factionId,
+            taxRate: event.data.taxRate,
+          },
+          aboutSettlementId: null,
+          stability: 0,
+          followerIds: [],
+          sequence: event.sequence,
+        };
+        if (!actor.carriedNews?.some((held) => held.item.id === record.item.id)) {
+          actor.carriedNews = [...(actor.carriedNews ?? []), record];
+        }
+      }
+      break;
+    }
+    case "news-posted": {
+      if (!settlement) throw new Error("News post is missing a port");
+      const record = event.data.record as NewsRecord;
+      if (!record?.item?.id) throw new Error("News post is missing an item");
+      if (!settlement.news?.some((held) => held.item.id === record.item.id)) {
+        settlement.news = [...(settlement.news ?? []), record];
+      }
       break;
     }
     case "standing-order-issued": {
@@ -795,6 +825,16 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       break;
     case "travel-started":
       if (!actor) throw new Error("Travel event has no actor");
+      {
+        const fromId = (event.data.travel as { fromId?: string } | undefined)?.fromId;
+        const ledger = fromId ? world.settlements[fromId]?.news ?? [] : [];
+        const combined = [...(actor.carriedNews ?? [])];
+        for (const record of ledger) {
+          if (!combined.some((held) => held.item.id === record.item.id)) combined.push(record);
+        }
+        if (combined.length > 0) actor.carriedNews = combined;
+        else delete actor.carriedNews;
+      }
       actor.travel = { ...(event.data.travel as NonNullable<Character["travel"]>) };
       actor.locationId = null;
       // Navigation is fixed on this voyage. The next one reads the new absolute.
@@ -804,6 +844,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!actor) throw new Error("Arrival event has no actor");
       actor.locationId = event.data.locationId as string;
       actor.travel = null;
+      delete actor.carriedNews;
       break;
     case "market-trade":
       if (!actor || !settlement) throw new Error("Trade event is missing an entity");
@@ -917,6 +958,35 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!actor) throw new Error("Desertion event has no actor");
       actor.factionId = null;
       break;
+    case "character-died": {
+      if (!actor) throw new Error("Death event has no actor");
+      actor.dead = true;
+      actor.money = event.data.characterMoney as number;
+      actor.sailors = event.data.sailors as number;
+      actor.troops = { ...(event.data.troops as Character["troops"]) };
+      actor.debts = [...(event.data.debts as Character["debts"])];
+      actor.factionId = null;
+      if (event.data.clearCaptivity === true) actor.captivity = null;
+      if (event.data.clearRecovery === true) actor.troopRecovery = null;
+      for (const portId of event.data.ports as string[]) {
+        const port = world.settlements[portId];
+        if (port) port.ownerId = null;
+      }
+      for (const row of event.data.treasuries as { factionId: string; treasury: number }[]) {
+        const faction = world.factions[row.factionId];
+        if (faction) faction.treasury = row.treasury;
+      }
+      for (const battleId of event.data.endBattleIds as string[]) delete world.activeBattles[battleId];
+      if (typeof event.data.commandFactionId === "string") {
+        const faction = world.factions[event.data.commandFactionId];
+        if (faction) {
+          const next = event.data.actingCommanderId;
+          if (typeof next === "string") faction.actingCommanderId = next;
+          else delete faction.actingCommanderId;
+        }
+      }
+      break;
+    }
     case "debt-repaid": {
       if (!actor) throw new Error("Debt repayment has no actor");
       const debtId = String(event.data.debtId ?? "");

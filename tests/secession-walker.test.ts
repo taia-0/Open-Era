@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { submitCommand } from "../src/sim/commands.ts";
 import { runTick, runTicks } from "../src/sim/engine.ts";
+import { syncGovernorSeats } from "../src/sim/governor.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { autonomousFactionName, autonomousSecessionReady, buildSecessionDeclaration } from "../src/sim/secession.ts";
 import { applyEvent, commandHolderId } from "../src/sim/state.ts";
@@ -38,6 +39,28 @@ function seat(world: WorldState, settlementId: string, owner: Character, stabili
   owner.captivity = null;
   owner.controller = { kind: "autonomous" };
   world.factions["world-government"].taxRate = taxRate;
+  for (const character of Object.values(world.characters)) {
+    if (character.id === owner.id || character.locationId !== settlementId) continue;
+    character.locationId = "verdant-cay";
+    character.travel = null;
+  }
+  const heldBy = settlement.factionId;
+  settlement.factionId = null;
+  syncGovernorSeats(world);
+  settlement.factionId = heldBy;
+  syncGovernorSeats(world);
+  settlement.news = [{
+    item: {
+      id: `press-${settlementId}`,
+      type: "battle-resolved",
+      observedTick: world.tick,
+      factionId: settlement.factionId,
+    },
+    aboutSettlementId: settlementId,
+    stability,
+    followerIds: [],
+    sequence: 1,
+  }];
 }
 
 test("an autonomous declaration names the faction Free plus the port", () => {
@@ -214,6 +237,25 @@ test("qualifying ports declare in id order, and a claim starts a new spell", () 
   world.settlements["crown-harbor"].stability = 50;
   world.settlements["crown-harbor"].stocks.provisions = 500;
   world.factions["world-government"].taxRate = 0.16;
+  second.locationId = "verdant-cay";
+  second.travel = null;
+  world.settlements["crown-harbor"].factionId = null;
+  syncGovernorSeats(world);
+  world.settlements["crown-harbor"].factionId = "world-government";
+  syncGovernorSeats(world);
+  world.settlements["crown-harbor"].news = [{
+    item: {
+      id: "press-crown-harbor-next",
+      type: "battle-resolved",
+      observedTick: world.tick,
+      factionId: "world-government",
+    },
+    aboutSettlementId: "crown-harbor",
+    stability: 50,
+    followerIds: [],
+    sequence: world.tick,
+  }];
+  syncGovernorSeats(world);
   const follow = runTick(world);
   const again = follow.events.filter((event) => event.type === "secession-declared" && event.settlementId === "crown-harbor");
   assert.equal(again.length, 1);

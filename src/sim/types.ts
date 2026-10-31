@@ -26,6 +26,30 @@ export interface Faction {
   actingCommanderId?: string;
 }
 
+/**
+ * One public item. A tax item is the only one that carries `taxRate`.
+ * Garrison, stability, and loyalty stay off this object.
+ */
+export interface NewsItem {
+  id: string;
+  type: string;
+  observedTick: number;
+  factionId: string | null;
+  taxRate?: number;
+}
+
+/**
+ * The ledger entry. `aboutSettlementId` is the port the item describes.
+ * A tax step has none, and does not supply a stability figure.
+ */
+export interface NewsRecord {
+  item: NewsItem;
+  aboutSettlementId: string | null;
+  stability: number;
+  followerIds: string[];
+  sequence: number;
+}
+
 export interface Settlement {
   id: string;
   name: string;
@@ -54,6 +78,11 @@ export interface Settlement {
    * A headless run that never declares leaves the field absent.
    */
   secessionDeclaredBy?: string;
+  /**
+   * Public items posted at this port. Absent until the first post.
+   * Stability and the scarred-follower list sit beside the item.
+   */
+  news?: NewsRecord[];
 }
 
 export interface Personality {
@@ -635,6 +664,24 @@ export interface Character {
    */
   loyaltyAdjustment?: number;
   /**
+   * Mornings in a row this mate's allowance cap was under 18.
+   *
+   * Omitted at 0. A morning that is not short deletes it. On the morning it
+   * becomes 12, desertion may draw. Recovery reads it off the world, because
+   * a process-local counter does not survive a snapshot.
+   */
+  shortMorningStreak?: number;
+  /**
+   * Ledger copied on departure, plus a tax item witnessed at sea.
+   * Absent until there is something to carry. Arrival posts it and clears it.
+   */
+  carriedNews?: NewsRecord[];
+  /**
+   * Set by `character-died`. Omitted while the character is alive, so a world
+   * with no death hashes as before. A dead character stays in the world.
+   */
+  dead?: true;
+  /**
    * Coins left of today's treasury allowance. The cap is the balance share,
    * `min(18, treasury / free mates)`, read on each quote. Omitted while it
    * equals that cap. Omitted means full. The `tick-advanced` reducer deletes
@@ -680,6 +727,13 @@ export interface WorldState {
   scenario: string;
   seed: number;
   rngState: number;
+  /**
+   * Side-stream position for the desertion roll.
+   *
+   * Omitted until the first roll, so a morning that does not draw leaves the
+   * hash alone. A stay still advances it. The tick rng is not this field.
+   */
+  desertionRngState?: number;
   tick: number;
   ticksPerDay: number;
   nextEventSequence: number;

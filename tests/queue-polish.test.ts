@@ -11,12 +11,12 @@ function attentionStop(events: SimEvent[], playerId: string): SimEvent | undefin
   return events.find((event) => event.actorId === playerId && ATTENTION.has(event.type));
 }
 
-test("seed 1847 stops on Mara's capture and her release, and the response says why", () => {
-  const world = createPrototypeWorld(1847);
+test("seed 2718 stops on Mara's capture and her release, and the response says why", () => {
+  const world = createPrototypeWorld(2718);
   const playerId = world.players["prototype-player"].characterId;
   const notes: Array<{ tick: number; type: string; sequence: number; eventTick: number; note: string | null }> = [];
 
-  while (notes.length < 2 && world.tick < 900) {
+  while (notes.length < 2 && world.tick < 1200) {
     const produced: SimEvent[] = [];
     let stopping: SimEvent | undefined;
     for (let index = 0; index < 144 && !stopping; index += 1) {
@@ -36,17 +36,17 @@ test("seed 1847 stops on Mara's capture and her release, and the response says w
 
   assert.deepEqual(notes, [
     {
-      tick: 317,
+      tick: 639,
       type: "character-captured",
-      sequence: 39449,
-      eventTick: 316,
-      note: "Time stopped. Free Tide Compact took Mara Vane on the dock at Crown Harbor after Pax Ash won there on a higher score.",
+      sequence: 81846,
+      eventTick: 638,
+      note: "Time stopped. Free Tide Compact took Mara Vane on the dock at Crown Harbor after Finn Frost won there on a higher score.",
     },
     {
-      tick: 401,
+      tick: 723,
       type: "captivity-released",
-      sequence: 50454,
-      eventTick: 400,
+      sequence: 93853,
+      eventTick: 722,
       note: "Time stopped. Mara Vane was released from Crown Harbor.",
     },
   ]);

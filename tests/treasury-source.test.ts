@@ -4,7 +4,9 @@ import { spendRole } from "../src/sim/allowance.ts";
 import { PASSAGE_COST_PER_TICK, quotedPassage, runTick } from "../src/sim/engine.ts";
 import { submitCommand } from "../src/sim/commands.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
+import { transplantGovernorSeats } from "../src/sim/governor.ts";
 import { applyEvent, stateHash } from "../src/sim/state.ts";
+import { applySilentTickStart } from "../src/sim/tick-start.ts";
 import type { Character, PlayerCommand, WorldState } from "../src/sim/types.ts";
 
 const PLAYER = "prototype-player";
@@ -70,6 +72,8 @@ test("source purse skips the allowance and pays the purse", () => {
   assert.equal(world.characters[bram.id].allowanceRemaining, undefined);
 
   const replay = before;
+  transplantGovernorSeats(world, replay);
+  applySilentTickStart(replay);
   for (const event of result.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
   assert.equal(replay.characters[bram.id].allowanceRemaining, undefined);
@@ -95,7 +99,7 @@ test("a command without source still draws the allowance, then the purse", () =>
   assert.equal(recruited.data.treasuryDrawn, 18);
   assert.equal(recruited.data.purseDrawn, 78);
   assert.equal(recruited.data.allowanceRemaining, 0);
-  assert.equal(recruited.data.factionTreasury, treasuryBefore - 18);
+  assert.equal(recruited.data.factionTreasury, treasuryBefore - 36 - 18);
   assert.equal(world.characters[bram.id].money, 18);
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
 });
@@ -273,6 +277,8 @@ test("a purse contract does not draw the allowance, and replay keeps the purse",
   assert.equal(world.characters[bram.id].allowanceRemaining, undefined);
 
   const replay = before;
+  transplantGovernorSeats(world, replay);
+  applySilentTickStart(replay);
   for (const event of result.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
 });
@@ -330,6 +336,8 @@ test("a purse voyage quotes the purse and does not draw the allowance at sea", (
   assert.equal(world.characters[bram.id].travel?.source, "purse");
 
   const replay = before;
+  transplantGovernorSeats(world, replay);
+  applySilentTickStart(replay);
   for (const event of result.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
   assert.equal(replay.characters[bram.id].travel?.source, "purse");

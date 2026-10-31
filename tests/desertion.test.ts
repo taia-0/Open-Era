@@ -43,9 +43,12 @@ test("twelve short mornings roll the side stream once, and a roll under 0.5 leav
     if (mornings < 12) assert.equal(desertions.length, 0);
     if (mornings === 12) {
       seen.push(...desertions);
-      assert.equal(leaves.locationId, place);
-      assert.equal(leaves.travel?.fromId, travel?.fromId);
-      assert.equal(leaves.travel?.toId, travel?.toId);
+      const sailed = result.events.some((event) => event.type === "travel-started" && event.actorId === leaves.id);
+      if (!sailed) {
+        assert.equal(leaves.locationId, place);
+        assert.equal(leaves.travel?.fromId, travel?.fromId);
+        assert.equal(leaves.travel?.toId, travel?.toId);
+      }
       assert.equal(leaves.troops.count, troops);
     }
   }

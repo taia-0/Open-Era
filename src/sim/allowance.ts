@@ -99,6 +99,7 @@ export function freeMateCount(world: WorldState, factionId: string): number {
   const holderId = commandHolderId(world, factionId);
   let count = 0;
   for (const character of Object.values(world.characters)) {
+    if (character.dead) continue;
     if (character.factionId !== factionId) continue;
     if (character.captivity) continue;
     if (holderId !== null && character.id === holderId) continue;

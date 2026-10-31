@@ -556,6 +556,8 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
       return `${actor} was released${at}.`;
     case "debt-repaid":
       return debtRepaidSentence(world, event, false);
+    case "character-died":
+      return `${actor} died of old age${at}.`;
     case "character-deserted": {
       const previous = typeof event.data.previousFactionId === "string" ? event.data.previousFactionId : undefined;
       const faction = previous ? world.factions[previous]?.name ?? previous : target ?? "a faction";
