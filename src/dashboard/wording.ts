@@ -82,6 +82,22 @@ export function qualifyCollidingNames(world: WorldState, text: string): string {
     .replaceAll(/Toma Hale(?! \()/g, hale);
 }
 
+/**
+ * Feed sentences carry no faction tag on any name (breakaway polish, ruling 5).
+ * Toma Reef and Toma Hale already differ by surname, so the tag is not needed
+ * there, and the rows' visibility does not depend on it. Cards keep it.
+ */
+export function unqualifiedFeedNames(world: WorldState, text: string): string {
+  let out = text;
+  for (const id of [TOMA_REEF_ID, TOMA_HALE_ID]) {
+    const character = world.characters[id];
+    if (!character) continue;
+    const tagged = characterName(world, id, character.name);
+    if (tagged !== character.name) out = out.replaceAll(tagged, character.name);
+  }
+  return out.replaceAll(/(Toma (?:Reef|Hale)) \((?:[^()]*)\)/g, "$1");
+}
+
 export function settlementName(world: WorldState, id: string | undefined, fallback: string): string {
   if (!id) return fallback;
   return world.settlements[id]?.name ?? id;
@@ -605,16 +621,23 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
       return `${actor} amended a contract.`;
     case "contract-accepted":
       return `${actor} accepted a contract.`;
-    case "contract-refused":
-      return `${actor} refused a contract.`;
+    case "contract-refused": {
+      const why = publicRefusalReason(event);
+      return why ? `${actor} refused a contract: ${why}.` : `${actor} refused a contract.`;
+    }
     case "contract-fulfilled":
       return `${actor} fulfilled a contract.`;
-    case "contract-breached":
-      return `${actor} missed a contract.`;
-    case "contract-cancelled":
+    case "contract-breached": {
+      const why = publicBreachReason(event);
+      return why ? `${actor} missed a contract: ${why}.` : `${actor} missed a contract.`;
+    }
+    case "contract-cancelled": {
+      const buyer = contractBuyerName(world, event);
+      const whose = buyer ? `${actor}'s contract for ${buyer}` : `${actor}'s contract`;
       return event.data.reason === "no-longer-needed"
-        ? `${actor}'s contract was cancelled because the port no longer needs it.`
+        ? `${whose} was cancelled because the port no longer needs it.`
         : `${actor} cancelled a contract.`;
+    }
     case "contract-order-issued": {
       const destination = typeof event.data.destinationId === "string"
         ? ` to ${settlementName(world, event.data.destinationId, "the port")}`
@@ -760,6 +783,60 @@ export const SHORT_PAY_UPKEEP_LINE = "Pay was short, so morale fell by 0.5.";
  * The public offer line: who offered, who would carry, and the cargo.
  * The price, the payout, and the escrow stay off this sentence.
  */
+/**
+ * The refusal reason anyone may read: the gate `assessSupplyContract` already
+ * stored on `contract-refused`, in words with no figure. Null when the event
+ * has no gate. The parties read the stored reason and figures instead.
+ */
+export function publicRefusalReason(event: SimEvent): string | null {
+  switch (event.data.gate) {
+    case "travel":
+      return "they could not make the voyage";
+    case "purse":
+      return "their purse could not cover the cargo";
+    case "score":
+      return "the terms did not suit them";
+    default:
+      return null;
+  }
+}
+
+/**
+ * The breach reason anyone may read: the `cause` and `detail` the haul stored
+ * on `contract-breached`, in words with no figure. Null when no cause is stored.
+ */
+export function publicBreachReason(event: SimEvent): string | null {
+  const key = `${String(event.data.cause ?? "")}/${String(event.data.detail ?? "")}`;
+  switch (key) {
+    case "capture/":
+      return "the carrier was taken captive";
+    case "hazard/":
+      return "a hazard stopped the ship";
+    case "purse/buy":
+      return "the carrier could not pay for the cargo";
+    case "purse/passage":
+      return "the carrier could not pay for the passage";
+    case "choice/better-motive":
+      return "the carrier chose other work";
+    case "choice/hold-full":
+      return "the carrier's hold was full";
+    case "choice/consumed":
+      return "the cargo was used up before it landed";
+    case "choice/deadline-infeasible":
+      return "the deadline could not be met";
+    default:
+      return null;
+  }
+}
+
+/** The buyer named on a contract event, for any reader. Null when the event names none. */
+export function contractBuyerName(world: WorldState, event: SimEvent): string | null {
+  const buyerId = typeof event.data.buyerId === "string"
+    ? event.data.buyerId
+    : (event.data.contract as { buyerId?: string } | undefined)?.buyerId;
+  return buyerId ? characterName(world, buyerId, buyerId) : null;
+}
+
 export function contractOfferedSentence(world: WorldState, event: SimEvent, actor: string): string {
   const contract = event.data.contract as
     | { carrierId?: string; quantity?: number; good?: string; destinationId?: string }
@@ -1099,15 +1176,19 @@ export function secessionDeclaredSentence(world: WorldState, event: SimEvent, ac
   // The name is the new faction's, not the declarer's. An autonomous
   // declaration passes no name, and the payload stores "Free <port name>".
   // A faction with no name yet still says the treasury starts empty.
+  // An autonomous declaration names no successor. Its founder sets the tax
+  // until a leader gives orders; the order seat itself stays unnamed.
+  const founderClause = event.type === "secession-declared" && !namedSuccessor(event)
+    ? `founded by ${actor}, who sets its tax until a leader gives orders`
+    : null;
   if (founded && founded.treasury === 0) {
     const live = world.factions[founded.id]?.name;
     const named = founded.name || (typeof live === "string" ? live.trim() : "");
-    sentence += ` ${named || "The new faction"} starts with an empty treasury.`;
-  }
-  // An autonomous declaration names no successor. The new seat stays unnamed.
-  // A holder who leaves names the successor in a separate clause.
-  if (event.type === "secession-declared" && !namedSuccessor(event)) {
-    sentence += " (no leader yet)";
+    sentence += founderClause
+      ? ` ${named || "The new faction"} starts with an empty treasury, ${founderClause}.`
+      : ` ${named || "The new faction"} starts with an empty treasury.`;
+  } else if (founderClause) {
+    sentence += ` It was ${founderClause}.`;
   }
   return sentence;
 }
@@ -1219,7 +1300,14 @@ function pressedPortName(
       bestThousandths = thousandths;
     }
   }
-  if (!bestId) return null;
+  if (!bestId) {
+    // The step reads the holder's own figure, which can sit under the floor
+    // while the same-tick upkeep row is just above it. A faction that held a
+    // single port could only have been pressed there, so name it.
+    const heldIds = [...owner].filter(([, holder]) => holder === factionId).map(([id]) => id);
+    if (heldIds.length !== 1) return null;
+    bestId = heldIds[0];
+  }
   return world.settlements[bestId]?.name ?? bestId;
 }
 

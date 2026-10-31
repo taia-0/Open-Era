@@ -127,7 +127,7 @@ test("seed 1847 live names the haul order and a cancellation in the feed", () =>
   const cancelled = events.find((event) => event.sequence === 17788);
   assert.equal(cancelled?.type, "contract-cancelled");
   const [rival] = projectEventFeed(world, "character-01", [cancelled!], events);
-  assert.equal(rival?.summary, "Lio Crow's contract was cancelled because the port no longer needs it.");
+  assert.equal(rival?.summary, "Lio Crow's contract for Iris Stone was cancelled because the port no longer needs it.");
   const [lio] = projectEventFeed(world, "character-12", [cancelled!], events);
-  assert.equal(lio?.summary, "Lio Crow's provisions contract was cancelled: Crown Harbor already holds the quantity. The escrow returned.");
+  assert.equal(lio?.summary, "Lio Crow's provisions contract for Iris Stone was cancelled: Crown Harbor already holds the quantity. The escrow returned.");
 });

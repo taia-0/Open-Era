@@ -30,6 +30,9 @@ import {
   characterName,
   eventBriefingTitle,
   qualifyCollidingNames,
+  publicBreachReason,
+  contractBuyerName,
+  unqualifiedFeedNames,
   passageUpkeepSentence,
   executedActionSentence,
   marketTradeSentence,
@@ -237,17 +240,34 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     case "contract-accepted":
       return `${actor} accepted the provisions contract.`;
     case "contract-refused": {
+      // The parties read the reason and figures the accept gate stored on the event.
       const reason = typeof event.data.reason === "string" ? ` ${event.data.reason}` : "";
-      return `${actor} refused the provisions contract.${reason}`;
+      const score = typeof event.data.score === "number" && typeof event.data.threshold === "number"
+        ? ` The terms scored ${event.data.score} against ${event.data.threshold}.`
+        : "";
+      const why = event.data.gate === "score"
+        ? score
+        : event.data.gate === "purse"
+          ? ` The purse could not cover the shortfall at ${event.data.costBasis} for the cargo.`
+          : reason;
+      return `${actor} refused the provisions contract.${why}`;
     }
     case "contract-fulfilled":
       return `${actor} landed ${event.data.quantity} provisions at ${destinationName(world, event)}.`;
-    case "contract-breached":
-      return `${actor} missed the provisions deadline. The escrow returned.`;
-    case "contract-cancelled":
+    case "contract-breached": {
+      // The parties read the same stored cause, and the escrow's return.
+      const why = publicBreachReason(event);
+      return why
+        ? `${actor} missed the provisions deadline: ${why}. The escrow returned.`
+        : `${actor} missed the provisions deadline. The escrow returned.`;
+    }
+    case "contract-cancelled": {
+      const buyer = contractBuyerName(world, event);
+      const whose = buyer ? `${actor}'s provisions contract for ${buyer}` : `${actor}'s provisions contract`;
       return event.data.reason === "no-longer-needed"
-        ? `${actor}'s provisions contract was cancelled: ${destinationName(world, event)} already holds the quantity. The escrow returned.`
+        ? `${whose} was cancelled: ${destinationName(world, event)} already holds the quantity. The escrow returned.`
         : `${actor} cancelled the provisions contract.`;
+    }
     case "contract-order-issued":
       return `${actor} took the order to carry ${event.data.quantity} provisions to ${destinationName(world, event)} by tick ${event.data.deadlineTick}.`;
     case "goal-evolved":
@@ -881,7 +901,119 @@ export function projectEventFeed(
   // the recruit, the voyage). The executed and resolved rows repeat it.
   // Refusals and queued lines are not in this set.
   const shown = events.filter((event) => !FEED_OMITTED_TYPES.includes(event.type as typeof FEED_OMITTED_TYPES[number]));
-  return shown.map((event) => projectEvent(world, commander, event, eventSummary(world, event, siblings, commander)));
+  const rows = shown.map((event) => projectEvent(world, commander, event, eventSummary(world, event, siblings, commander)));
+  return foldContractRows(world, shown, rows);
+}
+
+/** The buyer, carrier, cargo, quantity, and port of a contract event, or null. */
+function contractPairKey(event: SimEvent): string | null {
+  const contract = event.data.contract as
+    | { buyerId?: string; carrierId?: string; good?: string; quantity?: number; destinationId?: string }
+    | undefined;
+  if (!contract?.buyerId || !contract.carrierId) return null;
+  return [contract.buyerId, contract.carrierId, contract.good, contract.quantity, contract.destinationId].join("|");
+}
+
+const CONTRACT_ENDINGS = ["contract-fulfilled", "contract-refused", "contract-breached", "contract-cancelled"];
+
+/**
+ * Feed-only folding of contract rows on one page. The sim and its events are unchanged.
+ *
+ * (c) A `contract-accepted` row and the `contract-order-issued` row for the same
+ * carrier, contract, and tick become one line. Each half keeps the words this
+ * viewer may read, and the row keeps the acceptance's payload and visibility.
+ * The accepted row keeps its sequence; `foldedSequences` names the order.
+ *
+ * (a) Repeated identical offers fold into the newest one, with "(N times)".
+ * Identical means the same buyer, carrier, cargo, quantity, and port, the same
+ * summary, and the same visibility for this viewer. A run is the offers on this
+ * page for that key whose contracts ended the same way on this page (fulfilled,
+ * refused, breached, cancelled, or not yet ended). A different ending, a
+ * different summary, or a different visibility starts a new run. The page is the window: a run never
+ * reaches across pages. Accept, order, and ending rows are not folded away.
+ */
+export function foldContractRows(
+  world: WorldState,
+  events: SimEvent[],
+  rows: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const drop = new Set<number>();
+  // (c) the acceptance and the order on the same tick
+  for (let index = 0; index < events.length; index += 1) {
+    const accepted = events[index];
+    if (accepted.type !== "contract-accepted") continue;
+    const contractId = (accepted.data.contract as { id?: string } | undefined)?.id;
+    const orderIndex = events.findIndex((event) =>
+      event.type === "contract-order-issued" &&
+      event.tick === accepted.tick &&
+      event.actorId === accepted.actorId &&
+      event.data.contractId === contractId
+    );
+    if (orderIndex < 0 || drop.has(orderIndex)) continue;
+    const row = rows[index];
+    const orderRow = rows[orderIndex];
+    // Each half keeps the words this viewer may read; the order row adds no payload.
+    const order = String(orderRow.summary);
+    const accept = String(row.summary);
+    // Both lines open with the same carrier label, which can carry a faction qualifier.
+    const tookAt = order.indexOf(" took the order");
+    const acceptAt = accept.indexOf(" accepted ");
+    if (tookAt < 0 || acceptAt < 0) continue;
+    const actor = accept.slice(0, acceptAt);
+    if (order.slice(0, tookAt) !== actor) continue;
+    const took = order.slice(tookAt + 1);
+    const contract = row.payloadWithheld ? "the contract" : "the provisions contract";
+    rows[index] = {
+      ...row,
+      summary: `${actor} accepted ${contract} and ${took}`,
+      foldedSequences: [orderRow.sequence],
+    };
+    drop.add(orderIndex);
+  }
+  // (a) repeated identical offers
+  const endings = new Map<string, string>();
+  for (const event of events) {
+    if (!CONTRACT_ENDINGS.includes(event.type)) continue;
+    const id = (event.data.contract as { id?: string } | undefined)?.id;
+    if (id) endings.set(id, event.type);
+  }
+  type Run = { index: number; count: number; sequences: unknown[]; ending: string | null; summary: string; withheld: unknown; firstTick: number };
+  const runs = new Map<string, Run>();
+  const folded: Run[] = [];
+  for (let index = 0; index < events.length; index += 1) {
+    const event = events[index];
+    if (event.type !== "contract-offered") continue;
+    const key = contractPairKey(event);
+    if (!key) continue;
+    const row = rows[index];
+    const ending = endings.get((event.data.contract as { id?: string }).id ?? "") ?? null;
+    const run = runs.get(key);
+    if (run && run.ending === ending && run.summary === row.summary && run.withheld === row.payloadWithheld) {
+      drop.add(run.index);
+      run.sequences.push(rows[run.index].sequence);
+      run.index = index;
+      run.count += 1;
+    } else {
+      const next = { index, count: 1, sequences: [], ending, summary: String(row.summary), withheld: row.payloadWithheld, firstTick: event.tick };
+      runs.set(key, next);
+      folded.push(next);
+    }
+  }
+  for (const run of folded) {
+    if (run.count < 2) continue;
+    const row = rows[run.index];
+    rows[run.index] = {
+      ...row,
+      // The count follows the offer sentence, before any price or draw sentence.
+      summary: String(row.summary).replace(/\.( |$)/, ` (${run.count} times since tick ${run.firstTick}).$1`),
+      firstTick: run.firstTick,
+      count: run.count,
+      foldedSequences: run.sequences,
+    };
+  }
+  return rows
+    .filter((_, index) => !drop.has(index))
+    .map((row) => typeof row.summary === "string" ? { ...row, summary: unqualifiedFeedNames(world, row.summary) } : row);
 }
 
 /**
