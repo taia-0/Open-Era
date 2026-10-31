@@ -16,7 +16,7 @@ Output: `simulation-output/ai-prompt-v2/live-{1847,2718,4096}-240` on the box, f
 - Agreement is **22 of 22**, and the spend totals $0.0075, as the Lead said.
 - The end hash equals flag-off on **all three seeds**, not only 1847. With every choice equal to the scorer's, the world is the scorer's world.
 - The hold bias is gone. Live choices include down (5), up (4) and hold (13).
-- The reasons restate the rule we showed. 11 of the 22 contain the words "per standing rule" (for example `"No port pressed and pay covered, so hold per standing rule."`), and the rest paraphrase `scorerReason` ("Port at revolt line; cut tax to calm unrest."). None names the ruler's temperament, grudges or plans. Brain output was 19–25 tokens, within the 64-token limit.
+- The reasons restate the rule we showed. 12 of the 22 contain the words "per standing rule" (for example `"No port pressed and pay covered, so hold per standing rule."`), and the rest paraphrase `scorerReason` ("Port at revolt line; cut tax to calm unrest."). None names the ruler's temperament, grudges or plans. Brain output was 19–25 tokens, within the 64-token limit.
 
 **Cause.** The v2 line `The standing rule recommends {scorerChoice}: {scorerReason}` hands the model the answer and its justification. The only other inputs (thresholds, rate, treasury) are the same ones the scorer uses, and the briefing carries no temperament. With nothing the rule ignores, the safest move for the model is to agree.
 
