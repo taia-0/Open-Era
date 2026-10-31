@@ -1,4 +1,4 @@
-import { CONTEXT_TIMEOUT_MS, GRUDGE_WEIGHTS, LOYALTY_READS, type ContextAnswer, type ContextReader, type ContextRequest, type TaxStepBriefing } from "../ai-context.ts";
+import { CONTEXT_TIMEOUT_MS, type ChoiceAnswerRecord, GRUDGE_WEIGHTS, LOYALTY_READS, type ContextAnswer, type ContextReader, type ContextRequest, type TaxStepBriefing } from "../ai-context.ts";
 import { CostLedger, JEV_PRICES, jevCostUsd, type CostLine } from "./cost.ts";
 import type { SyncTransport } from "./sync-http.ts";
 
@@ -50,6 +50,53 @@ const num = (value: unknown) => typeof value === "number" && Number.isFinite(val
  * Ids and numbers are copied from the serializer; only `loyaltyRead` and each
  * grudge `weight` come from Jev's choices. The engine then validates it.
  */
+/** The options each question offered, in a fixed order. */
+export function jevQuestionOptions(request: ContextRequest): Record<string, string[]> {
+  const options: Record<string, string[]> = { loyaltyRead: [...LOYALTY_READS] };
+  request.serializer.grudges.forEach((_, index) => { options[`grudge_${index}`] = [...GRUDGE_WEIGHTS]; });
+  return options;
+}
+
+const unit = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : null;
+
+/**
+ * Keep the full Choice result for each question we asked, conservatively:
+ * questions we did not ask are dropped; per question only `choice`,
+ * `probabilities` and `confidence` are read; a probability is kept only for
+ * an offered option and a finite number (clamped to [0, 1]); `choice` is kept
+ * only if offered; anything else is null or absent. Nothing from headers.
+ */
+export function sanitizeChoiceAnswers(answers: unknown, asked: Record<string, string[]>): Record<string, ChoiceAnswerRecord> {
+  const out: Record<string, ChoiceAnswerRecord> = {};
+  const source = answers && typeof answers === "object" && !Array.isArray(answers) ? answers as Record<string, unknown> : {};
+  for (const [name, options] of Object.entries(asked)) {
+    const raw = source[name];
+    const entry = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
+    if (!entry) continue;
+    const given = entry.probabilities && typeof entry.probabilities === "object" && !Array.isArray(entry.probabilities)
+      ? entry.probabilities as Record<string, unknown>
+      : {};
+    const probabilities: Record<string, number> = {};
+    let sum = 0;
+    for (const option of options) {
+      const value = Object.prototype.hasOwnProperty.call(given, option) ? unit(given[option]) : null;
+      if (value === null) continue;
+      probabilities[option] = value;
+      sum += value;
+    }
+    out[name] = {
+      type: "choice",
+      options: [...options],
+      choice: typeof entry.choice === "string" && options.includes(entry.choice) ? entry.choice : null,
+      probabilities,
+      probabilitySum: Math.round(sum * 1e9) / 1e9,
+      confidence: unit(entry.confidence),
+    };
+  }
+  return out;
+}
+
 export function assembleBriefing(serializer: TaxStepBriefing, answers: Record<string, any>): TaxStepBriefing {
   const pick = (name: string, allowed: readonly string[]) => {
     const choice = answers?.[name]?.choice;
@@ -117,7 +164,11 @@ export function jevContextReader(options: JevReaderOptions): ContextReader {
         return { raw: null, latencyMs, error: "error" };
       }
       options.ledger.record({ ...line, outcome: "model", fallbackReason: null });
-      return { raw: JSON.stringify(assembleBriefing(request.serializer, parsed.answers)), latencyMs };
+      return {
+        raw: JSON.stringify(assembleBriefing(request.serializer, parsed.answers)),
+        latencyMs,
+        answers: sanitizeChoiceAnswers(parsed.answers, jevQuestionOptions(request)),
+      };
     },
   };
 }

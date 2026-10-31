@@ -178,6 +178,28 @@ export interface ContextAnswer {
   raw: string | null;
   latencyMs: number;
   error?: "timeout" | "error" | "cap";
+  /**
+   * The reader's full per-question results, already sanitized by the
+   * provider. Recorded on `data.ai.context.answers` only on a model outcome.
+   * Stubs leave it out, so stub records are unchanged.
+   */
+  answers?: Record<string, ChoiceAnswerRecord>;
+}
+
+/**
+ * One Jev Choice result as recorded (jev-capabilities.md section 2): the
+ * argmax `choice`, the full `probabilities` over the offered options, and
+ * `confidence`. Only known keys, only offered options, finite numbers in
+ * [0, 1]. `probabilitySum` is the sum of the kept values as returned; the
+ * record is not renormalised.
+ */
+export interface ChoiceAnswerRecord {
+  type: "choice";
+  options: string[];
+  choice: string | null;
+  probabilities: Record<string, number>;
+  probabilitySum: number;
+  confidence: number | null;
 }
 
 /** Synchronous, like `TaxStepProvider`. */
@@ -205,6 +227,8 @@ export interface ContextRecord {
   droppedIds: number;
   truncated: boolean;
   latencyMs: number;
+  /** A5 Jev: the full Choice result per question, present only when the reader returned them. */
+  answers?: Record<string, ChoiceAnswerRecord>;
 }
 
 /** Returns the serializer output. Deterministic. */

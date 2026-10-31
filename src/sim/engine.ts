@@ -3675,6 +3675,7 @@ function readTaxStepContext(world: WorldState, factionId: string, holderId: stri
     droppedIds: validated ? validated.droppedIds : 0,
     truncated: chosen.truncated,
     latencyMs: answer.latencyMs,
+    ...(validated && !reason && answer.answers ? { answers: answer.answers } : {}),
   };
 }
 
