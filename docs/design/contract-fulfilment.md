@@ -339,3 +339,125 @@ The 94, 28, and 90 were short at acceptance and still short at the breach, with 
 The two still open on 2718 were both accepted at tick 1198. Toma Reef (`character-07`) owes crown-harbor 10 by tick 1202, holds 0.639, and is standing at glassport. Crown Harbor's shelf is 0. Bram Quill (`character-02`) owes glassport 10 by tick 1200, holds 57.977, and is at sea for cinder-key with 4 ticks left. Glassport's shelf is 0.
 
 One change follows from that row, and it was not measured. Do not accept a carrier who is already standing on the destination and short of the quantity. The shelf cannot sell the shortfall, and this haul will not go and fetch it.
+
+## Walk skip
+
+### Lead's ruling
+
+The offer walk skips any carrier that cannot do the job from where it stands. A carrier standing on the destination port with less than the quantity aboard (`cargo.provisions < 10`) is not offered the job, and the walk moves on to the next carrier who would accept. Taking a job you cannot possibly do is not a choice the motive rule protects. Sailing elsewhere to buy is deferred.
+
+### Measured on `feature/batch2`
+
+**Not comparable to `d8a222fb`.** The earlier tables in this note sit on a local reconstruction of the batch 2 stack that could not be rebuilt (the harness was never kept). This section is measured on the Engineer's re-pin instead, the Lead's option 2: `origin/feature/batch2`, pin commit `e2e3d53`, head `b7895c0` (`b7895c054b731ddb665d9cea2d6a9395c61f8c3c`). `origin/main` was `f1a0db3`. Node v24.21.0, ICU 78.3. `npm test` on `b7895c0` passed, 474 tests, 0 failed. Walk on (the default). A fresh process and a fresh world per seed; governor seats are per world on that branch. 1200 ticks, no player commands.
+
+The pin reproduced before anything was added. 72 ticks: `6efa334f` (8496), `f8af3edf` (8564), `2b32bffb` (8483). 1200 ticks: `e95a9f81` (162438), `8f0b7daa` (163070), `f19aa3d1` (164176). With both harness flags off, the patched tree still produced those three 1200-tick hashes.
+
+The haul and the skip were a local harness behind two environment flags, on a scratch worktree outside the repository. It was removed afterwards. Nothing was committed to `feature/batch2`. The harness followed the rulings above: `contract-order-issued` on acceptance, the haul weight `round(score * 100, 2)` with the haul winning ties, the buy where the carrier stands without the depth cap, the cast-off checks, landing before the deadline with the one-tick-out wait, cancellation at `stocks.provisions >= 10` as `contract-cancelled` / `no-longer-needed`, and the breach cause order. Three harness choices the rulings do not fix:
+
+1. The haul replaces the ordinary action only on a tick when it can buy or sail. Otherwise the ordinary choice stands and no diversion is marked.
+2. There is no extra landing pass after the character loop. A hull waited on at the deadline is paid by the next tick's landing check, which runs before the deadline test.
+3. The block marks (purse, passage, hold, stock, diversion) are kept in harness memory per world, not on the contract.
+
+### Tick 1200
+
+Pin is the Engineer's pin, walk on, no haul. (a) is pin + haul. (b) is pin + haul + skip.
+
+| Seed | Run | Hash | Events | Offers | Accepted | Fulfilled | Breached | Cancelled | Refused | WG end | FT end | Secessions | Deaths |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: |
+| 1847 | pin | `e95a9f81` | 162438 | 264 | 212 | 41 | 171 | 0 | 52 | 10909.93 at 0.06 | 0.00 at 0.20 | 4 | 1 |
+| 1847 | (a) | `78311a515157d4edec1dbb983f92d4829f5804bd1b601a31f0f51a51a4245079` | 163681 | 319 | 257 | 70 | 170 | 17 | 62 | 12211.93 at 0.07 | 0.00 at 0.16 | 3 | 1 |
+| 1847 | (b) | `14bf17b2ea8b9aeaf6fa557d5e9bf95f812fc9d2b27b67fd1b8e2fc726fcd4e6` | 162250 | 255 | 193 | 88 | 95 | 9 | 62 | 9167.65 at 0.07 | 12.45 at 0.16 | 4 | 1 |
+| 2718 | pin | `8f0b7daa` | 163070 | 152 | 121 | 26 | 95 | 0 | 31 | 10881.57 at 0.11 | 312.58 at 0.14 | 4 | 2 |
+| 2718 | (a) | `16171f3072c6e2d33d8f093f0ef9d55b972f94e38dbc68cb0148b3e5845e9b6b` | 160637 | 137 | 97 | 33 | 64 | 0 | 40 | 13212.07 at 0.11 | 0.00 at 0.17 | 2 | 2 |
+| 2718 | (b) | `f18834c5bb1fb6673aaa5933347e034010b05463ee348ed3e81f3b39773ae9d9` | 158885 | 130 | 100 | 44 | 56 | 0 | 30 | 12153.67 at 0.09 | 264.52 at 0.10 | 0 | 2 |
+| 4096 | pin | `f19aa3d1` | 164176 | 360 | 267 | 68 | 198 | 0 | 93 | 9637.43 at 0.07 | 0.00 at 0.24 | 1 | 1 |
+| 4096 | (a) | `12fa3bdbf841cd5e24d1183ef31ef63a5fe68f5f8b6f464c4264a47ab6ef3f38` | 163772 | 514 | 400 | 154 | 220 | 26 | 114 | 4588.14 at 0.09 | 24.64 at 0.16 | 4 | 1 |
+| 4096 | (b) | `2a3201576bff88e970e95733ca8307a840337b6167584fd3371dd1a33c7f7d53` | 163172 | 275 | 231 | 98 | 106 | 27 | 44 | 4645.75 at 0.09 | 0.00 at 0.17 | 1 | 1 |
+
+WG is World Government, FT is Free Tide: treasury at the rate in force at tick 1200. Every (a) and (b) acceptance issued an order. Every acceptance is closed except one on 1847 (b): 88 + 95 + 9 = 192 of 193. The pin's breaches carry no cause, because the pin has no haul.
+
+#### Breaches by cause
+
+| Cause | 1847 (a) | 1847 (b) | 2718 (a) | 2718 (b) | 4096 (a) | 4096 (b) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `capture` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `hazard` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `purse` / `buy` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `purse` / `passage` | 3 | 0 | 0 | 0 | 13 | 11 |
+| `choice` / `better-motive` | 50 | 49 | 25 | 22 | 71 | 54 |
+| `choice` / `hold-full` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `choice` / `consumed` | 72 | 1 | 22 | 0 | 77 | 1 |
+| `choice` / `deadline-infeasible` | 45 | 45 | 17 | 34 | 59 | 40 |
+
+The rows sum to the breaches: 170, 95, 64, 56, 220, and 106.
+
+The skip does what it was ruled to do. `consumed` falls from 72 / 22 / 77 to 1 / 0 / 1. Fulfilments rise from 70 / 33 / 154 to 88 / 44 / 98 on 1847 and 2718. On 4096 they fall, because the skip also removes offers: 514 down to 275. Against the pin with no haul, (b) fulfils 88 / 44 / 98 against 41 / 26 / 68.
+
+### What is left in (b)
+
+`deadline-infeasible` is no longer the largest cause overall: 45 + 34 + 40 = 119, against 49 + 22 + 54 = 125 for `better-motive`. It is the largest on 2718 only. Each of the 119 was accounted for from the carrier's state at its first haul decision and at the breach.
+
+| First haul decision | 1847 | 2718 | 4096 |
+| --- | ---: | ---: | ---: |
+| Standing on a port whose provisions shelf is 0, short of the quantity | 39 | 27 | 28 |
+| Standing on a port whose shelf is above 0 but below the shortfall | 2 | 6 | 9 |
+| Already past the time limit (`travelTicks > ticksLeft`) | 2 | 0 | 2 |
+| Accepted while standing on the destination | 1 | 1 | 0 |
+| No haul decision before the deadline (at sea) | 1 | 0 | 1 |
+| **Deadline breaches** | **45** | **34** | **40** |
+
+The pattern is the same throughout. None of these carriers cast off on the haul. The deadline is `offerTick + travelTicks + 1`, and acceptance is the next tick, so at the first haul decision `ticksLeft` equals `travelTicks` exactly. In these rows it is 4 = 4, 3 = 3, or 2 = 2. There is no slack. The carrier needs to buy part of the 10 where it stands, but the shelf where it stands is empty or thin. It cannot load enough on that tick. On every later tick `travelTicks > ticksLeft`, so it never sails.
+
+Examples from the run:
+
+- 1847, `character-17`, for glassport, accepted at tick 240, deadline 244. At crown-harbor with 9.30 aboard, needed 2.24 more, shelf 0. Four sea ticks against four left. Still at crown-harbor with 8.21 at the breach.
+- 2718, `character-17`, for glassport, accepted 111, deadline 115. At crown-harbor with 7.08 aboard, needed 4.31, shelf 0.64. Bought the 0.64 and could not sail short.
+- 4096, `character-22`, for crown-harbor, accepted 171, deadline 175. At cinder-key with 0 aboard, needed 11.86, shelf 0. Later sailed on an ordinary choice and was two ticks out at the breach.
+
+The accept gate checks the purse against the shortfall's cost. It does not check whether the shelf under the carrier holds the shortfall.
+
+**One suggested fix, since ruled in (see Own-port extension).** Extend the skip to the carrier's own shelf: the walk also skips a carrier whose current port cannot supply its shortfall (`stocks.provisions` below `quantity + ration − cargo`). It is the same "cannot do the job from where it stands" test, and it involves no detour.
+
+## Own-port extension
+
+### Lead's ruling
+
+The Lead accepted the walk skip and the three harness choices above as recorded (the haul replaces the ordinary action only on a tick when it can buy or sail; no extra landing pass after the character loop; block marks kept per world, not on the contract), and ruled the own-port extension in.
+
+The walk additionally skips a carrier whose current port cannot supply its shortfall: the port's `stocks.provisions` below `quantity + provisionDemand × voyage − cargo.provisions`, with the voyage `travelDuration` from that port to the destination. The deadline stays `offerTick + voyage + 1`, with no slack.
+
+### Measured on `feature/batch2`
+
+Same base and method as the walk-skip section: `b7895c0`, Node v24.21.0, ICU 78.3, a fresh process per seed, the harness in a scratch worktree outside the repository, removed afterwards. Before (c), the same patched tree reproduced the pin (`e95a9f81` / `8f0b7daa` / `f19aa3d1`) with every flag off and (b) (`14bf17b2` / `f18834c5` / `2a320157`) with the haul and the skip on. (c) is pin + haul + skip + own-port. Not comparable to `d8a222fb`.
+
+| Seed | Run | Hash | Events | Offers | Accepted | Fulfilled | Breached | Cancelled | Refused | WG end | FT end | Secessions | Deaths |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: |
+| 1847 | pin | `e95a9f81` | 162438 | 264 | 212 | 41 | 171 | 0 | 52 | 10909.93 at 0.06 | 0.00 at 0.20 | 4 | 1 |
+| 1847 | (b) | `14bf17b2` | 162250 | 255 | 193 | 88 | 95 | 9 | 62 | 9167.65 at 0.07 | 12.45 at 0.16 | 4 | 1 |
+| 1847 | (c) | `99ed1d07410f75d3dc8692d0e8d2c20d521f134a7a59f9e3fb65eb837305544e` | 163679 | 229 | 163 | 107 | 44 | 12 | 66 | 5487.13 at 0.03 | 908.99 at 0.14 | 4 | 1 |
+| 2718 | pin | `8f0b7daa` | 163070 | 152 | 121 | 26 | 95 | 0 | 31 | 10881.57 at 0.11 | 312.58 at 0.14 | 4 | 2 |
+| 2718 | (b) | `f18834c5` | 158885 | 130 | 100 | 44 | 56 | 0 | 30 | 12153.67 at 0.09 | 264.52 at 0.10 | 0 | 2 |
+| 2718 | (c) | `0b69526e0288c58c6755414170a2233ccdf4519084406b8c95fed3de878eba32` | 159149 | 124 | 98 | 73 | 23 | 1 | 26 | 8592.86 at 0.06 | 0.00 at 0.18 | 2 | 2 |
+| 4096 | pin | `f19aa3d1` | 164176 | 360 | 267 | 68 | 198 | 0 | 93 | 9637.43 at 0.07 | 0.00 at 0.24 | 1 | 1 |
+| 4096 | (b) | `2a320157` | 163172 | 275 | 231 | 98 | 106 | 27 | 44 | 4645.75 at 0.09 | 0.00 at 0.17 | 1 | 1 |
+| 4096 | (c) | `21205e9aa8bd0eb5118be8cfdb755b86a4440d63f9fb2d6ad8bf509bbd51e484` | 161880 | 345 | 273 | 153 | 84 | 36 | 72 | 4979.26 at 0.03 | 26.89 at 0.15 | 2 | 1 |
+
+(c) at 72 ticks: `6efa334f` (8496), `e8f9cfab` (8566), `8ac8529b` (8483), against the pin's `6efa334f` / `f8af3edf` / `2b32bffb`. Every (c) acceptance issued an order. Every acceptance is closed except one on 2718: 73 + 23 + 1 = 97 of 98.
+
+| Cause, (c) | 1847 | 2718 | 4096 |
+| --- | ---: | ---: | ---: |
+| `capture`, `hazard`, `purse` / `buy`, `choice` / `hold-full` | 0 | 0 | 0 |
+| `purse` / `passage` | 1 | 0 | 11 |
+| `choice` / `better-motive` | 33 | 18 | 60 |
+| `choice` / `consumed` | 2 | 1 | 3 |
+| `choice` / `deadline-infeasible` | 8 | 4 | 10 |
+
+On 2718, `deadline-infeasible` falls from 34 to 4, below `better-motive` (18). On 4096, fulfilments are 153, against 98 in (b) and 154 in (a). `better-motive` is now the largest cause on every seed.
+
+The remaining deadline breaches, by the carrier's first haul decision (1847 / 2718 / 4096):
+
+- No haul decision before the deadline, because the carrier was at sea on another voyage by then: 4 / 1 / 4.
+- Shelf under the carrier emptied between the offer and the first decision, so it was short: 3 / 1 / 2.
+- Shelf too thin at the first decision: 1 / 1 / 1.
+- Already past the time limit at the first decision: 0 / 0 / 3.
+- Accepted while standing on the destination: 0 / 1 / 0.

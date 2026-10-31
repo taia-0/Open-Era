@@ -443,6 +443,14 @@ On seed 1847 the haul without cancellation ends 5234.75 below the walk. The acco
 
 Writes `contract-order-issued`, the buy, the cast-off, the landing, and `contract-cancelled`. The same escrow and the same purses as contracts slice 4. A cancellation writes no loyalty and no reputation. A deadline breach still does.
 
+### Walk skip
+
+The offer walk skips any carrier that cannot do the job from where it stands. A carrier standing on the destination port with less than the quantity aboard (`cargo.provisions < 10`) is not offered the job, and the walk moves on to the next carrier who would accept. Taking a job you cannot possibly do is not a choice the motive rule protects. Sailing elsewhere to buy is deferred. It builds with the haul slice. Measured on the Engineer's re-pin, `feature/batch2` `e2e3d53` / `b7895c0`, in [contract fulfilment](contract-fulfilment.md#walk-skip). Pin + haul + skip at tick 1200: `14bf17b2` (162250), `f18834c5` (158885), `2a320157` (163172). Not comparable to `d8a222fb`.
+
+### Own-port extension
+
+The Lead accepted the walk skip and the three harness choices above as recorded (the haul replaces the ordinary action only on a tick when it can buy or sail; no extra landing pass after the character loop; block marks kept per world, not on the contract), and ruled the own-port extension in. The walk additionally skips a carrier whose current port cannot supply its shortfall: the port's `stocks.provisions` below `quantity + provisionDemand × voyage − cargo.provisions`, with the voyage `travelDuration` from that port to the destination. The deadline stays `offerTick + voyage + 1`, with no slack. Builds with the haul slice and the walk skip. Pin + haul + skip + own-port at tick 1200, on `feature/batch2` `b7895c0`: `99ed1d07` (163679), `0b69526e` (159149), `21205e9a` (161880). Not comparable to `d8a222fb`.
+
 ## Questions
 
 Settled with this note.
