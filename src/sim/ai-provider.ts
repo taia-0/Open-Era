@@ -68,7 +68,30 @@ export const TAX_STEP_PROMPT_TEMPLATE_BRIEFED = [
   "Briefing on you (validated, at most 1,024 bytes): {briefing}.",
   "Reply as JSON with a reason of at most 12 words, then the choice: {\"reason\":\"...\",\"choice\":\"<option>\"}.",
 ].join("\n");
-export const TAX_STEP_PROMPT_VERSION_BRIEFED = sha256(TAX_STEP_PROMPT_TEMPLATE_BRIEFED);
+/**
+ * The fixed wording the briefed prompt's slots and system message use. It is
+ * part of the prompt, so it is part of `TAX_STEP_PROMPT_VERSION_BRIEFED`: a
+ * wording change moves the version even when the template is unchanged.
+ * `{floor}` and `{max}` are filled from CLAIM_STABILITY_FLOOR and TAX_RATE_MAX.
+ */
+export const TAX_STEP_BRIEFED_WORDING = {
+  system: "Answer as JSON: {\"reason\":\"<at most 12 words>\",\"choice\":\"<option>\"}.",
+  noReport: "no current stability report from your ports.",
+  unrest: "lowest port stability {low}; revolt risk at or below {floor}. {pressedText}",
+  pressed: "PRESSED: a port is at or below the revolt line.",
+  notPressed: "Not pressed.",
+  short: "SHORT: the treasury cannot cover a day's pay for the mates.",
+  covered: "The treasury covers a day's pay.",
+  reasonDown: "a port is at or below the revolt line, so cut.",
+  reasonUp: "the treasury is short and no port is pressed, so raise.",
+  reasonHoldFloor: "a port is at or below the revolt line, but the rate is already 0%, so hold.",
+  reasonHoldMax: "the treasury is short, but the rate is already at the {max}% maximum, so hold.",
+  reasonHold: "no port is pressed and pay is covered, so hold.",
+  down: "down = cut the rate one point (calms unrest, less income)",
+  hold: "hold = keep the rate",
+  up: "up = raise the rate one point (more income, more unrest)",
+} as const;
+export const TAX_STEP_PROMPT_VERSION_BRIEFED = sha256(`${TAX_STEP_PROMPT_TEMPLATE_BRIEFED}\n${canonicalJson(TAX_STEP_BRIEFED_WORDING)}`);
 
 /** Brain timeout from ai-brain.md. Proposed, not measured; stubs never reach it. */
 export const TAX_STEP_TIMEOUT_MS = 30_000;

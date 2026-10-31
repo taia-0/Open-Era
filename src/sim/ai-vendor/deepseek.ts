@@ -1,4 +1,4 @@
-import { parseTaxChoice, TAX_STEP_PROMPT_TEMPLATE, TAX_STEP_PROMPT_TEMPLATE_BRIEFED, TAX_STEP_TIMEOUT_MS, type TaxStepAnswer, type TaxStepProvider, type TaxStepRequest } from "../ai-provider.ts";
+import { parseTaxChoice, TAX_STEP_BRIEFED_WORDING, TAX_STEP_PROMPT_TEMPLATE, TAX_STEP_PROMPT_TEMPLATE_BRIEFED, TAX_STEP_TIMEOUT_MS, type TaxStepAnswer, type TaxStepProvider, type TaxStepRequest } from "../ai-provider.ts";
 import { canonicalJson, CLAIM_STABILITY_FLOOR } from "../state.ts";
 import { TAX_RATE_MAX } from "../tax-rate.ts";
 import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, type CostLine } from "./cost.ts";
@@ -10,7 +10,7 @@ export const DEEPSEEK_MODEL = "deepseek-v4-pro";
 export const DEEPSEEK_MAX_TOKENS = 64;
 export const DEEPSEEK_SYSTEM = "Answer as JSON: {\"choice\":\"<option>\"}.";
 /** Prompt v2: the system message for the briefed template, matching its reply format. */
-export const DEEPSEEK_SYSTEM_BRIEFED = "Answer as JSON: {\"reason\":\"<at most 12 words>\",\"choice\":\"<option>\"}.";
+export const DEEPSEEK_SYSTEM_BRIEFED = TAX_STEP_BRIEFED_WORDING.system;
 
 export interface DeepSeekBrainOptions {
   transport: SyncTransport;
@@ -28,27 +28,26 @@ export function fillTemplate(template: string, values: Record<string, unknown>):
     name in values ? (typeof values[name] === "string" ? values[name] as string : canonicalJson(values[name])) : match);
 }
 
-const OPTION_TEXT: Record<string, string> = {
-  down: "down = cut the rate one point (calms unrest, less income)",
-  hold: "hold = keep the rate",
-  up: "up = raise the rate one point (more income, more unrest)",
-};
+const W = TAX_STEP_BRIEFED_WORDING;
 
-/** Plain-language slots for the briefed template (ai-brain-hold-bias.md). Derived from the request only. */
+/** Plain-language slots for the briefed template (ai-brain-hold-bias.md). Derived from the request only; prompt text only. */
 export function taxStepPromptSlots(request: TaxStepRequest): Record<string, string> {
   const low = request.lowestStabilityThousandths;
   const unrestText = low === null
-    ? "no current stability report from your ports."
-    : `lowest port stability ${(low / 1000).toFixed(2)}; revolt risk at or below ${CLAIM_STABILITY_FLOOR.toFixed(2)}. ${request.pressed ? "PRESSED: a port is at or below the revolt line." : "Not pressed."}`;
-  const payText = request.short ? "SHORT: the treasury cannot cover a day's pay for the mates." : "The treasury covers a day's pay.";
+    ? W.noReport
+    : W.unrest
+      .replace("{low}", (low / 1000).toFixed(2))
+      .replace("{floor}", CLAIM_STABILITY_FLOOR.toFixed(2))
+      .replace("{pressedText}", request.pressed ? W.pressed : W.notPressed);
+  const payText = request.short ? W.short : W.covered;
   const maxCents = Math.round(TAX_RATE_MAX * 100);
-  // Prompt text only: the scorer's hold at a rate bound says why. Nothing here reaches the sim or an event.
-  const scorerReason = request.scorerChoice === "down" ? "a port is at or below the revolt line, so cut."
-    : request.scorerChoice === "up" ? "the treasury is short and no port is pressed, so raise."
-    : request.pressed && request.rateCents <= 0 ? "a port is at or below the revolt line, but the rate is already 0%, so hold."
-    : !request.pressed && request.short && request.rateCents >= maxCents ? `the treasury is short, but the rate is already at the ${maxCents}% maximum, so hold.`
-    : "no port is pressed and pay is covered, so hold.";
-  return { unrestText, payText, scorerReason, optionsText: request.options.map((option) => OPTION_TEXT[option]).join("; ") + "." };
+  // The scorer's hold at a rate bound says why. Nothing here reaches the sim or an event.
+  const scorerReason = request.scorerChoice === "down" ? W.reasonDown
+    : request.scorerChoice === "up" ? W.reasonUp
+    : request.pressed && request.rateCents <= 0 ? W.reasonHoldFloor
+    : !request.pressed && request.short && request.rateCents >= maxCents ? W.reasonHoldMax.replace("{max}", String(maxCents))
+    : W.reasonHold;
+  return { unrestText, payText, scorerReason, optionsText: request.options.map((option) => W[option]).join("; ") + "." };
 }
 
 export function deepSeekRequestBody(request: TaxStepRequest): string {
