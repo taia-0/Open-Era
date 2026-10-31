@@ -177,7 +177,7 @@ export interface ContextRequest {
 export interface ContextAnswer {
   raw: string | null;
   latencyMs: number;
-  error?: "timeout" | "error";
+  error?: "timeout" | "error" | "cap";
 }
 
 /** Synchronous, like `TaxStepProvider`. */

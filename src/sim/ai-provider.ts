@@ -29,7 +29,7 @@ export interface TaxStepRequest {
 export interface TaxStepAnswer {
   raw: string | null;
   latencyMs: number;
-  error?: "timeout" | "error";
+  error?: "timeout" | "error" | "cap";
 }
 
 export interface TaxStepProvider {
