@@ -37,6 +37,8 @@ import {
   publicFeedSentence,
   queuedCommandSentence,
   SHORT_PAY_UPKEEP_LINE,
+  provisionShortageUpkeepLine,
+  shortPayAudience,
   shortPayUpkeepVisible,
   timeStoppedSentence,
   secessionDeclaredSentence,
@@ -193,8 +195,11 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     case "character-upkeep": {
       const passage = passageUpkeepSentence(world, event);
       const base = passage ?? publicFeedSentence(world, event);
-      if (shortPayUpkeepVisible(world, reader, event)) return `${base} ${SHORT_PAY_UPKEEP_LINE}`;
-      return base;
+      const parts = [base];
+      const hungry = shortPayAudience(world, reader, event.actorId) ? provisionShortageUpkeepLine(event) : null;
+      if (hungry) parts.push(hungry);
+      if (shortPayUpkeepVisible(world, reader, event)) parts.push(SHORT_PAY_UPKEEP_LINE);
+      return parts.join(" ");
     }
     case "scattered-troops-returned":
       return `${event.data.returning} scattered troops returned to ${actor}`;
@@ -221,8 +226,12 @@ function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], r
     }
     case "recruited":
       return recruitDetailSentence(world, event) ?? publicFeedSentence(world, event);
-    case "contract-offered":
-      return `${actor} offered ${event.data.price} to land ${event.data.quantity} provisions at ${destinationName(world, event)}.`;
+    case "contract-offered": {
+      const terms = event.data.contract as { price?: number; quantity?: number } | undefined;
+      const offer = publicFeedSentence(world, event);
+      const price = terms?.price ?? event.data.price;
+      return typeof price === "number" ? `${offer} The price is ${price}.` : offer;
+    }
     case "contract-amended":
       return `${actor} revised the provisions contract to ${event.data.price} for ${event.data.quantity} at ${destinationName(world, event)}.`;
     case "contract-accepted":
