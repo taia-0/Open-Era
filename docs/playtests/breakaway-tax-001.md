@@ -66,8 +66,16 @@ One more `{"ticks":24}` ends at tick 1148, `eventSequence` 156347, with no Free 
 
 ## Outcome
 
-Not yet run.
+Run 2026-10-26 by a blind operator on `0f02352` (fresh clone), Node v24.21.0, one process, seed 4096, no command. `GET /api/health` returned HTTP 200 `{"ok":true,"tick":0,"events":0}`.
+
+**Checkpoint 1 — matched.** Calls ended at 144/17459, 288/36330, 320/40710 (attentionUpdated true), 404/52249 (attentionUpdated true), 548/73133, 692/93205, 836/112675, 980/132600. No `pausedForBattle` true. Pause notes: `Time stopped. Free Tide Compact took Mara Vane on the dock at Crown Harbor after Esme Dusk won there on a higher score.` (320) and `Time stopped. Mara Vane was released from Crown Harbor.` (404).
+
+**Checkpoint 2 — matched.** Calls ended at 1004/136002, 1028/139445, 1052/142882, 1076/146271, 1100/149659. Sequence 147966, `secession-declared`, tick 1088, actor `character-16`, `payloadWithheld` true: `Corin Hale declared Cinder Key separate from Free Tide Compact. Free Cinder Key starts with an empty treasury. (no leader yet)`
+
+**Checkpoint 3 — matched.** Call ended at 1124/152972 with sequence 150201, `tax-rate-set`, tick 1104, actor `character-16`, `payloadWithheld` true: `Corin Hale lowered the Free Cinder Key tax from 8% to 7% (unrest).` Next call ended at 1148/156347 with no `tax-rate-set` row.
+
+**Findings.** No mismatch. The hypothesis holds: the breakaway uses its tax lever on the first clock point after the declaration. Player-facing oddity: the declaration says "(no leader yet)" while Corin Hale sets the tax 16 ticks later, which reads as a contradiction to a first-time player.
 
 ## Recommendation
 
-Pending the blind session.
+**Verdict: PROMOTE.** Every checkpoint matched verbatim. Optional feed follow-up: reword "(no leader yet)" to make clear the founder holds the tax seat.
