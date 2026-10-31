@@ -30,9 +30,21 @@ Harness counts, 1200 ticks, headless. "Clock points" are ticks where, at the sta
 Two corrections to `ai-brain.md`:
 
 1. Its 22 / 25 / 26 tax calls were **both factions**. Free Tide alone stepped 15 / 22 / 25 times.
-2. A model can choose a step where the scorer holds, so the pilot is asked at every **clock point**, not only where the scorer steps: 45 / 45 / 42 calls per run.
+2. A model can choose a step where the scorer holds, so the pilot is asked at every **clock point**, not only where the scorer steps: 45 / 45 / 42 clock points per run. **Built: 33 / 27 / 30 calls** (see the correction below).
 
 The landless freeze (no autonomous step while the faction holds no port) is a batch 2 ruling and is not in the tree. On 2718 the tree stepped Free Tide up 14 times with no port, which is how it reaches 0.30.
+
+## Correction, 2026-10-26: built call counts
+
+Pilot A as built on `feature/ai-pilot-a` at `7531ffc` makes **33 / 27 / 30** provider calls per 1,200-tick run on seeds 1847 / 2718 / 4096 (agree stub, re-measured for `ai-pilot-b.md`), not the 45 / 45 / 42 planned. The main cause is the **landless freeze**, which already existed: at a clock point where Free Tide holds no port, `taxStepOptions` (`src/sim/tax-rate.ts`) returns the one option `hold`, and `chooseAutonomousTaxRates` does not send a one-option set (section 7, default 4). Counted per clock point at `7531ffc` with an uncommitted counter, restored afterwards:
+
+| Seed | Clock points reached | Sent | Landless freeze (one option) | No step offered (no holder, or within 24 ticks of a set) | Non-autonomous holder |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1847 | 49 | 33 | 7 | 9 | 0 |
+| 2718 | 49 | 27 | 9 | 13 | 0 |
+| 4096 | 49 | 30 | 19 | 0 | 0 |
+
+The planned 45 / 45 / 42 counted Free Tide's clock points on the batch 1 tree without either gate; the freeze is the largest skip on 4096. Cost falls to match: $0.14 / $0.11 / $0.13 at peak, estimate (calls × $0.004224).
 
 ## 1. Slices, in build order
 
@@ -145,7 +157,7 @@ interface TaxStepProvider {
 2. **Agree stub.** On all three seeds at 1200 ticks, `stateHash` and event counts equal flag off. Every Free Tide `tax-rate-set` has `data.ai.outcome === "model"` and `finalChoice === scorerChoice`. The trace has one entry per clock point.
 3. **Failing stub.** For each of `timeout`, `error`, and `illegal`, the world matches flag off. Every Free Tide step carries `outcome: "fallback"` and the matching `fallbackReason`, and the applied choice is the scorer's.
 4. **Recovery without the provider.** Run 1847 with `stub-script` set to choose `hold` where the scorer steps up and `up` where it holds, on at least one clock point before tick 120 (the first step on 1847). Snapshot, then recover from an earlier snapshot with a provider that throws if called. `recover()` reaches the live `stateHash`, and the throwing provider is never called.
-5. **Calls only for this decision.** A counting stub is called only from `chooseAutonomousTaxRates`, only for `free-tide`, only at clock points, at most once per clock point, and never for World Government. On the agree stub the count equals the clock points: 45 / 45 / 42 by this note's harness, or whatever the built gate counts, which the test records.
+5. **Calls only for this decision.** A counting stub is called only from `chooseAutonomousTaxRates`, only for `free-tide`, only at clock points, at most once per clock point, and never for World Government. On the agree stub the built gate makes 33 / 27 / 30 calls (7531ffc); the clock points are 45 / 45 / 42, and the gap is the landless freeze.
 6. **Cap.** With a cap of 10, the 11th and later clock points apply the scorer's choice with `fallbackReason: "cap"`, and the world matches flag off under the agree stub. The default cap (50) is above every measured run, so it does not bind. The counter lives in run memory. A binding cap that has to survive recovery would need a world field and is out of scope.
 
 ## 6. Pilot measurements and judgment
@@ -154,14 +166,14 @@ Run every seed at 1200 ticks with the flag off, `stub-agree`, `stub-fail` (each 
 
 | Measure | How |
 | --- | --- |
-| Calls per run | Trace length. Expect 45 / 45 / 42 on the agree stub |
+| Calls per run | Trace length. 33 / 27 / 30 on the agree stub at 7531ffc |
 | Fallback rate | Fallback entries ÷ calls, by reason |
 | FT rate path | `(tick, rate)` for every Free Tide `tax-rate-set`; end and maximum rate |
 | Divergence tick | First tick at which `stateHash` differs from flag off, run tick by tick. Agree and fail stubs: none |
 | Latency | `latencyMs` per call: mean, p95, max. Stubs are about 0 |
 | Agreement | Per call: `finalChoice` vs `scorerChoice` as a 3 × 3 table (down, hold, up). Disagreements listed with the request fields (pressed, short, rate, treasury, mates, ports held) |
 | Downstream | Secessions, Free Tide end treasury, ports held, from the same run |
-| Estimated vendor cost | Calls × the per-call estimate in `ai-brain.md`: 2,000 input and 400 output tokens, both **assumed**, on `deepseek-v4-pro` at peak ($1.32 / $3.96 per M), 0.004224 per call. 45 × 0.004224 = **$0.19** per run, estimate. Off-peak: 45 × 0.002112 = **$0.095** |
+| Estimated vendor cost | Calls × the per-call estimate in `ai-brain.md`: 2,000 input and 400 output tokens, both **assumed**, on `deepseek-v4-pro` at peak ($1.32 / $3.96 per M), 0.004224 per call. Built: 33 × 0.004224 = **$0.14** (1847), 27 × = $0.11, 30 × = $0.13 per run, estimate. Off-peak: 33 × 0.002112 = **$0.070**. (Planned at 45 calls: $0.19 / $0.095.) |
 
 **Pass to move to a real vendor** (Micah decides; these are the bar this note proposes):
 
@@ -178,7 +190,7 @@ A real-vendor run would then be judged on agreement and reasons, not on beating 
 
 1. `ai.brain.taxStep` **off** (option absent). No `data.ai`, no trace, byte-identical hashes.
 2. Scope **`free-tide` only**, free autonomous holder only. World Government stays on the scorer.
-3. Asked at **every clock point** (45 / 45 / 42 per run measured here), not only when the scorer steps.
+3. Asked at **every clock point** (45 / 45 / 42 clock points; 33 / 27 / 30 calls as built, because a landless clock point is not sent), not only when the scorer steps.
 4. Legal set **`down`, `hold`, `up`**, bounded at 0 and 0.30. The landless freeze joins the set **with batch 2** (slice A4). A one-option set is not sent.
 5. **Holds emit no event**. They go to the trace outside the world.
 6. Provider is **synchronous, stubs only**. A real vendor needs an async tick loop (A5) and Micah's choice of vendor and key.
