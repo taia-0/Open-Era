@@ -66,7 +66,7 @@ test("DeepSeek request: endpoint, bearer header, non-thinking JSON output, max_t
   assert.equal(body.model, "deepseek-v4-pro");
   assert.deepEqual(body.thinking, { type: "disabled" });
   assert.deepEqual(body.response_format, { type: "json_object" });
-  assert.equal(body.max_tokens, 32);
+  assert.equal(body.max_tokens, 64);
   assert.equal(body.temperature, 0);
   assert.equal(body.stream, false);
   assert.match(body.messages[1].content, /Answer as JSON/);
