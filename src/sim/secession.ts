@@ -1,6 +1,7 @@
 import { provisionDemand } from "./engine.ts";
 import { actingCoverId, commandHolderId, CLAIM_STABILITY_FLOOR, round } from "./state.ts";
 import { TAX_DRIFT_THRESHOLD } from "./tax-rate.ts";
+import { createPrototypeWorld } from "./scenario.ts";
 import type { Character, Settlement, WorldState } from "./types.ts";
 
 /**
@@ -411,8 +412,8 @@ export function buildSecessionDeclaration(
  *
  * The owner gate in section 2 must pass, and the owner must not be the
  * command holder. The controller is autonomous: a human owner is not declared
- * here, in a live session or a headless run. The holding rate is above 0.15
- * and stability is at or below 55. A declaration already recorded for this
+ * here, in a live session or a headless run. A secession route is open (tax above 0.15,
+ * broken promises or earned grievance; `secessionRoutes`) and stability is at or below 55. A declaration already recorded for this
  * owner on this spell does not fire again. No draw.
  */
 export function autonomousSecessionReady(world: WorldState, settlement: Settlement, liveSession = false): boolean {
@@ -425,11 +426,62 @@ export function autonomousSecessionReady(world: WorldState, settlement: Settleme
   if (liveSession && owner.controller.kind === "human") return false;
   if (owner.controller.kind !== "autonomous") return false;
   if (commandHolderId(world, settlement.factionId) === owner.id) return false;
-  const taxRate = world.factions[settlement.factionId]?.taxRate ?? 0;
-  if (!(taxRate > TAX_DRIFT_THRESHOLD)) return false;
+  if (secessionRoutes(world, settlement, owner).length === 0) return false;
   if (!(settlement.stability <= CLAIM_STABILITY_FLOOR)) return false;
   if (settlement.secessionDeclaredBy === owner.id) return false;
   return true;
+}
+
+/**
+ * Secession routes (docs/design/secession-routes.md §4, §5.4, §5.5). Each
+ * route replaces only the tax term of the autonomous gate; every other gate
+ * (seated autonomous governor, anchored, same faction, not the holder,
+ * stability ≤ 55, once per spell) stays. Reads existing state only; no draw.
+ *  - tax: holding rate above 0.15 (the original line);
+ *  - promise (B): ≥ 10 breached contracts to the port observed in the last 240 ticks, any cause;
+ *  - hated (C): the governor's grievance at the holder or acting commander, earned since
+ *    setup, ≥ 0.12. The starting grievance is read from the rebuilt setup world for
+ *    the seed (cached per seed, the `desertion.ts` forkSeed pattern), so no state is added;
+ *    a relationship absent at setup starts at 0;
+ *  - last-port exemption: a declaration with no tax term never takes its faction's only held port.
+ */
+export const PROMISE_BREACH_COUNT = 10;
+export const PROMISE_WINDOW_TICKS = 240;
+export const HATED_GRIEVANCE = 0.12;
+export type SecessionRoute = "tax" | "promise" | "hated";
+
+const setupGrievances = new Map<number, Map<string, number>>();
+export function startingGrievance(seed: number, fromId: string, toId: string): number {
+  let table = setupGrievances.get(seed);
+  if (!table) {
+    table = new Map();
+    for (const character of Object.values(createPrototypeWorld(seed).characters)) {
+      for (const [otherId, relationship] of Object.entries(character.relationships)) table.set(`${character.id}>${otherId}`, relationship.grievance);
+    }
+    setupGrievances.set(seed, table);
+  }
+  return table.get(`${fromId}>${toId}`) ?? 0;
+}
+
+export function secessionRoutes(world: WorldState, settlement: Settlement, governor: Character): SecessionRoute[] {
+  if (!settlement.factionId) return [];
+  const routes: SecessionRoute[] = [];
+  if ((world.factions[settlement.factionId]?.taxRate ?? 0) > TAX_DRIFT_THRESHOLD) routes.push("tax");
+  const since = world.tick - PROMISE_WINDOW_TICKS;
+  let breaches = 0;
+  for (const contract of Object.values(world.contracts ?? {})) {
+    if (contract.status === "breached" && contract.destinationId === settlement.id && (contract.observedTick ?? -Infinity) > since) breaches += 1;
+  }
+  if (breaches >= PROMISE_BREACH_COUNT) routes.push("promise");
+  const holderId = commandHolderId(world, settlement.factionId);
+  const actingId = world.factions[settlement.factionId]?.actingCommanderId ?? null;
+  const earned = (id: string | null) => (id ? (governor.relationships[id]?.grievance ?? 0) - startingGrievance(world.seed, governor.id, id) : 0);
+  if (Math.max(earned(holderId), earned(actingId)) >= HATED_GRIEVANCE) routes.push("hated");
+  if (!routes.includes("tax") && routes.length > 0) {
+    const held = Object.values(world.settlements).filter((other) => other.factionId === settlement.factionId).length;
+    if (held <= 1) return [];
+  }
+  return routes;
 }
 
 /** Read who would leave. Does not write the world. */

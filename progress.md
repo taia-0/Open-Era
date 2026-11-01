@@ -153,6 +153,26 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-31 — Secession routes: broken promises, earned grievance, last-port exemption
+- **Agent:** Grok Bot (as taia-0) | **Branch:** `feature/secession-routes` (off `60434e4`) | **Commits:** see branch
+- **Type:** Change
+- **Changed:** `secessionRoutes` (src/sim/secession.ts) replaces the tax term of the autonomous secession gate with "tax or route", in the fixed order tax, promise, hated. The routes are:
+  - **B, promise:** ≥ 10 breached contracts to the port in 240 ticks, any cause.
+  - **C, hated:** the governor's grievance at the holder or acting commander, minus the setup grievance, ≥ 0.12. The setup grievance is read from the rebuilt setup world, cached per seed (the `forkSeed` pattern), so no state is added.
+
+  A route with no tax term never takes its faction's last port. The walker (engine.ts) and the readout (`autonomousSecessionReady`) both use it, and `secession-declared.data.routes` records the routes on the event only. Other changes:
+  - `npm run secession-gate`, the doc's dynamism gate.
+  - tests/secession-routes.test.ts.
+  - The 1,200-tick pins and call counts are re-pinned.
+  - A captive held at a port no longer reads that port as "alongside and sells provisions", since a captive cannot buy. The new timeline exposed this in story-properties.
+- **Why:** docs/design/secession-routes.md §4, §5.4, §5.5.
+- **Verified:**
+  - The 72-tick fixture is unchanged (6efa334f/e8f9cfab/8ac8529b). The 1,200-tick pins are 5641b4c4/162167, a6ff3924/156996 and b19aa02e/163536, matching the doc's §5.5.
+  - Secessions against the old tax route, 4/0/4 → 5/1/4 (1847: promise 2, tax 3; 2718: hated 1; 4096: promise 2, tax+promise 1, tax 1). The gate passes.
+  - npm test passes 600/600 and evaluate-milestone passes.
+- **Left open:** Tax-step calls at 1,200 ticks are now 21/25/22 (were 30/22/19). Free Tide goes portless sooner on 1847.
+- **Links:** docs/design/secession-routes.md
+
 ### 2026-10-31 — Social picker (slice 4): Free Tide reads + picks; live gate passed first attempt
 - **Agent:** Grok Bot (as taia-0) | **Branch:** `feature/social-picker` | **Commits:** `7fbc106`, `e817e4d`, this entry
 - **Type:** Change

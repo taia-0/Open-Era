@@ -66,9 +66,9 @@ test("3. stubArgmax with social reads for all members: flag-off hashes at 72 and
   const short = run({ picker: stubArgmaxPicker(), social: stubSocialFromTraits() }, 1847, 72);
   assert.equal(short.hash.slice(0, 8), "6efa334f");
   const long = run({ picker: stubArgmaxPicker(), social: stubSocialFromTraits() }, 1847, 1200);
-  assert.equal(long.hash.slice(0, 8), "f80c529f");
-  assert.equal(long.events.length, 165833);
-  assert.ok(long.records.length > 4000);
+  assert.equal(long.hash.slice(0, 8), "5641b4c4");
+  assert.equal(long.events.length, 162167);
+  assert.ok(long.records.length > 1000); // 4,546 before secession routes; members leave Free Tide sooner now
   assert.ok(long.records.every((r) => r.picker.sampled === r.picker.scorerPick && r.read));
   assert.ok(new Set(long.records.map((r) => r.actorId)).size > 1);
 });
