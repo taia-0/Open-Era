@@ -7,6 +7,7 @@ import { parseArgs } from "node:util";
 import { runTick } from "../../src/sim/engine.ts";
 import { createPrototypeWorld } from "../../src/sim/scenario.ts";
 import { stateHash } from "../../src/sim/state.ts";
+import { FOOD_LOG, BASELINE_LOG } from "../../src/sim/occupation.ts";
 import { dynamismReadout } from "../../src/tools/dynamism.ts";
 import type { SimEvent } from "../../src/sim/types.ts";
 
@@ -20,7 +21,7 @@ export const HOLD_BASELINE: Record<number, number> = { 1847: 38, 2718: 38, 4096:
 
 const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
-interface Occ { port: string; tick: number; from: string | null; hs: number[]; stab0: number; stab60: number | null; upkeepLoss60: number; upkeeps60: number; end: number; flipBack120: boolean; ended: boolean; attempts: number; defectors: number }
+interface Occ { port: string; tick: number; from: string | null; hs: number[]; stab0: number; stab60: number | null; upkeepLoss60: number; upkeeps60: number; end: number; flipBack120: boolean; ended: boolean; attempts: number; defectors: number; lastH: number }
 
 function run(seed: number, occupation: boolean) {
   const world = createPrototypeWorld(seed);
@@ -42,11 +43,12 @@ function run(seed: number, occupation: boolean) {
     try {
     if (e.type === "settlement-claimed") {
       close(port, e.tick, (e.data.factionId as string | null) ?? null);
-      const o: Occ = { port, tick: e.tick, from: (e.data.previousFactionId as string | null) ?? null, hs: [], stab0: Number(e.data.stability), stab60: null, upkeepLoss60: 0, upkeeps60: 0, end: ticks, flipBack120: false, ended: false, attempts: 0, defectors: 0 };
+      const o: Occ = { port, tick: e.tick, from: (e.data.previousFactionId as string | null) ?? null, hs: [], stab0: Number(e.data.stability), stab60: null, upkeepLoss60: 0, upkeeps60: 0, end: ticks, flipBack120: false, ended: false, attempts: 0, defectors: 0, lastH: 0 };
       occs.push(o); open.set(port, o);
     } else if (e.type === "secession-declared") close(port, e.tick, String((e.data.faction as { id: string }).id));
     else if ((e.type === "settlement-upkeep" || e.type === "settlement-shortage") && open.has(port)) {
       const o = open.get(port)!;
+      { const lh = (e.data.occupation as { harshness?: number } | undefined)?.harshness; if (typeof lh === "number") o.lastH = lh; }
       if (e.tick - o.tick <= 60) {
         const before = lastStability.get(port);
         if (before !== undefined) { o.upkeepLoss60 += before - Number(e.data.stability); o.upkeeps60++; }
@@ -78,7 +80,7 @@ function run(seed: number, occupation: boolean) {
     holdMedian: median(holds), flipBack120: ended.filter((o) => o.flipBack120).length, endedHolds: ended.length,
     defectors: events.reduce((a, e) => a + (e.type === "battle-started" ? Number(e.data.occupationDefectors ?? 0) : 0), 0),
     integrations: events.filter((e) => e.type === "occupation-integrated").length,
-    harsh: bucket("harsh"), benign: bucket("benign"), wipeouts, occs: occs.map((o) => ({ h: meanH(o), stab: o.stab60 !== null ? o.stab0 - o.stab60 : null, up: o.upkeeps60 > 0 ? o.upkeepLoss60 : null, attempts: o.attempts, defectors: o.defectors, flip: o.flipBack120, ended: o.ended })),
+    harsh: bucket("harsh"), benign: bucket("benign"), wipeouts, occs: occs.map((o) => ({ h: meanH(o), stab: o.stab60 !== null ? o.stab0 - o.stab60 : null, up: o.upkeeps60 > 0 ? o.upkeepLoss60 : null, attempts: o.attempts, defectors: o.defectors, flip: o.flipBack120, ended: o.ended, lastH: o.lastH })),
     hHistogram: { zero: occs.filter((o) => meanH(o) === 0).length, low: occs.filter((o) => meanH(o) > 0 && meanH(o) < 0.25).length, mid: occs.filter((o) => meanH(o) >= 0.25 && meanH(o) < 0.5).length, harsh: occs.filter((o) => meanH(o) >= 0.5).length, maxMeanH: Math.round(Math.max(0, ...occs.map(meanH)) * 1e4) / 1e4 },
   };
 }
@@ -93,15 +95,19 @@ const t1 = hs[Math.floor(hs.length / 3)], t2 = hs[Math.floor((2 * hs.length) / 3
 const tb = (list: typeof allOcc) => ({ n: list.length, stabLoss60: median(list.filter((o) => o.stab !== null).map((o) => o.stab!)), upkeepLoss60: median(list.filter((o) => o.up !== null).map((o) => o.up!)), attempts: list.reduce((a, o) => a + o.attempts, 0), defectors: list.reduce((a, o) => a + o.defectors, 0), flipBack120: list.filter((o) => o.flip).length, ended: list.filter((o) => o.ended).length });
 const benign = tb(allOcc.filter((o) => o.h < t1)); const mid = tb(allOcc.filter((o) => o.h >= t1 && o.h < t2)); const harsh = tb(allOcc.filter((o) => o.h >= t2));
 console.log(`tertiles of mean H: n=${hs.length} t1=${t1?.toFixed(4)} t2=${t2?.toFixed(4)} min ${hs[0]?.toFixed(4)} median ${hs[Math.floor(hs.length/2)]?.toFixed(4)} max ${hs[hs.length-1]?.toFixed(4)}; mid n=${mid.n} upkeepLoss60 ${mid.upkeepLoss60} stabLoss60 ${mid.stabLoss60} def/att ${mid.defectors}/${mid.attempts} flip ${mid.flipBack120}/${mid.ended}`);
+const endedOcc = allOcc.filter((o) => o.ended); const hAt = endedOcc.filter((o) => o.lastH >= t2), bAt = endedOcc.filter((o) => o.lastH < t1);
+const c2 = { n: hAt.length, harshFlip: hAt.filter((o) => o.flip).length, harshRate: hAt.length ? hAt.filter((o) => o.flip).length / hAt.length : 0, nb: bAt.length, benignFlip: bAt.filter((o) => o.flip).length, benignRate: bAt.length ? bAt.filter((o) => o.flip).length / bAt.length : 0 };
+console.log("2c at flip:", JSON.stringify(c2), "old 2c (mean-H tertile):", JSON.stringify({ h: [harsh.flipBack120, harsh.ended], b: [benign.flipBack120, benign.ended] }));
 const perAttempt = (b: ReturnType<typeof tb>) => (b.attempts ? b.defectors / b.attempts : 0);
 const flipRate = (b: ReturnType<typeof tb>) => (b.ended ? b.flipBack120 / b.ended : 0);
 const secMed = (rs: typeof rows) => median(rs.map((r) => r.secessions))!;
 const checks = {
   "2a_upkeepOnly_harshLosesMore": (harsh.upkeepLoss60 ?? -Infinity) > (benign.upkeepLoss60 ?? Infinity),
   "2a_raw_info_only": true,
-  "claimsAggregate_ge_0.75x": sum(on, "claims") >= 0.75 * sum(off, "claims"),
+  "liveness_claimsAggregate_ge_0.33x": sum(on, "claims") >= 0.33 * sum(off, "claims"),
+  "liveness_everySeedClaimsAndPortChanges": on.every((r) => r.claims > 0 && r.portChanges > 0),
   "2b_moreDefectorsPerRetake": perAttempt(harsh) > perAttempt(benign),
-  "2c_higherFlipBack120": flipRate(harsh) > flipRate(benign),
+  "2c_atFlip_gatedIfN10": c2.n < 10 || c2.harshRate > c2.benignRate,
   "3_noNewWipeouts": on.every((r) => r.wipeouts.every((f) => off.find((o) => o.seed === r.seed)!.wipeouts.includes(f))),
   "4a_secessionMedianWithin1": Math.abs(secMed(on) - secMed(off)) <= 1,
   "4b_secessionSeeds": on.filter((r) => r.secessions >= 1).length >= Math.ceil(seeds.length / 2),
@@ -120,6 +126,9 @@ console.log(`mean H over the first 60 ticks (flag on, all claims): 0: ${hist.zer
 const measurement = { "2a_upkeepOnly_harshLosesMore": (harsh.upkeepLoss60 ?? -Infinity) > (benign.upkeepLoss60 ?? Infinity), harshUpkeepLoss60: harsh.upkeepLoss60, benignUpkeepLoss60: benign.upkeepLoss60 };
 console.log(`measurement (not gated): 2a upkeep-only stability loss over 60 ticks, median harsh ${harsh.upkeepLoss60} vs benign ${benign.upkeepLoss60}`);
 console.log(JSON.stringify(checks)); console.log(`claims ${sum(on, "claims")} vs 0.75x ${0.75 * sum(off, "claims")}; raw 2a harsh ${harsh.stabLoss60} benign ${benign.stabLoss60}`);
+{ const q = (xs: number[], p: number) => { const z = [...xs].sort((a, b) => a - b); return z.length ? Math.round(z[Math.min(z.length - 1, Math.floor(p * z.length))] * 1e4) / 1e4 : null; }; const dd = (xs: number[]) => ({ n: xs.length, nonZero: xs.filter((x) => x > 0).length, p25: q(xs, .25), p50: q(xs, .5), p75: q(xs, .75), p90: q(xs, .9), max: q(xs, 1) });
+console.log("food term per upkeep:", JSON.stringify(dd(FOOD_LOG)), "nonzero:", JSON.stringify(dd(FOOD_LOG.filter((x) => x > 0))), "baseline:", JSON.stringify(dd(BASELINE_LOG)));
+console.log(`liveness: min claims on ${Math.min(...on.map((r) => r.claims))}, min port changes on ${Math.min(...on.map((r) => r.portChanges))}, ratio ${(sum(on, "claims") / sum(off, "claims")).toFixed(4)}, wipeouts on ${JSON.stringify(on.map((r) => r.wipeouts))}, off ${JSON.stringify(off.map((r) => r.wipeouts))}, integration seeds ${on.filter((r) => r.integrations > 0).length}, secession seeds ${on.filter((r) => r.secessions > 0).length}`); }
 const pass = Object.values(checks).every(Boolean);
 if (false) writeFileSync(values.json, JSON.stringify({ rows, harsh, benign, checks, measurement, churnLimit: CHURN_LIMIT, holdBaseline: HOLD_BASELINE, pass }, null, 2));
 if (!pass) { console.log("OCCUPATION ACCEPTANCE FAILED"); process.exitCode = 1; } else console.log("OCCUPATION ACCEPTANCE PASSED");

@@ -1,6 +1,6 @@
 # Occupation and the population's response after conquest
 
-Status: Re-spec (§9) after the [diagnosis](../../progress.md) on `feature/occupation` `562ffc1`; Lead rulings applied. Acceptance does **not** yet pass under the re-spec (claims bound and 2c; §9.6). Earlier: Accepted (#168).
+Status: Final re-spec (§9, §10). The Lead's §9.8 rulings are applied, and acceptance passes on 13 seeds offline (§10). Earlier: Accepted (#168).
 
 **Sources**
 - `game-vision.md:69`: occupation and the population's response are undecided.
@@ -48,7 +48,7 @@ Claim counts equal the exile-on sweep rows for these seeds (`progress.md` exile 
 | Term | Weight | Input (existing state) | Why |
 |---|---|---|---|
 | Tax burden | 0.35 | clamp((holder rate − `fromRate`) / 0.10, 0, 1). `fromRate` is the previous holder's rate at the capture; only rises count, a cut reads 0 (§9.1) | A new holder taxing harder than the old one is the most common change (23 / 28 / 27 claims) |
-| Food | 0.25 | Low stocks after upkeep: clamp(1 − provisions left after this upkeep's consumption / demand, 0, 1), from the upkeep's own `stocks.provisions` and `demand`. Replaces the shortage-in-24-ticks test, which can never fire (§9.2). No behaviour change to production; the subsistence floor is untouched | Material condition: how far short of one tick's ration the port is after eating |
+| Food | 0.25 | Food is measured against the port's own baseline. The baseline B is the mean of (provisions after upkeep / demand) over the 20 ticks before the capture, stored on the record as `foodBaseline`. The term is clamp(B − current ratio, 0, 1) (§10.3). No behaviour change; the subsistence floor is untouched | Scores what the occupier causes, not how the port is built |
 | Conduct | 0.20 | min(1, contracts to the port breached in the last 240 ticks / **4**), the route-B count (`secession.ts:466–471`) (§9.4) | Broken promises by whoever now runs the port |
 | Residents' grievance | 0.20 | 0.5 · min(1, previous-faction members docked / 3) + 0.5 · min(1, their mean earned grievance at the owner / **0.075**) (§9.3) | Named characters at the port who were loyal to the old faction and resent the new owner |
 
@@ -70,7 +70,7 @@ Claim counts equal the exile-on sweep rows for these seeds (`progress.md` exile 
 |---|---|---|
 | Weights | 0.35 / 0.25 / 0.20 / 0.20 | Tax first because it is the measured common change; the weights sum to 1 |
 | Tax scale | 0.10, rises only vs the previous holder's rate at capture | Two tax-drift bands (`TAX_DRIFT_PER_BAND` 0.03 per 0.05, `tax-rate.ts:21–23`) |
-| Food | 1 − provisions after upkeep / demand | §9.2 |
+| Food | clamp(pre-claim 20-tick baseline − current provisions/demand, 0, 1) | §10.3 |
 | Conduct scale | 4 breaches | §9.4 |
 | Grievance scale | 0.075 earned grievance | p90 of the measured non-zero range (§9.3) |
 | Drift | 0.10 · H | At H = 1 it outweighs the +0.03 peaceful drift; at H ≤ 0.3 it nets ≥ 0 |
@@ -92,7 +92,7 @@ Claim counts equal the exile-on sweep rows for these seeds (`progress.md` exile 
 2. **Harsh vs benign** (re-spec, §9.5). Bucket occupations by mean H over their first 60 ticks into **tertiles** of the pooled flag-on distribution over the 13 seeds: benign = bottom third, harsh = top third. Harsh occupations show more local resistance than benign ones:
    - **2a (gated):** a larger median stability loss over 60 ticks from **upkeeps only** (battle-free: battle losses at the port are excluded). The raw 2a, with battles, is reported but not gated;
    - **2b:** more defectors per retake attempt;
-   - **2c:** a higher flip-back-within-120 rate.
+   - **2c:** a higher flip-back-within-120 rate. Measured only on ended holds whose H on the last upkeep before the flip is in the top tertile (≥ t2), against those below t1. Gated only when the harsh n ≥ 10; otherwise reported (§10.2).
    The benign bucket's flip-back rate is not required to fall.
 3. **No new wipeouts** compared with the exile-on sweep.
 4. **Secessions:**
@@ -103,8 +103,8 @@ Claim counts equal the exile-on sweep rows for these seeds (`progress.md` exile 
 7. **Churn guard** (Lead, after #168; flag on vs the exile-on baseline). Resistance should make holds differ by harshness, not make ports change hands faster.
    - **Port changes:** the 13-seed total stays at or below 1.5 × the exile-on total. The baseline total is 713 (13-seed sweep on `5e06c4c`, `after-triage.md`), so the limit is 1,069 (1.5 × 713 = 1,069.5, rounded down).
    - **Hold length:** on each of 1847, 2718 and 4096, the median hold after a claim is not below the exile-on baseline from §1: 38 / 38 / 37 ticks.
-   - **Claims (re-spec):** the 13-seed **aggregate** claims with the flag on are at least 0.75 × the exile-on aggregate (682 → ≥ 512). Not per seed: the drift effect is a trajectory switch, and per-seed differences in dynamism are acceptable (Lead ruling).
-   - The sweep (§6) reports all three and exits 1 on failure.
+   - **Liveness (replaces the 0.75 × claims bound, §10.1):** every seed has claims > 0 and port changes > 0, the 13-seed aggregate claims are at least 0.33 × exile-on (≥ 225.06 of 682), and there are no new wipeouts (item 3). The fall in claims is an emergent effect of longer holds, not a failure.
+   - The sweep (§6) reports these and exits 1 on failure.
 
 ## 6. Measurement plan
 
@@ -268,3 +268,97 @@ Claims by seed, off → on:
 3. **Food.** Accept a port-structural food term, or measure it against the port's level before the claim (§9.2).
 
 Spend: $0. No live or paid calls were made.
+
+## 10. Lead rulings on §9.8 and final result (2026-11-01)
+
+### 10.1 Rulings
+
+1. **Claims bound replaced.** The 0.75 × bound was a balance target. `game-vision.md:39` rules out restoring balance by fiat, so the bound goes. In its place is a liveness guard:
+   - every seed has claims > 0 and port changes > 0;
+   - aggregate claims ≥ 0.33 × exile-on (≥ 225.06 of 682);
+   - no new wipeouts.
+
+   The claims drop is an emergent effect: harsh and integrated holds last longer, so fewer claims fit into 1,200 ticks (§9.6). It is not a failure.
+2. **2c at the flip.** 2c is measured only on retakes where H is in the top tertile at the flip, the original intent. If that n is below 10, it is reported without gating.
+3. **Food relative to the port's own baseline.**
+   - The baseline is the mean post-upkeep stock / demand over the 20 ticks before the capture.
+   - The term is max(0, baseline − current ratio), clamped to ≤ 1.
+   - This removes the port-structural constant found in §9.2. The tertiles are re-derived below.
+
+All other terms are as in §9:
+- tax: rises only against the rate at capture;
+- conduct: scale of 4;
+- grievance: scale of 0.075;
+- drift: 0.10 · H from the first upkeep;
+- regrowth stop: H ≥ 0.5;
+- defection: garrison · H / 2;
+- integration: 240 ticks at H < 0.25.
+
+### 10.2 Result
+
+The run used the `562ffc1` engine with the prototype in [occupation-respec/prototype.patch](occupation-respec/prototype.patch). It ran offline with exile on, for 1,200 ticks, on the 13 seeds. Output is in [occupation-respec/final-sweep.txt](occupation-respec/final-sweep.txt). Spend: $0.
+
+**Tertiles of mean H** over the first 60 ticks (n = 445 occupations):
+- cut points t1 = **0.1563** and t2 = **0.2972**;
+- min 0.0072, median 0.2333, max 0.6603;
+- 17 occupations have mean H ≥ 0.5.
+
+| Item | Result | Pass |
+|---|---|---|
+| Liveness: claims > 0 on every seed | min 11 (1000) | yes |
+| Liveness: port changes > 0 on every seed | min 11 (1000) | yes |
+| Liveness: aggregate claims ≥ 0.33 × | 445 of 682 = **0.6525 ×** (≥ 225.06) | yes |
+| 3. No new wipeouts | none on or off, any seed | yes |
+| 2a, upkeeps only (gated) | median 60-tick loss: harsh 0.410 vs benign −0.816 | yes |
+| 2a, raw (reported) | harsh 3.339 vs benign 2.560 | — |
+| 2b. Defectors per retake | harsh 1.222 (121 / 99) vs benign 0.024 (2 / 84) | yes |
+| 2c at the flip (n = 141 ≥ 10, gated) | flip-back ≤ 120: harsh 105 / 141 (0.745) vs benign 80 / 134 (0.597) | yes |
+| 4. Secessions | 31 → 15, median 2 → 1 (within ±1); 8 / 13 seeds ≥ 1 (≥ 7) | yes |
+| 5. Integrations | 15 total; 9 / 13 seeds | yes |
+| 7a. Port changes | 713 → 460 (≤ 1,069) | yes |
+| 7b. Hold median 1847 / 2718 / 4096 | 41.5 / 48 / 57 (≥ 38 / 38 / 37) | yes |
+
+On the mean-H tertile basis (§9), 2c reads harsh 99 / 142 vs benign 79 / 128 and also passes.
+
+**By seed** (off → on, exile on in both):
+
+| Seed | Claims | Port changes | Hold median |
+|---|---|---|---|
+| 1847 | 51 → 36 | 52 → 36 | 38 → 41.5 |
+| 2718 | 64 → 13 | 64 → 14 | 39 → 48 |
+| 4096 | 56 → 37 | 59 → 39 | 37.5 → 57 |
+| 1000 | 42 → 11 | 44 → 11 | 38 → 115 |
+| 2000 | 50 → 24 | 52 → 26 | 38.5 → 48.5 |
+| 3000 | 42 → 31 | 44 → 32 | 62 → 87 |
+| 4000 | 63 → 51 | 64 → 54 | 38 → 44 |
+| 5000 | 55 → 47 | 57 → 50 | 45 → 41 |
+| 6000 | 50 → 32 | 55 → 32 | 49 → 59 |
+| 7000 | 61 → 38 | 65 → 38 | 44 → 62 |
+| 8000 | 62 → 61 | 66 → 63 | 38 → 39 |
+| 9000 | 58 → 51 | 60 → 52 | 42 → 41 |
+| 10000 | 28 → 13 | 31 → 13 | 56 → 153 |
+
+### 10.3 Food term distribution (baseline-relative)
+
+**Per occupied upkeep** (all upkeeps of every occupation, n = 35,674):
+- non-zero on 20,102 (56 %);
+- all upkeeps: p25 0, median 0.0558, p75 0.2865, p90 1, max 1;
+- non-zero upkeeps only: p25 0.1076, median 0.2675, p75 1.
+
+**Baseline B at capture** (n = 445):
+- B = 0 at 173 captures. On those, food can never score; at Crown Harbor this is the usual case (§9.2);
+- median 0.3142, p75 0.574, p90 0.8418, max 109.38.
+
+A high B, from a stocked shelf before the claim, saturates the term at 1 once the shelf empties. The clamp to 1 bounds this.
+
+### 10.4 Drift
+
+Kept as specced (§9.7). This run did not test drift further.
+
+### 10.5 For the Engineer
+
+The prototype is a measurement patch, not the implementation: it reads env vars and keeps the food history in a module map. Build it as follows:
+- `foodBaseline` on the record, computed at the claim;
+- a 20-tick per-port ratio history that is held only with the flag on, so flag-off runs stay byte-identical;
+- the constants in §3;
+- the §5 checks in `scripts/occupation-sweep.ts`.
