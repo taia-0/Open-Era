@@ -10,6 +10,7 @@
   "scripts": {
     "simulate": "node --experimental-strip-types src/cli/run-simulation.ts",
     "dashboard": "node --experimental-strip-types src/cli/run-dashboard.ts",
+    "dynamism": "node --experimental-strip-types src/cli/dynamism-readout.ts",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit && node --experimental-strip-types --test tests/*.test.ts",
