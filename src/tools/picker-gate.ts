@@ -7,11 +7,14 @@ import type { SimEvent } from "../sim/types.ts";
  *  - holderEntropyUp: the holder's action entropy exceeds flag off on every seed;
  *  - world metrics (secessions, port ownership changes, captures): no seed at 0
  *    where flag off has some, and not below flag off on every seed (systematic);
- *  - workShare: the holder's share of `work` decisions within ±WORK_SHARE_TOLERANCE
- *    relative of flag off, with an absolute floor of WORK_SHARE_FLOOR (a 2.7% baseline
- *    share would otherwise allow less than one point of movement).
+ *  - workShare: a ONE-SIDED floor. The holder's share of `work` decisions must be at
+ *    least WORK_SHARE_MIN_RATIO (70%) of flag off's, or at least WORK_SHARE_FLOOR (0.05)
+ *    absolute. There is no ceiling. Lead ruling, clarified after the third live result
+ *    (2718: 2.7% flag off → 14.9% live): the check exists to catch work collapsing
+ *    ("work almost disappears"), so a holder who works more is not a failure. The
+ *    earlier ±30% two-sided band is withdrawn.
  */
-export const WORK_SHARE_TOLERANCE = 0.3;
+export const WORK_SHARE_MIN_RATIO = 0.7;
 export const WORK_SHARE_FLOOR = 0.05;
 export const GATE_METRICS = ["secessions", "portOwnershipChanges", "captures"] as const;
 
@@ -52,7 +55,7 @@ export function seedGate(seed: number, run: readonly SimEvent[], baseline: reado
   return {
     seed, holderEntropy: he, metrics,
     workShare: { run: Math.round(ws * 1e4) / 1e4, baseline: Math.round(wb * 1e4) / 1e4, ratio: ratio === null ? null : Math.round(ratio * 1e4) / 1e4,
-      ok: Math.abs(ws - wb) <= Math.max(WORK_SHARE_TOLERANCE * wb, WORK_SHARE_FLOOR) },
+      ok: ws >= WORK_SHARE_MIN_RATIO * wb || ws >= WORK_SHARE_FLOOR },
     overrides: { consults: records.length, offScorer: off, rate: records.length ? Math.round((off / records.length) * 1e4) / 1e4 : 0 },
   };
 }
@@ -63,6 +66,6 @@ export function pickerGate(seeds: SeedGate[]): PickerGate {
     checks[`${m}NoZeroWhereBaselineHas`] = seeds.every((s) => !s.metrics[m].zeroWhereBaselineHas);
     checks[`${m}NotSystematicallyBelow`] = !(seeds.length > 1 && seeds.every((s) => s.metrics[m].below));
   }
-  checks.workShareWithin30pct = seeds.every((s) => s.workShare.ok);
+  checks.workShareFloor = seeds.every((s) => s.workShare.ok);
   return { seeds, checks, pass: Object.values(checks).every(Boolean) };
 }

@@ -259,7 +259,7 @@ test("the fitted stub replays recorded distributions by exact legal list, else p
   assert.equal(stub.exactHits, 1);
 });
 
-test("gate additions: entropy up, no zero where flag off has some, not systematically below, work share within 30%", () => {
+test("gate additions: entropy up, no zero where flag off has some, not systematically below, work share floor", () => {
   const ev = (tick: number, type: string, data: Record<string, unknown> = {}, actorId = "character-14") => ({ sequence: 0, tick, type, actorId, data } as SimEvent);
   const off = [ev(1, "decision-made", { goal: "rest" }), ev(2, "decision-made", { goal: "rest" }), ev(3, "decision-made", { goal: "work" }), ev(4, "character-captured"), ev(5, "secession-declared")];
   const good = [ev(1, "decision-made", { goal: "rest" }), ev(2, "decision-made", { goal: "travel" }), ev(3, "decision-made", { goal: "work" }), ev(4, "character-captured"), ev(5, "secession-declared")];
@@ -273,6 +273,17 @@ test("gate additions: entropy up, no zero where flag off has some, not systemati
   assert.equal(gate.checks.holderEntropyUpAllSeeds, false);
   assert.equal(gate.checks.secessionsNoZeroWhereBaselineHas, false);
   assert.equal(gate.checks.capturesNotSystematicallyBelow, false);
-  assert.equal(gate.checks.workShareWithin30pct, false);
+  assert.equal(gate.checks.workShareFloor, false);
   assert.ok(WORK_SHARE_FLOOR > 0);
+  // One-sided: more work than flag off never fails; a collapse below 70% and below 0.05 does.
+  const workDecisions = (work: number, other: number) => [
+    ...Array.from({ length: work }, (_, i) => ev(i, "decision-made", { goal: "work" })),
+    ...Array.from({ length: other }, (_, i) => ev(100 + i, "decision-made", { goal: "rest" })),
+  ];
+  const lowOff = workDecisions(3, 97);
+  assert.equal(seedGate(1, workDecisions(15, 85), lowOff).workShare.ok, true, "2.7% → 15% passes: no ceiling");
+  const off20 = workDecisions(20, 80);
+  assert.equal(seedGate(1, workDecisions(14, 86), off20).workShare.ok, true, "70% of flag off passes");
+  assert.equal(seedGate(1, workDecisions(4, 96), off20).workShare.ok, false, "below 70% and below 0.05 fails");
+  assert.equal(seedGate(1, workDecisions(6, 94), off20).workShare.ok, true, "0.05 absolute passes");
 });
