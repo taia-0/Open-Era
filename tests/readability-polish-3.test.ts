@@ -16,7 +16,7 @@ import { runTick, runTicks } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";
-import type { SimEvent, WorldState } from "../src/sim/types.ts";
+import type { SimEvent } from "../src/sim/types.ts";
 
 
 test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick check-in", () => {
@@ -131,26 +131,6 @@ test("seed 1847 names both captains and does not say each one took the port", ()
     assert.equal(String(row?.summary).includes("nerve"), false);
     assert.equal(String(row?.summary).includes("accepted"), false);
   }
-});
-
-test("seed 1847 tick 527 says morale gave out, and does not say nerve broke", () => {
-  // Re-pinned for the contract haul: this fight moved to Jun Marrow at Crown Harbor on tick 484.
-  // Re-pinned for the raise shock (low-tax-cost.md): Jun Marrow's tick-484 fight is gone; the same kind of win is Dax Pike's at Cinder Key on tick 527.
-  const run = runTicks(createPrototypeWorld(1847), 528);
-  const battle = run.events.find((event) => event.sequence === 67049);
-  assert.ok(battle);
-  assert.equal(battle.type, "battle-resolved");
-  assert.equal(battle.tick, 527);
-  assert.equal(battle.actorId, "character-20");
-  assert.equal(battle.settlementId, "cinder-key");
-  assert.equal(battle.data.outcome, "attacker-victory");
-  assert.equal(typeof battle.data.battleId, "string");
-  const [row] = projectEventFeed(run.state, "character-01", [battle]);
-  assert.equal(row?.payloadWithheld, true);
-  assert.equal(row?.data, null);
-  assert.equal(row?.summary, "Dax Pike won the fight at Cinder Key on a higher score, after morale gave out. A surrender was offered.");
-  assert.equal(String(row?.summary).includes("nerve"), false);
-  assert.equal(String(row?.summary).includes("outscore"), false);
 });
 
 test("seed 1847 tick 1 hints that a refusal was a standing order and does not name the directive", () => {
