@@ -153,6 +153,12 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-31 — Feed reasons: brain call cap 300 under EXILE_RECOVERY (Cursor)
+
+Lead ruling. With `exileRecovery` on, the feed-reasons brain call cap defaults to **300** (`FEED_REASON_CALL_CAP_EXILE`, `feedReasonCallCap`); otherwise it stays 200. The Jev check keeps its own count, still capped at 200; the shared $0.10 cost cap is unchanged. `run-feed-reasons.ts --max-calls` now defaults from `--exile-recovery`.
+
+- Verified: new test in tests/feed-reasons.test.ts: 450 qualifying events give 200 brain calls with the flag off and 300 with it on, and 200 checks either way. `npm test` passed offline with the keys unset, as did `./scripts/evaluate-milestone.sh feed-reasons-cap` (feed pins b51aa07a/091f7628/25bdbf15, replay exact).
+
 ### 2026-10-31 — Feed reasons (slice B, `ai.feedReasons`, default off)
 
 Built from `docs/design/feed-reasons.md` (sections 10, 12 and 14). `src/sim/feed-reasons.ts` annotates `secession-declared`, `character-deserted`, better-motive `contract-breached`, `battle-started` (tick > 0), `settlement-claimed` and autonomous tax changes with `data.ai.reason = { model, promptVersion, inputHash, text, outcome, fallbackReason, latencyMs, check }` after each tick. The feed shows `<today's line> — <text>`. The facts carry a `trigger` in words. The system prompt is section 12's, verbatim. The validator checks JSON, 1–20 words, that capitalised words and numbers appear in the facts, and that there are no pronouns. A failure falls back to today's line (`illegal` / `timeout` / `error` / `cap` / `missing-key`).

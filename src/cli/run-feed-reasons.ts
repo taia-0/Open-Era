@@ -6,7 +6,7 @@ import { CostLedger } from "../sim/ai-vendor/cost.ts";
 import { workerTransport } from "../sim/ai-vendor/sync-http.ts";
 import { runTick } from "../sim/engine.ts";
 import {
-  deepSeekFeedReasonWriter, FEED_REASON_CALL_CAP, FEED_REASON_CAP_USD, feedReasonKind, jevFeedReasonChecker,
+  deepSeekFeedReasonWriter, feedReasonCallCap, FEED_REASON_CAP_USD, feedReasonKind, jevFeedReasonChecker,
   stubFeedReasonWriter, withFeedReason, type FeedReasonOptions, type FeedReasonRecord, type FeedReasonWriter,
 } from "../sim/feed-reasons.ts";
 import { createPrototypeWorld } from "../sim/scenario.ts";
@@ -16,7 +16,7 @@ import type { SimEvent } from "../sim/types.ts";
 /**
  * Slice B runner (feed-reasons.md). Stub writer by default, offline. `--ai-vendor`
  * uses DeepSeek plus the advisory Jev check (Micah's standing approval; caps
- * $0.10 and 200 calls). `--replay <dir>` reuses the recorded text with the
+ * $0.10, and 200 brain calls or 300 with --exile-recovery; the Jev check stays at 200). `--replay <dir>` reuses the recorded text with the
  * network disabled and checks the feed text and hash are byte-identical.
  * Keys come from the environment only and are never printed.
  */
@@ -27,7 +27,7 @@ const { values } = parseArgs({
     "ai-vendor": { type: "boolean", default: false },
     "no-check": { type: "boolean", default: false },
     "cap-usd": { type: "string", default: String(FEED_REASON_CAP_USD) },
-    "max-calls": { type: "string", default: String(FEED_REASON_CALL_CAP) },
+    "max-calls": { type: "string" },
     "exile-recovery": { type: "boolean", default: false },
     output: { type: "string" },
     replay: { type: "string" },
@@ -60,7 +60,7 @@ const transport = vendor ? workerTransport() : null;
 const feedReasons: FeedReasonOptions = {
   writer: replayDir ? blocked : vendor ? deepSeekFeedReasonWriter({ transport: transport!, ledger }) : stubFeedReasonWriter(),
   ...(vendor && !values["no-check"] ? { checker: jevFeedReasonChecker({ transport: transport!, ledger }) } : {}),
-  callCap: Number.parseInt(values["max-calls"]!, 10),
+  callCap: values["max-calls"] ? Number.parseInt(values["max-calls"], 10) : feedReasonCallCap(exileRecovery),
   exileRecovery,
   ...(replayMap ? { replay: replayMap } : {}),
 };
