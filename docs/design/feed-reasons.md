@@ -1,6 +1,6 @@
 # Feed reasons (slice B): brain-written one-line reasons in the feed
 
-Status: **Open / build spec.** Base `origin/main` `7f92a4e` (#158). A capped live sample ran on 2026-10-31 at about 22:10 PT: 28 calls, $0.003733 (section 8). Sources: `next-dynamic-slice.md` (candidate B and the Lead ruling "B comes next, after A"), `ai-brain.md` (roles, `data.ai`, replay never calls a model), `ai-providers.md` (the DeepSeek provider, cost line and cap) and `src/dashboard/wording.ts:1233–1255` (today's fixed tax reasons).
+Status: **Ruled / build spec** (Lead, after #159; section 12). Acceptance re-sample **passed** on 2026-10-31 (section 13). Base `origin/main` `7f92a4e` (#158). A capped live sample ran on 2026-10-31 at about 22:10 PT: 28 calls, $0.003733 (section 8). Sources: `next-dynamic-slice.md` (candidate B and the Lead ruling "B comes next, after A"), `ai-brain.md` (roles, `data.ai`, replay never calls a model), `ai-providers.md` (the DeepSeek provider, cost line and cap) and `src/dashboard/wording.ts:1233–1255` (today's fixed tax reasons).
 
 ## 1. What changes
 
@@ -160,3 +160,108 @@ That is below the earlier ≈ $0.11 estimate (`next-dynamic-slice.md`), which as
 3. **Secession motive.** Is the route list enough grounding, or should the secession event carry the triggering grievance or promise in words?
 4. **Validator strictness.** A capitalised-name check misses invented motives. Is a second check acceptable, for example a Jev Noul "does the reason state anything not in the facts?" at about $0.00003 per call? Or is prompt discipline enough?
 5. **Ordering.** B depends on A only for the lines A adds ("…to win back <P>"). Should B also cover A's home-port-claim raids once they are built?
+
+## 12. Lead rulings (after #159)
+
+1. **Caps:** $0.10 and 200 calls per run.
+2. **All five open-question defaults are accepted:**
+   - every event type in section 2 keeps a reason;
+   - lines are name-only;
+   - the trigger is spelled out in words in the facts;
+   - a Jev check for invented motives;
+   - A's home-port raids get reasons once A lands.
+
+**Prompt and facts as built for the re-sample** (they supersede sections 3–4 where they differ):
+- **Every fact packet has a `trigger` field in words**, taken from the engine's own rule:
+  - secession: the route, e.g. "broken promises: 12 supply contracts owed to Glassport were broken in the last 240 days (the line is 10)", from `secessionRoutes` (`src/sim/secession.ts:466–484`); the tax and grievance routes have their own wording;
+  - desertion: "twelve mornings in a row without money for a day of passage, then a desertion roll that came up" (`src/sim/desertion.ts:48–77`);
+  - breach: "dropped the accepted contract for a better-paying option";
+  - claim: "the port surrendered and the claim was accepted";
+  - tax: "the treasury was short" or "unrest in a port the faction held";
+  - raid: "not recorded: the raid event carries no cause".
+- **System prompt:**
+  - start with `actor.name` exactly;
+  - never use a pronoun for a person; repeat the name;
+  - give as the cause only what `trigger` says, and if no cause was recorded, state the act without a motive;
+  - a personality value may be a describing word, never the cause;
+  - at most 20 words.
+
+  Full text: `docs/playtests/feed-reasons-resample-2026-10-31/probe.mjs`.
+- **Jev motive check:** one Noul per reason on `jev-1.14.0`.
+  - Request: `state = {facts, reason}`, with the question: "Does the reason state any motive, cause or fact that is not in the facts? Wording that only restates the facts, or describes a listed personality trait, is not new. Answer yes if it adds a cause, a feeling, a relationship, a gender, a person, a place or a number that the facts do not contain."
+  - It flags at `noul ≥ 0.5`, and a flag replaces the reason with the fixed fallback (`fallbackReason: "check"`).
+  - Cost about $0.000024 per call; it uses the same cap and cost log.
+  - **Its status is advisory** (section 14).
+
+## 13. Acceptance re-sample (2026-10-31, about 22:20 PT)
+
+**Set.** The same 28 events (identical ids), rebuilt on main `b0ac371` with the trigger fields (`build.ts`). `src/` is unchanged from `7f92a4e`.
+
+**Run.** The dry run came first. Its worst-case accumulation (peak prices, a full 64 output tokens) would have stopped at 22 brain items, because the pre-call check is deliberately pessimistic. The live run's actual spend stayed far below. Caps: 70 calls and $0.05 total across brain and Jev, checked before every call. The keys were never logged, and a check of the committed files finds none.
+
+| Part | Calls | Spend |
+|---|---|---|
+| Brain (`deepseek-v4-pro`, thinking disabled, off-peak) | 28 | $0.007355 |
+| Jev check on the re-sample reasons | 28 | $0.000679 |
+| Jev check on 14 first-sample reasons (scoring, section 14) | 14 | $0.000328 |
+| **Total** | **70** | **$0.008362** |
+
+- All calls returned HTTP 200.
+- Brain: tokens in 312–365 (the trigger adds about 70), latency 980–2,986 ms.
+- Jev: latency 44–115 ms.
+- Logs: `live-log.jsonl` (brain and checker, one line per call) and `live-log-checker.jsonl`.
+
+**Manual grades** (the Researcher, against each item's facts in `set.jsonl`):
+
+| # | Item | Event | Reason (verbatim) | Words | Faithful | Invented | Jev noul |
+|---|---|---|---|---|---|---|---|
+| 1 | 1847-535 | raid | Mina Vale raided Glassport. | 4 | yes | no | 0.06 |
+| 2 | 1847-6695 | claim | Dax Pike claimed Glassport after the port surrendered and the claim was accepted. | 13 | yes | no | 0.05 |
+| 3 | 1847-8248 | tax | Pax Ash lowered the tax rate from 8% to 7% due to unrest in a port the faction held. | 19 | yes | no | 0.07 |
+| 4 | 1847-8249 | tax | Mara Vane lowered the tax rate due to unrest in a port the faction held. | 15 | yes | no | 0.07 |
+| 5 | 1847-9846 | breach | Lio Crow dropped the accepted contract for a better-paying option. | 10 | yes | no | 0.11 |
+| 6 | 1847-33747 | breach | Lio Crow dropped the accepted contract for a better-paying option. | 10 | yes | no | 0.13 |
+| 7 | 1847-103495 | secession | Niko Wren seceded Glassport from the World Government after broken promises. | 11 | yes | no | 0.07 |
+| 8 | 1847-104074 | secession | Corin Hale seceded from Free Tide Compact after broken promises. | 10 | yes | no | 0.07 |
+| 9 | 1847-107490 | desertion | Mina Vale deserted the Free Tide Compact after twelve mornings without money for a day of passage. | 17 | yes | no | 0.06 |
+| 10 | 1847-107491 | desertion | Esme Dusk deserted the Free Tide Compact after twelve mornings without money for a day of passage. | 17 | yes | no | 0.06 |
+| 11 | 2718-763 | raid | Orin Rill raided Cinder Key. | 5 | yes | no | 0.05 |
+| 12 | 2718-4520 | claim | Jun Marrow claimed Cinder Key after the port surrendered and the claim was accepted. | 14 | yes | no | 0.04 |
+| 13 | 2718-5502 | tax | Mara Vane lowered the tax rate due to unrest in a port the faction held. | 15 | yes | no | 0.07 |
+| 14 | 2718-8186 | tax | Pax Ash lowered the tax rate due to unrest in a port the faction held. | 15 | yes | no | 0.06 |
+| 15 | 2718-10547 | breach | Bram Tern dropped the accepted contract for a better-paying option. | 10 | yes | no | 0.16 |
+| 16 | 2718-10781 | breach | Finn Frost dropped the accepted contract for a better-paying option. | 10 | yes | no | 0.16 |
+| 17 | 2718-90684 | desertion | Mina Vale deserted the Free Tide Compact after twelve mornings without money for a day of passage. | 17 | yes | no | 0.07 |
+| 18 | 2718-90685 | desertion | Finn Frost deserted the Free Tide Compact after twelve mornings without money for a day of passage. | 17 | yes | no | 0.06 |
+| 19 | 4096-623 | raid | Rook Tern raided Cinder Key. | 5 | yes | no | 0.05 |
+| 20 | 4096-4973 | claim | Mara Calder claimed Glassport after the port surrendered. | 8 | yes | no | 0.05 |
+| 21 | 4096-8298 | breach | Zara Gale dropped the accepted contract for a better-paying option. | 10 | yes | no | 0.15 |
+| 22 | 4096-8413 | tax | Pax Ash lowered the tax rate due to unrest in a port the faction held. | 15 | yes | no | 0.06 |
+| 23 | 4096-9116 | breach | Zara Gale dropped the accepted contract for a better-paying option. | 10 | yes | no | 0.15 |
+| 24 | 4096-16978 | tax | Pax Ash raised taxes because the treasury was short. | 9 | yes | no | 0.05 |
+| 25 | 4096-43430 | secession | Mara Calder seceded from Free Tide Compact due to broken promises. | 11 | yes | no | 0.05 |
+| 26 | 4096-48303 | secession | Ada Sorn seceded from World Government after broken promises. | 9 | yes | no | 0.06 |
+| 27 | 4096-55326 | desertion | Zara Gale deserted the Free Tide Compact after twelve mornings without money for passage. | 14 | yes | no | 0.07 |
+| 28 | 4096-72116 | desertion | Esme Dusk deserted the Free Tide Compact after twelve mornings without money. | 12 | yes | no | 0.12 |
+
+**Result: PASS.**
+- **Faithful: 28 / 28. Invented facts: 0 / 28.** The bar was at most 1 invented and at least 26 faithful.
+- Length 4–19 words. Every line starts with the name, and none uses a pronoun.
+- **Trade-off:** raids now read as bare acts ("Mina Vale raided Glassport."), because the raid event records no cause. A real raid reason needs the engine to record why: the decision score or A's home-port claim.
+
+## 14. Jev checker vs manual grades
+
+The re-sample has no invented facts, so it can only test false alarms. To test catches, the checker was also run (14 calls, within the same cap) on 14 first-sample reasons (section 8): all 8 with an invented fact, the 1 misleading line, and 5 faithful lines. That gives 42 graded items: 8 positive and 34 negative.
+
+| Threshold | Agreement (42) | Catches (of 8) | Misses | False alarms (of 34) |
+|---|---|---|---|---|
+| 0.3 | 37 / 42 = 88% | 5 | 3 | 2 |
+| **0.5 (used)** | **35 / 42 = 83%** | **3** | **5** | **2** |
+| 0.6 | 34 / 42 = 81% | 2 | 6 | 2 |
+
+- **At 0.5:**
+  - catches: #1 "disrupt the World Government" 0.57; #10 "She" 0.83; #18 "He" 0.60;
+  - misses: three pronoun lines (#4 0.21, #13 0.24, #28 0.31) and two invented loyalty motives (#7 0.24, #8 0.43);
+  - false alarms: #25 (traits given as the cause; graded misleading, not invented) 0.64, and #27 (a faithful desertion line) 0.65.
+- On the 28 re-sample reasons, the checker agreed 28 / 28 (max noul 0.16).
+- **Ruling recorded: the checker is advisory only.** Headline agreement is 83%, but that figure is padded by easy negatives. On the items that matter it **catches 3 of 8 (38%)**, and on the 14 first-sample items it agrees 7 / 14. It is logged in `data.ai.reason.check` and shown in the dashboard. It does **not** replace text, until a reworded check catches at least 6 of 8 with no more than 2 false alarms in 34. The pronoun ban and the trigger-only cause rule are the real defence: they took invented facts from 8 to 0.
