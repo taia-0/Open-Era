@@ -60,10 +60,10 @@ test("2. flag off: the 72-tick fixture and no data.ai.picker anywhere", () => {
   }
 });
 
-test("3. stubArgmax: 1,200-tick hash equals flag off (f80c529f) and every sampled is the scorer's pick", () => {
+test("3. stubArgmax: 1,200-tick hash equals flag off (5641b4c4) and every sampled is the scorer's pick", () => {
   const picker = stubArgmaxPicker();
   const on = run({ picker, pickerCap: 1e9 }, 1847, 1200);
-  assert.equal(on.hash.slice(0, 8), "f80c529f");
+  assert.equal(on.hash.slice(0, 8), "5641b4c4");
   assert.ok(on.records.length > 800);
   assert.ok(on.records.every((r) => r.picker.sampled === r.picker.scorerPick && r.picker.outcome === "model"));
 });

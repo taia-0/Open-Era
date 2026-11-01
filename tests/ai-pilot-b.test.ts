@@ -23,11 +23,12 @@ const golden = JSON.parse(readFileSync(resolve(here, "fixtures/golden-hashes.jso
 };
 const FLAG_OFF_1200: Record<number, string> = {
   // Re-pinned for the raise shock (low-tax-cost.md): was c4d99822, 738181c0, cbd66565.
-  1847: "f80c529fa6d34b34156115b963e419a582e4bb676ccaa86041ea34e8e67d336a",
-  2718: "2b5060c047cfc21799604bf40c3b54cb13df3e1ed87995aedc67cb5f20bfd2af",
-  4096: "e8ae4443d5b28e66cdfdfb206bcb4534b3ee83de37f64f8ce75003ea80a717e4",
+  1847: "5641b4c45aaf9f5097be2def442de81d727ae86a60199acde1011f431f2e5e54",
+  2718: "a6ff3924ddc9d90a9e2839b9a14eda38935a51223b422db055e0b6511dc4ab9d",
+  4096: "b19aa02e7e4b7603d2bce282ab67cf58d6413239d1abfff28f47d20340547cdc",
 };
-const CALLS_1200: Record<number, number> = { 1847: 30, 2718: 22, 4096: 19 };
+// Secession routes (secession-routes.md): 21 / 25 / 22; was 30 / 22 / 19.
+const CALLS_1200: Record<number, number> = { 1847: 21, 2718: 25, 4096: 22 };
 const SEEDS = [1847, 2718, 4096];
 const READERS: Record<string, () => ContextReader> = {
   echo: stubContextEcho,
@@ -173,7 +174,7 @@ test("7. replay never calls: recovery reaches the live hash with both counts unc
   }
 });
 
-test("8. calls: the reader is called exactly as often as the brain, 30 / 22 / 19 at 1200 ticks (raise shock; was 33 / 27 / 30)", () => {
+test("8. calls: the reader is called exactly as often as the brain, 21 / 25 / 22 at 1200 ticks (secession routes; was 30 / 22 / 19)", () => {
   for (const seed of SEEDS) {
     let reads = 0;
     let decides = 0;

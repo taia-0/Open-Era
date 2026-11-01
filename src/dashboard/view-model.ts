@@ -336,7 +336,9 @@ function provisionPlan(
       const price = exact
         ? marketPrice(world, settlement.id, "provisions")
         : knowledge?.priceEstimate.provisions ?? null;
-      const aboard = commander.locationId === settlement.id;
+      // A captive held at a port cannot buy there (commands.ts rejects every action but escape),
+      // so the holding port is not "alongside"; it reads as out of reach while held.
+      const aboard = commander.locationId === settlement.id && !commander.captivity;
       // A party mid-voyage cannot divert. Its destination is the only market it
       // can still reach in time, so that is the only candidate worth quoting —
       // and quoting it is the whole point, because the realistic way to starve is

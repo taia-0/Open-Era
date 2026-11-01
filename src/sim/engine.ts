@@ -35,7 +35,7 @@ import { ActionPickerReplay, blendDistribution, PICKER_BLEND, type BlendParams, 
 import { READ_PROMPT_VERSION, SOCIAL_CACHE_TICKS, SOCIAL_DEFAULT_CALL_CAP, SOCIAL_FACTION_ID, SOCIAL_PICK_INSTRUCTIONS, SOCIAL_ROLE, SOCIAL_STATE_MAX_BYTES, SocialReplay, socialFromAnswer, socialReadRequest, type SocialBlock, type SocialReader, type SocialReadRecord } from "./ai-social.ts";
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
-import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
   applyEvent,
@@ -3530,8 +3530,9 @@ function declareAutonomousSecessions(world: WorldState, events: SimEvent[], live
     if (governor.factionId !== settlement.factionId) continue;
     const holderId = commandHolderId(world, settlement.factionId);
     if (holderId === governor.id) continue;
-    const taxRate = world.factions[settlement.factionId]?.taxRate ?? 0;
-    if (!(taxRate > 0.15)) continue;
+    // secession-routes.md: "tax or route"; the routes go on the event only.
+    const routes = secessionRoutes(world, settlement, governor);
+    if (routes.length === 0) continue;
     const figure = newsStabilityThousandths(world, governor, settlement.id, false);
     if (figure === null || figure > CLAIM_STABILITY_FLOOR * 1000) continue;
     if (settlement.secessionDeclaredBy === governor.id) continue;
@@ -3549,7 +3550,7 @@ function declareAutonomousSecessions(world: WorldState, events: SimEvent[], live
       actorId: declared.ownerId,
       targetId: declared.previousFactionId,
       settlementId: settlement.id,
-      data: { ...declared },
+      data: { ...declared, routes },
     });
   }
 }

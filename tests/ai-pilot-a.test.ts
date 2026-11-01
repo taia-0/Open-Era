@@ -19,17 +19,19 @@ import type { SimEvent } from "../src/sim/types.ts";
  * The flag-off pins are the breakaway-polish baseline at 1200 ticks.
  */
 const FLAG_OFF_1200: Record<number, { hash: string; events: number }> = {
-  // Re-pinned for the raise shock (low-tax-cost.md): was c4d99822/163679, 738181c0/159177, cbd66565/161386.
-  1847: { hash: "f80c529fa6d34b34156115b963e419a582e4bb676ccaa86041ea34e8e67d336a", events: 165833 },
-  2718: { hash: "2b5060c047cfc21799604bf40c3b54cb13df3e1ed87995aedc67cb5f20bfd2af", events: 157639 },
-  4096: { hash: "e8ae4443d5b28e66cdfdfb206bcb4534b3ee83de37f64f8ce75003ea80a717e4", events: 162123 },
+  // Re-pinned for secession routes (secession-routes.md §5.5): was f80c529f/165833, 2b5060c0/157639, e8ae4443/162123.
+  // Before that, for the raise shock (low-tax-cost.md): c4d99822/163679, 738181c0/159177, cbd66565/161386.
+  1847: { hash: "5641b4c45aaf9f5097be2def442de81d727ae86a60199acde1011f431f2e5e54", events: 162167 },
+  2718: { hash: "a6ff3924ddc9d90a9e2839b9a14eda38935a51223b422db055e0b6511dc4ab9d", events: 156996 },
+  4096: { hash: "b19aa02e7e4b7603d2bce282ab67cf58d6413239d1abfff28f47d20340547cdc", events: 163536 },
 };
 /**
  * Calls the built gate makes on the agree stub over 1200 ticks. The brief's
  * harness counted 45 / 45 / 42 on an older tree that had no landless freeze;
  * this tree freezes a faction with no port, and a one-option set is not sent.
  */
-const CLOCK_POINTS_1200: Record<number, number> = { 1847: 30, 2718: 22, 4096: 19 };
+// Secession routes (secession-routes.md): 21 / 25 / 22; was 30 / 22 / 19 (raise shock).
+const CLOCK_POINTS_1200: Record<number, number> = { 1847: 21, 2718: 25, 4096: 22 };
 const SEEDS = [1847, 2718, 4096];
 
 function run(seed: number, ticks: number, options: TickOptions = {}) {
