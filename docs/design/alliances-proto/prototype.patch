@@ -1,0 +1,191 @@
+diff --git a/scripts/diag/alliance-sweep.ts b/scripts/diag/alliance-sweep.ts
+new file mode 100644
+index 0000000..72df88d
+--- /dev/null
++++ b/scripts/diag/alliance-sweep.ts
+@@ -0,0 +1,47 @@
++// ALLIANCES prototype sweep: 13 seeds × 1,200 ticks, defaults (exile on), alliances off vs on. Offline, no AI.
++import { runTick } from "../../src/sim/engine.ts";
++import { alliancesOf, allied } from "../../src/sim/alliances.ts";
++import { createPrototypeWorld } from "../../src/sim/scenario.ts";
++import { stateHash } from "../../src/sim/state.ts";
++import { dynamismReadout } from "../../src/tools/dynamism.ts";
++import type { SimEvent } from "../../src/sim/types.ts";
++const seeds = [1847, 2718, 4096, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
++const PINS: Record<number, string> = { 1847: "94de9c02", 2718: "7a3741c9", 4096: "af6eeaea" };
++function run(seed: number, on: boolean) {
++  const w = createPrototypeWorld(seed); const events: SimEvent[] = []; const viol: string[] = [];
++  for (let i = 0; i < 1200; i++) {
++    const before = alliancesOf(w).map((a) => ({ ...a }));
++    const evs = runTick(w, { alliances: on } as never).events; events.push(...evs);
++    for (const e of evs) {
++      if (e.type === "alliance-formed") { const a = e.data.alliance as { causes: Record<string, string>; factionIds: string[] }; if (a.factionIds.some((f) => !a.causes[f])) viol.push(`form without cause t${e.tick}`); }
++      if (e.type === "alliance-broken") {
++        const r = e.data.reason as string; const ids = e.data.factionIds as string[]; const en = e.data.enemyFactionId as string;
++        const enemyPorts = Object.values(w.settlements).filter((s) => s.factionId === en).length;
++        const gone = ids.some((f) => !Object.values(w.characters).some((c) => !c.dead && c.factionId === f));
++        const ok = r === "enemy-portless" ? enemyPorts === 0 : r === "ally-gone" ? gone : r === "ally-attack" ? Boolean((e.data.evidence as { battleId?: string }).battleId) : false;
++        if (!ok) viol.push(`break ${r} not matching state t${e.tick}`);
++      }
++      if (e.type === "battle-started") { const atk = w.characters[e.actorId!]?.factionId; const def = e.targetId; if (before.some((a) => a.factionIds.includes(atk as string) && a.factionIds.includes(def as string) && atk !== def)) viol.push(`raid on ally started t${e.tick}`); }
++    }
++    for (const a of alliancesOf(w)) { const en = Object.values(w.settlements).filter((s) => s.factionId === a.enemyFactionId).length; if (!en) viol.push(`pact alive with portless enemy t${w.tick}`); }
++  }
++  const t = dynamismReadout(events).totals;
++  const ports = (f: string) => Object.values(w.settlements).filter((s) => s.factionId === f).length;
++  const members = (f: string) => Object.values(w.characters).filter((c) => !c.dead && c.factionId === f).length;
++  const forms = events.filter((e) => e.type === "alliance-formed"); const breaks = events.filter((e) => e.type === "alliance-broken");
++  const reasons: Record<string, number> = {}; for (const b of breaks) reasons[b.data.reason as string] = (reasons[b.data.reason as string] ?? 0) + 1;
++  const causes: Record<string, number> = {}; for (const f of forms) for (const c of Object.values((f.data.alliance as { causes: Record<string, string> }).causes)) { const k = c.split(":")[0]; causes[k] = (causes[k] ?? 0) + 1; }
++  const durations = breaks.map((b) => { const f = forms.find((x) => (x.data.alliance as { id: string }).id === b.data.allianceId); return f ? b.tick - f.tick : null; }).filter((x) => x !== null) as number[];
++  void allied;
++  return { seed, on, hash: stateHash(w).slice(0, 8), events: events.length, claims: t.claims ?? events.filter((e) => e.type === "settlement-claimed").length, portChanges: t.portOwnershipChanges, secessions: t.secessions, battles: events.filter((e) => e.type === "battle-started").length, wipeouts: ["world-government", "free-tide"].filter((f) => ports(f) === 0 && members(f) === 0), forms: forms.length, breaks: breaks.length, reasons, causes, durations, liveAtEnd: alliancesOf(w).length, viol };
++}
++const off = seeds.map((s) => run(s, false)); const on = seeds.map((s) => run(s, true));
++for (const s of seeds) { const a = off.find((r) => r.seed === s)!, b = on.find((r) => r.seed === s)!; console.log(`| ${s} | ${a.hash}${PINS[s] ? (a.hash === PINS[s] ? " (pin)" : " PIN MISMATCH") : ""} | ${b.forms} | ${b.breaks} ${JSON.stringify(b.reasons)} | ${a.claims} / ${b.claims} | ${a.portChanges} / ${b.portChanges} | ${a.battles} / ${b.battles} | ${a.secessions} / ${b.secessions} | ${JSON.stringify(b.wipeouts)} vs ${JSON.stringify(a.wipeouts)} | ${b.viol.length} |`); }
++const sum = (rs: typeof on, k: "claims" | "portChanges" | "secessions" | "forms" | "breaks" | "battles") => rs.reduce((x, r) => x + r[k], 0);
++const allDur = on.flatMap((r) => r.durations).sort((a, b) => a - b);
++const causeTot: Record<string, number> = {}; const reasonTot: Record<string, number> = {};
++for (const r of on) { for (const [k, v] of Object.entries(r.causes)) causeTot[k] = (causeTot[k] ?? 0) + v; for (const [k, v] of Object.entries(r.reasons)) reasonTot[k] = (reasonTot[k] ?? 0) + v; }
++console.log(JSON.stringify({ totals: { claims: [sum(off, "claims"), sum(on, "claims")], portChanges: [sum(off, "portChanges"), sum(on, "portChanges")], battles: [sum(off, "battles"), sum(on, "battles")], secessions: [sum(off, "secessions"), sum(on, "secessions")], forms: sum(on, "forms"), breaks: sum(on, "breaks") },
++  seedsWithForm: on.filter((r) => r.forms > 0).length, seedsWithBreak: on.filter((r) => r.breaks > 0).length, seedsWithSecession: on.filter((r) => r.secessions > 0).length, minClaims: Math.min(...on.map((r) => r.claims)), minPortChanges: Math.min(...on.map((r) => r.portChanges)),
++  newWipeouts: on.filter((r) => r.wipeouts.some((f) => !off.find((o) => o.seed === r.seed)!.wipeouts.includes(f))).map((r) => r.seed), causeTot, reasonTot, liveAtEnd: on.reduce((x, r) => x + r.liveAtEnd, 0),
++  durationTicks: allDur.length ? { n: allDur.length, min: allDur[0], median: allDur[Math.floor(allDur.length / 2)], max: allDur[allDur.length - 1] } : null, violations: on.flatMap((r) => r.viol).slice(0, 10), violationCount: on.reduce((x, r) => x + r.viol.length, 0) }, null, 1));
+diff --git a/src/sim/alliances.ts b/src/sim/alliances.ts
+new file mode 100644
+index 0000000..c595d98
+--- /dev/null
++++ b/src/sim/alliances.ts
+@@ -0,0 +1,66 @@
++import type { SimEvent, WorldState } from "./types.ts";
++/**
++ * ALLIANCES prototype (docs/design/alliances.md §v1). Deterministic, no RNG draw.
++ * Flag off: nothing here runs; world.alliances / world.allianceMemory never exist.
++ */
++export const ALLIANCES_DEFAULT = false;
++export const ALLIANCE_CLOCK = 24;
++export const ALLIANCE_NEAR = Number(process.env.ALLY_NEAR ?? 23.345);
++export const ALLIANCE_COOLDOWN = 240;
++export interface Alliance { id: string; factionIds: [string, string]; enemyFactionId: string; formedTick: number; causes: Record<string, string> }
++type W = WorldState & { alliances?: Alliance[]; allianceMemory?: Array<{ factionIds: [string, string]; brokenTick: number }> };
++export const alliancesOf = (world: WorldState) => (world as W).alliances ?? [];
++export function allied(world: WorldState, a: string | null | undefined, b: string | null | undefined): boolean {
++  if (!a || !b || a === b) return false;
++  return alliancesOf(world).some((x) => x.factionIds.includes(a) && x.factionIds.includes(b));
++}
++const portsOf = (world: WorldState, f: string) => Object.values(world.settlements).filter((s) => s.factionId === f).sort((a, b) => a.id.localeCompare(b.id));
++const alive = (world: WorldState, f: string) => Object.values(world.characters).some((c) => !c.dead && c.factionId === f);
++function dist(world: WorldState, a: string, b: string) { const p = world.settlements[a] as unknown as { x?: number; y?: number; position?: { x: number; y: number } }; const q = world.settlements[b] as unknown as typeof p; const pa = p.position ?? { x: p.x ?? 0, y: p.y ?? 0 }; const qb = q.position ?? { x: q.x ?? 0, y: q.y ?? 0 }; return Math.hypot(pa.x - qb.x, pa.y - qb.y); }
++/** Cause for faction f to ally against enemy e, or null. Checked in this order. */
++export function allianceCause(world: WorldState, f: string, e: string): string | null {
++  const mine = portsOf(world, f), theirs = portsOf(world, e);
++  if (!theirs.length) return null;
++  if (!mine.length) return `landless: ${f} holds no port while ${e} holds ${theirs.map((s) => s.id).join(", ")}`;
++  for (const m of mine) for (const t of theirs) { const d = dist(world, m.id, t.id); if (d <= ALLIANCE_NEAR + 1e-9) return `near: ${e} holds ${t.id} at ${d.toFixed(3)} from ${m.id}`; }
++  return null;
++}
++type Emit = (draft: { type: string; data: Record<string, unknown>; settlementId?: string; targetId?: string; actorId?: string }) => void;
++/** End of every tick, before metrics: breaks. */
++export function allianceBreaks(world: WorldState, emit: Emit): void {
++  for (const a of [...alliancesOf(world)]) {
++    const [x, y] = a.factionIds;
++    let reason: string | null = null; let evidence: Record<string, unknown> = {};
++    if (!alive(world, x) || !alive(world, y)) { reason = "ally-gone"; evidence = { aliveX: alive(world, x), aliveY: alive(world, y) }; }
++    else if (!portsOf(world, a.enemyFactionId).length) { reason = "enemy-portless"; evidence = { enemyFactionId: a.enemyFactionId, enemyPorts: 0 }; }
++    else {
++      const b = Object.values(world.activeBattles).sort((p, q) => p.id.localeCompare(q.id)).find((bt) => { const atk = world.characters[bt.attackerId]?.factionId; const def = world.settlements[bt.settlementId]?.factionId; return a.factionIds.includes(atk as string) && a.factionIds.includes(def as string) && atk !== def; });
++      if (b) { reason = "ally-attack"; evidence = { battleId: b.id, attackerId: b.attackerId, settlementId: b.settlementId }; }
++    }
++    if (reason) emit({ type: "alliance-broken", data: { allianceId: a.id, factionIds: a.factionIds, enemyFactionId: a.enemyFactionId, reason, evidence } });
++  }
++}
++/** On the clock (t > 0, t % 24 === 0), after secessions: forms. */
++export function allianceForms(world: WorldState, emit: Emit): void {
++  if (world.tick <= 0 || world.tick % ALLIANCE_CLOCK !== 0) return;
++  const factions = Object.keys(world.factions).filter((f) => alive(world, f)).sort();
++  const inPact = (f: string) => alliancesOf(world).some((a) => a.factionIds.includes(f));
++  const blocked = (p: string, q: string) => ((world as W).allianceMemory ?? []).some((m) => m.factionIds.includes(p) && m.factionIds.includes(q) && world.tick - m.brokenTick < ALLIANCE_COOLDOWN);
++  for (const p of factions) for (const q of factions) {
++    if (q <= p || inPact(p) || inPact(q) || blocked(p, q)) continue;
++    const enemies = factions.filter((e) => e !== p && e !== q && portsOf(world, e).length).sort((a, b) => portsOf(world, b).length - portsOf(world, a).length || a.localeCompare(b));
++    for (const e of enemies) {
++      const cp = allianceCause(world, p, e), cq = allianceCause(world, q, e);
++      if (cp && cq) { emit({ type: "alliance-formed", data: { alliance: { id: `alliance-${world.tick}-${p}-${q}`, factionIds: [p, q], enemyFactionId: e, formedTick: world.tick, causes: { [p]: cp, [q]: cq } } } }); break; }
++    }
++  }
++}
++export function applyAllianceEvent(world: WorldState, event: SimEvent): boolean {
++  const w = world as W;
++  if (event.type === "alliance-formed") { (w.alliances ??= []).push(event.data.alliance as Alliance); return true; }
++  if (event.type === "alliance-broken") {
++    w.alliances = (w.alliances ?? []).filter((a) => a.id !== event.data.allianceId); if (!w.alliances.length) delete w.alliances;
++    (w.allianceMemory ??= []).push({ factionIds: event.data.factionIds as [string, string], brokenTick: event.tick }); return true;
++  }
++  return false;
++}
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 225b525..a4bb6a8 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -39,6 +39,7 @@ import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSIO
+ import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
+ import { foodBaseline } from "./occupation.ts";
+ import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge, type WgNudge, type WgRole } from "./ai-wg-picker.ts";
++import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied } from "./alliances.ts";
+ import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
+ import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+ import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
+@@ -920,7 +921,7 @@ function buildCandidates(
+     ...travelCandidates(world, character, exile),
+   ];
+ 
+-  const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null;
++  const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null && !(alliancesOn && allied(world, character.factionId, settlement.factionId));
+   if (hostileTerritory && character.troops.count > 0 && settlementClaimAvailableTo(settlement, character.id)) {
+     candidates.push({
+       action: "claim-settlement",
+@@ -4486,9 +4487,11 @@ export const EXILE_RECOVERY_DEFAULT = true;
+ 
+ /** Set for the duration of one `runTick` from `options.occupation` (single-threaded, deterministic). */
+ let occupationOn = false;
++let alliancesOn = false;
+ 
+ export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
++  alliancesOn = (options as { alliances?: boolean }).alliances ?? ALLIANCES_DEFAULT;
+   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
+   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
+   const leading: SimEvent[] = [];
+@@ -4515,6 +4518,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+   const costBefore = options.ai?.ledger?.lines.length ?? 0;
+   chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
+   declareAutonomousSecessions(world, events, options.liveSession === true, options.ai);
++  if (alliancesOn) allianceForms(world, (d) => emit(world, events, d as EventDraft));
+   resolveOfferedContracts(world, events);
+   resolveContractOutcomes(world, events);
+   offerAutonomousSupply(world, events);
+@@ -4660,6 +4664,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+     evolveLocalRelationship(world, character, events, rng);
+   }
+ 
++  if (alliancesOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
+   emit(world, events, { type: "metrics-recorded", data: metrics(world) });
+   emit(world, events, {
+     type: "tick-advanced",
+diff --git a/src/sim/state.ts b/src/sim/state.ts
+index 8667ce5..00089eb 100644
+--- a/src/sim/state.ts
++++ b/src/sim/state.ts
+@@ -1,3 +1,4 @@
++import { applyAllianceEvent } from "./alliances.ts";
+ import { createHash } from "node:crypto";
+ import type {
+   Character,
+@@ -557,6 +558,7 @@ function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrd
+ }
+ 
+ export function applyEvent(world: WorldState, event: SimEvent): void {
++  if ((event.type === "alliance-formed" || event.type === "alliance-broken") && applyAllianceEvent(world, event)) return;
+   const actor = event.actorId ? world.characters[event.actorId] : undefined;
+   const settlement = event.settlementId ? world.settlements[event.settlementId] : undefined;
+ 

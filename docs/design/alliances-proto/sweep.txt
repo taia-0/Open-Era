@@ -1,0 +1,57 @@
+| 1847 | 94de9c02 (pin) | 1 | 1 {"enemy-portless":1} | 51 / 51 | 52 / 52 | 73 / 73 | 1 / 1 | [] vs [] | 0 |
+| 2718 | 7a3741c9 (pin) | 0 | 0 {} | 64 / 64 | 64 / 64 | 62 / 62 | 0 / 0 | [] vs [] | 0 |
+| 4096 | af6eeaea (pin) | 11 | 9 {"enemy-portless":9} | 56 / 58 | 59 / 61 | 63 / 64 | 3 / 3 | [] vs [] | 0 |
+| 1000 | 5f303e45 | 2 | 2 {"enemy-portless":1,"ally-gone":1} | 42 / 42 | 44 / 44 | 72 / 72 | 2 / 2 | [] vs [] | 0 |
+| 2000 | 3dec6c14 | 6 | 6 {"enemy-portless":6} | 50 / 50 | 52 / 52 | 74 / 74 | 2 / 2 | [] vs [] | 0 |
+| 3000 | 945a5b23 | 2 | 1 {"enemy-portless":1} | 42 / 42 | 44 / 44 | 50 / 50 | 2 / 2 | [] vs [] | 0 |
+| 4000 | 05583438 | 1 | 1 {"enemy-portless":1} | 63 / 63 | 64 / 64 | 74 / 74 | 1 / 1 | [] vs [] | 0 |
+| 5000 | ad712dfa | 4 | 4 {"enemy-portless":4} | 55 / 49 | 57 / 51 | 60 / 55 | 2 / 2 | [] vs [] | 0 |
+| 6000 | 020028d7 | 5 | 4 {"enemy-portless":4} | 50 / 51 | 55 / 54 | 41 / 43 | 5 / 3 | [] vs [] | 0 |
+| 7000 | 9638fa13 | 7 | 5 {"enemy-portless":4,"ally-gone":1} | 61 / 61 | 65 / 65 | 67 / 67 | 4 / 4 | [] vs [] | 0 |
+| 8000 | 6e74df8b | 16 | 14 {"enemy-portless":14} | 62 / 55 | 66 / 59 | 60 / 55 | 4 / 4 | [] vs [] | 0 |
+| 9000 | 450acb6b | 6 | 6 {"enemy-portless":6} | 58 / 58 | 60 / 60 | 71 / 71 | 2 / 2 | [] vs [] | 0 |
+| 10000 | a1567d5f | 2 | 1 {"enemy-portless":1} | 28 / 25 | 31 / 28 | 35 / 33 | 3 / 3 | [] vs [] | 0 |
+{
+ "totals": {
+  "claims": [
+   682,
+   669
+  ],
+  "portChanges": [
+   713,
+   698
+  ],
+  "battles": [
+   802,
+   793
+  ],
+  "secessions": [
+   31,
+   29
+  ],
+  "forms": 63,
+  "breaks": 54
+ },
+ "seedsWithForm": 12,
+ "seedsWithBreak": 12,
+ "seedsWithSecession": 12,
+ "minClaims": 25,
+ "minPortChanges": 28,
+ "newWipeouts": [],
+ "causeTot": {
+  "landless": 126
+ },
+ "reasonTot": {
+  "enemy-portless": 52,
+  "ally-gone": 2
+ },
+ "liveAtEnd": 9,
+ "durationTicks": {
+  "n": 54,
+  "min": 4,
+  "median": 53,
+  "max": 301
+ },
+ "violations": [],
+ "violationCount": 0
+}
