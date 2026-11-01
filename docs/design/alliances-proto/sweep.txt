@@ -1,57 +1,67 @@
-| 1847 | 94de9c02 (pin) | 1 | 1 {"enemy-portless":1} | 51 / 51 | 52 / 52 | 73 / 73 | 1 / 1 | [] vs [] | 0 |
-| 2718 | 7a3741c9 (pin) | 0 | 0 {} | 64 / 64 | 64 / 64 | 62 / 62 | 0 / 0 | [] vs [] | 0 |
-| 4096 | af6eeaea (pin) | 11 | 9 {"enemy-portless":9} | 56 / 58 | 59 / 61 | 63 / 64 | 3 / 3 | [] vs [] | 0 |
-| 1000 | 5f303e45 | 2 | 2 {"enemy-portless":1,"ally-gone":1} | 42 / 42 | 44 / 44 | 72 / 72 | 2 / 2 | [] vs [] | 0 |
-| 2000 | 3dec6c14 | 6 | 6 {"enemy-portless":6} | 50 / 50 | 52 / 52 | 74 / 74 | 2 / 2 | [] vs [] | 0 |
-| 3000 | 945a5b23 | 2 | 1 {"enemy-portless":1} | 42 / 42 | 44 / 44 | 50 / 50 | 2 / 2 | [] vs [] | 0 |
-| 4000 | 05583438 | 1 | 1 {"enemy-portless":1} | 63 / 63 | 64 / 64 | 74 / 74 | 1 / 1 | [] vs [] | 0 |
-| 5000 | ad712dfa | 4 | 4 {"enemy-portless":4} | 55 / 49 | 57 / 51 | 60 / 55 | 2 / 2 | [] vs [] | 0 |
-| 6000 | 020028d7 | 5 | 4 {"enemy-portless":4} | 50 / 51 | 55 / 54 | 41 / 43 | 5 / 3 | [] vs [] | 0 |
-| 7000 | 9638fa13 | 7 | 5 {"enemy-portless":4,"ally-gone":1} | 61 / 61 | 65 / 65 | 67 / 67 | 4 / 4 | [] vs [] | 0 |
-| 8000 | 6e74df8b | 16 | 14 {"enemy-portless":14} | 62 / 55 | 66 / 59 | 60 / 55 | 4 / 4 | [] vs [] | 0 |
-| 9000 | 450acb6b | 6 | 6 {"enemy-portless":6} | 58 / 58 | 60 / 60 | 71 / 71 | 2 / 2 | [] vs [] | 0 |
-| 10000 | a1567d5f | 2 | 1 {"enemy-portless":1} | 28 / 25 | 31 / 28 | 35 / 33 | 3 / 3 | [] vs [] | 0 |
+| 1847 | 94de9c02 (pin) | 4 | 4 {"enemy-portless":4} | 51 / 52 | 52 / 53 | 73 / 75 | 1 / 1 | [] vs [] | 0 | {"raided":6,"near":1,"landless":1} | 4/4 | 5 (5 rounds) | 2 |
+| 2718 | 7a3741c9 (pin) | 0 | 0 {} | 64 / 64 | 64 / 64 | 62 / 62 | 0 / 0 | [] vs [] | 0 | {} | 0/0 | 0 (0 rounds) | 0 |
+| 4096 | af6eeaea (pin) | 20 | 17 {"ally-gone":1,"enemy-portless":16} | 56 / 52 | 59 / 57 | 63 / 62 | 3 / 5 | [] vs [] | 0 | {"landless":13,"raided":17,"near":10} | 15/20 | 24 (30 rounds) | 9 |
+| 1000 | 5f303e45 | 5 | 5 {"enemy-portless":4,"ally-gone":1} | 42 / 44 | 44 / 46 | 72 / 72 | 2 / 2 | [] vs [] | 0 | {"raided":4,"landless":3,"near":3} | 5/5 | 3 (3 rounds) | 0 |
+| 2000 | 3dec6c14 | 9 | 8 {"enemy-portless":8} | 50 / 46 | 52 / 48 | 74 / 69 | 2 / 2 | [] vs [] | 0 | {"raided":13,"landless":4,"near":1} | 7/9 | 8 (12 rounds) | 7 |
+| 3000 | 945a5b23 | 8 | 8 {"ally-gone":1,"enemy-portless":7} | 42 / 45 | 44 / 49 | 50 / 44 | 2 / 4 | [] vs [] | 0 | {"raided":8,"landless":5,"near":3} | 8/8 | 14 (15 rounds) | 4 |
+| 4000 | 05583438 | 4 | 4 {"enemy-portless":3,"ally-gone":1} | 63 / 45 | 64 / 46 | 74 / 70 | 1 / 1 | [] vs [] | 0 | {"raided":5,"landless":3} | 3/4 | 18 (20 rounds) | 9 |
+| 5000 | ad712dfa | 11 | 10 {"enemy-portless":10} | 55 / 51 | 57 / 53 | 60 / 61 | 2 / 2 | [] vs [] | 0 | {"raided":16,"near":3,"landless":3} | 9/11 | 21 (25 rounds) | 9 |
+| 6000 | 020028d7 | 11 | 10 {"enemy-portless":9,"ally-gone":1} | 50 / 28 | 55 / 34 | 41 / 32 | 5 / 6 | [] vs [] | 0 | {"raided":10,"landless":6,"near":6} | 9/11 | 25 (26 rounds) | 16 |
+| 7000 | 9638fa13 | 3 | 1 {"enemy-portless":1} | 61 / 45 | 65 / 48 | 67 / 65 | 4 / 3 | [] vs [] | 0 | {"near":2,"raided":3,"landless":1} | 2/3 | 20 (22 rounds) | 11 |
+| 8000 | 6e74df8b | 29 | 29 {"enemy-portless":29} | 62 / 59 | 66 / 64 | 60 / 69 | 4 / 5 | [] vs [] | 0 | {"raided":22,"near":10,"landless":26} | 21/29 | 30 (36 rounds) | 9 |
+| 9000 | 450acb6b | 7 | 7 {"enemy-portless":7} | 58 / 52 | 60 / 53 | 71 / 71 | 2 / 1 | [] vs [] | 0 | {"raided":7,"near":3,"landless":4} | 5/7 | 13 (15 rounds) | 7 |
+| 10000 | a1567d5f | 3 | 1 {"enemy-portless":1} | 28 / 16 | 31 / 19 | 35 / 35 | 3 / 3 | [] vs [] | 0 | {"raided":1,"near":3,"landless":2} | 3/3 | 26 (28 rounds) | 18 |
 {
  "totals": {
   "claims": [
    682,
-   669
+   599
   ],
   "portChanges": [
    713,
-   698
+   634
   ],
   "battles": [
    802,
-   793
+   787
   ],
   "secessions": [
    31,
-   29
+   35
   ],
-  "forms": 63,
-  "breaks": 54
+  "forms": 114,
+  "breaks": 104
  },
  "seedsWithForm": 12,
  "seedsWithBreak": 12,
  "seedsWithSecession": 12,
- "minClaims": 25,
- "minPortChanges": 28,
+ "minClaims": 16,
+ "minPortChanges": 19,
  "newWipeouts": [],
  "causeTot": {
-  "landless": 126
+  "raided": 112,
+  "near": 45,
+  "landless": 71
  },
  "reasonTot": {
-  "enemy-portless": 52,
-  "ally-gone": 2
+  "enemy-portless": 99,
+  "ally-gone": 5
  },
- "liveAtEnd": 9,
+ "liveAtEnd": 10,
  "durationTicks": {
-  "n": 54,
-  "min": 4,
-  "median": 53,
-  "max": 301
+  "n": 104,
+  "min": 1,
+  "median": 67,
+  "max": 571
  },
  "violations": [],
- "violationCount": 0
+ "violationCount": 0,
+ "holderPacts": 91,
+ "joinedBattles": 207,
+ "joinedRounds": 237,
+ "flips": 101,
+ "joinSides": {
+  "attacker": 258,
+  "defender": 247
+ }
 }
