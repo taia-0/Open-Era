@@ -153,6 +153,25 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-31 — Feed reasons (slice B, `ai.feedReasons`, default off)
+
+Built from `docs/design/feed-reasons.md` (sections 10, 12 and 14). `src/sim/feed-reasons.ts` annotates `secession-declared`, `character-deserted`, better-motive `contract-breached`, `battle-started` (tick > 0), `settlement-claimed` and autonomous tax changes with `data.ai.reason = { model, promptVersion, inputHash, text, outcome, fallbackReason, latencyMs, check }` after each tick. The feed shows `<today's line> — <text>`. The facts carry a `trigger` in words. The system prompt is section 12's, verbatim. The validator checks JSON, 1–20 words, that capitalised words and numbers appear in the facts, and that there are no pronouns. A failure falls back to today's line (`illegal` / `timeout` / `error` / `cap` / `missing-key`).
+- Lead rulings: caps are $0.10 and 200 calls per run, with one `cost.jsonl` line per call (`brain.feedReason`, `check.feedReason`). The Jev check is advisory: it is recorded and never replaces text. With EXILE_RECOVERY on, a raid's trigger is the home-port claim ("to win back P, lost to H"), taken from the raider's decision that tick.
+- Runner: `src/cli/run-feed-reasons.ts` (stub by default, `--ai-vendor`, `--replay`). Gate: stub on 3 seeds × 1200 must equal the pins, and the replay must be byte-identical with 0 writer calls.
+
+Offline (stub, 1200 ticks): events 152 / 109 / 159 (raid 54/41/36, breach 43/15/42, claim 26/25/39, tax 22/26/34, secession 4/0/4, desertion 3/2/4). These match section 2. stateHash b51aa07a / 091f7628 / 25bdbf15, equal to the pins. Replay: hash and feed identical, 0 calls. EXILE on (stub): 188 / 169 / 194 events, with home-port raid triggers 35 / 43 / 37.
+
+Live (2026-10-31 to 11-01, off-peak, `deepseek-v4-pro` plus advisory `jev-1.14.0`):
+
+| Run | Reasons | Model | Fallback | Brain $ | Jev $ | Total $ | Jev flagged (max noul) | Replay |
+|---|---|---|---|---|---|---|---|---|
+| 1847 | 152 | 152 | 0 | 0.037802 | 0.003714 | 0.041517 | 0 (0.34) | exact, 0 calls |
+| 2718 | 109 | 109 | 0 | 0.026339 | 0.002614 | 0.028953 | 0 (0.40) | exact, 0 calls |
+| 4096 | 159 | 159 | 0 | 0.039674 | 0.003866 | 0.043540 | 0 (0.44) | exact, 0 calls |
+| 2718 EXILE on | 169 | 169 | 0 | | | 0.045577 | 0 (0.37) | exact, 0 calls; 14 "win back" lines |
+
+All calls returned 200 with `stop`. Tokens in 310–365. Total spend $0.159587. The key scan was clean.
+
 ### 2026-10-31 — Exile recovery (slice A, behind EXILE_RECOVERY)
 
 Flag: `runTick(world, { exileRecovery: true })`, CLI `--exile-recovery` or `EXILE_RECOVERY=1`. With the flag off, runs match the pins (72t 66e8ccb7/b4ccedab/b04c5ac4, 1200t b51aa07a/091f7628/25bdbf15).

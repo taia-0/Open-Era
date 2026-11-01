@@ -20,6 +20,23 @@ npm test 2>&1 | tee "${evaluation_output}/tests.log"
 echo "Running the 13-seed FT-portless property"
 node --experimental-strip-types scripts/ft-portless-property.ts 2>&1 | tee "${evaluation_output}/ft-portless-property.log"
 
+# Slice B feed reasons (feed-reasons.md section 10): stub brain on, 1,200 ticks,
+# stateHash equal to the flag-off pins; then an offline replay with zero writer
+# calls and byte-identical feed text.
+declare -A feed_reason_pins=([1847]=b51aa07a [2718]=091f7628 [4096]=25bdbf15)
+for evaluation_seed in 1847 2718 4096; do
+  feed_dir="${evaluation_output}/feed-reasons-${evaluation_seed}"
+  echo "Running feed reasons (stub) for seed ${evaluation_seed}"
+  node --experimental-strip-types src/cli/run-feed-reasons.ts --seed "${evaluation_seed}" --ticks 1200 --output "${feed_dir}" | tee "${feed_dir}.log"
+  feed_hash="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).stateHash.slice(0,8))' "${feed_dir}/summary.json")"
+  if [[ "${feed_hash}" != "${feed_reason_pins[${evaluation_seed}]}" ]]; then
+    echo "Feed reasons changed the state hash on seed ${evaluation_seed}: ${feed_hash}" >&2
+    exit 1
+  fi
+  node --experimental-strip-types src/cli/run-feed-reasons.ts --replay "${feed_dir}" | tee "${feed_dir}-replay.log"
+done
+echo "Feed reasons check passed"
+
 for evaluation_seed in 1847 2718 4096; do
   seed_name="seed-${evaluation_seed}"
   echo "Running ${seed_name} for 72 ticks"
