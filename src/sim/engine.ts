@@ -37,6 +37,7 @@ import { READ_PROMPT_VERSION, SOCIAL_CACHE_TICKS, SOCIAL_DEFAULT_CALL_CAP, SOCIA
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
 import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSION, finishBrain, sanitizeNoul, TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_DEFAULT_SCORE_CAP, TRIAGE_KIND_BUDGETS, TRIAGE_PROMPT_VERSION, TRIAGE_QUESTIONS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type EscalationAnswer, type EscalationBrain, type EscalationRequest, type TriageEntry, type TriageKind, type TriageRecord, type TriageScoreAnswer, type TriageScorer, type TriageSituation, type TriageState } from "./ai-triage.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
+import { foodBaseline } from "./occupation.ts";
 import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
@@ -359,7 +360,7 @@ function produceSettlements(world: WorldState, events: SimEvent[]): void {
     // threshold it is zero, and a low rate does not add a recovery.
     const holdingRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
     // OCCUPATION (occupation.md §2): harshness H from existing state; unrest drift 0.10·H and no regrowth at H ≥ 0.5.
-    const occupied = occupationOn && settlement.occupation ? occupationTerms(world, settlement, settlement.occupation, shortage > 0) : null;
+    const occupied = occupationOn && settlement.occupation ? occupationTerms(world, settlement, settlement.occupation, shortage > 0, afterConsumption.provisions, demand) : null;
     const stability = clamp(
       settlement.stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0) - taxDrift(holdingRate) - (occupied ? OCCUPATION_DRIFT * occupied.harshness : 0),
       0,
@@ -378,6 +379,7 @@ function produceSettlements(world: WorldState, events: SimEvent[]): void {
         stability: round(stability),
         garrison: settlement.garrison - garrisonLoss + garrisonGain,
         garrisonLoss,
+        ...(occupationOn ? { foodRatio: afterConsumption.provisions / demand } : {}),
         ...(occupied ? { occupation: { ...settlement.occupation!, harshness: occupied.harshness, lastShortageTick: occupied.lastShortageTick }, occupationTerms: { tax: occupied.tax, food: occupied.food, conduct: occupied.conduct, residents: occupied.residents } } : {}),
       },
     });
@@ -1639,7 +1641,7 @@ function resolveSettlementClaim(
       garrison: settlement.garrison,
       stability: round(Math.max(CLAIM_STABILITY_FLOOR, settlement.stability)),
       basis: "accepted-surrender",
-      ...(occupationOn ? { occupation: { tick: world.tick, fromFactionId: settlement.factionId, byFactionId: character.factionId, fromRate: settlement.factionId ? world.factions[settlement.factionId]?.taxRate ?? 0 : 0, harshness: 0, lastShortageTick: null } } : {}),
+      ...(occupationOn ? { occupation: { tick: world.tick, fromFactionId: settlement.factionId, byFactionId: character.factionId, fromRate: settlement.factionId ? world.factions[settlement.factionId]?.taxRate ?? 0 : 0, harshness: 0, lastShortageTick: null, foodBaseline: foodBaseline(settlement, world.tick) } } : {}),
     },
   });
 }

@@ -771,6 +771,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.stability = event.data.stability as number;
       settlement.garrison = event.data.garrison as number;
       if (event.data.occupation) settlement.occupation = { ...(event.data.occupation as NonNullable<typeof settlement.occupation>) };
+      if (typeof event.data.foodRatio === "number") settlement.foodRatios = [...(settlement.foodRatios ?? []), [event.tick, event.data.foodRatio] as [number, number]].filter(([t]) => t >= event.tick - 20); // = OCCUPATION_FOOD_BASELINE_TICKS (no import: occupation.ts → secession.ts → engine.ts → state.ts)
       break;
     case "character-upkeep":
     case "travel-progressed":

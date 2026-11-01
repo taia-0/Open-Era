@@ -91,6 +91,8 @@ export interface Settlement {
   secessionLoss?: { tick: number; previousFactionId: string; factionId: string };
   /** OCCUPATION flag only (occupation.md §2): the occupation since the last claim. Absent otherwise, so flag-off worlds hash as before. */
   occupation?: import("./occupation.ts").OccupationRecord;
+  /** OCCUPATION flag only: [tick, provisions/demand] after each upkeep over the last 20 ticks, for the food baseline. Absent with the flag off. */
+  foodRatios?: Array<[number, number]>;
   /**
    * Public items posted at this port. Absent until the first post.
    * Stability and the scarred-follower list sit beside the item.

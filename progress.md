@@ -155,6 +155,69 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-01 — Occupation rebuilt to the §10 re-spec (behind OCCUPATION, default off) (Cursor)
+
+- **Base:** origin/main 555597a (#173) was merged into feature/occupation without force; the only conflict was in progress.md, and both sides were kept. The patch covers measurement only (H terms and acceptance). Drift (0.10·H), the regrowth stop, defection, integration and the subsistence floor are unchanged.
+- **H terms (§10.1):**
+  - Tax is unchanged: it is measured against the rate at capture.
+  - Conduct is now min(1, breaches/4).
+  - Grievance now uses a 0.075 scale.
+  - Food is baseline-relative: `max(0, foodBaseline − provisions/demand)`, clamped to ≤ 1. `foodBaseline` is stored on the occupation record at the claim. It is the mean post-upkeep provisions/demand over the 20 ticks before the capture, taken from `Settlement.foodRatios`.
+  - `Settlement.foodRatios` is a 20-tick per-port history that is event-sourced from `settlement-upkeep.foodRatio`. It is written only when the flag is on, so flag-off state is unchanged.
+- **Sweep (scripts/occupation-sweep.ts):** updated to the §10 acceptance.
+  - Liveness: claims and port changes on every seed, aggregate claims ≥ 0.33×, and no new wipeouts.
+  - Buckets are tertiles of mean H over the first 60 ticks.
+  - 2a is gated on upkeeps only; raw 2a is reported for information only.
+  - 2b is defectors per retake.
+  - 2c is measured at the flip and gated only when n ≥ 10.
+  - 4a, 4b, 5, 7a (≤ 1069) and 7b (≥ 38/38/37) are unchanged.
+  - The 0.75× claims bound is removed.
+- **Acceptance: PASSED.** No tuning or retry. The results match §10.2 exactly.
+  - Tertile cut points: t1 0.1563, t2 0.2972; n = 445.
+  - Liveness: claims 445/682 (0.6525×); minimum per seed is 11 claims and 11 port changes; no wipeouts in either run.
+  - 2a upkeeps-only: harsh 0.410 vs benign −0.816. Raw 2a: 3.339 vs 2.560.
+  - 2b: 1.222 (121/99) vs 0.024 (2/84).
+  - 2c at the flip: 105/141 vs 80/134.
+  - 4a: secession median 2 → 1. 4b: 8/13 seeds have a secession.
+  - 5: 15 integrations, on 9/13 seeds.
+  - 7a: 460 port changes. 7b: holds 41.5/48/57.
+- **Per seed (exile on), claims off→on and hold median off→on:**
+
+  | Seed | Claims | Hold median |
+  |---|---|---|
+  | 1847 | 51→36 | 38→41.5 |
+  | 2718 | 64→13 | 39→48 |
+  | 4096 | 56→37 | 37.5→57 |
+  | 1000 | 42→11 | 38→115 |
+  | 2000 | 50→24 | 38.5→48.5 |
+  | 3000 | 42→31 | 62→87 |
+  | 4000 | 63→51 | 38→44 |
+  | 5000 | 55→47 | 45→41 |
+  | 6000 | 50→32 | 49→59 |
+  | 7000 | 61→38 | 44→62 |
+  | 8000 | 62→61 | 38→39 |
+  | 9000 | 58→51 | 42→41 |
+  | 10000 | 28→13 | 56→153 |
+
+- **H terms after the re-spec** (scripts/diag/occupation-terms.ts, per upkeep over the first 60 ticks):
+
+  | Term | Non-zero share | Median | p90 |
+  |---|---|---|---|
+  | tax | 46% | 0 | 0.6 |
+  | food | 58% | 0.031 | 0.190 |
+  | conduct | 72% | 0.304 | 1 |
+  | residents | 98% | 0.333 | 0.5 |
+
+  Mean H: median 0.233, p90 0.414, max 0.660; 17 occupations have mean H ≥ 0.5.
+- **Pins:** flag off is byte-identical, with main's fixture.
+  - Default, 72 ticks: 7f76e474 / 976c40bd / 08943ea5.
+  - Default, 1200 ticks: 94de9c02 / 7a3741c9 / af6eeaea.
+  - Opt-out, 72 ticks: 66e8ccb7 / b4ccedab / b04c5ac4.
+  - Opt-out, 1200 ticks: b51aa07a / 091f7628 / 25bdbf15.
+- **Tests:** npm test (keys unset) 644/644 passed. evaluate-milestone: EXILE and OCCUPATION ACCEPTANCE PASSED, and the feed pins match on replay.
+  - The integration/recovery test moved from seed 1847 to 2718, because 1847 has 0 integrations under §10.
+  - New test for the food baseline and for the ratio history existing only when the flag is on.
+
 ### 2026-11-01 — Occupation diagnosis (no mechanism change) (Cursor)
 
 Diagnosis mode on `feature/occupation`. `src/` is unchanged. The diagnostic harness is new under `scripts/diag/`. `occupation-variants.sh` builds patched *copies* of `src/` in /tmp with one sub-mechanism disabled at a time. `occupation-trace.ts`, `occupation-claims-sweep.ts` and `occupation-terms.ts` read engine state only.

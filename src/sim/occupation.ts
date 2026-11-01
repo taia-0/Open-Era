@@ -1,4 +1,4 @@
-import { HATED_GRIEVANCE, startingGrievance } from "./secession.ts";
+import { startingGrievance } from "./secession.ts";
 import type { Settlement, WorldState } from "./types.ts";
 
 /**
@@ -12,7 +12,12 @@ export const OCCUPATION_TAX_SCALE = 0.10;
 export const OCCUPATION_DRIFT = 0.10;
 export const OCCUPATION_REGROWTH_STOP = 0.5;
 export const OCCUPATION_FOOD_WINDOW = 24;
-export const OCCUPATION_CONDUCT_SCALE = 10;
+/** occupation.md §9.4 / §10.1: min(1, breaches / 4). */
+export const OCCUPATION_CONDUCT_SCALE = 4;
+/** occupation.md §9.3 / §10.1: earned grievance at the owner saturates at 0.075 (p90 of the non-zero readings). */
+export const OCCUPATION_GRIEVANCE_SCALE = 0.075;
+/** occupation.md §10.1 ruling 3: the food baseline is the mean post-upkeep provisions/demand over the 20 ticks before the capture. */
+export const OCCUPATION_FOOD_BASELINE_TICKS = 20;
 export const OCCUPATION_RESIDENTS_SCALE = 3;
 /** = PROMISE_WINDOW_TICKS (240); a literal, because secession.ts and engine.ts import each other. */
 export const OCCUPATION_INTEGRATION_TICKS = 240;
@@ -25,18 +30,31 @@ export interface OccupationRecord {
   fromRate: number;
   /** Latest harshness, from the last upkeep (0 at the claim). */
   harshness: number;
-  /** Last tick with a provisions shortage at the port while occupied, or null. */
+  /** Last tick with a provisions shortage at the port while occupied, or null (kept for the record; food reads `foodBaseline`). */
   lastShortageTick: number | null;
+  /** occupation.md §10.1 ruling 3: the port's mean post-upkeep provisions/demand over the 20 ticks before the capture. */
+  foodBaseline?: number;
+}
+
+/** Flag on only: the port's [tick, provisions/demand] after each upkeep, last 20 ticks (event-sourced from `settlement-upkeep.foodRatio`). */
+export function trimFoodRatios(ratios: Array<[number, number]>, tick: number): Array<[number, number]> {
+  return ratios.filter(([t]) => t >= tick - OCCUPATION_FOOD_BASELINE_TICKS);
+}
+/** Mean post-upkeep provisions/demand over the 20 ticks before `tick` (0 with no history). */
+export function foodBaseline(settlement: Settlement, tick: number): number {
+  const window = (settlement.foodRatios ?? []).filter(([t]) => t >= tick - OCCUPATION_FOOD_BASELINE_TICKS && t < tick);
+  return window.length ? window.reduce((sum, [, r]) => sum + r, 0) / window.length : 0;
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
 
-export function occupationTerms(world: WorldState, settlement: Settlement, occupation: OccupationRecord, shortageNow: boolean) {
+export function occupationTerms(world: WorldState, settlement: Settlement, occupation: OccupationRecord, shortageNow: boolean, provisionsAfter: number, demand: number) {
   const holderRate = settlement.factionId ? world.factions[settlement.factionId]?.taxRate ?? 0 : 0;
   const tax = clamp01((holderRate - occupation.fromRate) / OCCUPATION_TAX_SCALE);
   const lastShort = shortageNow ? world.tick : occupation.lastShortageTick;
-  const food = lastShort !== null && world.tick - lastShort < OCCUPATION_FOOD_WINDOW ? 1 : 0;
+  // §10.1 ruling 3: food against the port's own pre-capture level, max(0, baseline − current ratio), clamped to ≤ 1.
+  const food = r4(clamp01((occupation.foodBaseline ?? 0) - provisionsAfter / demand));
   const since = world.tick - OCCUPATION_INTEGRATION_TICKS;
   let breaches = 0;
   for (const contract of Object.values(world.contracts ?? {})) {
@@ -52,7 +70,7 @@ export function occupationTerms(world: WorldState, settlement: Settlement, occup
     if (docked.length) {
       const owner = settlement.ownerId;
       const earned = owner ? docked.reduce((sum, c) => sum + Math.max(0, (c.relationships[owner]?.grievance ?? 0) - startingGrievance(world.seed, c.id, owner)), 0) / docked.length : 0;
-      residents = 0.5 * Math.min(1, docked.length / OCCUPATION_RESIDENTS_SCALE) + 0.5 * Math.min(1, earned / HATED_GRIEVANCE);
+      residents = 0.5 * Math.min(1, docked.length / OCCUPATION_RESIDENTS_SCALE) + 0.5 * Math.min(1, earned / OCCUPATION_GRIEVANCE_SCALE);
     }
   }
   const w = OCCUPATION_WEIGHTS;
