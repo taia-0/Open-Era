@@ -1,6 +1,6 @@
 # Jev triage: reworded Nouls, labelled set, escalation to DeepSeek (slice 5)
 
-Status: **Open / build spec.** Docs only. **No live call was made, and the probe has not been run**; spend is pending Micah's confirmation. Base `origin/main` `56bde48` (#144). Aligned with slice 1 (`feature/ai-tax-weighted` **`7636a40`**), slice 3 (`jev-action-picker.md`) and slice 4 (`jev-social-picker.md`). `engine.ts:N` cites main; `@7636a40 file:N` cites that branch; `jev-capabilities.md` cites branch `docs/jev-capabilities` `6071c7a`; `ai-providers.md` cites branch `docs/ai-providers` (also at `@7636a40 docs/design/ai-providers.md`).
+Status: **Open / build spec; probe run.** The live probe ran on 2026-10-31 (21:56 PT) after Micah approved the spend: 29 calls, $0.0008005 (results in section 6). The set was rebuilt on main `0cadb85` (#154 pins + #155). Base `origin/main` `56bde48` (#144). Aligned with slice 1 (`feature/ai-tax-weighted` **`7636a40`**), slice 3 (`jev-action-picker.md`) and slice 4 (`jev-social-picker.md`). `engine.ts:N` cites main; `@7636a40 file:N` cites that branch; `jev-capabilities.md` cites branch `docs/jev-capabilities` `6071c7a`; `ai-providers.md` cites branch `docs/ai-providers` (also at `@7636a40 docs/design/ai-providers.md`).
 
 ## 1. The reworded questions
 
@@ -87,9 +87,9 @@ Columns P N A B below are port_holding, faction_number, allegiance_freedom, brok
 
 Request sizes, measured by the probe's dry run: 1,434–1,731 bytes per request, 45,871 bytes in total.
 
-## 3. The probe script (not committed, not run)
+## 3. The probe script (not committed; run 2026-10-31)
 
-Path: **`/workspace/jev-triage-probe/probe.mjs`** on the box, beside `set.jsonl` and `build.py` (the set builder).
+Path: **`/workspace/jev-triage-probe-main/probe.mjs`** (re-pointed copy of `/workspace/jev-triage-probe/probe.mjs`) on the box, beside `set.jsonl` and `build.py` (the set builder).
 
 - **Default is a dry run.** It builds every request, checks the caps and writes `dry-log.jsonl`. It never touches the network. Live mode needs `--live` and `JEV_API_KEY` in the environment, and refuses without the key.
 - **One request per item**: `{model: "jev-1.14.0", state, questions: {the four Nouls}}` to `POST https://api.typesafe.ai/v1/systemone` (`@7636a40 src/sim/ai-vendor/jev.ts:6–7`). Each item is sent once, with no retry and a 2,000 ms timeout.
@@ -180,3 +180,30 @@ Values are shape only.
 ## 5. Who decides
 
 Running the probe (≤ 30 calls, ≤ $0.01, estimated $0.0012) and any live triage or brain run wait for Micah's spend confirmation via the Lead. The Lead confirms the labels and the threshold.
+
+## 6. Probe results (2026-10-31)
+
+**Run.** `node probe.mjs --live` on the box, model `jev-1.14.0`, set rebuilt from offline AI-off 1,200-tick runs of seeds 1847 / 2718 / 4096 on main `0cadb85` (the sources and ticks are in `docs/playtests/jev-triage-set/set.jsonl`; same picking rules and labels as before, but the ticks moved with the #154 pins). Caps 30 calls / $0.01, checked before each call. **29 calls, all HTTP 200, 19,060 input tokens, $0.0008005 actual** (dry-run worst case $0.0019255). Latency 42–141 ms. Per-call log with cost and raw responses: `docs/playtests/jev-triage-set/live-log-2026-10-31.jsonl` (no key in it).
+
+**Per test** (TP / FP / FN / TN; precision; recall):
+
+| Threshold | port_holding | faction_number | allegiance_freedom | broken_promise |
+|---|---|---|---|---|
+| 0.5 | 8/0/0/21; 1.00; 1.00 | 4/2/0/23; 0.667; 1.00 | 8/0/0/21; 1.00; 1.00 | 4/2/0/23; 0.667; 1.00 |
+| **0.7** | 8/0/0/21; 1.00; 1.00 | 4/2/0/23; 0.667; 1.00 | 8/0/0/21; 1.00; 1.00 | 4/0/0/25; 1.00; 1.00 |
+| 0.8 | 7/0/1/21; 1.00; 0.875 | 4/2/0/23; 0.667; 1.00 | 6/0/2/21; 1.00; 0.75 | 4/0/0/25; 1.00; 1.00 |
+
+**Per item (triage escalates when any test flags; 22 of 29 items have at least one true label):**
+
+| Threshold | Escalations | Correct | False escalations | Missed items |
+|---|---|---|---|---|
+| 0.5 | 22 | 22 | 0 | none |
+| **0.7** | 22 | 22 | 0 | none |
+| 0.8 | 19 | 19 | 0 | triage-01 claim (port 0.79), triage-04 and triage-21 desert (allegiance 0.70 each) |
+
+- The per-test false positives are both secessions (triage-02, -18): faction_number 0.94 / 0.91 at every threshold, and broken_promise 0.68 / 0.62 at 0.5. Both items are true escalations anyway, so no extra brain call results. Whether a secession "decides a faction-wide number" (the new faction's tax rate) is a labelling question for the Lead.
+- **Item 29 (the P4 miss) is fixed:** faction_number 0.97 (was 0.09).
+- Clear negatives (routine, fulfil, purse and deadline-infeasible breaches) all stay ≤ 0.30 on every test.
+- **Margin warning:** both deserts score exactly 0.70 on allegiance_freedom, so at 0.7 they pass by zero margin. 0.5 catches them with room and adds no false item escalation on this set.
+
+**Decision proposed: threshold 0.7.** It meets §1's pass (every test ≥ 0.75 recall; precision ≥ 0.75 on three tests, faction_number 0.667 from the secessions only) with zero missed and zero false item escalations. 0.8 misses three true escalations. 0.5 is the fallback if the desert margin proves fragile on fresh items. With 29 items this is coarse. The Lead sets the final value.
