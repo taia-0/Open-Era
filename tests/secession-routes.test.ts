@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { governorId } from "../src/sim/governor.ts";
-import { runTick } from "../src/sim/engine.ts";
+import { runTick } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { HATED_GRIEVANCE, PROMISE_BREACH_COUNT, PROMISE_WINDOW_TICKS, secessionRoutes, startingGrievance } from "../src/sim/secession.ts";
 import { commandHolderId, stateHash } from "../src/sim/state.ts";

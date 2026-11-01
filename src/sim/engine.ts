@@ -3485,9 +3485,10 @@ function metrics(world: WorldState): Record<string, unknown> {
 export interface TickOptions {
   liveSession?: boolean;
   /**
-   * EXILE_RECOVERY (next-dynamic-slice.md, revised slice A). Off by default: no
-   * courier news, no `homeService` on decisions, no home-port claim, so the
-   * run is byte-identical to the pins. A run option, never on `WorldState`.
+   * EXILE_RECOVERY (next-dynamic-slice.md, revised slice A; after-triage.md (b)).
+   * **On by default** (`EXILE_RECOVERY_DEFAULT`). `false` is the opt-out: no courier
+   * news, no `homeService` on decisions, no home-port claim, so the run is
+   * byte-identical to the pre-default pins. A run option, never on `WorldState`.
    */
   exileRecovery?: boolean | "news-only";
   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
@@ -4384,7 +4385,12 @@ function breachCause(world: WorldState, contract: SupplyContract, carrier: Chara
   return { cause: "choice", detail: "deadline-infeasible" };
 }
 
+/** after-triage.md (b): EXILE_RECOVERY is on unless a run passes `exileRecovery: false`. */
+export const EXILE_RECOVERY_DEFAULT = true;
+
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+  if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
+  if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
   const leading: SimEvent[] = [];
   resolveAgingDeaths(world, leading);
   const notices = applySilentTickStart(world);

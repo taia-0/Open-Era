@@ -15,11 +15,12 @@ const { values } = parseArgs({
     database: { type: "string", short: "d", default: ".open-era/world.sqlite" },
     output: { type: "string", short: "o", default: "simulation-output/latest" },
     reset: { type: "boolean", default: false },
-    // EXILE_RECOVERY (next-dynamic-slice.md slice A): off unless this flag or EXILE_RECOVERY=1 is set.
+    // EXILE_RECOVERY (after-triage.md (b)): on by default; --no-exile-recovery or EXILE_RECOVERY=0 opts out.
     "exile-recovery": { type: "boolean", default: false },
+    "no-exile-recovery": { type: "boolean", default: false },
   },
 });
-const exileRecovery = values["exile-recovery"] === true || process.env.EXILE_RECOVERY === "1";
+const exileRecovery = !(values["no-exile-recovery"] === true || process.env.EXILE_RECOVERY === "0");
 
 const ticks = Number.parseInt(values.ticks!, 10);
 const seed = Number.parseInt(values.seed!, 10);
@@ -50,7 +51,7 @@ try {
 
   const dialogueProvider = new DeterministicDialogueProvider();
   for (let index = 0; index < ticks; index += 1) {
-    const result = runTick(world, exileRecovery ? { exileRecovery: true } : {});
+    const result = runTick(world, { exileRecovery });
     const conversationEvents = await resolveDueReplies(world, dialogueProvider);
     store.appendTick([...result.events, ...conversationEvents], world);
   }

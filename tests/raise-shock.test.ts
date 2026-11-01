@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runTicks } from "../src/sim/engine.ts";
+import { runTicks } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { applyEvent, stateHash } from "../src/sim/state.ts";
 import { RAISE_SHOCK_PER_POINT, raiseShock, raiseShockData } from "../src/sim/tax-rate.ts";

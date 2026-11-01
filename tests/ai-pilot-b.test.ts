@@ -5,7 +5,8 @@ import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import "./helpers/no-network.ts";
 import { fileURLToPath } from "node:url";
-import { runTick, runTicks, type TickOptions } from "../src/sim/engine.ts";
+import { type TickOptions } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "./helpers/exile-off.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { canonicalJson, stateHash } from "../src/sim/state.ts";
@@ -54,10 +55,11 @@ type Context = { briefing: unknown; outcome: string; fallbackReason: string | nu
 
 test("1. off is off: 72 ticks with the flag off, and with the brain on and context unset, match the golden fixture", () => {
   for (const entry of golden.seeds) {
-    const off = runTicks(createPrototypeWorld(entry.seed), golden.ticks);
+    // The golden fixture is the default (EXILE_RECOVERY on, after-triage.md (b)).
+    const off = runTicks(createPrototypeWorld(entry.seed), golden.ticks, { exileRecovery: true });
     assert.equal(stateHash(off.state), entry.stateHash);
     assert.equal(off.events.length, entry.eventCount);
-    const unset = runTicks(createPrototypeWorld(entry.seed), golden.ticks, { ai: { brainTaxStep: stubAgree() } });
+    const unset = runTicks(createPrototypeWorld(entry.seed), golden.ticks, { exileRecovery: true, ai: { brainTaxStep: stubAgree() } });
     assert.equal(stateHash(unset.state), entry.stateHash);
     assert.equal(unset.events.length, entry.eventCount);
     for (const event of unset.events) {

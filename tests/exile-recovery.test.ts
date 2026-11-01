@@ -20,10 +20,10 @@ function run(seed: number, ticks: number, options: TickOptions = {}) {
 }
 const courierEvents = (events: SimEvent[]) => events.filter((e) => e.type === "knowledge-updated" && e.data.reason === "faction courier: own port lost");
 
-test("flag off: the 72-tick and 1,200-tick pins, no courier, no homeService", () => {
-  const short = run(1847, 72);
+test("opt-out (exileRecovery: false): the pre-default 72-tick and 1,200-tick pins, no courier, no homeService", () => {
+  const short = run(1847, 72, { exileRecovery: false });
   assert.equal(stateHash(short.world).slice(0, 8), "66e8ccb7");
-  const long = run(1847, 1200);
+  const long = run(1847, 1200, { exileRecovery: false });
   assert.equal(stateHash(long.world).slice(0, 8), "b51aa07a");
   assert.equal(courierEvents(long.events).length, 0);
   assert.ok(long.events.every((e) => e.data.homeService === undefined));

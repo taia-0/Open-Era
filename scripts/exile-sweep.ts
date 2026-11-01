@@ -19,7 +19,7 @@ function run(seed: number, on: boolean) {
   for (let i = 0; i < ticks; i++) {
     const portless = (f: string) => !Object.values(world.settlements).some((s) => s.factionId === f);
     const wasPortless = new Set(Object.keys(world.factions).filter(portless));
-    for (const e of runTick(world, on ? { exileRecovery: true } : {}).events) {
+    for (const e of runTick(world, { exileRecovery: on }).events) {
       events.push(e);
       if (e.type === "decision-made" && e.data.goal === "raid" && wasPortless.has(world.characters[e.actorId!]?.factionId ?? "")) portlessRaids++;
     }

@@ -6,7 +6,7 @@ import { stubAgree } from "../src/sim/ai-provider.ts";
 import { CostLedger } from "../src/sim/ai-vendor/cost.ts";
 import { JEV_MODEL, JEV_URL, jevContextReader, sanitizeChoiceAnswers } from "../src/sim/ai-vendor/jev.ts";
 import type { SyncResponse, SyncTransport } from "../src/sim/ai-vendor/sync-http.ts";
-import { runTicks } from "../src/sim/engine.ts";
+import { runTicks } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";
 
