@@ -147,3 +147,47 @@ export function takeDepartureNews(world: WorldState, character: Character, fromI
   if (combined.length === 0) delete character.carriedNews;
   else character.carriedNews = combined;
 }
+
+/**
+ * Exile recovery, step 1 (next-dynamic-slice.md, revised slice A item 1):
+ * own-faction loss news by courier. A faction learns that it lost a port
+ * faster than ordinary news, which travels only in a sailor's bag, but not
+ * instantly: one day (6 ticks, `ticksPerDay`), the time a courier needs to
+ * cross the archipelago's longest sea leg. Only behind the EXILE_RECOVERY flag.
+ */
+export const OWN_LOSS_COURIER_TICKS = 6;
+
+export interface OwnLossCourier {
+  characterId: string;
+  settlementId: string;
+  /** The claim's tick and new holder, as posted in the port's public ledger. */
+  observedTick: number;
+  factionId: string | null;
+}
+
+/**
+ * Stateless, so recovery needs nothing new: the port's ledger already holds the
+ * claim item (`settlement-claimed`, written through `news-posted`). For each
+ * port, the latest claim item at least `OWN_LOSS_COURIER_TICKS` old reaches every
+ * free member of another faction who still believes their own faction holds the
+ * port and whose belief predates the claim. The walk is in port then character
+ * id order.
+ */
+export function ownLossCouriers(world: WorldState): OwnLossCourier[] {
+  const out: OwnLossCourier[] = [];
+  for (const settlement of Object.values(world.settlements).sort((a, b) => a.id.localeCompare(b.id))) {
+    let latest: NewsRecord | null = null;
+    for (const record of settlement.news ?? []) {
+      if (record.item.type !== "settlement-claimed" || record.aboutSettlementId !== settlement.id) continue;
+      if (!latest || record.item.observedTick > latest.item.observedTick || (record.item.observedTick === latest.item.observedTick && record.sequence > latest.sequence)) latest = record;
+    }
+    if (!latest || world.tick - latest.item.observedTick < OWN_LOSS_COURIER_TICKS) continue;
+    for (const character of Object.values(world.characters).sort((a, b) => a.id.localeCompare(b.id))) {
+      if (character.dead || character.captivity || !character.factionId || character.factionId === latest.item.factionId) continue;
+      const belief = character.knowledge[settlement.id];
+      if (!belief || belief.factionId !== character.factionId || belief.observedTick >= latest.item.observedTick) continue;
+      out.push({ characterId: character.id, settlementId: settlement.id, observedTick: latest.item.observedTick, factionId: latest.item.factionId });
+    }
+  }
+  return out;
+}

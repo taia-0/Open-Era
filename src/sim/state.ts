@@ -793,6 +793,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!actor) throw new Error("Decision event has no actor");
       actor.currentGoal = event.data.goal as string;
       actor.lastDecisionTick = world.tick;
+      if (typeof event.data.homeService === "string") actor.homeService = { ...(actor.homeService ?? {}), [event.data.homeService]: event.tick };
       break;
     case "knowledge-updated": {
       if (!actor) throw new Error("Knowledge event has no actor");

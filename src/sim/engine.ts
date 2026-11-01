@@ -36,7 +36,8 @@ import { READ_PROMPT_VERSION, SOCIAL_CACHE_TICKS, SOCIAL_DEFAULT_CALL_CAP, SOCIA
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
-import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
+import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
+import { HOME_CLAIM_RAID_POINTS, HOME_CLAIM_TRAVEL_POINTS, homeClaim, homeClaimReason } from "./exile.ts";
 import {
   applyEvent,
   captorPartyLeader,
@@ -823,7 +824,7 @@ function dominantCargo(character: Character): ResourceKey | null {
   return result[0] ?? null;
 }
 
-function travelCandidates(world: WorldState, character: Character): DecisionCandidate[] {
+function travelCandidates(world: WorldState, character: Character, exile = false): DecisionCandidate[] {
   if (!character.locationId) return [];
   const carried = dominantCargo(character);
   return Object.values(world.settlements)
@@ -842,13 +843,17 @@ function travelCandidates(world: WorldState, character: Character): DecisionCand
         character.personality.commerce * tradeOpportunity * 0.4 +
         factionInterest -
         distance * 0.13;
+      const reason = carried
+        ? `seek a stronger ${carried} market at ${settlement.name}`
+        : `pursue opportunities at ${settlement.name}`;
+      // Exile recovery: the home-port claim pulls toward the lost port.
+      const claim = exile ? homeClaim(world, character, settlement.id) : null;
+      if (claim) return { action: "travel", targetId: settlement.id, score: score + HOME_CLAIM_TRAVEL_POINTS * claim.weight, reason: `${reason} ${homeClaimReason(world, settlement.id, claim)}` };
       return {
         action: "travel",
         targetId: settlement.id,
         score,
-        reason: carried
-          ? `seek a stronger ${carried} market at ${settlement.name}`
-          : `pursue opportunities at ${settlement.name}`,
+        reason,
       };
     });
 }
@@ -857,6 +862,7 @@ function buildCandidates(
   world: WorldState,
   character: Character,
   rng: DeterministicRng,
+  exile = false,
 ): DecisionCandidate[] {
   if (!character.locationId) return [];
   const settlement = world.settlements[character.locationId];
@@ -898,7 +904,7 @@ function buildCandidates(
       reason: dominantCargo(character) ? "sell carried goods into the local market" : "buy a local surplus for resale",
       resource: dominantCargo(character) ?? bestTradeResource(world, settlement.id, character),
     },
-    ...travelCandidates(world, character),
+    ...travelCandidates(world, character, exile),
   ];
 
   const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null;
@@ -940,6 +946,13 @@ function buildCandidates(
         perceivedRatio * 15,
       reason: `challenge ${settlement.name}'s estimated garrison (${Math.round(defenseBelief.estimate)}, ${Math.round(defenseBelief.confidence * 100)}% confidence) and seize supplies`,
     });
+    // Exile recovery: the home-port claim on this port (+40·w), with its reason.
+    const claim = exile ? homeClaim(world, character, settlement.id) : null;
+    if (claim) {
+      const raid = candidates[candidates.length - 1];
+      raid.score += HOME_CLAIM_RAID_POINTS * claim.weight;
+      raid.reason += ` ${homeClaimReason(world, settlement.id, claim)}`;
+    }
   }
 
   for (const candidate of candidates) {
@@ -1106,6 +1119,26 @@ function recordBattleConsequences(
         trigger: attackerWon ? "victory under standing orders" : "costly defeat under standing orders",
         relationship,
       },
+    });
+  }
+}
+
+/**
+ * Exile recovery step 1: one `knowledge-updated` per courier (news.ts
+ * `ownLossCouriers`). The belief keeps its estimates; it takes the new holder,
+ * the claim's tick and the source `faction-report`.
+ */
+function sendOwnLossCouriers(world: WorldState, events: SimEvent[]): void {
+  for (const courier of ownLossCouriers(world)) {
+    const character = world.characters[courier.characterId];
+    const belief = character.knowledge[courier.settlementId];
+    const knowledge: SettlementKnowledge = { ...belief, factionId: courier.factionId, observedTick: courier.observedTick, source: "faction-report" };
+    delete (knowledge as { ground?: unknown }).ground;
+    emit(world, events, {
+      type: "knowledge-updated",
+      actorId: character.id,
+      settlementId: courier.settlementId,
+      data: { settlementId: courier.settlementId, knowledge, reason: "faction courier: own port lost" },
     });
   }
 }
@@ -3438,6 +3471,13 @@ function metrics(world: WorldState): Record<string, unknown> {
 export interface TickOptions {
   liveSession?: boolean;
   /**
+   * EXILE_RECOVERY (next-dynamic-slice.md, revised slice A). Off by default: no
+   * courier news, no `homeService` on decisions, no home-port claim, so the
+   * run is byte-identical to the pins. A run option, never on `WorldState`.
+   */
+  exileRecovery?: boolean | "news-only";
+  /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
+  /**
    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
    * today's path, writes no `data.ai` and keeps no trace. A run option, never
    * on `WorldState`, so it does not enter `stateHash`.
@@ -4224,6 +4264,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   const battleParticipants = progressActiveBattles(world, events, rng);
   expireStandingOrders(world, events);
   confirmUnansweredOrders(world, events);
+  if (options.exileRecovery) sendOwnLossCouriers(world, events);
 
   for (const character of Object.values(world.characters).sort((a, b) => a.id.localeCompare(b.id))) {
     if (character.dead) continue;
@@ -4264,7 +4305,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
       progressTravel(world, character, events);
       continue;
     }
-    const candidates = buildCandidates(world, character, rng);
+    const candidates = buildCandidates(world, character, rng, options.exileRecovery === true);
     let chosen = candidates[0];
     if (!chosen) continue;
     const haul = activeHaul(world, character);
@@ -4310,6 +4351,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
         targetKnowledge: chosen.targetId ? character.knowledge[chosen.targetId] : undefined,
         chosen,
         candidates: candidates.slice(0, 6),
+        ...(options.exileRecovery === true && character.factionId && character.locationId && world.settlements[character.locationId]?.factionId === character.factionId ? { homeService: character.locationId } : {}),
         ...(pickerRecord ? { ai: { ...(readRecord ? { read: readRecord } : {}), picker: pickerRecord } } : {}),
       },
     });

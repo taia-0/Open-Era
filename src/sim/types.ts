@@ -713,6 +713,13 @@ export interface Character {
   relationships: Record<string, Relationship>;
   knowledge: Record<string, SettlementKnowledge>;
   /**
+   * Exile recovery (next-dynamic-slice.md, revised slice A item 2): the last tick
+   * this captain decided while docked at a port their faction held, by port id.
+   * Written only from a `decision-made` that carries `homeService`, which only
+   * the EXILE_RECOVERY flag adds. Absent otherwise, so flag-off worlds hash as before.
+   */
+  homeService?: Record<string, number>;
+  /**
    * Parties seen anchored in a port, keyed by the subject's id.
    *
    * Absent until the first sighting. A survey, or a targeted explore delivered
