@@ -19,6 +19,7 @@
     "action-picker": "node --experimental-strip-types src/cli/run-action-picker.ts",
     "secession-gate": "node --experimental-strip-types src/cli/secession-gate.ts",
     "picker-gate": "node --experimental-strip-types src/cli/picker-gate.ts",
+    "triage-gate": "node --experimental-strip-types src/cli/triage-gate.ts",
     "ai-pilot": "node --experimental-strip-types src/cli/run-ai-pilot.ts"
   },
   "devDependencies": {

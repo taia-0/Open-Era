@@ -34,6 +34,7 @@ import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMP
 import { ActionPickerReplay, blendDistribution, PICKER_BLEND, type BlendParams, criterionFor, ESCALATION_ACTIONS, legalIds, optionId, pickDraw, PICKER_DEFAULT_CAP, PICKER_PROMPT_VERSION, PICKER_ROLE, PICKER_TIMEOUT_MS, pickerState, railProbabilities, sampleId, type ActionPicker, type ActionPickerRecord, type PickerAnswer, type PickerFallbackReason, type PickerRequest } from "./ai-action-picker.ts";
 import { READ_PROMPT_VERSION, SOCIAL_CACHE_TICKS, SOCIAL_DEFAULT_CALL_CAP, SOCIAL_FACTION_ID, SOCIAL_PICK_INSTRUCTIONS, SOCIAL_ROLE, SOCIAL_STATE_MAX_BYTES, SocialReplay, socialFromAnswer, socialReadRequest, type SocialBlock, type SocialReader, type SocialReadRecord } from "./ai-social.ts";
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
+import { BRAIN_PROMPT_VERSION, decisionSituation, finishBrain, sanitizeNoul, TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_QUESTIONS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type BrainRecord, type EscalationAnswer, type EscalationBrain, type EscalationRequest, type TriageRecord, type TriageState, type TriageTest } from "./ai-triage.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
@@ -3483,6 +3484,17 @@ export interface TickAiOptions {
   pickerBlend?: BlendParams | null;
   /** Run memory: picker calls made so far. */
   pickerCalls?: number;
+  /**
+   * Slice 5 (jev-triage.md): four Nouls ride on each picker consult; a flag
+   * escalates the decision to `triage.brain` (budget 50, 24-tick cooldown).
+   * `noul` replaces the picker's Noul answers (offline stubs). A `TriageReplay`
+   * brain replays the recorded scores and brain answers with no vendor call.
+   */
+  triage?: { brain: EscalationBrain; noul?: (legal: string[], tick: number, actorId: string) => Record<TriageTest, number>; threshold?: number; budget?: number; cooldownTicks?: number };
+  /** Run memory for triage (§4.2). Not on the world. */
+  triageState?: TriageState;
+  /** Run memory: brain escalation calls made so far. */
+  brainCalls?: number;
   /** Per-run call cap (section 5, check 6). Default 50. */
   cap?: number;
   /**
@@ -3793,7 +3805,9 @@ function consultWeighted(
  * nothing is recorded or counted. Otherwise the chosen row is the same object
  * from `candidates`, so `resolveDecision` and the emit run unchanged.
  */
-function consultActionPicker(world: WorldState, character: Character, candidates: DecisionCandidate[], ai: TickAiOptions): { row: DecisionCandidate; record: ActionPickerRecord; read?: SocialReadRecord } | null {
+type Consulted = { row: DecisionCandidate; record: ActionPickerRecord; read?: SocialReadRecord; triage?: TriageRecord; brain?: BrainRecord };
+
+function consultActionPicker(world: WorldState, character: Character, candidates: DecisionCandidate[], ai: TickAiOptions): Consulted | null {
   if (ai.social) {
     // Slice 4 §1: Free Tide members at the moment of the decision.
     if (character.factionId !== SOCIAL_FACTION_ID) return null;
@@ -3823,9 +3837,12 @@ function consultActionPicker(world: WorldState, character: Character, candidates
     : pickerState(world, character, economy);
   const criteria = Object.fromEntries(legal.map((id) => [id, criterionFor(world, byId.get(id)!, economy.workNet)]));
   const scores = Object.fromEntries(legal.map((id) => [id, Math.round(byId.get(id)!.score * 1e4) / 1e4]));
+  // Slice 5 §4.1: the decision situation the Nouls read, merged into the picker's situation.
+  if (ai.triage) state.situation = { ...((state.situation as Record<string, unknown> | undefined) ?? {}), ...decisionSituation(world.tick, character.id, character.locationId ?? null, legal) };
   const request: PickerRequest = {
     tick: world.tick, actorId: character.id, legal, criteria, state, promptVersion: social ? SOCIAL_PICK_PROMPT_VERSION : PICKER_PROMPT_VERSION, scorerPick, scores,
     ...(social ? { instructions: SOCIAL_PICK_INSTRUCTIONS } : {}),
+    ...(ai.triage ? { triage: TRIAGE_QUESTIONS } : {}),
   };
   const socialExtra = social ? { socialInputHash: sha256(canonicalJson(state.social ?? null)) } : {};
   const inputHash = sha256(canonicalJson(request));
@@ -3847,7 +3864,7 @@ function consultActionPicker(world: WorldState, character: Character, candidates
     if (record.sampled !== was.sampled || record.fallbackReason !== was.fallbackReason) {
       throw new Error(`action picker replay: sampled ${record.sampled} != recorded ${was.sampled} for ${character.id} at tick ${world.tick}`);
     }
-    return { row: byId.get(record.sampled) ?? candidates[0], record: { ...record, ...socialExtra }, read: social?.record };
+    return withTriage(world, character, ai, request, answer, { row: byId.get(record.sampled) ?? candidates[0], record: { ...record, ...socialExtra }, read: social?.record }, byId);
   }
   const capped = (ai.pickerCalls ?? 0) >= callCap;
   if (capped) answer = { probabilities: null, latencyMs: 0, error: "cap" };
@@ -3856,7 +3873,55 @@ function consultActionPicker(world: WorldState, character: Character, candidates
     try { answer = picker.choose(request); } catch { answer = { probabilities: null, latencyMs: 0, error: "error" }; }
   }
   const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, true, ai.pickerBlend === undefined ? PICKER_BLEND : ai.pickerBlend);
-  return { row: byId.get(record.sampled) ?? candidates[0], record: { ...record, ...socialExtra }, read: social?.record };
+  return withTriage(world, character, ai, request, answer, { row: byId.get(record.sampled) ?? candidates[0], record: { ...record, ...socialExtra }, read: social?.record }, byId);
+}
+
+/**
+ * Slice 5 §4.2–4.5. Scores to flags, budget and cooldown, then the brain on an
+ * escalation. Without triage the consult is returned unchanged. Under replay
+ * the recorded scores and brain answer are reused and every recomputed field
+ * must match the record, or replay fails.
+ */
+function withTriage(world: WorldState, character: Character, ai: TickAiOptions, request: PickerRequest, answer: PickerAnswer, consulted: Consulted, byId: Map<string, DecisionCandidate>): Consulted {
+  const triage = ai.triage;
+  if (!triage) return consulted;
+  const replay = triage.brain instanceof TriageReplay ? triage.brain.recorded(world.tick, character.id) : null;
+  const pickerAnswered = consulted.record.outcome === "model" || consulted.record.fallbackReason === "illegal";
+  const noul = replay ? replay.triage.noul
+    : !pickerAnswered ? null
+    : triage.noul ? sanitizeNoul(triage.noul(request.legal, world.tick, character.id)) : sanitizeNoul(answer.noul);
+  const state = ai.triageState ?? (ai.triageState = { budgetLeft: triage.budget ?? TRIAGE_BUDGET, cooldownUntil: {} });
+  const record = triageStep(state, character.id, world.tick, noul, triage.threshold ?? TRIAGE_THRESHOLD, triage.cooldownTicks ?? TRIAGE_COOLDOWN_TICKS);
+  if (replay && (replay.triage.escalated !== record.escalated || replay.triage.budgetLeft !== record.budgetLeft)) {
+    throw new Error(`triage replay: escalated/budgetLeft ${record.escalated}/${record.budgetLeft} != recorded ${replay.triage.escalated}/${replay.triage.budgetLeft} for ${character.id} at tick ${world.tick}`);
+  }
+  if (!record.escalated) return { ...consulted, triage: record };
+  const p = character.personality;
+  const r2 = (value: number) => Math.round(value * 100) / 100;
+  const escalation: EscalationRequest = {
+    tick: world.tick, actorId: character.id, name: character.name,
+    persona: { ambition: r2(p.ambition), aggression: r2(p.aggression), caution: r2(p.caution), commerce: r2(p.commerce), loyalty: r2(p.loyalty) },
+    purse: r2(character.money), briefing: request.state.briefing ?? null, social: request.state.social ?? null,
+    flagged: record.flagged, legal: request.legal, promptVersion: BRAIN_PROMPT_VERSION,
+  };
+  const inputHash = sha256(canonicalJson(escalation));
+  let brainAnswer: EscalationAnswer;
+  let provider = triage.brain.name;
+  let model = triage.brain.model;
+  if (replay) {
+    const was = replay.brain;
+    if (!was || was.inputHash !== inputHash) throw new Error(`triage replay: brain inputHash mismatch for ${character.id} at tick ${world.tick}`);
+    provider = was.provider; model = was.model;
+    brainAnswer = was.fallbackReason && was.fallbackReason !== "illegal" ? { raw: null, latencyMs: was.latencyMs, error: was.fallbackReason } : { raw: was.raw, latencyMs: was.latencyMs };
+  } else {
+    ai.brainCalls = (ai.brainCalls ?? 0) + 1;
+    try { brainAnswer = triage.brain.escalate(escalation); } catch { brainAnswer = { raw: null, latencyMs: 0, error: "error" }; }
+  }
+  const brain = finishBrain(escalation, brainAnswer, provider, model, inputHash, consulted.record.sampled, consulted.record.scorerPick, !replay);
+  if (replay && (brain.choice !== replay.brain!.choice || brain.fallbackReason !== replay.brain!.fallbackReason)) {
+    throw new Error(`triage replay: brain choice ${brain.choice} != recorded ${replay.brain!.choice} for ${character.id} at tick ${world.tick}`);
+  }
+  return { ...consulted, row: byId.get(brain.choice) ?? consulted.row, triage: record, brain };
 }
 
 export const SOCIAL_PICK_PROMPT_VERSION = sha256(`${PICKER_PROMPT_VERSION}\n${SOCIAL_PICK_INSTRUCTIONS}`);
@@ -4271,9 +4336,11 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     // Slice 3: the picker may replace the index, never the draws above (ai-brain.md section 2, item 3).
     let pickerRecord: ActionPickerRecord | null = null;
     let readRecord: SocialReadRecord | null = null;
+    let triageRecord: TriageRecord | null = null;
+    let brainRecord: BrainRecord | null = null;
     if (options.ai?.picker && (!haul || !haulPlan(world, character, haul).canAct)) {
       const consulted = consultActionPicker(world, character, candidates, options.ai);
-      if (consulted) { chosen = consulted.row; pickerRecord = consulted.record; readRecord = consulted.read ?? null; }
+      if (consulted) { chosen = consulted.row; pickerRecord = consulted.record; readRecord = consulted.read ?? null; triageRecord = consulted.triage ?? null; brainRecord = consulted.brain ?? null; }
     }
     if (haul) {
       const plan = haulPlan(world, character, haul);
@@ -4310,7 +4377,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
         targetKnowledge: chosen.targetId ? character.knowledge[chosen.targetId] : undefined,
         chosen,
         candidates: candidates.slice(0, 6),
-        ...(pickerRecord ? { ai: { ...(readRecord ? { read: readRecord } : {}), picker: pickerRecord } } : {}),
+        ...(pickerRecord ? { ai: { ...(readRecord ? { read: readRecord } : {}), picker: pickerRecord, ...(triageRecord ? { triage: triageRecord } : {}), ...(brainRecord ? { brain: brainRecord } : {}) } } : {}),
       },
     });
     const order = updateOrderAdherence(world, character, chosen, events);

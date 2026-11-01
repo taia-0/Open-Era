@@ -145,6 +145,8 @@ export interface PickerRequest {
   scores: Record<string, number>;
   /** Slice 4: the social pick instructions (§4); absent for slice 3, which keeps PICKER_INSTRUCTIONS. */
   instructions?: string;
+  /** Slice 5 (jev-triage.md §4.1): the four Noul questions riding on this request; absent without triage. */
+  triage?: Record<string, { type: "noul"; instructions: string }>;
 }
 
 export interface PickerAnswer {
@@ -155,6 +157,8 @@ export interface PickerAnswer {
   error?: "timeout" | "error" | "cap";
   /** Stub only: use these probabilities as the final distribution, no blend (stubArgmax: "all on the top row"). */
   exact?: boolean;
+  /** Slice 5: the raw Noul answers when triage questions were asked (sanitized by the engine). */
+  noul?: unknown;
 }
 
 /** The seam. `choose` returns probabilities; it never picks. */
