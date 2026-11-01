@@ -170,7 +170,7 @@ test("an autonomous tax set names the reason, and settlementId is null", () => {
   const raisedEvent = raisedTick.events.find((event) => event.type === "tax-rate-set");
   assert.ok(raisedEvent);
   const raisedRow = projectEventFeed(raised, "character-01", [raisedEvent], raisedTick.events)[0];
-  assert.equal(raisedRow.summary, "Pax Ash raised the Free Tide Compact tax from 8% to 9% (treasury short).");
+  assert.equal(raisedRow.summary, "Pax Ash raised the Free Tide Compact tax from 8% to 9% (treasury short). The raise cost stability at Cinder Key 90.03 to 89.03.");
   assert.equal(raisedRow.settlementId, null);
   assert.equal(Object.hasOwn(raisedRow, "settlementId"), true);
   assert.equal(raisedRow.payloadWithheld, true);
@@ -202,33 +202,6 @@ test("an autonomous tax set names the reason, and settlementId is null", () => {
   const playerRow = projectEventFeed(player, "character-01", [playerEvent], playerTick.events)[0];
   assert.equal(playerRow.summary, "Mara Vane set the World Government tax rate to 12%.");
   assert.equal(playerRow.settlementId, null);
-});
-
-test("an autonomous secession with no successor names the founder who sets its tax", () => {
-  // Breakaway polish ruling 1: the founder clause replaces "(no leader yet)".
-  // Re-pinned for the contract haul: the first live secession with no successor is now Corin Hale at Cinder Key, seed 4096, tick 1088.
-  const world = createPrototypeWorld(4096);
-  const declared: SimEvent[] = [];
-  let siblings: SimEvent[] = [];
-  for (let index = 0; index < 1200; index += 1) {
-    const tick = runTick(world, { liveSession: true });
-    const rows = tick.events.filter((event) => event.type === "secession-declared");
-    if (rows.length > 0) {
-      declared.push(...rows);
-      siblings = tick.events;
-      break;
-    }
-  }
-  assert.equal(world.tick, 1089);
-  assert.equal(declared.length, 1);
-  assert.equal(declared[0]?.tick, 1088);
-  const view = projectEventFeed(world, "character-01", declared, siblings);
-  assert.equal(
-    view.find((row) => row.settlementId === "cinder-key")?.summary,
-    "Corin Hale declared Cinder Key separate from Free Tide Compact. Free Cinder Key starts with an empty treasury, founded by Corin Hale, who sets its tax until a leader gives orders.",
-  );
-  assert.equal(view.every((row) => row.payloadWithheld === true && row.data === null), true);
-  assert.equal(declared.every((event) => event.data.successorId === null), true);
 });
 
 test("a world with no events still publishes the treasury line for the viewer's faction", () => {

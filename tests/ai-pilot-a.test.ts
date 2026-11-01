@@ -18,16 +18,17 @@ import type { SimEvent } from "../src/sim/types.ts";
  * The flag-off pins are the breakaway-polish baseline at 1200 ticks.
  */
 const FLAG_OFF_1200: Record<number, { hash: string; events: number }> = {
-  1847: { hash: "c4d99822bfd9bd19f82f9bec5a9b814edbe076d9bd875734f68a32914b125bb5", events: 163679 },
-  2718: { hash: "738181c01b6c30629f1e409b2110d1241978690f8aa44388986443bb581afca0", events: 159177 },
-  4096: { hash: "cbd6656523e62830503b7ac5011dbeec81821c5b935594bdc1696a905cd69649", events: 161386 },
+  // Re-pinned for the raise shock (low-tax-cost.md): was c4d99822/163679, 738181c0/159177, cbd66565/161386.
+  1847: { hash: "f80c529fa6d34b34156115b963e419a582e4bb676ccaa86041ea34e8e67d336a", events: 165833 },
+  2718: { hash: "2b5060c047cfc21799604bf40c3b54cb13df3e1ed87995aedc67cb5f20bfd2af", events: 157639 },
+  4096: { hash: "e8ae4443d5b28e66cdfdfb206bcb4534b3ee83de37f64f8ce75003ea80a717e4", events: 162123 },
 };
 /**
  * Calls the built gate makes on the agree stub over 1200 ticks. The brief's
  * harness counted 45 / 45 / 42 on an older tree that had no landless freeze;
  * this tree freezes a faction with no port, and a one-option set is not sent.
  */
-const CLOCK_POINTS_1200: Record<number, number> = { 1847: 33, 2718: 27, 4096: 30 };
+const CLOCK_POINTS_1200: Record<number, number> = { 1847: 30, 2718: 22, 4096: 19 };
 const SEEDS = [1847, 2718, 4096];
 
 function run(seed: number, ticks: number, options: TickOptions = {}) {

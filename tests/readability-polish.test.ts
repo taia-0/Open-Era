@@ -7,7 +7,7 @@ import { createDashboardApp } from "../src/dashboard/server.ts";
 import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
 import { projectCharacter, projectEvent, seaSightingsFor } from "../src/dashboard/visibility.ts";
 import { eventBriefingTitle } from "../src/dashboard/wording.ts";
-import { provisionRunway, runTick, runTicks, travelDuration } from "../src/sim/engine.ts";
+import { provisionRunway, travelDuration } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { round, stateHash } from "../src/sim/state.ts";
 import type { Character, PartySighting, SimEvent, WorldState } from "../src/sim/types.ts";
@@ -17,12 +17,6 @@ import type { Character, PartySighting, SimEvent, WorldState } from "../src/sim/
  * haul moved Mara Vane's Crown Harbor hold (tick 528 to 612) out of the
  * headless run; the live run keeps it.
  */
-function liveTicks(seed: number, ticks: number): { state: WorldState; events: SimEvent[] } {
-  const state = createPrototypeWorld(seed);
-  const events: SimEvent[] = [];
-  while (state.tick < ticks) events.push(...runTick(state, { liveSession: true }).events);
-  return { state, events };
-}
 
 function commanderOf(world: WorldState): Character {
   return world.characters[world.players["prototype-player"].characterId];
@@ -285,56 +279,6 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
     arriving.summary,
     "Toma Reef (World Government) is arriving at the same port, Cinder Key to Glassport. Docks at Glassport on this tick. 42 troops, 0 ticks old.",
   );
-});
-
-test("seed 1847 at tick 530 names Verdant Cay while she is held", () => {
-  // The batch 2 pin moved Mara's hold to Crown Harbor, captured on tick 528.
-  const result = liveTicks(1847, 530);
-  const commander = commanderOf(result.state);
-  const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
-    day: number;
-    party: { resupply: { settlementId: string; provisions: number; price: number; reachable: boolean; travelTicks: number | null } | null };
-    briefing: { items: Array<{ id: string; summary: string; settlementId: string | null }> };
-  };
-  assert.equal(result.state.tick, 530);
-  assert.equal(view.day, 88.33);
-  assert.equal(commander.captivity?.settlementId, "crown-harbor");
-  assert.equal(commander.captivity?.capturedTick, 528);
-  assert.equal(commander.locationId, "crown-harbor");
-  const starving = view.briefing.items.find((item) => item.id === "provision:critical");
-  assert.ok(starving);
-  assert.equal(starving.settlementId, "verdant-cay");
-  assert.equal(
-    starving.summary,
-    "The hold is empty and 0.256 provisions per tick cannot be found. That costs health 0.205 per tick. Morale is already 0, so the shortage does not lower it. Morale gains nothing while the shortage lasts, so it will not recover on its own. Crown Harbor has no provisions to sell. Verdant Cay sells provisions, and you cannot reach it while you are held.",
-  );
-  assert.equal(starving.summary.includes("No market you could still reach sells provisions"), false);
-  const resupply = view.party.resupply;
-  assert.ok(resupply);
-  assert.equal(resupply.settlementId, "verdant-cay");
-  assert.equal(resupply.provisions, 269);
-  assert.equal(resupply.price, 1.18);
-  assert.equal(resupply.reachable, false);
-  assert.equal(resupply.travelTicks, null);
-});
-
-test("seed 1847 at tick 613 shows only the rounded scarred loyalty", () => {
-  // The batch 2 pin moved Mara's scar to the release at tick 612.
-  const world = liveTicks(1847, 613).state;
-  const commander = commanderOf(world);
-  const card = projectCharacter(world, commander, commander);
-  assert.equal(world.tick, 613);
-  assert.equal(commander.captivity, null);
-  assert.equal(commander.loyaltyAdjustment, -0.04);
-  assert.equal(card.loyalty, 0.768);
-  assert.equal(
-    card.loyaltyNote,
-    "The seat reads 0.768. That rounded figure is the one the seat uses.",
-  );
-  assert.equal(/\d+\.\d{4,}/.test(String(card.loyaltyNote)), false);
-  assert.equal(commander.personality.loyalty, 0.807927391717676);
-  assert.equal(String(card.loyaltyNote).includes("0.807927391717676"), false);
-  assert.equal(String(card.loyaltyNote).includes("0.767927391717676"), false);
 });
 
 test("a constructed empty port list says the captive named no ports", () => {

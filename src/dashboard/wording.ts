@@ -1244,10 +1244,26 @@ export function taxRateSetSentence(
   const autonomous = !Object.prototype.hasOwnProperty.call(event.data, "commandId");
   if (autonomous && previous !== null && previous !== rate) {
     const verb = rate > previous ? "raised" : "lowered";
-    const reason = rate > previous ? "treasury short" : unrestReason(world, event, factionId, siblings);
-    return `${actor} ${verb} the ${faction} tax from ${Math.round(previous * 100)}% to ${Math.round(rate * 100)}% (${reason}).`;
+    // The scorer raises only when the treasury is short and cuts only on unrest (tax-rate.ts autonomousTaxStep).
+    // An AI pick that differs from the scorer's is the ruler's own choice, not the scorer's cause.
+    const ai = event.data.ai as { finalChoice?: string; scorerChoice?: string } | undefined;
+    const reason = ai && ai.finalChoice !== ai.scorerChoice
+      ? "ruler's choice"
+      : rate > previous ? "treasury short" : unrestReason(world, event, factionId, siblings);
+    return `${actor} ${verb} the ${faction} tax from ${Math.round(previous * 100)}% to ${Math.round(rate * 100)}% (${reason}).${raiseShockClause(world, event)}`;
   }
-  return `${actor} set the ${faction} tax rate to ${Math.round(rate * 100)}%.`;
+  return `${actor} set the ${faction} tax rate to ${Math.round(rate * 100)}%.${raiseShockClause(world, event)}`;
+}
+
+/** The raise shock's feed clause: the ports it hit and the stability each lost. Empty when none. */
+export function raiseShockClause(world: WorldState, event: SimEvent): string {
+  const shock = event.data.raiseShock;
+  if (!Array.isArray(shock) || shock.length === 0) return "";
+  const parts = (shock as { settlementId: string; before: number; stability: number }[]).map((entry) => {
+    const name = world.settlements[entry.settlementId]?.name ?? entry.settlementId;
+    return `${name} ${entry.before.toFixed(2)} to ${entry.stability.toFixed(2)}`;
+  });
+  return ` The raise cost stability at ${parts.join(", ")}.`;
 }
 
 function unrestReason(
