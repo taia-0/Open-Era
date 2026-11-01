@@ -19,8 +19,8 @@ export function resolveExileRecovery(values: { "no-exile-recovery"?: boolean }, 
 }
 
 /** Print `usage` plus the exile flags and exit when --help was given. */
-export function maybeHelp(values: { help?: boolean }, usage: string): void {
+export function maybeHelp(values: { help?: boolean }, usage: string, extraHelp: string[] = []): void {
   if (!values.help) return;
-  console.log(`${usage}\n\nOptions:\n${EXILE_FLAG_HELP}`);
+  console.log(`${usage}\n\nOptions:\n${[EXILE_FLAG_HELP, ...extraHelp].join("\n")}`);
   process.exit(0);
 }

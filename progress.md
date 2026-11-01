@@ -155,6 +155,81 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-01 — ALLIANCES behind a flag (alliances.md rev 2, default off; joiners take losses per the Lead's ruling) (Cursor)
+- **Agent / Branch / Commits / Type:** Cursor / feature/alliances off origin/main 41cf2c6 (#177, #179) / see the branch / feature behind a flag.
+- **Changed:**
+  - **Module:** `src/sim/alliances.ts` is built from the rev 2 prototype, with the env knobs removed. The constants are: adjacency ≤ 30, raid window 152, cooldown 240, clock 24.
+  - **Hooks:**
+    - engine: no raid or claim on an allied port; joint battles in `resolveImmediateBattle` and `resolveBattlePhase`; forms after secessions on the clock; breaks before `metrics-recorded`.
+    - state: alliance events, the raid ledger, and joiner losses.
+  - **Types:** `WorldState.alliances`, `allianceMemory` and `allianceRaids`, all absent with the flag off.
+  - **Flags:** the run option is `TickOptions.alliances`. The CLI flag is `--alliances` or `ALLIANCES=1` (`src/cli/alliances-flag.ts`) on `simulate` and `action-picker`; action-picker replay restores it from the summary.
+  - **Joiner losses (Lead ruling):**
+    - A side's loss is round(sideTroops × lossRate), using the existing rate formulas. sideTroops is the principal's troops (or the garrison) plus the joiners' troops.
+    - Each joiner loses min(troops, round(sideLoss × power / sideBase)). The principal loses min(own, max(1, round(sideLoss × ownBase / sideBase))).
+    - With no joiners, this is exactly the old formula.
+    - The losses are recorded as `allyJoiners[].losses` and applied in `applyEvent`.
+  - **Memory pruning:** `allianceMemory` drops entries older than the 240-tick cooldown (§6).
+  - **Fix found while testing:** alliance events now advance `nextEventSequence`. The prototype skipped it, which gave a duplicate sequence and a store `UNIQUE` failure on recovery.
+  - **Gate:** `scripts/alliances-sweep.ts` runs in evaluate-milestone.
+- **Why:** alliances.md (option 1 of next-after-layers, #178/#179). The ruling closes §8's "joining is free".
+- **Verified:** all gated items pass. The flag-off pins and the opt-out pins (b51aa07a / 091f7628 / 25bdbf15) are unchanged.
+
+  | Gated item | Result | Pass |
+  |---|---|---|
+  | Flag-off pins (72 and 1,200 ticks) | 7f76e474 / 976c40bd / 08943ea5 and 94de9c02 / 7a3741c9 / af6eeaea | ✓ |
+  | Property violations, 13 seeds | **0** | ✓ |
+  | Forms on ≥ 7/13 seeds | 12/13 (none on 2718) | ✓ |
+  | Breaks on ≥ 5/13 seeds | 12/13 | ✓ |
+  | Claims and port changes > 0 on every seed | lowest seed 19 claims, 23 port changes (10000) | ✓ |
+  | No new wipeouts | none | ✓ |
+  | Secessions on ≥ 6/13 seeds | 12/13 | ✓ |
+
+  - The property checks cover:
+    - a known cause on every side, and raided causes cross-checked against the raid tape and the 152-tick window;
+    - near causes within 30;
+    - one pact per faction, the cooldown, and forms only on the clock;
+    - no raid or claim between allies while allied;
+    - joiners allied to their side and within reach, with 0 ≤ losses ≤ troops;
+    - every break matching its condition, no pact alive at a tick's end past its condition, and the tape's pact count matching state.
+  - **npm test** (keys unset): 658/658. New tests in `tests/alliances.test.ts`:
+    - default off and pins;
+    - the CLI flag;
+    - the loss split with no joiners (exact) and with joiners (pro-rata, capped at a joiner's troops);
+    - losses applied from the event;
+    - flag-on joiners losing troops;
+    - no raid between allies;
+    - store recovery at 800 ticks, flag on.
+  - **evaluate-milestone:** EXILE, OCCUPATION, WG PICKER and ALLIANCES ACCEPTANCE PASSED, and the recovery check passed.
+  - No tuning. $0 spent; no AI was used.
+- **Report only** (13 seeds × 1,200 ticks, flag on):
+
+  | Seed | Forms | Breaks | Causes raided / near / landless | Port-holder pacts | Joined battles (rounds) | Flipped | Joiner losses / troops | Claims off → on | Port changes off → on | Secessions off → on |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | 1847 | 5 | 5 | 7 / 1 / 2 | 5 / 5 | 5 (5) | 1 | 190 / 3,896 | 51 → 51 | 52 → 52 | 1 → 1 |
+  | 2718 | 0 | 0 | — | — | 0 | 0 | 0 | 64 → 64 | 64 → 64 | 0 → 0 |
+  | 4096 | 21 | 18 | 14 / 8 / 20 | 14 / 21 | 25 (27) | 13 | 1,206 / 16,135 | 56 → 46 | 59 → 52 | 3 → 6 |
+  | 1000 | 2 | 2 | 3 / 0 / 1 | 2 / 2 | 1 (1) | 0 | 21 / 740 | 42 → 41 | 44 → 42 | 2 → 1 |
+  | 2000 | 11 | 9 | 15 / 2 / 5 | 8 / 11 | 16 (20) | 9 | 844 / 11,067 | 50 → 45 | 52 → 47 | 2 → 2 |
+  | 3000 | 7 | 6 | 8 / 2 / 4 | 6 / 7 | 13 (15) | 0 | 241 / 5,144 | 42 → 48 | 44 → 50 | 2 → 2 |
+  | 4000 | 18 | 17 | 22 / 4 / 10 | 13 / 18 | 29 (41) | 15 | 974 / 13,911 | 63 → 47 | 64 → 51 | 1 → 4 |
+  | 5000 | 6 | 6 | 7 / 2 / 3 | 5 / 6 | 14 (14) | 4 | 363 / 6,490 | 55 → 35 | 57 → 37 | 2 → 2 |
+  | 6000 | 12 | 11 | 15 / 4 / 5 | 9 / 12 | 17 (19) | 5 | 597 / 8,929 | 50 → 44 | 55 → 48 | 5 → 4 |
+  | 7000 | 4 | 2 | 4 / 2 / 2 | 3 / 4 | 17 (19) | 7 | 378 / 6,935 | 61 → 47 | 65 → 51 | 4 → 4 |
+  | 8000 | 16 | 16 | 14 / 8 / 10 | 15 / 16 | 23 (27) | 11 | 1,327 / 13,191 | 62 → 49 | 66 → 52 | 4 → 3 |
+  | 9000 | 16 | 14 | 18 / 5 / 9 | 13 / 16 | 9 (9) | 5 | 175 / 3,045 | 58 → 59 | 60 → 64 | 2 → 5 |
+  | 10000 | 6 | 5 | 4 / 5 / 3 | 6 / 6 | 11 (13) | 5 | 1,501 / 15,384 | 28 → 19 | 31 → 23 | 3 → 4 |
+  | **Total** | **124** | **111** | **131 / 43 / 74** | **99 / 124 (80 %)** | **180 (210)** | **75 (36 %)** | **7,817 / 104,867 (7.5 %)** | **682 → 595** | **713 → 633** | **31 → 38** |
+
+  - Break reasons: enemy-portless 107, ally-gone 4, ally-attack 0.
+  - Joiners: 248 on the attacker side, 228 on the defender side. 13 pacts are in force at t1200.
+  - The joiner losses total is summed over every joined round, and the troops total is summed per round, so a captain who joins several rounds counts in each.
+  - Against the rev 2 prototype, which had no joiner losses: forms 114 → 124, joined battles 207 → 180, flipped rounds 101 → 75. The claims and port-change totals are almost the same (599 → 595, 634 → 633).
+- **Left open (decisions for the Lead):**
+  - How losses are split, and whether the principal's own loss should keep its max(1) floor.
+  - §8's other deferrals: shared sightings, a choice-break, player commands, news, and pacts of three or more factions.
+- **Links:** docs/design/alliances.md, docs/design/alliances-proto/.
+
 ### 2026-11-01 — WG picker: nudge definitions in the doc and the live noise band (report only, no gate) (Cursor)
 
 - **Doc:** wg-jev-picker.md now defines, as built in #176 and modelled on triage v3:

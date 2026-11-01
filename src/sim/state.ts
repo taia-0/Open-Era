@@ -1,3 +1,4 @@
+import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
 import { createHash } from "node:crypto";
 import type {
   Character,
@@ -557,6 +558,12 @@ function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrd
 }
 
 export function applyEvent(world: WorldState, event: SimEvent): void {
+  if ((event.type === "alliance-formed" || event.type === "alliance-broken" || event.type === "alliance-ledger-opened") && applyAllianceEvent(world, event)) {
+    world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+    return;
+  }
+  noteRaid(world, event);
+  applyJoinerLosses(world, event);
   const actor = event.actorId ? world.characters[event.actorId] : undefined;
   const settlement = event.settlementId ? world.settlements[event.settlementId] : undefined;
 

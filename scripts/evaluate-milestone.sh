@@ -36,6 +36,11 @@ echo "Running the WG picker acceptance"
 node --experimental-strip-types scripts/wg-picker-sweep.ts --json "${evaluation_output}/wg-picker-sweep.json" 2>&1 | tee "${evaluation_output}/wg-picker-sweep.log"
 grep -q "WG PICKER ACCEPTANCE PASSED" "${evaluation_output}/wg-picker-sweep.log"
 
+# alliances.md §7 + the Lead's joiner-loss ruling: flag-off pins, 0 property violations over 13 seeds, liveness.
+echo "Running the 13-seed alliances sweep"
+node --experimental-strip-types scripts/alliances-sweep.ts --json "${evaluation_output}/alliances-sweep.json" 2>&1 | tee "${evaluation_output}/alliances-sweep.log"
+grep -q "ALLIANCES ACCEPTANCE PASSED" "${evaluation_output}/alliances-sweep.log"
+
 # Slice B feed reasons (feed-reasons.md section 10): stub brain on, 1,200 ticks,
 # stateHash equal to the default pins (EXILE_RECOVERY on); then an offline replay with zero writer
 # calls and byte-identical feed text.

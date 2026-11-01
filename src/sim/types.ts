@@ -754,6 +754,10 @@ export interface Character {
 }
 
 export interface WorldState {
+  /** ALLIANCES flag only (alliances.md §6); absent otherwise, so flag-off worlds hash as before. */
+  alliances?: import("./alliances.ts").Alliance[];
+  allianceMemory?: Array<{ factionIds: [string, string]; brokenTick: number }>;
+  allianceRaids?: Record<string, number>;
   version: 5;
   scenario: string;
   seed: number;
