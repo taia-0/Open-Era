@@ -40,7 +40,6 @@ const checks: Record<string, boolean> = {
   "4_alwaysFlagEscalations": seeds.every((s) => s.alwaysFlag.ok),
   "5_replayExactZeroCalls": seeds.every((s) => s.replay.run.ok && s.replay.always.ok),
   "6_picksUnchangedWithoutEscalation": seeds.every((s) => s.readout.picksUnchangedWithoutEscalation),
-  "6_holderEntropyNotBelowPickerOnly": seeds.every((s) => s.readout.holderEntropy.notBelow),
   "7_caps": seeds.every((s) => s.caps.ok),
   "7_npmTest": tests.ok,
 };

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { dynamismReadout, firstDivergentTick } from "./dynamism.ts";
-import { TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_KINDS, TRIAGE_TESTS, TRIAGE_THRESHOLD, type TriageEntry } from "../sim/ai-triage.ts";
+import { TRIAGE_BUDGET, TRIAGE_KIND_BUDGETS, TRIAGE_COOLDOWN_TICKS, TRIAGE_KINDS, TRIAGE_TESTS, TRIAGE_THRESHOLD, type TriageEntry } from "../sim/ai-triage.ts";
 import { runTick } from "../sim/engine.ts";
 import { createPrototypeWorld } from "../sim/scenario.ts";
 import { stateHash } from "../sim/state.ts";
@@ -82,13 +82,20 @@ export function loadRun(dir: string): RunDir {
 }
 
 /** Check 4 helpers: eligible = flagged decisions off cooldown, recomputed from triage.jsonl in order; the budget then caps. */
-export function escalationCheck(rows: readonly TriageEntry[]) {
+export function escalationCheck(rows: readonly TriageEntry[], budgets: Partial<Record<string, number>> | number = TRIAGE_KIND_BUDGETS) {
+  // Expected escalations, recomputed: shared per-actor cooldown, per-kind budgets (or one pool when a number).
   const last = new Map<string, number>(); let eligible = 0; let expected = 0; let cooldownBreaks = 0;
+  const left: Record<string, number> = typeof budgets === "number" ? {} : { ...budgets } as Record<string, number>;
+  let pool = typeof budgets === "number" ? budgets : TRIAGE_BUDGET;
   for (const r of rows) {
     if (!r.triage.flagged.length) continue;
     const was = last.get(r.actorId);
     const off = was === undefined || r.tick - was >= TRIAGE_COOLDOWN_TICKS;
-    if (off) { eligible++; if (expected < TRIAGE_BUDGET) { expected++; last.set(r.actorId, r.tick); } }
+    if (!off) continue;
+    eligible++;
+    const k = r.triage.kind;
+    const has = typeof budgets === "number" ? pool > 0 : (left[k] ?? 0) > 0;
+    if (has) { expected++; if (typeof budgets === "number") pool--; else left[k]--; last.set(r.actorId, r.tick); }
   }
   const esc = rows.filter((r) => r.triage.escalated);
   const seen = new Map<string, number>();
@@ -97,7 +104,9 @@ export function escalationCheck(rows: readonly TriageEntry[]) {
   const railBreaks = esc.filter((r) => !r.brain || r.applied !== r.brain.choice || !r.triage.legal.includes(r.applied)).length;
   const defaultBreaks = rows.filter((r) => !r.triage.escalated && r.applied !== r.triage.defaultChoice).length;
   const kinds = Object.fromEntries(TRIAGE_KINDS.map((k) => [k, rows.filter((r) => r.triage.kind === k).length]));
-  return { triaged: rows.length, kinds, eligibleOffCooldown: eligible, expected: Math.min(TRIAGE_BUDGET, eligible), escalations: esc.length, cooldownBreaks, brainNotLegalOrFallback: brainBad, railBreaks, defaultBreaks };
+  const flagRate = Object.fromEntries(TRIAGE_KINDS.map((k) => { const of = rows.filter((r) => r.triage.kind === k); return [k, of.length ? r4(of.filter((r) => r.triage.flagged.length).length / of.length) : null]; }));
+  const escByKind = Object.fromEntries(TRIAGE_KINDS.map((k) => [k, esc.filter((r) => r.triage.kind === k).length]));
+  return { triaged: rows.length, kinds, flagRate, escByKind, eligibleOffCooldown: eligible, expected, escalations: esc.length, cooldownBreaks, brainNotLegalOrFallback: brainBad, railBreaks, defaultBreaks };
 }
 
 function holderEntropy(events: readonly SimEvent[]): number {

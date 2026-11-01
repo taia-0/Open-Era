@@ -966,6 +966,12 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!actor) throw new Error("Desertion event has no actor");
       actor.factionId = null;
       break;
+    case "desertion-withheld":
+      // Slice 5 triage: the brain kept a member the morning roll would have let go. Replay
+      // reapplies the silent desertion first, then this restores the faction.
+      if (!actor) throw new Error("Withheld desertion has no actor");
+      actor.factionId = event.data.previousFactionId as string;
+      break;
     case "character-died": {
       if (!actor) throw new Error("Death event has no actor");
       actor.dead = true;

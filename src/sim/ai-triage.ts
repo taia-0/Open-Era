@@ -38,6 +38,13 @@ export const TRIAGE_QUESTIONS: Record<TriageTest, { type: "noul"; instructions: 
 export const TRIAGE_THRESHOLD = 0.6;
 /** §4.2: escalations per run. */
 export const TRIAGE_BUDGET = 50;
+/**
+ * v2 (Lead ruling 1): the 50 split per kind, so rare late kinds are not starved by early claims.
+ * Sized from the offline real-decision counts per 1,200-tick run (see progress.md): desertion and
+ * secession are rare (a handful per run) and get a reserve that covers them; tax steps that change
+ * the rate and contract breaks get roughly their share; claims, the most frequent, take the rest.
+ */
+export const TRIAGE_KIND_BUDGETS: Record<TriageKind, number> = { claim: 20, tax: 10, "contract-break": 8, desertion: 6, secession: 6 };
 /** §4.2: no second escalation for the same actor inside 24 ticks. */
 export const TRIAGE_COOLDOWN_TICKS = 24;
 export const TRIAGE_PROMPT_VERSION = sha256(canonicalJson(TRIAGE_QUESTIONS));
@@ -54,6 +61,7 @@ export const BRAIN_TEMPLATE = [
   "The decision ({kind}): {situation}",
   "This decision was flagged as weighty for: {flagged}.",
   "Legal options: {legal}",
+  "Copy one option id exactly as written, including every colon and dash (for example \"work:-:-\", not \"work\").",
   "Reply with one option id from the list as JSON.",
 ].join("\n");
 export const BRAIN_PROMPT_VERSION = sha256(`${BRAIN_SYSTEM}\n${BRAIN_TEMPLATE}`);
@@ -99,7 +107,7 @@ export const KIND_TESTS: Record<TriageKind, TriageTest[]> = {
 export const kindScorer = () => stubScorer((r) => ({ ...NEVER_FLAG(), ...Object.fromEntries(KIND_TESTS[r.kind].map((t) => [t, 0.9])) }), "stubKind");
 
 /** Run memory (§4.2). Not on the world; recomputed in event order on replay. */
-export interface TriageState { budgetLeft: number; cooldownUntil: Record<string, number> }
+export interface TriageState { budgetLeft: number; cooldownUntil: Record<string, number>; /** v2: per-kind budgets; when set, a kind spends only its own. */ kindLeft?: Partial<Record<TriageKind, number>> }
 
 export interface TriageRecord {
   kind: TriageKind;
@@ -122,17 +130,18 @@ export interface TriageRecord {
 }
 
 /** §4.2: deterministic given the scores; spends budget and starts the cooldown. */
-export function triageStep(state: TriageState, actorId: string, tick: number, noul: Record<TriageTest, number> | null, threshold: number = TRIAGE_THRESHOLD, cooldownTicks: number = TRIAGE_COOLDOWN_TICKS): Omit<TriageRecord, "kind" | "actorRole" | "inputHash" | "scoreOutcome" | "legal" | "defaultChoice"> {
+export function triageStep(state: TriageState, actorId: string, tick: number, noul: Record<TriageTest, number> | null, threshold: number = TRIAGE_THRESHOLD, cooldownTicks: number = TRIAGE_COOLDOWN_TICKS, kind?: TriageKind): Omit<TriageRecord, "kind" | "actorRole" | "inputHash" | "scoreOutcome" | "legal" | "defaultChoice"> {
   const flagged = flaggedTests(noul, threshold);
+  const perKind = !!state.kindLeft && kind !== undefined;
   const until = state.cooldownUntil[actorId];
   let escalated = false;
   let skipped: TriageRecord["skipped"] = null;
   if (flagged.length) {
     if (until !== undefined && tick < until) skipped = "cooldown";
-    else if (state.budgetLeft <= 0) skipped = "budget";
-    else { escalated = true; state.budgetLeft -= 1; state.cooldownUntil[actorId] = tick + cooldownTicks; }
+    else if ((perKind ? state.kindLeft![kind!] ?? 0 : state.budgetLeft) <= 0) skipped = "budget";
+    else { escalated = true; state.budgetLeft -= 1; if (perKind) state.kindLeft![kind!] = (state.kindLeft![kind!] ?? 0) - 1; state.cooldownUntil[actorId] = tick + cooldownTicks; }
   }
-  return { promptVersion: TRIAGE_PROMPT_VERSION, noul, threshold, flagged, budgetLeft: state.budgetLeft, cooldownUntilTick: state.cooldownUntil[actorId] ?? null, escalated, skipped };
+  return { promptVersion: TRIAGE_PROMPT_VERSION, noul, threshold, flagged, budgetLeft: perKind ? state.kindLeft![kind!] ?? 0 : state.budgetLeft, cooldownUntilTick: state.cooldownUntil[actorId] ?? null, escalated, skipped };
 }
 
 export interface EscalationRequest {
@@ -178,6 +187,8 @@ export interface BrainRecord {
   choice: string;
   outcome: "model" | "fallback";
   fallbackReason: BrainFallbackReason | null;
+  /** v2: the answer was legal only after normalizing (e.g. "work" -> "work:-:-"). */
+  normalized: boolean;
   /** The default (the sim's own choice, the picker's sample on a picked row), the fallback (§4.4). */
   pickerSampled: string;
   latencyMs: number;
@@ -204,8 +215,27 @@ export function parseBrainChoice(raw: string | null, legal: string[]): string | 
   try {
     const value = JSON.parse(raw);
     const choice = value && typeof value === "object" ? (value as { choice?: unknown }).choice : undefined;
-    return typeof choice === "string" && legal.includes(choice) ? choice : null;
+    if (typeof choice !== "string") return null;
+    if (legal.includes(choice)) return choice;
+    return normalizeBrainChoice(choice, legal);
   } catch { return null; }
+}
+
+/**
+ * v2: a bare action name ("work") or an id missing its "-" parts maps to the one legal id
+ * it abbreviates; an ambiguous or unknown name stays illegal. Counted as `normalized`.
+ */
+export function normalizeBrainChoice(choice: string, legal: string[]): string | null {
+  const bare = choice.trim().replace(/(:-)+$/, "");
+  if (!bare) return null;
+  const matches = legal.filter((id) => id === bare || id.replace(/(:-)+$/, "") === bare);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/** True when the raw answer parsed only through normalization. */
+export function brainNormalized(raw: string | null, legal: string[]): boolean {
+  if (typeof raw !== "string") return false;
+  try { const c = (JSON.parse(raw) as { choice?: unknown })?.choice; return typeof c === "string" && !legal.includes(c) && normalizeBrainChoice(c, legal) !== null; } catch { return false; }
 }
 
 /** §4.4: legal id, else the picker's sample, else `candidates[0]`. */
@@ -216,7 +246,7 @@ export function finishBrain(request: EscalationRequest, answer: EscalationAnswer
   const parsed = fallbackReason ? null : parseBrainChoice(raw, request.legal);
   if (!fallbackReason && !parsed) fallbackReason = "illegal";
   const choice = parsed ?? (request.legal.includes(pickerSampled) ? pickerSampled : scorerPick);
-  return { role: BRAIN_ROLE, provider, model, promptVersion: request.promptVersion, inputHash, raw: answer.raw, choice, outcome: fallbackReason ? "fallback" : "model", fallbackReason, pickerSampled, latencyMs: answer.latencyMs };
+  return { role: BRAIN_ROLE, provider, model, promptVersion: request.promptVersion, inputHash, raw: answer.raw, choice, outcome: fallbackReason ? "fallback" : "model", fallbackReason, normalized: !fallbackReason && brainNormalized(raw, request.legal), pickerSampled, latencyMs: answer.latencyMs };
 }
 
 /** §4.5 replay: the recorded triage and brain per (tick, actor); no vendor is called. */

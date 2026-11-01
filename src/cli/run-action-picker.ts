@@ -51,6 +51,8 @@ const { values } = parseArgs({
     "triage-max-calls": { type: "string", default: String(TRIAGE_DEFAULT_SCORE_CAP) },
     cache: { type: "string" },
     "triage-budget": { type: "string" },
+    "triage-cache": { type: "string" },
+    "brain-default-kinds": { type: "string" },
   },
 });
 let fetchAttempts = 0;
@@ -103,7 +105,8 @@ let cacheHits = 0; let cacheMisses = 0;
 if (values.cache && picker && !recorded) {
   const live = picker;
   const cache = new Map<string, ActionPickerRecord>();
-  for (const line of readFileSync(join(resolve(values.cache), "picker.jsonl"), "utf8").split("\n").filter(Boolean)) { const r = JSON.parse(line).picker as ActionPickerRecord; cache.set(r.inputHash, r); }
+  // Comma-separated run dirs; the first record for an inputHash wins.
+  for (const dir of values.cache.split(",")) for (const line of readFileSync(join(resolve(dir), "picker.jsonl"), "utf8").split("\n").filter(Boolean)) { const r = JSON.parse(line).picker as ActionPickerRecord; if (!cache.has(r.inputHash)) cache.set(r.inputHash, r); }
   picker = { name: live.name, model: live.model, choose(request) {
     const was = cache.get(sha256(canonicalJson(request)));
     if (!was) { cacheMisses += 1; return live.choose(request); }
@@ -141,6 +144,22 @@ if (triageOn) {
     else if (values.triage === "jev") scorer = jevTriageScorer({ transport: workerTransport(), ledger: triageLedger });
     else throw new Error("--triage must be off, never, always, kind or jev");
   }
+}
+// Ablation support (v2): reuse a recorded triage run's scores and brain answers by inputHash; a miss calls live.
+let triageCacheHits = 0; let brainCacheHits = 0;
+if (values["triage-cache"] && scorer && brain && !triageReplay) {
+  const rows: TriageEntry[] = readFileSync(join(resolve(values["triage-cache"]), "triage.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const scores = new Map(rows.filter((r) => r.triage.scoreOutcome === "model").map((r) => [r.triage.inputHash, r.triage.noul]));
+  const answers = new Map(rows.filter((r) => r.brain && (r.brain.fallbackReason === null || r.brain.fallbackReason === "illegal")).map((r) => [r.brain!.inputHash, r.brain!.raw]));
+  const liveScorer = scorer; const liveBrain = brain;
+  scorer = { name: liveScorer.name, model: liveScorer.model, score(q) { const hit = scores.get(sha256(canonicalJson(q))); if (hit !== undefined) { triageCacheHits++; return { noul: hit, latencyMs: 0 }; } return liveScorer.score(q); } };
+  brain = { name: liveBrain.name, model: liveBrain.model, escalate(q) { const hit = answers.get(sha256(canonicalJson(q))); if (hit !== undefined) { brainCacheHits++; return { raw: hit, latencyMs: 0 }; } return liveBrain.escalate(q); } };
+}
+// Ablation: these kinds escalate as usual but the brain keeps the default (no call).
+const defaultKinds = new Set((values["brain-default-kinds"] ?? "").split(",").filter(Boolean));
+if (defaultKinds.size && brain && !triageReplay) {
+  const inner = brain;
+  brain = { name: inner.name, model: inner.model, escalate(q) { return defaultKinds.has(q.kind) ? { raw: JSON.stringify({ choice: q.defaultChoice }), latencyMs: 0 } : inner.escalate(q); } };
 }
 const ai: TickAiOptions = {
   ...(picker ? { picker } : {}), ...(social ? { social } : {}), pickerCap: maxCalls, ...(values.actors === "all" ? { pickerActors: "all" as const } : {}),
@@ -210,7 +229,10 @@ function triageSummary() {
     cooldownBreaks,
     brainCalls: ai.brainCalls ?? 0, brainSpendUsd: brainLedger.spendUsd, brainCostLines: brainLedger.lines.length,
     triageSpendUsd: triageLedger.spendUsd, triageCostLines: triageLedger.lines.length,
-    cacheHits, cacheMisses,
+    cacheHits, cacheMisses, triageCacheHits, brainCacheHits, brainDefaultKinds: [...defaultKinds],
+    brainNormalized: brains.filter((b) => b.normalized).length,
+    flagRatePerKind: Object.fromEntries(TRIAGE_KINDS.map((kind) => { const rows = triages.filter((t) => t.triage.kind === kind); return [kind, rows.length ? Math.round(rows.filter((t) => t.triage.flagged.length).length / rows.length * 1e4) / 1e4 : null]; })),
+    escalationsByKind: Object.fromEntries(TRIAGE_KINDS.map((kind) => [kind, escalated.filter((t) => t.triage.kind === kind).length])),
   };
 }
 const count = (fn: (r: ActionPickerRecord) => boolean) => records.filter(fn).length;

@@ -34,7 +34,7 @@ import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMP
 import { ActionPickerReplay, blendDistribution, PICKER_BLEND, type BlendParams, criterionFor, ESCALATION_ACTIONS, legalIds, optionId, pickDraw, PICKER_DEFAULT_CAP, PICKER_PROMPT_VERSION, PICKER_ROLE, PICKER_TIMEOUT_MS, pickerState, railProbabilities, sampleId, type ActionPicker, type ActionPickerRecord, type PickerAnswer, type PickerFallbackReason, type PickerRequest } from "./ai-action-picker.ts";
 import { READ_PROMPT_VERSION, SOCIAL_CACHE_TICKS, SOCIAL_DEFAULT_CALL_CAP, SOCIAL_FACTION_ID, SOCIAL_PICK_INSTRUCTIONS, SOCIAL_ROLE, SOCIAL_STATE_MAX_BYTES, SocialReplay, socialFromAnswer, socialReadRequest, type SocialBlock, type SocialReader, type SocialReadRecord } from "./ai-social.ts";
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
-import { BRAIN_PROMPT_VERSION, finishBrain, sanitizeNoul, TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_DEFAULT_SCORE_CAP, TRIAGE_PROMPT_VERSION, TRIAGE_QUESTIONS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type EscalationAnswer, type EscalationBrain, type EscalationRequest, type TriageEntry, type TriageKind, type TriageRecord, type TriageScoreAnswer, type TriageScorer, type TriageSituation, type TriageState } from "./ai-triage.ts";
+import { BRAIN_PROMPT_VERSION, finishBrain, sanitizeNoul, TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_DEFAULT_SCORE_CAP, TRIAGE_KIND_BUDGETS, TRIAGE_PROMPT_VERSION, TRIAGE_QUESTIONS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type EscalationAnswer, type EscalationBrain, type EscalationRequest, type TriageEntry, type TriageKind, type TriageRecord, type TriageScoreAnswer, type TriageScorer, type TriageSituation, type TriageState } from "./ai-triage.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
@@ -3491,7 +3491,7 @@ export interface TickAiOptions {
    * 24-tick cooldown). Without escalation nothing changes. `TriageReplay` as
    * both scorer and brain replays the records with no vendor call.
    */
-  triage?: { scorer: TriageScorer; brain: EscalationBrain; threshold?: number; budget?: number; cooldownTicks?: number; scoreCap?: number };
+  triage?: { scorer: TriageScorer; brain: EscalationBrain; threshold?: number; budget?: number | Partial<Record<TriageKind, number>>; cooldownTicks?: number; scoreCap?: number };
   /** Run memory for triage (§4.2). Not on the world. */
   triageState?: TriageState;
   /** Run memory: brain escalation calls made so far. */
@@ -3590,7 +3590,7 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
       if (!step) continue;
       const holder = world.characters[step.holderId];
       if (liveSession && holder?.controller.kind === "human") continue;
-      const choice = holder && step.options.length >= 2
+      const choice = holder && step.options.length >= 2 && step.scorerChoice !== "hold"
         ? triageDecision(world, ai, holder, "tax", { targetId: factionId, settlementId: null, facts: { factionId, taxRate: step.rateCents / 100, treasury: step.treasuryCents / 100, pressed: step.pressed, short: step.short } }, [...step.options], step.scorerChoice) as typeof step.scorerChoice
         : step.scorerChoice;
       if (choice === "hold") continue;
@@ -3936,8 +3936,11 @@ function triageDecision(world: WorldState, ai: TickAiOptions, character: Charact
     try { answer = triage.scorer.score(request); } catch { answer = { noul: null, latencyMs: 0, error: "error" }; }
   }
   const noul = answer.error ? null : sanitizeNoul(answer.noul);
-  const state = ai.triageState ?? (ai.triageState = { budgetLeft: triage.budget ?? TRIAGE_BUDGET, cooldownUntil: {} });
-  const step = triageStep(state, character.id, world.tick, noul, triage.threshold ?? TRIAGE_THRESHOLD, triage.cooldownTicks ?? TRIAGE_COOLDOWN_TICKS);
+  // A number is one shared pool (legacy and `--triage-budget 0`); otherwise per-kind budgets (v2 default).
+  const state = ai.triageState ?? (ai.triageState = typeof triage.budget === "number"
+    ? { budgetLeft: triage.budget, cooldownUntil: {} }
+    : { budgetLeft: TRIAGE_BUDGET, cooldownUntil: {}, kindLeft: { ...(triage.budget ?? TRIAGE_KIND_BUDGETS) } });
+  const step = triageStep(state, character.id, world.tick, noul, triage.threshold ?? TRIAGE_THRESHOLD, triage.cooldownTicks ?? TRIAGE_COOLDOWN_TICKS, kind);
   const record: TriageRecord = { kind, actorRole: triageActorRole(world, character, kind), ...step, inputHash, scoreOutcome: answer.error ?? "model", legal: [...legal], defaultChoice };
   if (replay && (replay.triage.escalated !== record.escalated || replay.triage.budgetLeft !== record.budgetLeft)) {
     throw new Error(`triage replay: escalated/budgetLeft ${record.escalated}/${record.budgetLeft} != recorded ${replay.triage.escalated}/${replay.triage.budgetLeft} for ${character.id} at tick ${world.tick}`);
@@ -4107,10 +4110,13 @@ function resolveMorningDesertion(world: WorldState, events: SimEvent[], notices:
     // Slice 5: desertion. Default desert; a brain "stay" puts the member back before the event.
     const character = world.characters[notice.characterId];
     if (ai?.triage && character && notice.previousFactionId) {
-      character.factionId = notice.previousFactionId;
-      const choice = triageDecision(world, ai, character, "desertion", { targetId: notice.previousFactionId, settlementId: character.locationId ?? null, facts: { previousFactionId: notice.previousFactionId, shortMorningStreak: character.shortMorningStreak ?? 0, roll: notice.roll } }, ["desert", "stay"], "desert");
-      if (choice === "stay") continue;
       character.factionId = null;
+      const choice = triageDecision(world, ai, character, "desertion", { targetId: notice.previousFactionId, settlementId: character.locationId ?? null, facts: { previousFactionId: notice.previousFactionId, shortMorningStreak: character.shortMorningStreak ?? 0, roll: notice.roll } }, ["desert", "stay"], "desert");
+      if (choice === "stay") {
+        // Recorded in the save: replay reapplies the silent desertion, then this event restores the member.
+        emit(world, events, { type: "desertion-withheld", actorId: character.id, targetId: notice.previousFactionId, data: { previousFactionId: notice.previousFactionId, roll: notice.roll, by: "triage.brain" } });
+        continue;
+      }
     }
     emit(world, events, {
       type: "character-deserted",
@@ -4400,9 +4406,10 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     // Slice 5: surrender or claim. A raid or claim-settlement is legal for this actor (any faction).
     if (options.ai?.triage) {
       const legalRows = candidates.filter((row) => row.score > -1000);
-      if (legalRows.some((row) => ESCALATION_ACTIONS.has(row.action))) {
+      // Lead ruling (v2): only a real decision, i.e. the sim's chosen action would raid or claim.
+      if (ESCALATION_ACTIONS.has(chosen.action)) {
         const byId = new Map(legalRows.map((row) => [optionId(row), row]));
-        const hostile = legalRows.find((row) => ESCALATION_ACTIONS.has(row.action))!;
+        const hostile = chosen;
         const picked = triageDecision(world, options.ai, character, "claim", {
           targetId: hostile.targetId ?? null, settlementId: character.locationId ?? null,
           facts: { archetype: character.archetype, factionId: character.factionId, legalOptions: legalRows.map((row) => ({ action: row.action, ...(row.targetId ? { targetId: row.targetId } : {}), ...(row.resource ? { resource: row.resource } : {}) })) },

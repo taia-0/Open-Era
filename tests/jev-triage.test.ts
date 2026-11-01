@@ -6,7 +6,7 @@ import test from "node:test";
 import { fetchAttempts } from "./helpers/no-network.ts";
 import { stubArgmaxPicker, stubUniformPicker, type ActionPicker, type PickerRequest } from "../src/sim/ai-action-picker.ts";
 import {
-  ALWAYS_FLAG, alwaysScorer, BRAIN_PROMPT_VERSION, flaggedTests, kindScorer, NEVER_FLAG, neverScorer, parseBrainChoice, stubBrain, stubBrainLast, stubBrainOther, stubScorer,
+  ALWAYS_FLAG, alwaysScorer, normalizeBrainChoice, TRIAGE_KIND_BUDGETS, BRAIN_PROMPT_VERSION, flaggedTests, kindScorer, NEVER_FLAG, neverScorer, parseBrainChoice, stubBrain, stubBrainLast, stubBrainOther, stubScorer,
   TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_KINDS, TRIAGE_QUESTIONS, TRIAGE_TESTS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type EscalationBrain, type TriageEntry, type TriageScorer,
 } from "../src/sim/ai-triage.ts";
 import { CostLedger } from "../src/sim/ai-vendor/cost.ts";
@@ -90,8 +90,9 @@ test("ruling 1: every decision kind is scored, for every actor role, and routine
   assert.ok(roles.size >= 3);
   assert.ok(r.triage.some((t) => t.actorId !== "character-14"));
   for (const t of r.triage) {
-    if (t.triage.kind === "claim") assert.ok(t.triage.legal.some((id) => id.startsWith("raid:") || id.startsWith("claim-settlement:")));
-    if (t.triage.kind === "tax") assert.ok(t.triage.legal.includes("hold"));
+    // v2: only real decisions. A claim is scored only when the sim's own choice raids or claims; a tax step only when it changes the rate.
+    if (t.triage.kind === "claim") assert.ok(t.triage.defaultChoice.startsWith("raid:") || t.triage.defaultChoice.startsWith("claim-settlement:"));
+    if (t.triage.kind === "tax") { assert.ok(t.triage.legal.includes("hold")); assert.notEqual(t.triage.defaultChoice, "hold"); }
     if (t.triage.kind === "secession") assert.deepEqual(t.triage.legal, ["secede", "stay"]);
     if (t.triage.kind === "desertion") assert.deepEqual(t.triage.legal, ["desert", "stay"]);
     if (t.triage.kind === "contract-break") assert.deepEqual(t.triage.legal, ["keep", "break"]);
@@ -171,7 +172,7 @@ test("the record shape and the brain request", () => {
   const e = r.triage.find((t) => t.triage.escalated)!;
   assert.deepEqual(Object.keys(e.triage).sort(), ["actorRole", "budgetLeft", "cooldownUntilTick", "defaultChoice", "escalated", "flagged", "inputHash", "kind", "legal", "noul", "promptVersion", "scoreOutcome", "skipped", "threshold"]);
   assert.equal(e.triage.cooldownUntilTick, e.tick + 24);
-  assert.deepEqual(Object.keys(e.brain!).sort(), ["choice", "fallbackReason", "inputHash", "latencyMs", "model", "outcome", "pickerSampled", "promptVersion", "provider", "raw", "role"]);
+  assert.deepEqual(Object.keys(e.brain!).sort(), ["choice", "fallbackReason", "inputHash", "latencyMs", "model", "normalized", "outcome", "pickerSampled", "promptVersion", "provider", "raw", "role"]);
   assert.equal(e.brain!.promptVersion, BRAIN_PROMPT_VERSION);
   assert.equal(e.brain!.pickerSampled, e.triage.defaultChoice);
   const body = JSON.parse(deepSeekEscalationBody({ tick: 3, actorId: "character-14", kind: "secession", situation: { tick: 3, kind: "secession", actorId: "character-14", targetId: "free-tide", settlementId: "cinder-key", facts: { options: ["secede", "stay"] } }, name: "Pax Ash", persona: { ambition: 0.9 }, purse: 10, briefing: null, social: null, flagged: ["port_holding"], legal: ["secede", "stay"], defaultChoice: "secede", promptVersion: BRAIN_PROMPT_VERSION }));
@@ -182,6 +183,11 @@ test("the record shape and the brain request", () => {
   assert.equal(body.messages[1].content.includes("defaultChoice"), false);
   assert.equal(parseBrainChoice("{\"choice\":\"stay\"}", ["secede", "stay"]), "stay");
   assert.equal(parseBrainChoice("{\"choice\":\"raid:x:-\"}", ["stay"]), null);
+  // v2: a bare action maps to the one legal id it abbreviates; ambiguity stays illegal.
+  assert.equal(parseBrainChoice("{\"choice\":\"work\"}", ["work:-:-", "rest:-:-"]), "work:-:-");
+  assert.equal(normalizeBrainChoice("travel", ["travel:glassport:-", "travel:crown-harbor:-"]), null);
+  assert.equal(normalizeBrainChoice("trade-local:-:arms", ["trade-local:-:arms"]), "trade-local:-:arms");
+  assert.match(body.messages[1].content, /not \"work\"/);
 });
 
 test("replay with zero calls: an overriding run replays to its hash; a tampered record fails", () => {
@@ -201,6 +207,29 @@ test("replay with zero calls: an overriding run replays to its hash; a tampered 
   const q = new TriageReplay(quiet);
   assert.throws(() => run({ triage: { scorer: q, brain: q } }, 2718, 600), /triage replay/);
   assert.equal(fetchAttempts(), 0);
+});
+
+test("v2: a brain-kept deserter is in the save, and WorldStore.recover matches a run whose brain overrides", () => {
+  const ai = tri(kindScorer(), stubBrainOther(), { budget: 1000, cooldownTicks: 0 }, null);
+  const directory = mkdtempSync(join(tmpdir(), "open-era-triage-recover-override-"));
+  try {
+    const store = new WorldStore(join(directory, "world.sqlite"));
+    const world = createPrototypeWorld(1847);
+    store.initialize(world);
+    let kept = 0;
+    // Through the first kept deserter (t846 on 1847), stopping off a day boundary so the log is replayed.
+    while (world.tick < 875) {
+      const events = runTick(world, { ai }).events;
+      kept += events.filter((e) => e.type === "desertion-withheld").length;
+      store.appendTick(events, world);
+    }
+    assert.ok(kept > 0, "a deserter was kept");
+    const overrides = (ai.triageLog ?? []).filter((t) => t.triage.escalated && t.applied !== t.triage.defaultChoice);
+    assert.ok(new Set(overrides.map((t) => t.triage.kind)).size >= 3);
+    const recovered = store.recover();
+    assert.equal(stateHash(recovered.state), stateHash(world));
+    store.close();
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
 test("WorldStore.recover matches a triage run whose escalations agree with the default", () => {
@@ -250,13 +279,18 @@ test("gate item 4: an always-flag stub makes exactly min(50, eligible) escalatio
   for (const seed of [1847, 2718]) {
     const on = run(tri(alwaysScorer(), stubBrainLast()), seed, 1200);
     const check = escalationCheck(on.triage);
-    assert.equal(check.expected, TRIAGE_BUDGET);
+    assert.ok(check.expected > 0 && check.expected <= TRIAGE_BUDGET);
     assert.equal(check.escalations, check.expected);
+    for (const [kind, n] of Object.entries(check.escByKind)) assert.ok(n <= TRIAGE_KIND_BUDGETS[kind as keyof typeof TRIAGE_KIND_BUDGETS]);
     assert.equal(check.cooldownBreaks, 0);
     assert.equal(check.brainNotLegalOrFallback, 0);
     assert.equal(check.railBreaks, 0);
     assert.equal(check.defaultBreaks, 0);
   }
+  // A shared pool when a number is given.
+  const pool = run(tri(alwaysScorer(), stubBrainLast(), { budget: 50 }), 1847, 1200);
+  const pc = escalationCheck(pool.triage, 50);
+  assert.equal(pc.escalations, pc.expected);
   const custom = stubScorer((q) => (q.kind === "tax" ? { faction_number: 0.6 } : { faction_number: 0.59 }));
   const taxOnly = run(tri(custom, stubBrainLast(), {}, null), 1847, 600);
   assert.ok(taxOnly.triage.filter((t) => t.triage.escalated).every((t) => t.triage.kind === "tax"));
