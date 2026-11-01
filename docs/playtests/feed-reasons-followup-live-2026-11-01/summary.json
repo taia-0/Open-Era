@@ -1,0 +1,27 @@
+{
+  "mode": "vendor",
+  "seed": 1847,
+  "ticks": 1200,
+  "exileRecovery": false,
+  "stateHash": "b51aa07a45d336bf4ffa88b4db808541bd9c10e25e426d7fcf88706155e0631e",
+  "events": 152,
+  "byKind": {
+    "raid": 54,
+    "claim": 26,
+    "tax": 22,
+    "breach": 43,
+    "secession": 4,
+    "desertion": 3
+  },
+  "model": 152,
+  "cached": 0,
+  "fallback": 0,
+  "byFallback": {},
+  "writerCalls": 152,
+  "checks": 0,
+  "checkFlagged": 0,
+  "checkMaxNoul": 0,
+  "spendUsd": 0.015586,
+  "costLines": 152,
+  "homeRaidTriggers": 0
+}

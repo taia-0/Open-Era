@@ -153,6 +153,14 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-01 — Feed reasons follow-up: Jev check opt-in, raid causes (Cursor)
+
+- **(a) Jev check opt-in.** `FeedReasonOptions.check` (default off) and `run-feed-reasons.ts --check` (replaces `--no-check`). A checker given without `check: true` is never called. The Jev count stays at 200.
+- **(b) Raid causes.** `raidCause` reads the raider's own `decision-made` event from the same tick (the raid scorer's recorded reason). Precedence is home-port claim (EXILE_RECOVERY only), then standing order, then the plan the raid supports, then loot ("seize supplies from a garrison believed to be about N"). It becomes `facts.trigger` and `facts.cause`. **Hash-neutral by construction:** no event or state bytes are added, because the cause is already in the decision event. The pins are unchanged at 72 ticks (66e8ccb7/b4ccedab/b04c5ac4) and 1200 ticks (b51aa07a/091f7628/25bdbf15). Flag-off events are byte-identical with stub reasons on, which is tested.
+- **Causes, 1200 ticks, flag off:** 1847 had 54 raids (plan 30, order 8, loot 16); 2718 had 41 (29/1/11); 4096 had 36 (25/1/10). Bare raids went from all of them (131/131) to 0 under the stub.
+- **Live sanity** (DeepSeek, seed 1847, 1200 ticks, no Jev check): 152 calls, $0.0156, 0 fallbacks, key scan clean. Of 54 raid lines, 0 are bare; 51 name plan, order or loot, and 3 state the plan's intent. The model often shortens the plan cause to "to further the plan." Artifacts: docs/playtests/feed-reasons-followup-live-2026-11-01/.
+- **Verified:** `npm test` 636/636 offline with keys unset; `./scripts/evaluate-milestone.sh feed-followup` passes.
+
 ### 2026-10-31 — Feed reasons: brain call cap 300 under EXILE_RECOVERY (Cursor)
 
 Lead ruling. With `exileRecovery` on, the feed-reasons brain call cap defaults to **300** (`FEED_REASON_CALL_CAP_EXILE`, `feedReasonCallCap`); otherwise it stays 200. The Jev check keeps its own count, still capped at 200; the shared $0.10 cost cap is unchanged. `run-feed-reasons.ts --max-calls` now defaults from `--exile-recovery`.

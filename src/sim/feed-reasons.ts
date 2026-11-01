@@ -64,6 +64,8 @@ export interface FeedReasonChecker {
 export interface FeedReasonOptions {
   writer: FeedReasonWriter;
   checker?: FeedReasonChecker;
+  /** Follow-up (a): the advisory Jev check is opt-in. Unset or false: the checker is not called. */
+  check?: boolean;
   /** Brain calls per run; default 200, or 300 with exileRecovery. Counted on the writer only; the Jev checker keeps its own count, capped at 200. */
   callCap?: number;
   /** Run memory. */
@@ -101,6 +103,26 @@ function homeRaidTrigger(event: SimEvent, siblings: SimEvent[]): string | null {
     const at = reason.indexOf("to win back ");
     if (at >= 0) return reason.slice(at).split(";")[0].replace(/[.\s]+$/, "");
   }
+  return null;
+}
+
+/**
+ * Follow-up (b): the raid's cause, read from the raider's own `decision-made` event this tick
+ * (the raid scorer's recorded reason), so no new event bytes are written and hashes are unchanged.
+ * Order of precedence: the home-port claim (EXILE_RECOVERY), a standing order, the plan the raid
+ * supports, else the scorer's base clause (seize supplies from the estimated garrison).
+ */
+export function raidCause(event: SimEvent, siblings: SimEvent[], exileRecovery = false): { cause: "home-claim" | "order" | "plan" | "loot"; trigger: string } | null {
+  const decision = siblings.find((other) => other.type === "decision-made" && other.actorId === event.actorId && other.data.goal === "raid");
+  if (!decision) return null;
+  const home = exileRecovery ? homeRaidTrigger(event, siblings) : null;
+  if (home) return { cause: "home-claim", trigger: home };
+  if (decision.data.orderId) return { cause: "order", trigger: "following a standing raid order from the commander" };
+  const reason = String((decision.data.chosen as { reason?: string } | undefined)?.reason ?? "");
+  const plan = /supports plan: ([^;]+)/.exec(reason)?.[1]?.replace(/[.\s]+$/, "");
+  if (plan) return { cause: "plan", trigger: `to further the plan: ${plan}` };
+  const garrison = /estimated garrison \((\d+)/.exec(reason)?.[1];
+  if (/seize supplies/.test(reason)) return { cause: "loot", trigger: garrison ? `to seize supplies from a garrison believed to be about ${garrison}` : "to seize supplies" };
   return null;
 }
 
@@ -148,8 +170,9 @@ export function buildFeedFacts(world: WorldState, event: SimEvent, kind: FeedRea
     facts.attackerTroops = b.attackerInitialTroops;
     facts.defenderGarrison = b.defenderInitialGarrison;
     facts.outlook = b.startingForecast?.outlook ?? null;
-    const home = exileRecovery ? homeRaidTrigger(event, siblings) : null;
-    facts.trigger = home ?? "not recorded: the raid event carries no cause";
+    const cause = raidCause(event, siblings, exileRecovery);
+    if (cause) facts.cause = cause.cause;
+    facts.trigger = cause?.trigger ?? "not recorded: the raid event carries no cause";
   } else if (kind === "claim") {
     facts.previousHolder = fname(d.previousFactionId);
     facts.newHolder = fname(d.factionId);
@@ -236,7 +259,7 @@ export function annotateFeedReasons(world: WorldState, events: SimEvent[], optio
         const text = answer.error ? null : validateFeedReason(answer.raw, facts);
         record = { ...base, text, outcome: text ? "model" : "fallback", fallbackReason: text ? null : (answer.error ?? "illegal"), latencyMs: answer.latencyMs };
         if (text) options.cache.set(inputHash, text);
-        if (text && options.checker) {
+        if (text && options.checker && options.check === true) {
           if ((options.checks ?? 0) >= checkCap) record.check = { noul: null, flagged: false, outcome: "cap" };
           else {
             record.check = options.checker.check(facts, text, event.tick);

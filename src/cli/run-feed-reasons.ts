@@ -15,7 +15,7 @@ import type { SimEvent } from "../sim/types.ts";
 
 /**
  * Slice B runner (feed-reasons.md). Stub writer by default, offline. `--ai-vendor`
- * uses DeepSeek plus the advisory Jev check (Micah's standing approval; caps
+ * uses DeepSeek (plus the advisory Jev check with `--check`, off by default) (Micah's standing approval; caps
  * $0.10, and 200 brain calls or 300 with --exile-recovery; the Jev check stays at 200). `--replay <dir>` reuses the recorded text with the
  * network disabled and checks the feed text and hash are byte-identical.
  * Keys come from the environment only and are never printed.
@@ -25,7 +25,7 @@ const { values } = parseArgs({
     seed: { type: "string", default: "1847" },
     ticks: { type: "string", default: "1200" },
     "ai-vendor": { type: "boolean", default: false },
-    "no-check": { type: "boolean", default: false },
+    check: { type: "boolean", default: false },
     "cap-usd": { type: "string", default: String(FEED_REASON_CAP_USD) },
     "max-calls": { type: "string" },
     "exile-recovery": { type: "boolean", default: false },
@@ -59,7 +59,7 @@ const blocked: FeedReasonWriter = { model: "replay", write() { vendorCalls += 1;
 const transport = vendor ? workerTransport() : null;
 const feedReasons: FeedReasonOptions = {
   writer: replayDir ? blocked : vendor ? deepSeekFeedReasonWriter({ transport: transport!, ledger }) : stubFeedReasonWriter(),
-  ...(vendor && !values["no-check"] ? { checker: jevFeedReasonChecker({ transport: transport!, ledger }) } : {}),
+  ...(vendor && values.check ? { check: true, checker: jevFeedReasonChecker({ transport: transport!, ledger }) } : {}),
   callCap: values["max-calls"] ? Number.parseInt(values["max-calls"], 10) : feedReasonCallCap(exileRecovery),
   exileRecovery,
   ...(replayMap ? { replay: replayMap } : {}),
