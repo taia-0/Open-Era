@@ -770,6 +770,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.stocks = resourcesFrom(event.data, "stocks");
       settlement.stability = event.data.stability as number;
       settlement.garrison = event.data.garrison as number;
+      if (event.data.occupation) settlement.occupation = { ...(event.data.occupation as NonNullable<typeof settlement.occupation>) };
       break;
     case "character-upkeep":
     case "travel-progressed":
@@ -889,6 +890,8 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
     case "battle-started": {
       const battle = event.data.battle as WorldState["activeBattles"][string];
       world.activeBattles[battle.id] = battle;
+      // OCCUPATION effect 3: defectors leave the garrison before the fight.
+      if (typeof event.data.occupationDefectors === "number" && settlement) settlement.garrison -= event.data.occupationDefectors;
       break;
     }
     case "battle-phase-resolved": {
@@ -1055,6 +1058,13 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.stability = event.data.stability as number;
       settlement.surrender = null;
       delete settlement.secessionDeclaredBy;
+      // OCCUPATION: a claim replaces the record (only flag-on claims carry one).
+      if (event.data.occupation) settlement.occupation = { ...(event.data.occupation as NonNullable<typeof settlement.occupation>) };
+      else delete settlement.occupation;
+      break;
+    case "occupation-integrated":
+      if (!settlement) throw new Error("Occupation integration has no settlement");
+      delete settlement.occupation;
       break;
     case "secession-loss-recorded": {
       if (!settlement) throw new Error("Secession loss record is missing a port");
@@ -1094,6 +1104,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.garrison = event.data.garrison as number;
       settlement.stability = event.data.stability as number;
       settlement.secessionDeclaredBy = ownerId;
+      delete settlement.occupation;
       // The cover takes the old seat in this same step. Retargeting the
       // holder's orders makes `commandHolderId` resolve to the successor,
       // whose faction was not moved. The new faction mints no order.

@@ -1,0 +1,109 @@
+// Occupation sweep (docs/design/occupation.md §5–§6): 13 seeds × 1,200 ticks, EXILE_RECOVERY on in both,
+// OCCUPATION off (the exile-on baseline) vs on. Offline; no AI. Prints one JSON row per seed and mode,
+// the per-bucket table, and exits 1 when an acceptance item fails.
+//   node --experimental-strip-types scripts/occupation-sweep.ts [--seeds 1847,2718,...] [--ticks 1200] [--json out.json]
+import { writeFileSync } from "node:fs";
+import { parseArgs } from "node:util";
+import { runTick } from "../src/sim/engine.ts";
+import { createPrototypeWorld } from "../src/sim/scenario.ts";
+import { stateHash } from "../src/sim/state.ts";
+import { dynamismReadout } from "../src/tools/dynamism.ts";
+import type { SimEvent } from "../src/sim/types.ts";
+
+const { values } = parseArgs({ options: { seeds: { type: "string", default: "1847,2718,4096,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000" }, ticks: { type: "string", default: "1200" }, json: { type: "string" } } });
+const seeds = values.seeds!.split(",").map(Number);
+const ticks = Number(values.ticks);
+/** §5 item 7: the exile-on baselines (13-seed port changes on 5e06c4c; §1 hold medians). */
+export const CHURN_BASELINE_PORT_CHANGES = 713;
+export const CHURN_LIMIT = Math.floor(1.5 * CHURN_BASELINE_PORT_CHANGES);
+export const HOLD_BASELINE: Record<number, number> = { 1847: 38, 2718: 38, 4096: 37 };
+
+const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+interface Occ { port: string; tick: number; from: string | null; hs: number[]; stab0: number; stab60: number | null; end: number; flipBack120: boolean; ended: boolean; attempts: number; defectors: number }
+
+function run(seed: number, occupation: boolean) {
+  const world = createPrototypeWorld(seed);
+  const events: SimEvent[] = [];
+  for (let i = 0; i < ticks; i++) for (const e of runTick(world, { exileRecovery: true, occupation }).events) events.push(e);
+  const t = dynamismReadout(events).totals;
+  // Holds: from a claim to the next claim or secession at the port; censored at the run's end.
+  const occs: Occ[] = [];
+  const open = new Map<string, Occ>();
+  const close = (port: string, tick: number, newFaction: string | null) => {
+    const o = open.get(port); if (!o) return;
+    o.end = tick; o.ended = true; o.flipBack120 = newFaction !== null && newFaction === o.from && tick - o.tick <= 120; open.delete(port);
+  };
+  for (const e of events) {
+    const port = e.settlementId!;
+    if (e.type === "settlement-claimed") {
+      close(port, e.tick, (e.data.factionId as string | null) ?? null);
+      const o: Occ = { port, tick: e.tick, from: (e.data.previousFactionId as string | null) ?? null, hs: [], stab0: Number(e.data.stability), stab60: null, end: ticks, flipBack120: false, ended: false, attempts: 0, defectors: 0 };
+      occs.push(o); open.set(port, o);
+    } else if (e.type === "secession-declared") close(port, e.tick, String((e.data.faction as { id: string }).id));
+    else if ((e.type === "settlement-upkeep" || e.type === "settlement-shortage") && open.has(port)) {
+      const o = open.get(port)!;
+      if (e.tick - o.tick <= 60) {
+        const h = (e.data.occupation as { harshness?: number } | undefined)?.harshness;
+        if (typeof h === "number") o.hs.push(h);
+        o.stab60 = Number(e.data.stability);
+      }
+    } else if (e.type === "battle-started" && open.has(port)) {
+      const o = open.get(port)!;
+      // Flag on, battle-started records the attacker's faction; the off baseline has no occupation to attempt.
+      const attackerFaction = (e.data.attackerFactionId as string | null | undefined) ?? null;
+      if (o.from && attackerFaction === o.from) { o.attempts++; o.defectors += Number(e.data.occupationDefectors ?? 0); }
+    }
+  }
+  const holds = occs.map((o) => o.end - o.tick);
+  const ended = occs.filter((o) => o.ended);
+  const ports = (f: string) => Object.values(world.settlements).filter((s) => s.factionId === f).length;
+  const members = (f: string) => Object.values(world.characters).filter((c) => !c.dead && c.factionId === f).length;
+  const wipeouts = ["world-government", "free-tide"].filter((f) => ports(f) === 0 && members(f) === 0);
+  const meanH = (o: Occ) => o.hs.length ? o.hs.reduce((a, b) => a + b, 0) / o.hs.length : 0;
+  const bucket = (name: "harsh" | "benign") => {
+    const list = occs.filter((o) => (name === "harsh" ? meanH(o) >= 0.5 : meanH(o) < 0.25));
+    return { n: list.length, stabLoss60: list.filter((o) => o.stab60 !== null).map((o) => o.stab0 - o.stab60!), attempts: list.reduce((a, o) => a + o.attempts, 0), defectors: list.reduce((a, o) => a + o.defectors, 0), flipBack120: list.filter((o) => o.flipBack120).length, ended: list.filter((o) => o.ended).length };
+  };
+  return {
+    seed, mode: occupation ? "on" : "off", hash: stateHash(world).slice(0, 8),
+    claims: occs.length, portChanges: t.portOwnershipChanges, secessions: t.secessions,
+    holdMedian: median(holds), flipBack120: ended.filter((o) => o.flipBack120).length, endedHolds: ended.length,
+    defectors: events.reduce((a, e) => a + (e.type === "battle-started" ? Number(e.data.occupationDefectors ?? 0) : 0), 0),
+    integrations: events.filter((e) => e.type === "occupation-integrated").length,
+    harsh: bucket("harsh"), benign: bucket("benign"), wipeouts,
+    hHistogram: { zero: occs.filter((o) => meanH(o) === 0).length, low: occs.filter((o) => meanH(o) > 0 && meanH(o) < 0.25).length, mid: occs.filter((o) => meanH(o) >= 0.25 && meanH(o) < 0.5).length, harsh: occs.filter((o) => meanH(o) >= 0.5).length, maxMeanH: Math.round(Math.max(0, ...occs.map(meanH)) * 1e4) / 1e4 },
+  };
+}
+
+const rows = seeds.flatMap((seed) => [run(seed, false), run(seed, true)]);
+for (const row of rows) console.log(JSON.stringify({ ...row, harsh: { ...row.harsh, stabLoss60: median(row.harsh.stabLoss60) }, benign: { ...row.benign, stabLoss60: median(row.benign.stabLoss60) } }));
+const off = rows.filter((r) => r.mode === "off"); const on = rows.filter((r) => r.mode === "on");
+const sum = (rs: typeof rows, k: "portChanges" | "claims" | "defectors" | "integrations" | "secessions") => rs.reduce((a, r) => a + r[k], 0);
+const pool = (k: "harsh" | "benign") => ({ n: on.reduce((a, r) => a + r[k].n, 0), stabLoss60: median(on.flatMap((r) => r[k].stabLoss60)), attempts: on.reduce((a, r) => a + r[k].attempts, 0), defectors: on.reduce((a, r) => a + r[k].defectors, 0), flipBack120: on.reduce((a, r) => a + r[k].flipBack120, 0), ended: on.reduce((a, r) => a + r[k].ended, 0) });
+const harsh = pool("harsh"); const benign = pool("benign");
+const perAttempt = (b: ReturnType<typeof pool>) => (b.attempts ? b.defectors / b.attempts : 0);
+const flipRate = (b: ReturnType<typeof pool>) => (b.ended ? b.flipBack120 / b.ended : 0);
+const secMed = (rs: typeof rows) => median(rs.map((r) => r.secessions))!;
+const checks = {
+  "2a_harshLosesMoreStability": (harsh.stabLoss60 ?? -Infinity) > (benign.stabLoss60 ?? Infinity),
+  "2b_moreDefectorsPerRetake": perAttempt(harsh) > perAttempt(benign),
+  "2c_higherFlipBack120": flipRate(harsh) > flipRate(benign),
+  "3_noNewWipeouts": on.every((r) => r.wipeouts.every((f) => off.find((o) => o.seed === r.seed)!.wipeouts.includes(f))),
+  "4a_secessionMedianWithin1": Math.abs(secMed(on) - secMed(off)) <= 1,
+  "4b_secessionSeeds": on.filter((r) => r.secessions >= 1).length >= Math.ceil(seeds.length / 2),
+  "5_integrationOnHalfTheSeeds": on.filter((r) => r.integrations >= 1).length >= Math.ceil(seeds.length / 2),
+  "7a_churnPortChanges": sum(on, "portChanges") <= CHURN_LIMIT,
+  "7b_holdMedianNotFalling": Object.entries(HOLD_BASELINE).every(([s, base]) => { const r = on.find((x) => x.seed === Number(s)); return !r || (r.holdMedian ?? 0) >= base; }),
+};
+console.log("| Seed | Claims off/on | Port changes off/on | Secessions off/on | Hold median off/on | Flip-back≤120 off/on | Defectors | Integrations |");
+console.log("|---|---|---|---|---|---|---|---|");
+for (const seed of seeds) { const a = off.find((r) => r.seed === seed)!; const b = on.find((r) => r.seed === seed)!; console.log(`| ${seed} | ${a.claims} / ${b.claims} | ${a.portChanges} / ${b.portChanges} | ${a.secessions} / ${b.secessions} | ${a.holdMedian} / ${b.holdMedian} | ${a.flipBack120}/${a.endedHolds} / ${b.flipBack120}/${b.endedHolds} | ${b.defectors} | ${b.integrations} |`); }
+console.log(`| total | ${sum(off, "claims")} / ${sum(on, "claims")} | ${sum(off, "portChanges")} / ${sum(on, "portChanges")} (limit ${CHURN_LIMIT}) | ${sum(off, "secessions")} / ${sum(on, "secessions")} (median ${secMed(off)} / ${secMed(on)}) | | | ${sum(on, "defectors")} | ${sum(on, "integrations")} |`);
+console.log(`buckets: harsh n=${harsh.n} stabLoss60 median ${harsh.stabLoss60} defectors/attempt ${perAttempt(harsh).toFixed(3)} (${harsh.defectors}/${harsh.attempts}) flip-back≤120 ${harsh.flipBack120}/${harsh.ended}; benign n=${benign.n} stabLoss60 median ${benign.stabLoss60} defectors/attempt ${perAttempt(benign).toFixed(3)} (${benign.defectors}/${benign.attempts}) flip-back≤120 ${benign.flipBack120}/${benign.ended}`);
+const hist = on.reduce((h, r) => ({ zero: h.zero + r.hHistogram.zero, low: h.low + r.hHistogram.low, mid: h.mid + r.hHistogram.mid, harsh: h.harsh + r.hHistogram.harsh, maxMeanH: Math.max(h.maxMeanH, r.hHistogram.maxMeanH) }), { zero: 0, low: 0, mid: 0, harsh: 0, maxMeanH: 0 });
+console.log(`mean H over the first 60 ticks (flag on, all claims): 0: ${hist.zero}, (0, 0.25): ${hist.low}, [0.25, 0.5): ${hist.mid}, ≥ 0.5: ${hist.harsh}; max ${hist.maxMeanH}`);
+console.log(JSON.stringify(checks));
+const pass = Object.values(checks).every(Boolean);
+if (values.json) writeFileSync(values.json, JSON.stringify({ rows, harsh, benign, checks, churnLimit: CHURN_LIMIT, holdBaseline: HOLD_BASELINE, pass }, null, 2));
+if (!pass) { console.log("OCCUPATION ACCEPTANCE FAILED"); process.exitCode = 1; } else console.log("OCCUPATION ACCEPTANCE PASSED");

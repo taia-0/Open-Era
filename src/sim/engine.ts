@@ -37,6 +37,7 @@ import { READ_PROMPT_VERSION, SOCIAL_CACHE_TICKS, SOCIAL_DEFAULT_CALL_CAP, SOCIA
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
 import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSION, finishBrain, sanitizeNoul, TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_DEFAULT_SCORE_CAP, TRIAGE_KIND_BUDGETS, TRIAGE_PROMPT_VERSION, TRIAGE_QUESTIONS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type EscalationAnswer, type EscalationBrain, type EscalationRequest, type TriageEntry, type TriageKind, type TriageRecord, type TriageScoreAnswer, type TriageScorer, type TriageSituation, type TriageState } from "./ai-triage.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
+import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
 import { HOME_CLAIM_RAID_POINTS, HOME_CLAIM_TRAVEL_POINTS, homeClaim, homeClaimReason } from "./exile.ts";
@@ -357,13 +358,15 @@ function produceSettlements(world: WorldState, events: SimEvent[]): void {
     // Above 0.15 the graded drift is 0.03 per band of 0.05. At or below the
     // threshold it is zero, and a low rate does not add a recovery.
     const holdingRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
+    // OCCUPATION (occupation.md §2): harshness H from existing state; unrest drift 0.10·H and no regrowth at H ≥ 0.5.
+    const occupied = occupationOn && settlement.occupation ? occupationTerms(world, settlement, settlement.occupation, shortage > 0) : null;
     const stability = clamp(
-      settlement.stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0) - taxDrift(holdingRate),
+      settlement.stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0) - taxDrift(holdingRate) - (occupied ? OCCUPATION_DRIFT * occupied.harshness : 0),
       0,
       100,
     );
     const garrisonLoss = shortage > 0 ? Math.min(settlement.garrison, Math.floor(shortage * 0.18)) : 0;
-    const garrisonGain = garrisonRegrowth(settlement.population, settlement.garrison, world.tick, shortage);
+    const garrisonGain = occupied && occupied.harshness >= OCCUPATION_REGROWTH_STOP ? 0 : garrisonRegrowth(settlement.population, settlement.garrison, world.tick, shortage);
     emit(world, events, {
       type: shortage > 0 ? "settlement-shortage" : "settlement-upkeep",
       settlementId: settlement.id,
@@ -375,8 +378,13 @@ function produceSettlements(world: WorldState, events: SimEvent[]): void {
         stability: round(stability),
         garrison: settlement.garrison - garrisonLoss + garrisonGain,
         garrisonLoss,
+        ...(occupied ? { occupation: { ...settlement.occupation!, harshness: occupied.harshness, lastShortageTick: occupied.lastShortageTick }, occupationTerms: { tax: occupied.tax, food: occupied.food, conduct: occupied.conduct, residents: occupied.residents } } : {}),
       },
     });
+    const occupation = settlement.occupation;
+    if (occupied && occupation && world.tick - occupation.tick >= OCCUPATION_INTEGRATION_TICKS && occupation.harshness < OCCUPATION_INTEGRATION_H) {
+      emit(world, events, { type: "occupation-integrated", settlementId: settlement.id, targetId: occupation.byFactionId ?? undefined, data: { since: occupation.tick, fromFactionId: occupation.fromFactionId, byFactionId: occupation.byFactionId, harshness: occupation.harshness } });
+    }
   }
 }
 
@@ -1493,7 +1501,10 @@ function startMajorBattle(
   events: SimEvent[],
   rng: DeterministicRng,
 ): void {
-  const settlement = world.settlements[character.locationId!];
+  const actual = world.settlements[character.locationId!];
+  // OCCUPATION effect 3 (ruling 3: the previous faction only): defectors leave before the fight.
+  const defectors = occupationOn ? occupationDefectors(actual, character.factionId) : 0;
+  const settlement = defectors > 0 ? { ...actual, garrison: actual.garrison - defectors } : actual;
   const id = `battle-${String(world.nextEventSequence).padStart(6, "0")}`;
   const battle: ActiveBattle = {
     id,
@@ -1518,7 +1529,7 @@ function startMajorBattle(
     actorId: character.id,
     targetId: settlement.factionId ?? undefined,
     settlementId: settlement.id,
-    data: { battle },
+    data: { battle, ...(occupationOn ? { attackerFactionId: character.factionId } : {}), ...(defectors > 0 ? { occupationDefectors: defectors } : {}) },
   });
   resolveBattlePhase(world, id, events, rng);
 }
@@ -1628,6 +1639,7 @@ function resolveSettlementClaim(
       garrison: settlement.garrison,
       stability: round(Math.max(CLAIM_STABILITY_FLOOR, settlement.stability)),
       basis: "accepted-surrender",
+      ...(occupationOn ? { occupation: { tick: world.tick, fromFactionId: settlement.factionId, byFactionId: character.factionId, fromRate: settlement.factionId ? world.factions[settlement.factionId]?.taxRate ?? 0 : 0, harshness: 0, lastShortageTick: null } } : {}),
     },
   });
 }
@@ -3491,6 +3503,8 @@ export interface TickOptions {
    * byte-identical to the pre-default pins. A run option, never on `WorldState`.
    */
   exileRecovery?: boolean | "news-only";
+  /** OCCUPATION (occupation.md): occupation response after a claim. Off by default; off is byte-identical. */
+  occupation?: boolean;
   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
   /**
    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
@@ -4388,7 +4402,11 @@ function breachCause(world: WorldState, contract: SupplyContract, carrier: Chara
 /** after-triage.md (b): EXILE_RECOVERY is on unless a run passes `exileRecovery: false`. */
 export const EXILE_RECOVERY_DEFAULT = true;
 
+/** Set for the duration of one `runTick` from `options.occupation` (single-threaded, deterministic). */
+let occupationOn = false;
+
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+  occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
   const leading: SimEvent[] = [];

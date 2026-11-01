@@ -89,6 +89,8 @@ export interface Settlement {
    * from `secession-loss-recorded`. The courier rule reads it next to claim news.
    */
   secessionLoss?: { tick: number; previousFactionId: string; factionId: string };
+  /** OCCUPATION flag only (occupation.md §2): the occupation since the last claim. Absent otherwise, so flag-off worlds hash as before. */
+  occupation?: import("./occupation.ts").OccupationRecord;
   /**
    * Public items posted at this port. Absent until the first post.
    * Stability and the scarred-follower list sit beside the item.

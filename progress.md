@@ -155,6 +155,31 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-01 — Occupation response behind OCCUPATION (occupation.md, default off) (Cursor)
+
+- **Change:** `src/sim/occupation.ts`, plus hooks in `engine.ts` and `state.ts`, implements §2 with the Lead's §8 rulings.
+  - A flag-on `settlement-claimed` carries the `occupation` record, which is stored on `Settlement.occupation`. A later claim, a secession, or `occupation-integrated` clears it.
+  - Harshness H uses the doc's weights: 0.35 tax (scale 0.10), 0.25 food (shortage in the last 24 ticks), 0.20 conduct (breaches in 240 ticks / 10) and 0.20 residents (previous-faction members docked / 3, plus their earned grievance at the owner / 0.12; unaffiliated residents do not count).
+  - Each upkeep drifts stability by −0.10·H and stops regrowth at H ≥ 0.5; the upkeep event carries `occupation` and `occupationTerms`.
+  - When the previous faction attacks, floor(garrison·H/2) soldiers defect before the battle, recorded as `occupationDefectors` on `battle-started` (other attackers get none). Flag on, `battle-started` also records `attackerFactionId`.
+  - Integration comes after 240 ticks at H < 0.25.
+  - No RNG draw is used. Run option `occupation: true`; default `OCCUPATION_DEFAULT = false`.
+- **Flag off:** byte-identical, with no new field on any event or settlement. Pins hold for the default (7f76e474/976c40bd/08943ea5 at 72 ticks; 94de9c02/7a3741c9/af6eeaea at 1,200) and the opt-out (66e8ccb7/b4ccedab/b04c5ac4; b51aa07a/091f7628/25bdbf15). This is tested in tests/occupation.test.ts, along with item 6 (H = 0 gives no defector or drift), defection for the previous faction only, and recovery with the flag on.
+- **Gate:** `scripts/occupation-sweep.ts`, now in `evaluate-milestone.sh`. It runs 13 seeds with exile on in both, occupation off vs on, and exits 1 on §5 items 2–5 and 7 (the churn guard).
+- **Result at the doc defaults: passes, but item 2 is underpowered.**
+  - Port changes are 713 → 526 (limit 1,069). Hold medians on 1847/2718/4096 are 38/39/37.5 → 55/51.5/62, against a baseline of 38/38/37.
+  - Secessions are 31 → 13 (median 2 → 1); 8 of 13 seeds have at least one secession. Integrations happen on 9 of 13 seeds. No new wipeouts.
+  - Item 2 (harsh vs benign) passes on **only 1 harsh occupation** (mean H ≥ 0.5 over the first 60 ticks) against 382 benign. Mean H peaks at 0.50 and food is 0 throughout. On a 5-seed subset, 2a fails.
+- **One tuning retry (recorded):** tax scale 0.10 → 0.05, so that a single 0.05 tax band reads as fully harsh, the measured common change. It gave 16 harsh occupations, but **items 2a and 2c failed**: harsh ports lost a median 1.63 stability against 2.52 for benign, and flipped back 3 of 15 against 205 of 320. Port changes were 507 and holds rose. I reverted to the doc's 0.10 and did not loop further.
+- **Readings for the Lead:**
+  - Claims fall sharply with the flag on (1847 51→19, 2718 64→26, 4096 56→38) and battles fall (73→50, 62→47, 63→47); the cause is not yet traced.
+  - Benign ports lose stability too, from battles at the port, so the stability comparison is dominated by fighting rather than by H.
+- **Dynamism, 1200 ticks, occupation off → on** (battles, ownership changes, claims, secessions):
+  - 1847: 73/52/51/1 → 50/19/19/0
+  - 2718: 62/64/64/0 → 47/26/26/0
+  - 4096: 63/59/56/3 → 47/39/38/1
+- **Verified:** `npm test` passes offline with the keys unset, and so does `./scripts/evaluate-milestone.sh occupation`.
+
 ### 2026-11-01 — EXILE_RECOVERY on by default (after-triage.md (b)) (Cursor)
 
 - **Change:** `EXILE_RECOVERY_DEFAULT = true` in `engine.ts`. A `runTick` without `exileRecovery` now runs exile recovery, and feed reasons inherit it. The opt-out is `exileRecovery: false`, or `--no-exile-recovery` / `EXILE_RECOVERY=0` on `run-simulation` and `run-feed-reasons` (`--exile-recovery` is still accepted, as a no-op). `scripts/exile-sweep.ts` compares the opt-out with the default and now runs in `evaluate-milestone.sh` as the property gate. feedReasons is unchanged (opt-in). The "WG keeps a port" target is dropped.
