@@ -1,0 +1,63 @@
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 99e1bc3..de14595 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -359,7 +359,7 @@ function produceSettlements(world: WorldState, events: SimEvent[]): void {
+     // threshold it is zero, and a low rate does not add a recovery.
+     const holdingRate = settlement.factionId ? world.factions[settlement.factionId].taxRate : 0;
+     // OCCUPATION (occupation.md §2): harshness H from existing state; unrest drift 0.10·H and no regrowth at H ≥ 0.5.
+-    const occupied = occupationOn && settlement.occupation ? occupationTerms(world, settlement, settlement.occupation, shortage > 0) : null;
++    const occupied = occupationOn && settlement.occupation ? occupationTerms(world, settlement, settlement.occupation, shortage > 0, afterConsumption.provisions, demand) : null;
+     const stability = clamp(
+       settlement.stability - shortage * 0.35 + (shortage === 0 ? 0.03 : 0) - taxDrift(holdingRate) - (occupied ? OCCUPATION_DRIFT * occupied.harshness : 0),
+       0,
+diff --git a/src/sim/occupation.ts b/src/sim/occupation.ts
+index 2020620..bdc2591 100644
+--- a/src/sim/occupation.ts
++++ b/src/sim/occupation.ts
+@@ -9,10 +9,13 @@ import type { Settlement, WorldState } from "./types.ts";
+ export const OCCUPATION_DEFAULT = false;
+ export const OCCUPATION_WEIGHTS = { tax: 0.35, food: 0.25, conduct: 0.20, residents: 0.20 } as const;
+ export const OCCUPATION_TAX_SCALE = 0.10;
+-export const OCCUPATION_DRIFT = 0.10;
++export const OCCUPATION_DRIFT = Number(process.env.OCC_DRIFT ?? 0.10);
+ export const OCCUPATION_REGROWTH_STOP = 0.5;
+ export const OCCUPATION_FOOD_WINDOW = 24;
+-export const OCCUPATION_CONDUCT_SCALE = 10;
++export const OCCUPATION_CONDUCT_SCALE = Number(process.env.OCC_CONDUCT ?? 4);
++export const OCCUPATION_GRIEVANCE_SCALE = Number(process.env.OCC_GRIEV ?? 0.12);
++export const OCCUPATION_FOOD_K = Number(process.env.OCC_FOODK ?? 1);
++export const RESPEC_LOG: number[] = [];
+ export const OCCUPATION_RESIDENTS_SCALE = 3;
+ /** = PROMISE_WINDOW_TICKS (240); a literal, because secession.ts and engine.ts import each other. */
+ export const OCCUPATION_INTEGRATION_TICKS = 240;
+@@ -32,11 +35,11 @@ export interface OccupationRecord {
+ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+ const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
+ 
+-export function occupationTerms(world: WorldState, settlement: Settlement, occupation: OccupationRecord, shortageNow: boolean) {
++export function occupationTerms(world: WorldState, settlement: Settlement, occupation: OccupationRecord, shortageNow: boolean, provisionsAfter = 0, demand = 1) {
+   const holderRate = settlement.factionId ? world.factions[settlement.factionId]?.taxRate ?? 0 : 0;
+   const tax = clamp01((holderRate - occupation.fromRate) / OCCUPATION_TAX_SCALE);
+   const lastShort = shortageNow ? world.tick : occupation.lastShortageTick;
+-  const food = lastShort !== null && world.tick - lastShort < OCCUPATION_FOOD_WINDOW ? 1 : 0;
++  const food = process.env.OCC_OLD_FOOD ? (lastShort !== null && world.tick - lastShort < OCCUPATION_FOOD_WINDOW ? 1 : 0) : r4(clamp01(1 - provisionsAfter / (OCCUPATION_FOOD_K * demand)));
+   const since = world.tick - OCCUPATION_INTEGRATION_TICKS;
+   let breaches = 0;
+   for (const contract of Object.values(world.contracts ?? {})) {
+@@ -52,7 +55,7 @@ export function occupationTerms(world: WorldState, settlement: Settlement, occup
+     if (docked.length) {
+       const owner = settlement.ownerId;
+       const earned = owner ? docked.reduce((sum, c) => sum + Math.max(0, (c.relationships[owner]?.grievance ?? 0) - startingGrievance(world.seed, c.id, owner)), 0) / docked.length : 0;
+-      residents = 0.5 * Math.min(1, docked.length / OCCUPATION_RESIDENTS_SCALE) + 0.5 * Math.min(1, earned / HATED_GRIEVANCE);
++      residents = 0.5 * Math.min(1, docked.length / OCCUPATION_RESIDENTS_SCALE) + 0.5 * Math.min(1, earned / OCCUPATION_GRIEVANCE_SCALE); RESPEC_LOG.push(earned);
+     }
+   }
+   const w = OCCUPATION_WEIGHTS;
+@@ -64,5 +67,5 @@ export function occupationTerms(world: WorldState, settlement: Settlement, occup
+ export function occupationDefectors(settlement: Settlement, attackerFactionId: string | null): number {
+   const occupation = settlement.occupation;
+   if (!occupation || !attackerFactionId || attackerFactionId !== occupation.fromFactionId || occupation.harshness <= 0) return 0;
+-  return Math.floor((settlement.garrison * occupation.harshness) / 2);
++  return process.env.OCC_NODEF ? 0 : Math.floor((settlement.garrison * occupation.harshness) / 2);
+ }
