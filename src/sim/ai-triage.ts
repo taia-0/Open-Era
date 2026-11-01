@@ -1,4 +1,5 @@
 import { sha256 } from "./ai-provider.ts";
+import { pickerDraw } from "./ai-picker.ts";
 import { canonicalJson } from "./state.ts";
 
 /**
@@ -53,18 +54,33 @@ export const BRAIN_ROLE = "brain.escalation";
 export const BRAIN_TIMEOUT_MS = 30_000;
 
 /** §4.3: the system line and the fixed user template; both hashed into the brain prompt version. */
-export const BRAIN_SYSTEM = "Answer as JSON: {\"choice\":\"<option id>\"}.";
+export const BRAIN_SYSTEM = "Answer as JSON: {\"proceed\": <number from 0 to 1>, \"reason\": \"<one short sentence>\"}.";
 export const BRAIN_TEMPLATE = [
   "You are {name} ({actorId}), deciding what to do next. Your temperament (0 to 1): {persona}. Your purse: {purse} coins.",
   "What you know: {briefing}",
   "Your social read: {social}",
   "The decision ({kind}): {situation}",
   "This decision was flagged as weighty for: {flagged}.",
-  "Legal options: {legal}",
-  "Copy one option id exactly as written, including every colon and dash (for example \"work:-:-\", not \"work\").",
-  "Reply with one option id from the list as JSON.",
+  "What you are about to do: {defaultChoice}. If you do not go ahead: {alternative}.",
+  "How likely is it that you go ahead? Reply as JSON with proceed (0 to 1) and a short reason.",
 ].join("\n");
 export const BRAIN_PROMPT_VERSION = sha256(`${BRAIN_SYSTEM}\n${BRAIN_TEMPLATE}`);
+
+/**
+ * v3 (Lead ruling 2, the #145 tax pattern): the brain never picks. It returns a proceed probability
+ * `p` and a reason; the run blends it with a prior favouring the sim's own choice,
+ * q = (1 − w)·prior + w·p, and samples proceed when u < q, u from the stateless sha256
+ * side-stream (`pickerDraw`, stream `triage-brain:<kind>`), so replay is exact and no world rng moves.
+ * Tuned offline with the stub (see progress.md). A failed or illegal answer keeps the sim's choice.
+ */
+export const BRAIN_PRIOR = 0.95;
+export const BRAIN_WEIGHT = 0.3;
+export const BRAIN_STREAM = "triage-brain";
+export function brainBlend(p: number, prior: number = BRAIN_PRIOR, weight: number = BRAIN_WEIGHT): number {
+  return Math.round(((1 - weight) * prior + weight * p) * 1e6) / 1e6;
+}
+/** Gated kinds (Lead ruling 1): no Noul call; a gated decision flags on its kind's probe tests. */
+export const SCORE_GATED = "gated";
 
 /** The flag rule: tests at or above the threshold, in the fixed test order. */
 export function flaggedTests(noul: Partial<Record<TriageTest, number>> | null, threshold: number = TRIAGE_THRESHOLD): TriageTest[] {
@@ -116,7 +132,7 @@ export interface TriageRecord {
   promptVersion: string;
   inputHash: string;
   /** Scoring outcome: model, or why no scores came back. */
-  scoreOutcome: "model" | "timeout" | "error" | "cap";
+  scoreOutcome: "model" | "timeout" | "error" | "cap" | "gated";
   legal: string[];
   defaultChoice: string;
   noul: Record<TriageTest, number> | null;
@@ -130,8 +146,8 @@ export interface TriageRecord {
 }
 
 /** §4.2: deterministic given the scores; spends budget and starts the cooldown. */
-export function triageStep(state: TriageState, actorId: string, tick: number, noul: Record<TriageTest, number> | null, threshold: number = TRIAGE_THRESHOLD, cooldownTicks: number = TRIAGE_COOLDOWN_TICKS, kind?: TriageKind): Omit<TriageRecord, "kind" | "actorRole" | "inputHash" | "scoreOutcome" | "legal" | "defaultChoice"> {
-  const flagged = flaggedTests(noul, threshold);
+export function triageStep(state: TriageState, actorId: string, tick: number, noul: Record<TriageTest, number> | null, threshold: number = TRIAGE_THRESHOLD, cooldownTicks: number = TRIAGE_COOLDOWN_TICKS, kind?: TriageKind, gatedFlags?: TriageTest[]): Omit<TriageRecord, "kind" | "actorRole" | "inputHash" | "scoreOutcome" | "legal" | "defaultChoice"> {
+  const flagged = gatedFlags ? [...gatedFlags] : flaggedTests(noul, threshold);
   const perKind = !!state.kindLeft && kind !== undefined;
   const until = state.cooldownUntil[actorId];
   let escalated = false;
@@ -156,8 +172,10 @@ export interface EscalationRequest {
   social: unknown;
   flagged: TriageTest[];
   legal: string[];
-  /** What the sim does without the brain (not sent in the prompt). */
+  /** What the sim does without the brain. */
   defaultChoice: string;
+  /** v3: what happens if the actor does not go ahead (the second legal id). */
+  alternative: string;
   promptVersion: string;
 }
 
@@ -187,8 +205,14 @@ export interface BrainRecord {
   choice: string;
   outcome: "model" | "fallback";
   fallbackReason: BrainFallbackReason | null;
-  /** v2: the answer was legal only after normalizing (e.g. "work" -> "work:-:-"). */
-  normalized: boolean;
+  /** v3: the brain's proceed probability (null on a fallback), its reason, the prior, weight, blend q and draw u. */
+  p: number | null;
+  reason: string | null;
+  prior: number;
+  weight: number;
+  blend: number | null;
+  u: number | null;
+  alternative: string;
   /** The default (the sim's own choice, the picker's sample on a picked row), the fallback (§4.4). */
   pickerSampled: string;
   latencyMs: number;
@@ -204,49 +228,34 @@ export function brainUserPrompt(request: EscalationRequest): string {
     kind: request.kind,
     situation: canonicalJson(request.situation),
     flagged: request.flagged.join(", "),
-    legal: request.legal.join(", "),
+    defaultChoice: request.defaultChoice,
+    alternative: request.alternative,
   };
   return BRAIN_TEMPLATE.replace(/\{(\w+)\}/g, (match, key: string) => key in values ? values[key] : match);
 }
 
-/** §4.4: a legal id from `{"choice": "<id>"}`, else null. */
-export function parseBrainChoice(raw: string | null, legal: string[]): string | null {
+/** v3: `{"proceed": p, "reason": "…"}` with a finite p in [0, 1]; the reason is kept up to 200 chars. Else null. */
+export function parseBrainProceed(raw: string | null): { p: number; reason: string | null } | null {
   if (typeof raw !== "string") return null;
   try {
-    const value = JSON.parse(raw);
-    const choice = value && typeof value === "object" ? (value as { choice?: unknown }).choice : undefined;
-    if (typeof choice !== "string") return null;
-    if (legal.includes(choice)) return choice;
-    return normalizeBrainChoice(choice, legal);
+    const value = JSON.parse(raw) as { proceed?: unknown; reason?: unknown };
+    const p = value && typeof value === "object" ? value.proceed : undefined;
+    if (typeof p !== "number" || !Number.isFinite(p) || p < 0 || p > 1) return null;
+    return { p: Math.round(p * 1e4) / 1e4, reason: typeof value.reason === "string" ? value.reason.slice(0, 200) : null };
   } catch { return null; }
 }
 
-/**
- * v2: a bare action name ("work") or an id missing its "-" parts maps to the one legal id
- * it abbreviates; an ambiguous or unknown name stays illegal. Counted as `normalized`.
- */
-export function normalizeBrainChoice(choice: string, legal: string[]): string | null {
-  const bare = choice.trim().replace(/(:-)+$/, "");
-  if (!bare) return null;
-  const matches = legal.filter((id) => id === bare || id.replace(/(:-)+$/, "") === bare);
-  return matches.length === 1 ? matches[0] : null;
-}
-
-/** True when the raw answer parsed only through normalization. */
-export function brainNormalized(raw: string | null, legal: string[]): boolean {
-  if (typeof raw !== "string") return false;
-  try { const c = (JSON.parse(raw) as { choice?: unknown })?.choice; return typeof c === "string" && !legal.includes(c) && normalizeBrainChoice(c, legal) !== null; } catch { return false; }
-}
-
-/** §4.4: legal id, else the picker's sample, else `candidates[0]`. */
-export function finishBrain(request: EscalationRequest, answer: EscalationAnswer, provider: string, model: string, inputHash: string, pickerSampled: string, scorerPick: string, live: boolean): BrainRecord {
-  // §4.4 fallback order: the default, then the first legal id.
+/** §4.4 + v3: parse p, blend with the prior, draw u; proceed keeps the sim's choice, else the alternative. A fallback keeps the sim's choice. */
+export function finishBrain(request: EscalationRequest, answer: EscalationAnswer, provider: string, model: string, inputHash: string, seed: number, live: boolean, prior: number = BRAIN_PRIOR, weight: number = BRAIN_WEIGHT): BrainRecord {
   let fallbackReason: BrainFallbackReason | null = answer.error ?? (live && answer.latencyMs > BRAIN_TIMEOUT_MS ? "timeout" : null);
   const raw = answer.finishReason === "length" ? null : answer.raw;
-  const parsed = fallbackReason ? null : parseBrainChoice(raw, request.legal);
+  const parsed = fallbackReason ? null : parseBrainProceed(raw);
   if (!fallbackReason && !parsed) fallbackReason = "illegal";
-  const choice = parsed ?? (request.legal.includes(pickerSampled) ? pickerSampled : scorerPick);
-  return { role: BRAIN_ROLE, provider, model, promptVersion: request.promptVersion, inputHash, raw: answer.raw, choice, outcome: fallbackReason ? "fallback" : "model", fallbackReason, normalized: !fallbackReason && brainNormalized(raw, request.legal), pickerSampled, latencyMs: answer.latencyMs };
+  const blend = parsed ? brainBlend(parsed.p, prior, weight) : null;
+  const u = parsed ? pickerDraw(`${BRAIN_STREAM}:${request.kind}`, seed, request.actorId, request.tick) : null;
+  const choice = parsed && u! >= blend! ? request.alternative : request.defaultChoice;
+  return { role: BRAIN_ROLE, provider, model, promptVersion: request.promptVersion, inputHash, raw: answer.raw, choice, outcome: fallbackReason ? "fallback" : "model", fallbackReason,
+    p: parsed?.p ?? null, reason: parsed?.reason ?? null, prior, weight, blend, u, alternative: request.alternative, pickerSampled: request.defaultChoice, latencyMs: answer.latencyMs };
 }
 
 /** §4.5 replay: the recorded triage and brain per (tick, actor); no vendor is called. */
@@ -281,20 +290,20 @@ export class TriageReplay implements EscalationBrain, TriageScorer {
 export const NEVER_FLAG = () => ({ port_holding: 0, faction_number: 0, allegiance_freedom: 0, broken_promise: 0 });
 export const ALWAYS_FLAG = () => ({ port_holding: 1, faction_number: 0, allegiance_freedom: 0, broken_promise: 0 });
 
-/** A brain stub that answers with `pick(legal)`; counts its calls. */
-export function stubBrain(pick: (request: EscalationRequest) => string | null, name = "stubBrain"): EscalationBrain & { calls: number } {
+/** A brain stub that answers proceed `p(request)` (null: an empty, illegal answer); counts its calls. */
+export function stubBrain(p: (request: EscalationRequest) => number | null, name = "stubBrain"): EscalationBrain & { calls: number } {
   const brain = { name, model: "stub", calls: 0, escalate(request: EscalationRequest): EscalationAnswer {
     brain.calls += 1;
-    const choice = pick(request);
-    return { raw: choice === null ? "{}" : JSON.stringify({ choice }), latencyMs: 0 };
+    const value = p(request);
+    return { raw: value === null ? "{}" : JSON.stringify({ proceed: value, reason: "stub" }), latencyMs: 0 };
   } };
   return brain;
 }
-/** The last legal id: a deterministic answer that often differs from the picker. */
-/** The first legal id other than the default: always overrides. */
-export function stubBrainOther(): EscalationBrain & { calls: number } {
-  return stubBrain((request) => request.legal.find((id) => id !== request.defaultChoice) ?? request.legal[0], "stubBrainOther");
-}
-export function stubBrainLast(): EscalationBrain & { calls: number } {
-  return stubBrain((request) => request.legal[request.legal.length - 1], "stubBrainLast");
+/** Always says do not go ahead (p = 0). Under the blend it overrides with probability 1 − (1 − w)·prior. */
+export function stubBrainOther(): EscalationBrain & { calls: number } { return stubBrain(() => 0, "stubBrainOther"); }
+/** p = 0.5. */
+export function stubBrainLast(): EscalationBrain & { calls: number } { return stubBrain(() => 0.5, "stubBrainLast"); }
+/** Offline tuning stub shaped like the v2 live brain (agreed about 30 %): a deterministic 30 % at p 0.9, else p 0.1. */
+export function stubBrainLiveLike(): EscalationBrain & { calls: number } {
+  return stubBrain((r) => (pickerDraw("stub-live-like", 0, r.actorId, r.tick) < 0.3 ? 0.9 : 0.1), "stubBrainLiveLike");
 }

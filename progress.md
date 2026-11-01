@@ -153,6 +153,20 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-31 — Slice 5 v3: no scoring call, the brain only nudges (Cursor)
+
+Lead rulings v3, on feature/triage-v2 (from e984ec9).
+
+- **Scoring call dropped.** The gated kinds go straight to the brain: the sim's checks, the per-kind budgets and the 24-tick cooldown are the triage (v2 flag rate was 100 % on every kind, so the gated set equals the probe's positives; jev-triage.md §7). `jevTriageScorer` stays in the code, unhooked; `--triage gated` is the live mode and `--triage jev` refuses.
+- **The brain does not pick.** It answers `{"proceed": p, "reason"}` for the sim's choice against one alternative; blend `q = 0.7·prior + 0.3·p`, prior **0.95**, weight **0.3**; `u = pickerDraw("triage-brain:<kind>", seed, actor, tick)`; keep the sim's choice when u < q. p, reason, prior, weight, blend, u and alternative are recorded and replay-checked. CLI: `--brain-prior`, `--brain-weight`, `--brain livelike`.
+- **Offline tuning** (argmax picker, `stubBrainLiveLike`, 3 seeds, 1200 ticks): 0.7/0.5 → 46 % overrides; 0.85/0.4 → 36 %, contract breaks 65 %; 0.9/0.3 → 27 %, pass at the edge; 0.95/0.3 → 22 %, contract breaks 117 %, secessions 2 vs 4 (stub counts are single digits).
+- **Live** (Jev picker, DeepSeek brain, `--cache` v2 picker-only). The first pass at 0.9/0.3 gave 24.8 % overrides, but contract breaks were at 47 % of picker-only (20/15/69 vs 43/13/55): live p for break→keep runs low. The one tuning retry at **0.95/0.3** (rt-*) passed: 15.9 % overrides (21/132); medians as a share of picker-only were raids 108 %, desertions 150 %, secessions 300 % and contract breaks 112 % (and 104/150/100/120 % against the second picker-only set). There were 0 brain fallbacks.
+- **Budget 0** is exact against picker-only on all seeds (e6ba501c/736be7e0/72a75af6, $0). Every live and stub run replays to its hash with 0 calls.
+- **1847 holder entropy.** Picker-only ×3 had mean 2.572, sd 0.081 (2.499–2.660). Triage ×3 at 0.9/0.3 had mean 2.438, sd 0.054 (2.387–2.495), and the retry run gave 2.498. v2's 2.236 is outside both ranges and came from the old picking brain. The v3 gap of about 0.13 bits (5 %) is about 1.7 picker-only sd, and the two sets barely touch. Picker-only alone spans 0.2 bits on 4096. So it is small and within the order of the noise; with n = 3 it is not settled as zero.
+- **Cost:** $0.3034 across 9 live runs, max $0.0492 per run; key scan clean.
+- **Gates:** `npm test` 617/617 pass. triage-gate passes checks 1–7 plus v3 acceptance on rt and z0 (z0 with `--skip-acceptance`, since it has 0 escalations), and on the offline stub with `--skip-acceptance`. evaluate-milestone triage passes.
+- **Artifacts:** docs/playtests/jev-triage-live-v3-2026-10-31/.
+
 ### 2026-10-31 — Slice 5 v2: real decisions only, per-kind budgets, kept deserters in the save
 - **Agent:** Grok Bot for the Lead | **Branch:** `feature/triage-v2` = `feature/triage` rebased onto `origin/main` `bbd350a` (clean, no conflicts), pushed as a new branch without force | **Type:** Behavior (flag-gated AI)
 - **Rulings applied** (Lead, 2026-10-31): (1) score only real decisions; per-kind budgets; report the flag rate per kind. (2) Check 6 strict at 0 escalations; with overrides the holder entropy is reported only; explain the 4096 drop by ablation. (3) Brain-kept deserters are recorded in the save, with a `WorldStore.recover` test under an overriding brain. Plus the "work" answer format.

@@ -165,3 +165,31 @@ export function testsCheck(logPath: string | undefined) {
   const fail = /ℹ fail (\d+)/.exec(log); const pass = /ℹ pass (\d+)/.exec(log);
   return { given: true, pass: pass ? Number(pass[1]) : null, fail: fail ? Number(fail[1]) : null, ok: !!fail && fail[1] === "0" && !!pass };
 }
+
+/** v3 acceptance metrics from one run: raids (decision-made goal raid), desertions, secessions, contract breaks. */
+export function acceptanceCounts(events: readonly SimEvent[]) {
+  let raids = 0, desertions = 0, secessions = 0, contractBreaks = 0;
+  for (const e of events) {
+    if (e.type === "decision-made" && (e.data as { goal?: string }).goal === "raid") raids++;
+    else if (e.type === "character-deserted") desertions++;
+    else if (e.type === "secession-declared") secessions++;
+    else if (e.type === "contract-breached") contractBreaks++;
+  }
+  return { raids, desertions, secessions, contractBreaks };
+}
+const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+/**
+ * v3 acceptance (Lead ruling 2) against picker-only: each 3-seed median ≥ 75 % of picker-only's,
+ * and overrides between 15 % and 40 % of escalations (pooled over the seeds).
+ */
+export function acceptanceCheck(runs: RunDir[], pickerOnly: RunDir[]) {
+  const a = runs.map((r) => acceptanceCounts(r.events)); const b = pickerOnly.map((r) => acceptanceCounts(r.events));
+  const metrics = Object.fromEntries((["raids", "desertions", "secessions", "contractBreaks"] as const).map((k) => {
+    const run = median(a.map((x) => x[k])); const base = median(b.map((x) => x[k]));
+    return [k, { perSeed: a.map((x) => x[k]), pickerOnlyPerSeed: b.map((x) => x[k]), median: run, pickerOnlyMedian: base, share: base ? r4(run / base) : null, ok: base === 0 ? true : run >= 0.75 * base }];
+  }));
+  const esc = runs.flatMap((r) => r.triage.filter((t) => t.triage.escalated && t.brain));
+  const overrides = esc.filter((t) => t.brain!.choice !== t.triage.defaultChoice).length;
+  const overrideRate = esc.length ? r4(overrides / esc.length) : 0;
+  return { metrics, escalations: esc.length, overrides, overrideRate, overrideOk: overrideRate >= 0.15 && overrideRate <= 0.40, pass: Object.values(metrics).every((m: any) => m.ok) && overrideRate >= 0.15 && overrideRate <= 0.40 };
+}

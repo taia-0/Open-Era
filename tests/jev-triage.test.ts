@@ -6,7 +6,7 @@ import test from "node:test";
 import { fetchAttempts } from "./helpers/no-network.ts";
 import { stubArgmaxPicker, stubUniformPicker, type ActionPicker, type PickerRequest } from "../src/sim/ai-action-picker.ts";
 import {
-  ALWAYS_FLAG, alwaysScorer, normalizeBrainChoice, TRIAGE_KIND_BUDGETS, BRAIN_PROMPT_VERSION, flaggedTests, kindScorer, NEVER_FLAG, neverScorer, parseBrainChoice, stubBrain, stubBrainLast, stubBrainOther, stubScorer,
+  ALWAYS_FLAG, alwaysScorer, TRIAGE_KIND_BUDGETS, BRAIN_PROMPT_VERSION, flaggedTests, kindScorer, NEVER_FLAG, neverScorer, parseBrainProceed, BRAIN_PRIOR, BRAIN_WEIGHT, stubBrain, stubBrainLast, stubBrainOther, stubScorer,
   TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_KINDS, TRIAGE_QUESTIONS, TRIAGE_TESTS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type EscalationBrain, type TriageEntry, type TriageScorer,
 } from "../src/sim/ai-triage.ts";
 import { CostLedger } from "../src/sim/ai-vendor/cost.ts";
@@ -68,7 +68,7 @@ test("ruling 3: the picker's Choice request is byte-for-byte the picker-only req
     const plain: string[] = []; const withTriage: string[] = [];
     const a = run({ picker: capture(plain) }, seed, 400);
     // Every kind flags and escalates, and the brain keeps the default: no pick may change, so every byte matches.
-    const b = run(tri(kindScorer(), stubBrain((q) => q.defaultChoice, "agree"), {}, capture(withTriage)), seed, 400);
+    const b = run(tri(kindScorer(), stubBrain(() => 1, "agree"), { prior: 1 }, capture(withTriage)), seed, 400);
     assert.ok(plain.length > 50);
     assert.ok(b.triage.filter((t) => t.triage.escalated).length > 0);
     assert.deepEqual(withTriage, plain);
@@ -95,7 +95,7 @@ test("ruling 1: every decision kind is scored, for every actor role, and routine
     if (t.triage.kind === "tax") { assert.ok(t.triage.legal.includes("hold")); assert.notEqual(t.triage.defaultChoice, "hold"); }
     if (t.triage.kind === "secession") assert.deepEqual(t.triage.legal, ["secede", "stay"]);
     if (t.triage.kind === "desertion") assert.deepEqual(t.triage.legal, ["desert", "stay"]);
-    if (t.triage.kind === "contract-break") assert.deepEqual(t.triage.legal, ["keep", "break"]);
+    if (t.triage.kind === "contract-break") assert.deepEqual(t.triage.legal, ["break", "keep"]);
   }
   // Routine moves are not scored: every scored decision is one of the five kinds, and a claim decision always has a raid or claim legal (above).
   assert.ok(r.triage.every((t) => (TRIAGE_KINDS as readonly string[]).includes(t.triage.kind)));
@@ -142,17 +142,18 @@ test("illegal, length, timeout, error and cap brain answers fall back to the def
     for (const t of esc) { assert.equal(t.brain!.fallbackReason, reason); assert.equal(t.applied, t.triage.defaultChoice); }
     assert.equal(r.hash, run(null, 1847, 300).hash);
   };
-  check(stubBrain(() => "fly:moon:-"), "illegal");
+  check(stubBrain(() => null), "illegal");
+  check({ name: "range", model: "stub", escalate: () => ({ raw: "{\"proceed\":1.5}", latencyMs: 0 }) }, "illegal");
   const lengthBody = JSON.stringify({ model: "deepseek-v4-pro", choices: [{ finish_reason: "length", message: { content: "{\"choice\":\"stay\"" } }], usage: { prompt_tokens: 100, completion_tokens: 64 } });
   check(deepSeekEscalationBrain({ transport: () => ({ kind: "response", status: 200, body: lengthBody }), ledger: new CostLedger(0.25), env: { DEEPSEEK_API_KEY: "test" } }), "illegal");
   for (const kind of ["timeout", "error"] as const) check(deepSeekEscalationBrain({ transport: () => ({ kind }), ledger: new CostLedger(0.25), env: { DEEPSEEK_API_KEY: "test" } }), kind);
-  check({ name: "slow", model: "stub", escalate: (q) => ({ raw: JSON.stringify({ choice: q.legal[q.legal.length - 1] }), latencyMs: 30_001 }) }, "timeout");
+  check({ name: "slow", model: "stub", escalate: () => ({ raw: JSON.stringify({ proceed: 0, reason: "slow" }), latencyMs: 30_001 }) }, "timeout");
   check(deepSeekEscalationBrain({ transport: () => { throw new Error("never"); }, ledger: new CostLedger(0), env: { DEEPSEEK_API_KEY: "test" } }), "cap");
   assert.equal(fetchAttempts(), 0);
 });
 
 test("escalations apply the brain's choice at each kind", () => {
-  const r = run(tri(kindScorer(), stubBrainOther(), { budget: 1000, cooldownTicks: 0 }, null), 1847, 1200);
+  const r = run(tri(kindScorer(), stubBrainOther(), { budget: 1000, cooldownTicks: 0, prior: 0 }, null), 1847, 1200);
   const by = (kind: string) => r.triage.filter((t) => t.triage.kind === kind && t.triage.escalated);
   for (const kind of TRIAGE_KINDS) for (const t of by(kind)) { assert.notEqual(t.applied, t.triage.defaultChoice); assert.equal(t.applied, t.brain!.choice); }
   // A "stay" desertion leaves the member in the faction with no character-deserted event that morning.
@@ -172,26 +173,28 @@ test("the record shape and the brain request", () => {
   const e = r.triage.find((t) => t.triage.escalated)!;
   assert.deepEqual(Object.keys(e.triage).sort(), ["actorRole", "budgetLeft", "cooldownUntilTick", "defaultChoice", "escalated", "flagged", "inputHash", "kind", "legal", "noul", "promptVersion", "scoreOutcome", "skipped", "threshold"]);
   assert.equal(e.triage.cooldownUntilTick, e.tick + 24);
-  assert.deepEqual(Object.keys(e.brain!).sort(), ["choice", "fallbackReason", "inputHash", "latencyMs", "model", "normalized", "outcome", "pickerSampled", "promptVersion", "provider", "raw", "role"]);
+  assert.deepEqual(Object.keys(e.brain!).sort(), ["choice", "fallbackReason", "inputHash", "latencyMs", "alternative", "blend", "model", "outcome", "p", "pickerSampled", "prior", "promptVersion", "provider", "raw", "reason", "role", "u", "weight"].sort());
   assert.equal(e.brain!.promptVersion, BRAIN_PROMPT_VERSION);
   assert.equal(e.brain!.pickerSampled, e.triage.defaultChoice);
-  const body = JSON.parse(deepSeekEscalationBody({ tick: 3, actorId: "character-14", kind: "secession", situation: { tick: 3, kind: "secession", actorId: "character-14", targetId: "free-tide", settlementId: "cinder-key", facts: { options: ["secede", "stay"] } }, name: "Pax Ash", persona: { ambition: 0.9 }, purse: 10, briefing: null, social: null, flagged: ["port_holding"], legal: ["secede", "stay"], defaultChoice: "secede", promptVersion: BRAIN_PROMPT_VERSION }));
+  const body = JSON.parse(deepSeekEscalationBody({ tick: 3, actorId: "character-14", kind: "secession", situation: { tick: 3, kind: "secession", actorId: "character-14", targetId: "free-tide", settlementId: "cinder-key", facts: { options: ["secede", "stay"] } }, name: "Pax Ash", persona: { ambition: 0.9 }, purse: 10, briefing: null, social: null, flagged: ["port_holding"], legal: ["secede", "stay"], defaultChoice: "secede", alternative: "stay", promptVersion: BRAIN_PROMPT_VERSION }));
   assert.equal(body.model, "deepseek-v4-pro"); assert.equal(body.max_tokens, 64); assert.equal(body.temperature, 0);
   assert.match(body.messages[1].content, /The decision \(secession\): /);
   assert.match(body.messages[1].content, /flagged as weighty for: port_holding\./);
-  assert.match(body.messages[1].content, /Legal options: secede, stay/);
+  assert.equal(body.messages[1].content.includes("Legal options"), false);
   assert.equal(body.messages[1].content.includes("defaultChoice"), false);
-  assert.equal(parseBrainChoice("{\"choice\":\"stay\"}", ["secede", "stay"]), "stay");
-  assert.equal(parseBrainChoice("{\"choice\":\"raid:x:-\"}", ["stay"]), null);
-  // v2: a bare action maps to the one legal id it abbreviates; ambiguity stays illegal.
-  assert.equal(parseBrainChoice("{\"choice\":\"work\"}", ["work:-:-", "rest:-:-"]), "work:-:-");
-  assert.equal(normalizeBrainChoice("travel", ["travel:glassport:-", "travel:crown-harbor:-"]), null);
-  assert.equal(normalizeBrainChoice("trade-local:-:arms", ["trade-local:-:arms"]), "trade-local:-:arms");
-  assert.match(body.messages[1].content, /not \"work\"/);
+  // v3: the brain does not pick; it answers a proceed probability and a reason.
+  assert.deepEqual(parseBrainProceed("{\"proceed\":0.25,\"reason\":\"too risky\"}"), { p: 0.25, reason: "too risky" });
+  assert.equal(parseBrainProceed("{\"proceed\":2}"), null);
+  assert.equal(parseBrainProceed("{\"choice\":\"stay\"}"), null);
+  assert.match(body.messages[1].content, /What you are about to do: secede\. If you do not go ahead: stay\./);
+  const b = e.brain!;
+  assert.equal(b.prior, BRAIN_PRIOR); assert.equal(b.weight, BRAIN_WEIGHT);
+  assert.equal(b.blend, Math.round(((1 - BRAIN_WEIGHT) * BRAIN_PRIOR + BRAIN_WEIGHT * b.p!) * 1e6) / 1e6);
+  assert.equal(b.choice, b.u! < b.blend! ? e.triage.defaultChoice : b.alternative);
 });
 
 test("replay with zero calls: an overriding run replays to its hash; a tampered record fails", () => {
-  const ai = tri(kindScorer(), stubBrainOther(), {}, null);
+  const ai = tri(kindScorer(), stubBrainOther(), { prior: 0 }, null);
   const live = run(ai, 2718, 600);
   assert.ok(live.triage.some((t) => t.triage.escalated));
   const replay = new TriageReplay(live.triage);
@@ -210,7 +213,7 @@ test("replay with zero calls: an overriding run replays to its hash; a tampered 
 });
 
 test("v2: a brain-kept deserter is in the save, and WorldStore.recover matches a run whose brain overrides", () => {
-  const ai = tri(kindScorer(), stubBrainOther(), { budget: 1000, cooldownTicks: 0 }, null);
+  const ai = tri(kindScorer(), stubBrainOther(), { budget: 1000, cooldownTicks: 0, prior: 0 }, null);
   const directory = mkdtempSync(join(tmpdir(), "open-era-triage-recover-override-"));
   try {
     const store = new WorldStore(join(directory, "world.sqlite"));
@@ -238,7 +241,7 @@ test("WorldStore.recover matches a triage run whose escalations agree with the d
     const store = new WorldStore(join(directory, "world.sqlite"));
     const split = createPrototypeWorld(2718);
     store.initialize(split);
-    const ai = tri(alwaysScorer(), stubBrain((q) => q.defaultChoice, "agree"), {}, stubUniformPicker());
+    const ai = tri(alwaysScorer(), stubBrain(() => 1, "agree"), { prior: 1 }, stubUniformPicker());
     while (split.tick < 197) store.appendTick(runTick(split, { ai }).events, split);
     const recovered = store.recover();
     assert.ok(recovered.replayedEvents > 0);
@@ -295,4 +298,20 @@ test("gate item 4: an always-flag stub makes exactly min(50, eligible) escalatio
   const taxOnly = run(tri(custom, stubBrainLast(), {}, null), 1847, 600);
   assert.ok(taxOnly.triage.filter((t) => t.triage.escalated).every((t) => t.triage.kind === "tax"));
   assert.ok(taxOnly.triage.some((t) => t.triage.escalated));
+});
+
+test("v3: gated triage needs no scorer, the brain only nudges, and the gated run replays with zero calls", () => {
+  const fetches = fetchAttempts();
+  const ai: TickAiOptions = { picker: null, triage: { brain: stubBrainOther() } };
+  const live = run(ai, 1847, 800);
+  const esc = live.triage.filter((t) => t.triage.escalated);
+  assert.ok(esc.length > 0);
+  for (const t of esc) { assert.equal(t.triage.scoreOutcome, "gated"); assert.equal(t.triage.legal.length, 2); }
+  const overrides = esc.filter((t) => t.applied !== t.triage.defaultChoice).length / esc.length;
+  // p = 0: blend = (1 − 0.3)·0.95 = 0.665, so about a third overrides, never all.
+  assert.ok(overrides > 0.15 && overrides < 0.6, String(overrides));
+  const replay = new TriageReplay(live.triage);
+  assert.equal(run({ triage: { brain: replay } }, 1847, 800).hash, live.hash);
+  assert.equal(replay.calls, 0);
+  assert.equal(fetchAttempts(), fetches);
 });

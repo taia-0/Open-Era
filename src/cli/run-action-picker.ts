@@ -7,7 +7,7 @@ import { jevActionPicker, jevSocialReader, jevTriageScorer } from "../sim/ai-ven
 import { loyaltyDriven, SOCIAL_DEFAULT_CALL_CAP, SOCIAL_DEFAULT_SPEND_CAP_USD, SOCIAL_FACTION_ID, SocialReplay, stubSocialFromTraits, type SocialReader, type SocialReadRecord } from "../sim/ai-social.ts";
 import { workerTransport } from "../sim/ai-vendor/sync-http.ts";
 import { deepSeekEscalationBrain } from "../sim/ai-vendor/deepseek.ts";
-import { alwaysScorer, kindScorer, neverScorer, stubBrainLast, stubBrainOther, TRIAGE_BUDGET, TRIAGE_DEFAULT_SCORE_CAP, TRIAGE_KINDS, TRIAGE_TESTS, TriageReplay, type EscalationBrain, type TriageEntry, type TriageScorer } from "../sim/ai-triage.ts";
+import { alwaysScorer, kindScorer, neverScorer, stubBrainLast, stubBrainLiveLike, stubBrainOther, TRIAGE_BUDGET, TRIAGE_DEFAULT_SCORE_CAP, TRIAGE_KINDS, TRIAGE_TESTS, TriageReplay, type EscalationBrain, type TriageEntry, type TriageScorer } from "../sim/ai-triage.ts";
 import { sha256 } from "../sim/ai-provider.ts";
 import { canonicalJson } from "../sim/state.ts";
 import { runTick, type TickAiOptions } from "../sim/engine.ts";
@@ -52,6 +52,8 @@ const { values } = parseArgs({
     cache: { type: "string" },
     "triage-budget": { type: "string" },
     "triage-cache": { type: "string" },
+    "brain-prior": { type: "string" },
+    "brain-weight": { type: "string" },
     "brain-default-kinds": { type: "string" },
   },
 });
@@ -136,23 +138,27 @@ if (triageOn) {
   else {
     if (values.brain === "stub") brain = stubBrainLast();
     else if (values.brain === "other") brain = stubBrainOther();
+    else if (values.brain === "livelike") brain = stubBrainLiveLike();
     else if (values.brain === "deepseek") brain = deepSeekEscalationBrain({ transport: workerTransport(), ledger: brainLedger });
     else throw new Error("--brain must be stub, other or deepseek");
     if (values.triage === "never") scorer = neverScorer();
     else if (values.triage === "always") scorer = alwaysScorer();
     else if (values.triage === "kind") scorer = kindScorer();
-    else if (values.triage === "jev") scorer = jevTriageScorer({ transport: workerTransport(), ledger: triageLedger });
-    else throw new Error("--triage must be off, never, always, kind or jev");
+    else if (values.triage === "gated") scorer = null;
+    // Lead ruling 1 (v3): the Jev scorer stays in the code (jevTriageScorer) but is not hooked up for the gated kinds.
+    else if (values.triage === "jev") throw new Error("--triage jev is unhooked (jev-triage.md §7): the gated set equals the probe's positives; use --triage gated");
+    else throw new Error("--triage must be off, gated, never, always or kind");
+    void jevTriageScorer;
   }
 }
 // Ablation support (v2): reuse a recorded triage run's scores and brain answers by inputHash; a miss calls live.
 let triageCacheHits = 0; let brainCacheHits = 0;
-if (values["triage-cache"] && scorer && brain && !triageReplay) {
+if (values["triage-cache"] && brain && !triageReplay) {
   const rows: TriageEntry[] = readFileSync(join(resolve(values["triage-cache"]), "triage.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
   const scores = new Map(rows.filter((r) => r.triage.scoreOutcome === "model").map((r) => [r.triage.inputHash, r.triage.noul]));
   const answers = new Map(rows.filter((r) => r.brain && (r.brain.fallbackReason === null || r.brain.fallbackReason === "illegal")).map((r) => [r.brain!.inputHash, r.brain!.raw]));
   const liveScorer = scorer; const liveBrain = brain;
-  scorer = { name: liveScorer.name, model: liveScorer.model, score(q) { const hit = scores.get(sha256(canonicalJson(q))); if (hit !== undefined) { triageCacheHits++; return { noul: hit, latencyMs: 0 }; } return liveScorer.score(q); } };
+  if (liveScorer) scorer = { name: liveScorer.name, model: liveScorer.model, score(q) { const hit = scores.get(sha256(canonicalJson(q))); if (hit !== undefined) { triageCacheHits++; return { noul: hit, latencyMs: 0 }; } return liveScorer.score(q); } };
   brain = { name: liveBrain.name, model: liveBrain.model, escalate(q) { const hit = answers.get(sha256(canonicalJson(q))); if (hit !== undefined) { brainCacheHits++; return { raw: hit, latencyMs: 0 }; } return liveBrain.escalate(q); } };
 }
 // Ablation: these kinds escalate as usual but the brain keeps the default (no call).
@@ -163,7 +169,7 @@ if (defaultKinds.size && brain && !triageReplay) {
 }
 const ai: TickAiOptions = {
   ...(picker ? { picker } : {}), ...(social ? { social } : {}), pickerCap: maxCalls, ...(values.actors === "all" ? { pickerActors: "all" as const } : {}),
-  ...(triageOn && brain && scorer ? { triage: { brain, scorer, scoreCap: triageMaxCalls, ...(triageBudget !== undefined ? { budget: triageBudget } : {}) } } : {}),
+  ...(triageOn && brain ? { triage: { brain, ...(scorer ? { scorer } : {}), ...(values["brain-prior"] ? { prior: Number(values["brain-prior"]) } : {}), ...(values["brain-weight"] ? { weight: Number(values["brain-weight"]) } : {}), scoreCap: triageMaxCalls, ...(triageBudget !== undefined ? { budget: triageBudget } : {}) } } : {}),
 };
 
 const world = createPrototypeWorld(seed);
@@ -230,7 +236,9 @@ function triageSummary() {
     brainCalls: ai.brainCalls ?? 0, brainSpendUsd: brainLedger.spendUsd, brainCostLines: brainLedger.lines.length,
     triageSpendUsd: triageLedger.spendUsd, triageCostLines: triageLedger.lines.length,
     cacheHits, cacheMisses, triageCacheHits, brainCacheHits, brainDefaultKinds: [...defaultKinds],
-    brainNormalized: brains.filter((b) => b.normalized).length,
+    brainProceedMean: brains.filter((b) => b.p !== null).length ? Math.round(brains.filter((b) => b.p !== null).reduce((a, b) => a + b.p!, 0) / brains.filter((b) => b.p !== null).length * 1e4) / 1e4 : null,
+    brainBlendMean: brains.filter((b) => b.blend !== null).length ? Math.round(brains.filter((b) => b.blend !== null).reduce((a, b) => a + b.blend!, 0) / brains.filter((b) => b.blend !== null).length * 1e4) / 1e4 : null,
+    overrideRate: brains.length ? Math.round(brains.filter((b) => b.choice !== b.pickerSampled).length / brains.length * 1e4) / 1e4 : null,
     flagRatePerKind: Object.fromEntries(TRIAGE_KINDS.map((kind) => { const rows = triages.filter((t) => t.triage.kind === kind); return [kind, rows.length ? Math.round(rows.filter((t) => t.triage.flagged.length).length / rows.length * 1e4) / 1e4 : null]; })),
     escalationsByKind: Object.fromEntries(TRIAGE_KINDS.map((kind) => [kind, escalated.filter((t) => t.triage.kind === kind).length])),
   };

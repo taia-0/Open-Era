@@ -227,3 +227,22 @@ Running the probe (≤ 30 calls, ≤ $0.01, estimated $0.0012) and any live tria
 Superseded: the earlier proposal of 0.7 below.
 
 **Earlier proposal (superseded): threshold 0.7.** It meets §1's pass (every test ≥ 0.75 recall; precision ≥ 0.75 on three tests, faction_number 0.667 from the secessions only) with zero missed and zero false item escalations. 0.8 misses three true escalations. 0.5 is the fallback if the desert margin proves fragile on fresh items. With 29 items this is coarse. The Lead sets the final value.
+
+## 7. v3: no scoring call, and the brain does not pick (Lead rulings, 2026-10-31)
+
+**The Jev scoring call is dropped for the gated kinds.** After v2 scoped triage to real decisions
+(tax only when the scorer is not holding, desertion and secession only where the sim's own check
+fires, claim only on a raid or claim-settlement pick, contract-break only on a real diversion), the
+live flag rate was 100 % on every kind: the gated set *is* the probe's positive set, so the scoring
+call added cost and latency and no selection. The sim's checks plus the per-kind budgets
+(`TRIAGE_KIND_BUDGETS`) and the shared 24-tick cooldown are the triage. `jevTriageScorer` stays in
+`src/sim/ai-vendor/jev.ts`, unhooked: `--triage jev` refuses; `--triage gated` (no scorer) is the
+live mode. Records carry `scoreOutcome: "gated"` and the flagged tests are the kind's `KIND_TESTS`.
+
+**The brain returns a proceed probability, not a choice** (the #145 tax pattern). It sees the sim's
+choice and the one alternative and answers `{"proceed": p, "reason": …}`. The engine blends
+`q = (1 − w)·prior + w·p` with `prior = 0.95`, `w = 0.3` and draws `u` from the stateless sha256
+side stream `pickerDraw("triage-brain:<kind>", seed, actor, tick)`; it keeps the sim's choice when
+`u < q`, else takes the alternative. p, reason, prior, weight, blend and u are recorded, and replay
+checks them. Any fallback keeps the sim's choice. Tuned offline with `stubBrainLiveLike`
+(see progress.md); acceptance is the v3 readout in `src/tools/triage-gate.ts` (`acceptanceCheck`).

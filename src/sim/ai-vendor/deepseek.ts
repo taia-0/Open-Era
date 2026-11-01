@@ -3,7 +3,7 @@ import { parseReason, parseTaxChoice, TAX_STEP_BRIEFED_WORDING, TAX_STEP_PROMPT_
 import { canonicalJson, CLAIM_STABILITY_FLOOR } from "../state.ts";
 import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, type CostLine } from "./cost.ts";
 import type { SyncTransport } from "./sync-http.ts";
-import { BRAIN_SYSTEM, BRAIN_TIMEOUT_MS, brainUserPrompt, parseBrainChoice, type EscalationAnswer, type EscalationBrain, type EscalationRequest } from "../ai-triage.ts";
+import { BRAIN_SYSTEM, BRAIN_TIMEOUT_MS, brainUserPrompt, parseBrainProceed, type EscalationAnswer, type EscalationBrain, type EscalationRequest } from "../ai-triage.ts";
 
 /** A5 brain: DeepSeek, non-thinking, JSON output (ai-providers.md sections 1 and 2). */
 export const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
@@ -235,7 +235,7 @@ export function deepSeekEscalationBrain(options: DeepSeekBrainOptions): Escalati
         return { raw: null, latencyMs, error: "error" };
       }
       const content = typeof parsed.choices?.[0]?.message?.content === "string" ? String(parsed.choices[0].message.content).slice(0, 400) : null;
-      const legal = finishReason !== "length" && parseBrainChoice(content, request.legal) !== null;
+      const legal = finishReason !== "length" && parseBrainProceed(content) !== null;
       options.ledger.record({ ...line, outcome: legal ? "model" : "fallback", fallbackReason: legal ? null : "illegal" });
       return { raw: content, latencyMs, finishReason };
     },

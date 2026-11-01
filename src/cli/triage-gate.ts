@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { capsCheck, escalationCheck, flagOffCheck, loadRun, probeCheck, readoutCheck, replayCheck, testsCheck } from "../tools/triage-gate.ts";
+import { acceptanceCheck, capsCheck, escalationCheck, flagOffCheck, loadRun, probeCheck, readoutCheck, replayCheck, testsCheck } from "../tools/triage-gate.ts";
 
 /**
  * Slice 5 gate (jev-triage.md §4.7; src/tools/triage-gate.ts). Each --seed names the run directories
@@ -12,7 +12,7 @@ import { capsCheck, escalationCheck, flagOffCheck, loadRun, probeCheck, readoutC
  * Checks 3 and 4 always use the offline stubs; for a live run give the stub picker-only run as the 6th part.
  * Exits 1 when any check fails.
  */
-const { values } = parseArgs({ options: { probe: { type: "string" }, seed: { type: "string", multiple: true }, "tests-log": { type: "string" }, json: { type: "string" }, "skip-flag-off": { type: "boolean" } } });
+const { values } = parseArgs({ options: { probe: { type: "string" }, seed: { type: "string", multiple: true }, "tests-log": { type: "string" }, json: { type: "string" }, "skip-flag-off": { type: "boolean" }, "skip-acceptance": { type: "boolean" } } });
 const seeds = (values.seed ?? []).map((spec) => {
   const [seed, run, picker, never, always, stubPicker] = spec.split(":");
   const r = loadRun(run); const p = loadRun(picker); const n = loadRun(never); const a = loadRun(always);
@@ -30,6 +30,8 @@ const seeds = (values.seed ?? []).map((spec) => {
   };
 });
 if (!seeds.length) throw new Error("give at least one --seed seed:run:pickerOnly:never:always");
+const runsBySeed = (values.seed ?? []).map((spec) => spec.split(":"));
+const acceptance = acceptanceCheck(runsBySeed.map((p) => loadRun(p[1])), runsBySeed.map((p) => loadRun(p[2])));
 const probe = values.probe ? probeCheck(values.probe) : null;
 const flagOff = values["skip-flag-off"] ? null : flagOffCheck(seeds.map((s) => s.seed));
 const tests = testsCheck(values["tests-log"]);
@@ -42,8 +44,9 @@ const checks: Record<string, boolean> = {
   "6_picksUnchangedWithoutEscalation": seeds.every((s) => s.readout.picksUnchangedWithoutEscalation),
   "7_caps": seeds.every((s) => s.caps.ok),
   "7_npmTest": tests.ok,
+  "v3_acceptance": values["skip-acceptance"] ? true : acceptance.pass,
 };
-const gate = { probe, flagOff, seeds, tests, checks, pass: Object.values(checks).every(Boolean) };
+const gate = { acceptance, probe, flagOff, seeds, tests, checks, pass: Object.values(checks).every(Boolean) };
 if (values.json) writeFileSync(values.json, `${JSON.stringify(gate, null, 2)}\n`);
 console.log(JSON.stringify(gate, null, 2));
 process.exit(gate.pass ? 0 : 1);
