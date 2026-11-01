@@ -153,6 +153,20 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-31 — AI tax weighted: merge main (next slices, dynamism readout) and the dynamism comparison
+- **Agent:** Grok Bot (executor) | **Branch:** `feature/ai-tax-weighted` | **Commits:** `34087e0` merges `origin/main` at `a736008` (includes `0bed4c5`: #141 next slices, #142 dynamism readout; and #143 Jev action picker doc). | **Type:** Merge + measurement
+- **Changed** — Only conflict: `docs/design/README.md`, both sides kept. No sim change. `centre` stays 2.1.
+- **Verified** — Node v24.21.0. **554 tests**. `./scripts/evaluate-milestone.sh ai-tax-weighted` passed. Flag-off pins equal main's: 72 ticks `6efa334f`/8496, `e8f9cfab`/8566, `8ac8529b`/8486; 1200 ticks `f80c529f`/165833, `2b5060c0`/157639, `e8ae4443`/162123. `npm run dynamism` on the AI-on stub (weighted, stub brain, stub context echo, no cap) 1200-tick event logs against flag off (on hashes `34a59e2c` / `50c0f105` / `9bda111d`):
+
+  | Seed | First divergent tick | Port changes off→on | Secessions | Rate changes (raises/cuts) | Captures | Mean action entropy (bits) |
+  | --- | ---: | --- | --- | --- | --- | --- |
+  | 1847 | 48 | 37→37 | 4→4 | 25 (14/11) → 31 (9/22) | 7→13 | 1.9026→1.9253 |
+  | 2718 | 96 | 24→35 | 0→3 | 11 (5/6) → 23 (11/12) | 18→13 | 1.8065→1.7988 |
+  | 4096 | 336 | 44→35 | 4→4 | 29 (11/18) → 39 (13/26) | 10→6 | 1.8611→1.8649 |
+
+  Rate changes rise on every seed (+6 / +12 / +10). Port changes and secessions move both ways (2718 gains 11 and 3; 4096 loses 9). Action entropy is within ±0.03 bits: the tax step alone barely moves per-character variety.
+- **Left open** — The slice-1 picker seam follows on this branch.
+
 ### 2026-10-31 — AI tax weighted (variant b): the ruler's traits weight the step, the sim draws it
 - **Agent:** Grok Bot (executor) | **Branch:** `feature/ai-tax-weighted` | **Commits:** `c578c23` merges `feature/ai-judgment-v3` into `origin/main` at `5c57c6d`; the weighted step follows. | **Type:** Behavior (AI path only)
 - **Changed** — New `src/sim/ai-weighted.ts`. The scorer's pick gets logit bonus `centre` 2.1; up gets `drive`, down gets −`drive`, with drive = 1.0·(amb−.5) + 0.6·(agg−.5) + 0.4·(com−.5) − 1.0·(cau−.5) − 0.3·(loy−.5); hold gets 0.8·(cau−.5). The rails (pressed: no up; short and not pressed: no down) remove options first, then a softmax over the legal ones renormalizes. Jev's `loyaltyRead` can be blended in with weight `social`, default 0 (Jev's probabilities move between identical calls, so the repeat would not be exact). The draw is `sha256("ai-tax-weighted:<seed>:<faction>:<tick>")`'s first 32 bits / 2^32, a stream of its own that never touches `world.rngState`; inverse CDF in the order down, hold, up. `data.ai.weighted` records the params and their hash, persona, legal set, logits, trait and social parts, distribution, draw, sampled choice and escalation. DeepSeek gets a reason-only prompt (`TAX_STEP_PROMPT_VERSION_REASON`) that states the drawn choice; its `choice`, if any, is ignored. A missing, bad, capped or failed reason falls back to `templateReason` (the two strongest traits and the situation); `reasonSource` says which. Jev triage escalates on `loyaltyRead` "breaking" or confidence under 0.3: logged and put in the reason prompt only. `npm run ai-pilot` defaults to `--choice-mode weighted`; replay reads `choiceMode` from the summary (older runs: brain).
