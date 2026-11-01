@@ -1,0 +1,25 @@
+{
+  "mode": "jev",
+  "social": null,
+  "seed": 2718,
+  "ticks": 1200,
+  "maxCalls": 1000,
+  "capUsd": 0.05,
+  "actors": null,
+  "stateHash": "e7650ca48b57a68118f52a8fadb0629800385a74b834f9b542eca573a5e900a6",
+  "events": 158184,
+  "consults": 388,
+  "calls": 388,
+  "offScorer": 96,
+  "fallbacks": 0,
+  "fallbackReasons": {
+    "timeout": 0,
+    "error": 0,
+    "illegal": 0,
+    "cap": 0
+  },
+  "railBreaks": 0,
+  "truncated": 0,
+  "spendUsd": 0.017563895999999996,
+  "costLines": 388
+}

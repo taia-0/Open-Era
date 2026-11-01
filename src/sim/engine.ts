@@ -35,6 +35,7 @@ import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMP
 import { ActionPickerReplay, blendDistribution, PICKER_BLEND, type BlendParams, criterionFor, ESCALATION_ACTIONS, legalIds, optionId, pickDraw, PICKER_DEFAULT_CAP, PICKER_PROMPT_VERSION, PICKER_ROLE, PICKER_TIMEOUT_MS, pickerState, railProbabilities, sampleId, type ActionPicker, type ActionPickerRecord, type PickerAnswer, type PickerFallbackReason, type PickerRequest } from "./ai-action-picker.ts";
 import { READ_PROMPT_VERSION, SOCIAL_CACHE_TICKS, SOCIAL_DEFAULT_CALL_CAP, SOCIAL_FACTION_ID, SOCIAL_PICK_INSTRUCTIONS, SOCIAL_ROLE, SOCIAL_STATE_MAX_BYTES, SocialReplay, socialFromAnswer, socialReadRequest, type SocialBlock, type SocialReader, type SocialReadRecord } from "./ai-social.ts";
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
+import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSION, finishBrain, sanitizeNoul, TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_DEFAULT_SCORE_CAP, TRIAGE_KIND_BUDGETS, TRIAGE_PROMPT_VERSION, TRIAGE_QUESTIONS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type EscalationAnswer, type EscalationBrain, type EscalationRequest, type TriageEntry, type TriageKind, type TriageRecord, type TriageScoreAnswer, type TriageScorer, type TriageSituation, type TriageState } from "./ai-triage.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
@@ -3536,6 +3537,22 @@ export interface TickAiOptions {
   pickerBlend?: BlendParams | null;
   /** Run memory: picker calls made so far. */
   pickerCalls?: number;
+  /**
+   * Slice 5 (jev-triage.md, Lead rework): a separate scoring request (`triage.scorer`)
+   * at tax steps, desertions, secessions, surrender/claim decisions and contract
+   * breaks, for every actor; a flag escalates to `triage.brain` (budget 50,
+   * 24-tick cooldown). Without escalation nothing changes. `TriageReplay` as
+   * both scorer and brain replays the records with no vendor call.
+   */
+  triage?: { scorer?: TriageScorer; brain: EscalationBrain; prior?: number; weight?: number; threshold?: number; budget?: number | Partial<Record<TriageKind, number>>; cooldownTicks?: number; scoreCap?: number };
+  /** Run memory for triage (§4.2). Not on the world. */
+  triageState?: TriageState;
+  /** Run memory: brain escalation calls made so far. */
+  brainCalls?: number;
+  /** Run memory: triage scoring calls made so far. */
+  triageCalls?: number;
+  /** Run memory: every triaged decision, in order (the runner drains it into triage.jsonl). */
+  triageLog?: TriageEntry[];
   /** Per-run call cap (section 5, check 6). Default 50. */
   cap?: number;
   /**
@@ -3576,7 +3593,7 @@ export const AI_TAX_STEP_FACTION_ID = "free-tide";
  * tick's tax step, before battles. Ports in id order. No draw. The event is
  * the same `secession-declared` the command emits, without a command id.
  */
-function declareAutonomousSecessions(world: WorldState, events: SimEvent[], liveSession: boolean): void {
+function declareAutonomousSecessions(world: WorldState, events: SimEvent[], liveSession: boolean, ai?: TickAiOptions): void {
   const settlements = Object.values(world.settlements).sort((left, right) => left.id.localeCompare(right.id));
   for (const settlement of settlements) {
     if (!settlement.factionId) continue;
@@ -3602,6 +3619,11 @@ function declareAutonomousSecessions(world: WorldState, events: SimEvent[], live
       if (character.id === governor.id || character.id === holderId || character.id === actingId) return false;
       return true;
     });
+    // Slice 5: secession (a faction-number decision, §6 ruling 2). Default secede; a brain "stay" holds this tick.
+    if (ai?.triage && triageDecision(world, ai, governor, "secession", {
+      targetId: settlement.factionId, settlementId: settlement.id,
+      facts: { previousFactionId: settlement.factionId, routes, followerIds, stabilityThousandths: figure },
+    }, "secede", "stay") === "stay") continue;
     const declared = buildGovernorSecession(world, settlement, governor, followerIds, true);
     emit(world, events, {
       type: "secession-declared",
@@ -3619,6 +3641,25 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
   for (const factionId of factionIds) {
     const provider = ai?.brainTaxStep;
     // Slice A3: World Government and every breakaway keep the scorer, as with the flag off.
+    if (ai?.triage && (!provider || factionId !== AI_TAX_STEP_FACTION_ID)) {
+      // Slice 5: the scorer path with the step triaged; the default is the scorer's choice, so
+      // without an escalation this emits exactly what the branch below emits.
+      const step = taxStepOptions(world, factionId);
+      if (!step) continue;
+      const holder = world.characters[step.holderId];
+      if (liveSession && holder?.controller.kind === "human") continue;
+      const choice = holder && step.options.length >= 2 && step.scorerChoice !== "hold"
+        ? triageDecision(world, ai, holder, "tax", { targetId: factionId, settlementId: null, facts: { factionId, taxRate: step.rateCents / 100, treasury: step.treasuryCents / 100, pressed: step.pressed, short: step.short } }, step.scorerChoice, step.options.includes("hold") ? "hold" : null) as typeof step.scorerChoice
+        : step.scorerChoice;
+      if (choice === "hold") continue;
+      const previous = world.factions[factionId].taxRate;
+      const next = taxChoiceCents(step.rateCents, choice) / 100;
+      emit(world, events, {
+        type: "tax-rate-set", actorId: step.holderId, targetId: factionId,
+        data: { factionId, taxRate: next, previousTaxRate: previous, taxRateSetTick: world.tick, ...raiseShockData(world, factionId, previous, next) },
+      });
+      continue;
+    }
     if (!provider || factionId !== AI_TAX_STEP_FACTION_ID) {
       // Flag off: exactly the scorer path.
       const step = autonomousTaxStep(world, factionId);
@@ -3917,6 +3958,90 @@ function consultActionPicker(world: WorldState, character: Character, candidates
   return { row: byId.get(record.sampled) ?? candidates[0], record: { ...record, ...socialExtra }, read: social?.record };
 }
 
+/** The actor's role at a triaged decision (reported per escalation). */
+function triageActorRole(world: WorldState, character: Character, kind: TriageKind): string {
+  if (kind === "tax") return character.factionId && commandHolderId(world, character.factionId) === character.id ? "holder" : "acting-holder";
+  if (character.factionId && commandHolderId(world, character.factionId) === character.id) return "holder";
+  if (kind === "contract-break") return "carrier";
+  if (Object.values(world.settlements).some((s) => governorId(world, s.id) === character.id)) return "governor";
+  if (kind === "desertion" || character.factionId) return "member";
+  return "factionless";
+}
+
+/**
+ * Slice 5 rework (Lead rulings 1 and 3). One triaged decision: a separate
+ * scoring request, flags, budget and cooldown, then the brain on an
+ * escalation. Returns the option to apply: `defaultChoice` unless escalated,
+ * so without an escalation the run is exactly the run without triage
+ * (the world, the rng and the picker's request are never touched here).
+ * Replay reuses the recorded scores and brain raw and checks every field.
+ */
+function triageDecision(world: WorldState, ai: TickAiOptions, character: Character, kind: TriageKind, situation: Omit<TriageSituation, "tick" | "kind" | "actorId">, defaultChoice: string, alternative: string | null, extra: { briefing?: unknown; social?: unknown } = {}): string {
+  const triage = ai.triage;
+  if (!triage || alternative === null || alternative === defaultChoice) return defaultChoice;
+  // v3: two options, the sim's choice and what happens if the actor does not go ahead.
+  const legal = [defaultChoice, alternative];
+  const full: TriageSituation = { tick: world.tick, kind, actorId: character.id, ...situation, facts: { ...situation.facts, options: [...legal] } };
+  const request = { tick: world.tick, actorId: character.id, kind, situation: full, questions: TRIAGE_QUESTIONS, promptVersion: TRIAGE_PROMPT_VERSION };
+  const inputHash = sha256(canonicalJson(request));
+  const replayer = triage.brain instanceof TriageReplay ? triage.brain : triage.scorer instanceof TriageReplay ? triage.scorer : null;
+  const replay = replayer ? replayer.recorded(world.tick, character.id, kind) : null;
+  // Lead ruling 1 (v3): no scorer means gated. The sim's check plus the per-kind budget is the triage.
+  const gated = replay ? replay.triage.scoreOutcome === "gated" : !triage.scorer;
+  let answer: TriageScoreAnswer;
+  if (gated) {
+    if (replay && replay.triage.inputHash !== inputHash) throw new Error(`triage replay: inputHash mismatch for ${character.id} ${kind} at tick ${world.tick}`);
+    answer = { noul: null, latencyMs: 0 };
+  } else if (replay) {
+    if (replay.triage.inputHash !== inputHash) throw new Error(`triage replay: inputHash mismatch for ${character.id} ${kind} at tick ${world.tick}`);
+    answer = replay.triage.scoreOutcome === "model" ? { noul: replay.triage.noul, latencyMs: 0 } : { noul: null, latencyMs: 0, error: replay.triage.scoreOutcome as "timeout" | "error" | "cap" };
+  } else if ((ai.triageCalls ?? 0) >= (triage.scoreCap ?? TRIAGE_DEFAULT_SCORE_CAP)) {
+    answer = { noul: null, latencyMs: 0, error: "cap" };
+  } else {
+    ai.triageCalls = (ai.triageCalls ?? 0) + 1;
+    try { answer = triage.scorer!.score(request); } catch { answer = { noul: null, latencyMs: 0, error: "error" }; }
+  }
+  const noul = answer.error ? null : sanitizeNoul(answer.noul);
+  // A number is one shared pool (legacy and `--triage-budget 0`); otherwise per-kind budgets (v2 default).
+  const state = ai.triageState ?? (ai.triageState = typeof triage.budget === "number"
+    ? { budgetLeft: triage.budget, cooldownUntil: {} }
+    : { budgetLeft: TRIAGE_BUDGET, cooldownUntil: {}, kindLeft: { ...(triage.budget ?? TRIAGE_KIND_BUDGETS) } });
+  const step = triageStep(state, character.id, world.tick, noul, triage.threshold ?? TRIAGE_THRESHOLD, triage.cooldownTicks ?? TRIAGE_COOLDOWN_TICKS, kind, gated ? KIND_TESTS[kind] : undefined);
+  const record: TriageRecord = { kind, actorRole: triageActorRole(world, character, kind), ...step, inputHash, scoreOutcome: gated ? SCORE_GATED : answer.error ?? "model", legal: [...legal], defaultChoice };
+  if (replay && (replay.triage.escalated !== record.escalated || replay.triage.budgetLeft !== record.budgetLeft)) {
+    throw new Error(`triage replay: escalated/budgetLeft ${record.escalated}/${record.budgetLeft} != recorded ${replay.triage.escalated}/${replay.triage.budgetLeft} for ${character.id} at tick ${world.tick}`);
+  }
+  const log = ai.triageLog ?? (ai.triageLog = []);
+  if (!record.escalated) { log.push({ tick: world.tick, actorId: character.id, triage: record, applied: defaultChoice }); return defaultChoice; }
+  const p = character.personality;
+  const r2 = (value: number) => Math.round(value * 100) / 100;
+  const escalation: EscalationRequest = {
+    tick: world.tick, actorId: character.id, kind, situation: full, name: character.name,
+    persona: { ambition: r2(p.ambition), aggression: r2(p.aggression), caution: r2(p.caution), commerce: r2(p.commerce), loyalty: r2(p.loyalty) },
+    purse: r2(character.money), briefing: extra.briefing ?? null, social: extra.social ?? null,
+    flagged: record.flagged, legal: [...legal], defaultChoice, alternative, promptVersion: BRAIN_PROMPT_VERSION,
+  };
+  const brainHash = sha256(canonicalJson(escalation));
+  let brainAnswer: EscalationAnswer;
+  let provider = triage.brain.name;
+  let model = triage.brain.model;
+  if (replay) {
+    const was = replay.brain;
+    if (!was || was.inputHash !== brainHash) throw new Error(`triage replay: brain inputHash mismatch for ${character.id} at tick ${world.tick}`);
+    provider = was.provider; model = was.model;
+    brainAnswer = was.fallbackReason && was.fallbackReason !== "illegal" ? { raw: null, latencyMs: was.latencyMs, error: was.fallbackReason } : { raw: was.raw, latencyMs: was.latencyMs };
+  } else {
+    ai.brainCalls = (ai.brainCalls ?? 0) + 1;
+    try { brainAnswer = triage.brain.escalate(escalation); } catch { brainAnswer = { raw: null, latencyMs: 0, error: "error" }; }
+  }
+  const brain = finishBrain(escalation, brainAnswer, provider, model, brainHash, world.seed, !replay, replay ? replay.brain!.prior : triage.prior ?? BRAIN_PRIOR, replay ? replay.brain!.weight : triage.weight ?? BRAIN_WEIGHT);
+  if (replay && (brain.choice !== replay.brain!.choice || brain.fallbackReason !== replay.brain!.fallbackReason || brain.u !== replay.brain!.u || brain.blend !== replay.brain!.blend)) {
+    throw new Error(`triage replay: brain choice ${brain.choice} != recorded ${replay.brain!.choice} for ${character.id} at tick ${world.tick}`);
+  }
+  log.push({ tick: world.tick, actorId: character.id, triage: record, brain, applied: brain.choice });
+  return brain.choice;
+}
+
 export const SOCIAL_PICK_PROMPT_VERSION = sha256(`${PICKER_PROMPT_VERSION}\n${SOCIAL_PICK_INSTRUCTIONS}`);
 
 /**
@@ -4046,8 +4171,19 @@ function readTaxStepContext(world: WorldState, factionId: string, holderId: stri
  * event, so a snapshot in the middle of a streak restores both. The event
  * still carries the roll. A stay emits nothing.
  */
-function resolveMorningDesertion(world: WorldState, events: SimEvent[], notices: ReturnType<typeof applySilentTickStart>): void {
+function resolveMorningDesertion(world: WorldState, events: SimEvent[], notices: ReturnType<typeof applySilentTickStart>, ai?: TickAiOptions): void {
   for (const notice of notices) {
+    // Slice 5: desertion. Default desert; a brain "stay" puts the member back before the event.
+    const character = world.characters[notice.characterId];
+    if (ai?.triage && character && notice.previousFactionId) {
+      character.factionId = null;
+      const choice = triageDecision(world, ai, character, "desertion", { targetId: notice.previousFactionId, settlementId: character.locationId ?? null, facts: { previousFactionId: notice.previousFactionId, shortMorningStreak: character.shortMorningStreak ?? 0, roll: notice.roll } }, "desert", "stay");
+      if (choice === "stay") {
+        // Recorded in the save: replay reapplies the silent desertion, then this event restores the member.
+        emit(world, events, { type: "desertion-withheld", actorId: character.id, targetId: notice.previousFactionId, data: { previousFactionId: notice.previousFactionId, roll: notice.roll, by: "triage.brain" } });
+        continue;
+      }
+    }
     emit(world, events, {
       type: "character-deserted",
       actorId: notice.characterId,
@@ -4266,13 +4402,13 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   const rng = new DeterministicRng(world.rngState);
   const events: SimEvent[] = [];
 
-  resolveMorningDesertion(world, events, notices);
+  resolveMorningDesertion(world, events, notices, options.ai);
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   const aiTrace: TaxStepTraceEntry[] | undefined = options.ai?.brainTaxStep ? [] : undefined;
   const costBefore = options.ai?.ledger?.lines.length ?? 0;
   chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
-  declareAutonomousSecessions(world, events, options.liveSession === true);
+  declareAutonomousSecessions(world, events, options.liveSession === true, options.ai);
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
   offerAutonomousSupply(world, events);
@@ -4334,6 +4470,20 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
       const consulted = consultActionPicker(world, character, candidates, options.ai);
       if (consulted) { chosen = consulted.row; pickerRecord = consulted.record; readRecord = consulted.read ?? null; }
     }
+    // Slice 5: surrender or claim. A raid or claim-settlement is legal for this actor (any faction).
+    if (options.ai?.triage) {
+      const legalRows = candidates.filter((row) => row.score > -1000);
+      // Lead ruling (v2): only a real decision, i.e. the sim's chosen action would raid or claim.
+      if (ESCALATION_ACTIONS.has(chosen.action)) {
+        const byId = new Map(legalRows.map((row) => [optionId(row), row]));
+        const hostile = chosen;
+        const picked = triageDecision(world, options.ai, character, "claim", {
+          targetId: hostile.targetId ?? null, settlementId: character.locationId ?? null,
+          facts: { archetype: character.archetype, factionId: character.factionId, legalOptions: legalRows.map((row) => ({ action: row.action, ...(row.targetId ? { targetId: row.targetId } : {}), ...(row.resource ? { resource: row.resource } : {}) })) },
+        }, optionId(chosen), (() => { const alt = legalRows.find((row) => !ESCALATION_ACTIONS.has(row.action)); return alt ? optionId(alt) : null; })());
+        chosen = byId.get(picked) ?? chosen;
+      }
+    }
     if (haul) {
       const plan = haulPlan(world, character, haul);
       const marks = marksFor(world, haul.id);
@@ -4343,7 +4493,12 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
       if (plan.need > 0 && plan.stock > 0 && plan.spare > 0 && plan.affordable < Math.min(plan.need, plan.stock, plan.spare)) marks.purseBuy = true;
       const weight = round(haul.order!.score * 100, 2);
       if (plan.canAct) {
-        if (chosen.score > weight) marks.diverted = true;
+        // Slice 5: contract break. Diverting from a haul that can act breaks an accepted contract by choice.
+        const keep = !(chosen.score > weight) || (options.ai?.triage ? triageDecision(world, options.ai, character, "contract-break", {
+          targetId: haul.buyerId, settlementId: character.locationId ?? null,
+          facts: { contractId: haul.id, buyerId: haul.buyerId, carrierId: character.id, good: "provisions", quantity: haul.quantity, price: haul.price, deadlineTick: haul.deadlineTick, destinationId: plan.dest, status: "accepted", alternative: { action: chosen.action, ...(chosen.targetId ? { targetId: chosen.targetId } : {}) } },
+        }, "break", "keep") === "keep" : false);
+        if (!keep) marks.diverted = true;
         else {
           const haulChoice = { action: "haul", score: weight, reason: "deliver the accepted provisions contract", targetId: plan.dest };
           emit(world, events, { type: "decision-made", actorId: character.id, settlementId: character.locationId ?? undefined, targetId: plan.dest,

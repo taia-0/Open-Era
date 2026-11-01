@@ -3,6 +3,7 @@ import { CostLedger, JEV_PRICES, jevCostUsd, type CostLine } from "./cost.ts";
 import type { SyncTransport } from "./sync-http.ts";
 import { PICKER_INSTRUCTIONS as PICKER_INSTRUCTIONS_TEXT, PICKER_TIMEOUT_MS as PICKER_TIMEOUT } from "../ai-action-picker.ts";
 import type { ActionPicker, PickerAnswer, PickerRequest } from "../ai-action-picker.ts";
+import { TRIAGE_ROLE, type TriageScoreAnswer, type TriageScorer, type TriageScoreRequest } from "../ai-triage.ts";
 import type { SocialReadAnswer, SocialReader, SocialReadRequest } from "../ai-social.ts";
 
 /** A5 context reader: TypeSafe's Jev, choice questions only (ai-providers.md sections 1 and 2). */
@@ -274,6 +275,55 @@ export function jevSocialReader(options: JevReaderOptions & { pickReserveUsd?: n
       }
       options.ledger.record({ ...line, outcome: "model", fallbackReason: null });
       return { answers: parsed.answers, latencyMs };
+    },
+  };
+}
+
+/** Slice 5 rework (Lead ruling 3): the triage Nouls as their own request; the picker's request is untouched. */
+export function jevTriageRequestBody(request: TriageScoreRequest): string {
+  return JSON.stringify({ model: JEV_MODEL, state: { situation: request.situation }, questions: request.questions });
+}
+
+/** Slice 5: the separate Jev scoring call; spend cap checked before each call; one `triage.score` cost line per call. */
+export function jevTriageScorer(options: JevReaderOptions): TriageScorer {
+  const key = (options.env ?? process.env).JEV_API_KEY;
+  const now = options.now ?? (() => new Date());
+  const timeoutMs = options.timeoutMs ?? PICKER_TIMEOUT;
+  const base = (tick: number): Omit<CostLine, "runSpendUsd" | "outcome" | "fallbackReason" | "status"> => ({
+    tick, role: TRIAGE_ROLE, provider: "jev", model: JEV_MODEL, responseModel: null,
+    tokensIn: 0, tokensInCacheHit: 0, tokensOut: 0, pricePeriod: "flat", estimatedCostUsd: 0,
+    priceSource: JEV_PRICES.source, priceCheckedOn: JEV_PRICES.checkedOn,
+  });
+  return {
+    name: "jev",
+    model: JEV_MODEL,
+    score(request: TriageScoreRequest): TriageScoreAnswer {
+      const unreached = (reason: "cap" | "error"): TriageScoreAnswer => {
+        options.ledger.record({ ...base(request.tick), outcome: "fallback", fallbackReason: reason, status: null });
+        return { noul: null, latencyMs: 0, error: reason };
+      };
+      if (!key) return unreached("error");
+      const body = jevTriageRequestBody(request);
+      if (options.ledger.wouldExceed(jevWorstCaseUsd(body))) return unreached("cap");
+      const started = now();
+      const response = options.transport({ url: JEV_URL, headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body, timeoutMs });
+      const latencyMs = Math.max(0, now().getTime() - started.getTime());
+      if (response.kind !== "response") {
+        const reason = response.kind === "timeout" ? "timeout" : "error";
+        options.ledger.record({ ...base(request.tick), outcome: "fallback", fallbackReason: reason, status: null });
+        return { noul: null, latencyMs, error: reason };
+      }
+      let parsed: Record<string, any> | null = null;
+      try { const value = JSON.parse(response.body); parsed = value && typeof value === "object" ? value : null; } catch { parsed = null; }
+      const tokensIn = num(parsed?.usage?.input_tokens);
+      const line = { ...base(request.tick), responseModel: typeof parsed?.model === "string" ? String(parsed.model).slice(0, 40) : null, tokensIn, tokensOut: num(parsed?.usage?.output_tokens), estimatedCostUsd: jevCostUsd(tokensIn), status: response.status };
+      const answers = parsed?.answers;
+      if (response.status !== 200 || !answers || typeof answers !== "object") {
+        options.ledger.record({ ...line, outcome: "fallback", fallbackReason: "error" });
+        return { noul: null, latencyMs, error: "error" };
+      }
+      options.ledger.record({ ...line, outcome: "model", fallbackReason: null });
+      return { noul: Object.fromEntries(Object.keys(request.questions).map((name) => [name, answers[name]])), latencyMs };
     },
   };
 }

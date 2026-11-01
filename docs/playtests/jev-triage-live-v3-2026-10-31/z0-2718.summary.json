@@ -1,0 +1,138 @@
+{
+  "mode": "jev",
+  "social": null,
+  "seed": 2718,
+  "ticks": 1200,
+  "maxCalls": 1000,
+  "capUsd": 0.05,
+  "actors": null,
+  "stateHash": "736be7e0507be78e39f5b440c10c98e1dabd289d8024f923a5bf4486b478213b",
+  "events": 157231,
+  "consults": 389,
+  "calls": 389,
+  "offScorer": 108,
+  "fallbacks": 0,
+  "fallbackReasons": {
+    "timeout": 0,
+    "error": 0,
+    "illegal": 0,
+    "cap": 0
+  },
+  "railBreaks": 0,
+  "truncated": 0,
+  "spendUsd": 0,
+  "costLines": 0,
+  "triage": "gated",
+  "brain": "deepseek",
+  "triageMaxCalls": 4000,
+  "triageBudget": 0,
+  "cache": "/workspace/triage-live2/po-2718",
+  "totalSpendUsd": 0,
+  "triageSummary": {
+    "triaged": 129,
+    "scoreCalls": 0,
+    "scoreFallbacks": {
+      "gated": 129
+    },
+    "flaggedDecisions": 129,
+    "escalations": 0,
+    "budget": 50,
+    "skippedCooldown": 0,
+    "skippedBudget": 129,
+    "perKind": {
+      "tax": {
+        "triaged": 21,
+        "flagged": 21,
+        "escalated": 0
+      },
+      "desertion": {
+        "triaged": 2,
+        "flagged": 2,
+        "escalated": 0
+      },
+      "secession": {
+        "triaged": 0,
+        "flagged": 0,
+        "escalated": 0
+      },
+      "claim": {
+        "triaged": 96,
+        "flagged": 96,
+        "escalated": 0
+      },
+      "contract-break": {
+        "triaged": 10,
+        "flagged": 10,
+        "escalated": 0
+      }
+    },
+    "escalationsByKindRole": {},
+    "triagedByKindRole": {
+      "claim/holder": 20,
+      "claim/member": 59,
+      "claim/governor": 17,
+      "contract-break/carrier": 10,
+      "tax/holder": 21,
+      "desertion/member": 2
+    },
+    "perTest": {
+      "port_holding": {
+        "flagged": 96,
+        "escalated": 0
+      },
+      "faction_number": {
+        "flagged": 21,
+        "escalated": 0
+      },
+      "allegiance_freedom": {
+        "flagged": 2,
+        "escalated": 0
+      },
+      "broken_promise": {
+        "flagged": 10,
+        "escalated": 0
+      }
+    },
+    "brainModel": 0,
+    "brainFallbacks": {
+      "timeout": 0,
+      "error": 0,
+      "illegal": 0,
+      "cap": 0
+    },
+    "brainAgrees": 0,
+    "brainOverrides": 0,
+    "brainOverridesByKind": {},
+    "brainDiffersShare": 0,
+    "brainRailBreaks": 0,
+    "defaultBreaks": 0,
+    "cooldownBreaks": 0,
+    "brainCalls": 0,
+    "brainSpendUsd": 0,
+    "brainCostLines": 0,
+    "triageSpendUsd": 0,
+    "triageCostLines": 0,
+    "cacheHits": 389,
+    "cacheMisses": 0,
+    "triageCacheHits": 0,
+    "brainCacheHits": 0,
+    "brainDefaultKinds": [],
+    "brainProceedMean": null,
+    "brainBlendMean": null,
+    "overrideRate": null,
+    "flagRatePerKind": {
+      "tax": 1,
+      "desertion": 1,
+      "secession": null,
+      "claim": 1,
+      "contract-break": 1
+    },
+    "escalationsByKind": {
+      "tax": 0,
+      "desertion": 0,
+      "secession": 0,
+      "claim": 0,
+      "contract-break": 0
+    }
+  }
+}

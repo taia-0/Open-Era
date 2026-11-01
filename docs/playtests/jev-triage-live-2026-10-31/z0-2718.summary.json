@@ -1,0 +1,118 @@
+{
+  "mode": "jev",
+  "social": null,
+  "seed": 2718,
+  "ticks": 1200,
+  "maxCalls": 1000,
+  "capUsd": 0.05,
+  "actors": null,
+  "stateHash": "e7650ca48b57a68118f52a8fadb0629800385a74b834f9b542eca573a5e900a6",
+  "events": 158184,
+  "consults": 388,
+  "calls": 388,
+  "offScorer": 96,
+  "fallbacks": 0,
+  "fallbackReasons": {
+    "timeout": 0,
+    "error": 0,
+    "illegal": 0,
+    "cap": 0
+  },
+  "railBreaks": 0,
+  "truncated": 0,
+  "spendUsd": 0,
+  "costLines": 0,
+  "triage": "jev",
+  "brain": "deepseek",
+  "triageMaxCalls": 4000,
+  "triageBudget": 0,
+  "cache": "/workspace/triage-live/po-2718",
+  "totalSpendUsd": 0.023162874000000153,
+  "triageSummary": {
+    "triaged": 701,
+    "scoreCalls": 701,
+    "scoreFallbacks": {},
+    "flaggedDecisions": 701,
+    "escalations": 0,
+    "budget": 50,
+    "skippedCooldown": 0,
+    "skippedBudget": 701,
+    "perKind": {
+      "tax": {
+        "triaged": 91,
+        "flagged": 91,
+        "escalated": 0
+      },
+      "desertion": {
+        "triaged": 2,
+        "flagged": 2,
+        "escalated": 0
+      },
+      "secession": {
+        "triaged": 3,
+        "flagged": 3,
+        "escalated": 0
+      },
+      "claim": {
+        "triaged": 589,
+        "flagged": 589,
+        "escalated": 0
+      },
+      "contract-break": {
+        "triaged": 16,
+        "flagged": 16,
+        "escalated": 0
+      }
+    },
+    "escalationsByKindRole": {},
+    "triagedByKindRole": {
+      "claim/holder": 19,
+      "claim/member": 491,
+      "claim/governor": 79,
+      "tax/holder": 75,
+      "contract-break/carrier": 16,
+      "secession/governor": 3,
+      "tax/acting-holder": 16,
+      "desertion/member": 2
+    },
+    "perTest": {
+      "port_holding": {
+        "flagged": 592,
+        "escalated": 0
+      },
+      "faction_number": {
+        "flagged": 91,
+        "escalated": 0
+      },
+      "allegiance_freedom": {
+        "flagged": 5,
+        "escalated": 0
+      },
+      "broken_promise": {
+        "flagged": 18,
+        "escalated": 0
+      }
+    },
+    "brainModel": 0,
+    "brainFallbacks": {
+      "timeout": 0,
+      "error": 0,
+      "illegal": 0,
+      "cap": 0
+    },
+    "brainAgrees": 0,
+    "brainOverrides": 0,
+    "brainOverridesByKind": {},
+    "brainDiffersShare": 0,
+    "brainRailBreaks": 0,
+    "defaultBreaks": 0,
+    "cooldownBreaks": 0,
+    "brainCalls": 0,
+    "brainSpendUsd": 0,
+    "brainCostLines": 0,
+    "triageSpendUsd": 0.023162874000000153,
+    "triageCostLines": 701,
+    "cacheHits": 388,
+    "cacheMisses": 0
+  }
+}

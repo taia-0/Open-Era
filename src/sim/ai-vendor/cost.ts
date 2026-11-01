@@ -44,7 +44,7 @@ export function jevCostUsd(tokensIn: number): number {
 
 export interface CostLine {
   tick: number;
-  role: "brain.taxStep" | "context.taxStep" | "picker.action" | "picker.social" | "brain.feedReason" | "check.feedReason";
+  role: "brain.taxStep" | "context.taxStep" | "picker.action" | "picker.social" | "brain.escalation" | "triage.score" | "brain.feedReason" | "check.feedReason";
   provider: "deepseek" | "jev";
   model: string;
   responseModel: string | null;

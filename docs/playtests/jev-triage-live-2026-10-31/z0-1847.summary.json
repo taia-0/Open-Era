@@ -1,0 +1,118 @@
+{
+  "mode": "jev",
+  "social": null,
+  "seed": 1847,
+  "ticks": 1200,
+  "maxCalls": 1000,
+  "capUsd": 0.05,
+  "actors": null,
+  "stateHash": "50a4fff3bede1d7888a7c2c25da8301e813e0e583d7ff6353fc418703f71f91d",
+  "events": 165782,
+  "consults": 672,
+  "calls": 672,
+  "offScorer": 167,
+  "fallbacks": 0,
+  "fallbackReasons": {
+    "timeout": 0,
+    "error": 0,
+    "illegal": 0,
+    "cap": 0
+  },
+  "railBreaks": 0,
+  "truncated": 0,
+  "spendUsd": 0,
+  "costLines": 0,
+  "triage": "jev",
+  "brain": "deepseek",
+  "triageMaxCalls": 4000,
+  "triageBudget": 0,
+  "cache": "/workspace/triage-live/po-1847",
+  "totalSpendUsd": 0.014876526000000006,
+  "triageSummary": {
+    "triaged": 470,
+    "scoreCalls": 470,
+    "scoreFallbacks": {},
+    "flaggedDecisions": 470,
+    "escalations": 0,
+    "budget": 50,
+    "skippedCooldown": 0,
+    "skippedBudget": 470,
+    "perKind": {
+      "tax": {
+        "triaged": 116,
+        "flagged": 116,
+        "escalated": 0
+      },
+      "desertion": {
+        "triaged": 6,
+        "flagged": 6,
+        "escalated": 0
+      },
+      "secession": {
+        "triaged": 5,
+        "flagged": 5,
+        "escalated": 0
+      },
+      "claim": {
+        "triaged": 281,
+        "flagged": 281,
+        "escalated": 0
+      },
+      "contract-break": {
+        "triaged": 62,
+        "flagged": 62,
+        "escalated": 0
+      }
+    },
+    "escalationsByKindRole": {},
+    "triagedByKindRole": {
+      "claim/holder": 11,
+      "claim/governor": 23,
+      "claim/member": 247,
+      "tax/holder": 74,
+      "contract-break/carrier": 62,
+      "secession/governor": 5,
+      "tax/acting-holder": 42,
+      "desertion/member": 6
+    },
+    "perTest": {
+      "port_holding": {
+        "flagged": 289,
+        "escalated": 0
+      },
+      "faction_number": {
+        "flagged": 116,
+        "escalated": 0
+      },
+      "allegiance_freedom": {
+        "flagged": 11,
+        "escalated": 0
+      },
+      "broken_promise": {
+        "flagged": 68,
+        "escalated": 0
+      }
+    },
+    "brainModel": 0,
+    "brainFallbacks": {
+      "timeout": 0,
+      "error": 0,
+      "illegal": 0,
+      "cap": 0
+    },
+    "brainAgrees": 0,
+    "brainOverrides": 0,
+    "brainOverridesByKind": {},
+    "brainDiffersShare": 0,
+    "brainRailBreaks": 0,
+    "defaultBreaks": 0,
+    "cooldownBreaks": 0,
+    "brainCalls": 0,
+    "brainSpendUsd": 0,
+    "brainCostLines": 0,
+    "triageSpendUsd": 0.014876526000000006,
+    "triageCostLines": 470,
+    "cacheHits": 672,
+    "cacheMisses": 0
+  }
+}

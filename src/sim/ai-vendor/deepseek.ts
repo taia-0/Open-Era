@@ -3,6 +3,7 @@ import { parseReason, parseTaxChoice, TAX_STEP_BRIEFED_WORDING, TAX_STEP_PROMPT_
 import { canonicalJson, CLAIM_STABILITY_FLOOR } from "../state.ts";
 import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, type CostLine } from "./cost.ts";
 import type { SyncTransport } from "./sync-http.ts";
+import { BRAIN_SYSTEM, BRAIN_TIMEOUT_MS, brainUserPrompt, parseBrainProceed, type EscalationAnswer, type EscalationBrain, type EscalationRequest } from "../ai-triage.ts";
 
 /** A5 brain: DeepSeek, non-thinking, JSON output (ai-providers.md sections 1 and 2). */
 export const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
@@ -168,6 +169,75 @@ export function deepSeekBrain(options: DeepSeekBrainOptions): TaxStepProvider {
       const legal = request.chosen ? parseReason(raw) !== null : parseTaxChoice(raw, request.options) !== null;
       options.ledger.record({ ...line, outcome: legal ? "model" : "fallback", fallbackReason: legal ? null : "illegal" });
       return { raw, latencyMs };
+    },
+  };
+}
+
+/** Slice 5 (jev-triage.md §4.3): the escalation request body. */
+export function deepSeekEscalationBody(request: EscalationRequest): string {
+  return JSON.stringify({
+    model: DEEPSEEK_MODEL,
+    messages: [{ role: "system", content: BRAIN_SYSTEM }, { role: "user", content: brainUserPrompt(request) }],
+    thinking: { type: "disabled" },
+    response_format: { type: "json_object" },
+    max_tokens: DEEPSEEK_MAX_TOKENS,
+    temperature: 0,
+    stream: false,
+  });
+}
+
+/** Slice 5 brain: one legal option id; spend cap checked before each call; one `brain.escalation` cost line per call. */
+export function deepSeekEscalationBrain(options: DeepSeekBrainOptions): EscalationBrain {
+  const key = (options.env ?? process.env).DEEPSEEK_API_KEY;
+  const now = options.now ?? (() => new Date());
+  const timeoutMs = options.timeoutMs ?? BRAIN_TIMEOUT_MS;
+  const base = (tick: number): Omit<CostLine, "runSpendUsd" | "outcome" | "fallbackReason" | "status" | "pricePeriod"> => ({
+    tick, role: "brain.escalation", provider: "deepseek", model: DEEPSEEK_MODEL, responseModel: null, systemFingerprint: null, finishReason: null,
+    tokensIn: 0, tokensInCacheHit: 0, tokensOut: 0, estimatedCostUsd: 0,
+    priceSource: DEEPSEEK_PRICES.source, priceCheckedOn: DEEPSEEK_PRICES.checkedOn,
+  });
+  return {
+    name: "deepseek",
+    model: DEEPSEEK_MODEL,
+    escalate(request: EscalationRequest): EscalationAnswer {
+      const started = now();
+      const period = deepSeekPricePeriod(started);
+      const unreached = (reason: "cap" | "error"): EscalationAnswer => {
+        options.ledger.record({ ...base(request.tick), pricePeriod: period, outcome: "fallback", fallbackReason: reason, status: null });
+        return { raw: null, latencyMs: 0, error: reason };
+      };
+      if (!key) return unreached("error");
+      const body = deepSeekEscalationBody(request);
+      if (options.ledger.wouldExceed(deepSeekWorstCaseUsd(body))) return unreached("cap");
+      const response = options.transport({ url: DEEPSEEK_URL, headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body, timeoutMs });
+      const latencyMs = Math.max(0, now().getTime() - started.getTime());
+      if (response.kind !== "response") {
+        const reason = response.kind === "timeout" ? "timeout" : "error";
+        options.ledger.record({ ...base(request.tick), pricePeriod: period, outcome: "fallback", fallbackReason: reason, status: null });
+        return { raw: null, latencyMs, error: reason };
+      }
+      let parsed: Record<string, any> | null = null;
+      try { const value = JSON.parse(response.body); parsed = value && typeof value === "object" ? value : null; } catch { parsed = null; }
+      const usage = parsed?.usage ?? {};
+      const hit = num(usage.prompt_cache_hit_tokens);
+      const miss = usage.prompt_cache_miss_tokens !== undefined ? num(usage.prompt_cache_miss_tokens) : Math.max(0, num(usage.prompt_tokens) - hit);
+      const out = num(usage.completion_tokens);
+      const finishReason = typeof parsed?.choices?.[0]?.finish_reason === "string" ? String(parsed.choices[0].finish_reason).slice(0, 40) : null;
+      const line = {
+        ...base(request.tick),
+        responseModel: typeof parsed?.model === "string" ? String(parsed.model).slice(0, 40) : null,
+        systemFingerprint: typeof parsed?.system_fingerprint === "string" ? String(parsed.system_fingerprint).slice(0, 80) : null,
+        finishReason, tokensIn: miss + hit, tokensInCacheHit: hit, tokensOut: out, estimatedCostUsd: deepSeekCostUsd(period, miss, hit, out),
+        pricePeriod: period, status: response.status,
+      };
+      if (response.status !== 200 || !parsed) {
+        options.ledger.record({ ...line, outcome: "fallback", fallbackReason: "error" });
+        return { raw: null, latencyMs, error: "error" };
+      }
+      const content = typeof parsed.choices?.[0]?.message?.content === "string" ? String(parsed.choices[0].message.content).slice(0, 400) : null;
+      const legal = finishReason !== "length" && parseBrainProceed(content) !== null;
+      options.ledger.record({ ...line, outcome: legal ? "model" : "fallback", fallbackReason: legal ? null : "illegal" });
+      return { raw: content, latencyMs, finishReason };
     },
   };
 }
