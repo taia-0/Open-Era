@@ -3,6 +3,7 @@ import { CostLedger, JEV_PRICES, jevCostUsd, type CostLine } from "./cost.ts";
 import type { SyncTransport } from "./sync-http.ts";
 import { PICKER_INSTRUCTIONS as PICKER_INSTRUCTIONS_TEXT, PICKER_TIMEOUT_MS as PICKER_TIMEOUT } from "../ai-action-picker.ts";
 import type { ActionPicker, PickerAnswer, PickerRequest } from "../ai-action-picker.ts";
+import type { SocialReadAnswer, SocialReader, SocialReadRequest } from "../ai-social.ts";
 
 /** A5 context reader: TypeSafe's Jev, choice questions only (ai-providers.md sections 1 and 2). */
 export const JEV_URL = "https://api.typesafe.ai/v1/systemone";
@@ -181,7 +182,7 @@ export function jevPickerRequestBody(request: PickerRequest): string {
     model: JEV_MODEL,
     state: request.state,
     questions: {
-      next_action: { type: "choice", instructions: PICKER_INSTRUCTIONS_TEXT, criteria: request.criteria },
+      next_action: { type: "choice", instructions: request.instructions ?? PICKER_INSTRUCTIONS_TEXT, criteria: request.criteria },
     },
   });
 }
@@ -228,6 +229,51 @@ export function jevActionPicker(options: JevReaderOptions): ActionPicker {
       }
       options.ledger.record({ ...line, outcome: "model", fallbackReason: null });
       return { probabilities, confidence: typeof answer.confidence === "number" ? answer.confidence : null, responseModel, latencyMs };
+    },
+  };
+}
+
+/** Slice 4 (jev-social-picker.md §4–§5): the social read, briefing-only state; reads yield to picks near the spend cap (§8). */
+export function jevSocialReader(options: JevReaderOptions & { pickReserveUsd?: number }): SocialReader {
+  const key = (options.env ?? process.env).JEV_API_KEY;
+  const now = options.now ?? (() => new Date());
+  const timeoutMs = options.timeoutMs ?? PICKER_TIMEOUT;
+  const base = (tick: number): Omit<CostLine, "runSpendUsd" | "outcome" | "fallbackReason" | "status"> => ({
+    tick, role: "picker.social", provider: "jev", model: JEV_MODEL, responseModel: null,
+    tokensIn: 0, tokensInCacheHit: 0, tokensOut: 0, pricePeriod: "flat", estimatedCostUsd: 0,
+    priceSource: JEV_PRICES.source, priceCheckedOn: JEV_PRICES.checkedOn,
+  });
+  return {
+    name: "jev",
+    model: JEV_MODEL,
+    read(request: SocialReadRequest): SocialReadAnswer {
+      const unreached = (reason: "cap" | "error"): SocialReadAnswer => {
+        options.ledger.record({ ...base(request.tick), outcome: "fallback", fallbackReason: reason, status: null });
+        return { answers: null, latencyMs: 0, error: reason };
+      };
+      if (!key) return unreached("error");
+      const body = JSON.stringify({ model: JEV_MODEL, state: request.state, questions: request.questions });
+      // Read worst case plus a pick's reserve: reads are skipped before picks.
+      if (options.ledger.wouldExceed(jevWorstCaseUsd(body) + (options.pickReserveUsd ?? jevCostUsd(4096)))) return unreached("cap");
+      const started = now();
+      const response = options.transport({ url: JEV_URL, headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body, timeoutMs });
+      const latencyMs = Math.max(0, now().getTime() - started.getTime());
+      if (response.kind !== "response") {
+        const reason = response.kind === "timeout" ? "timeout" : "error";
+        options.ledger.record({ ...base(request.tick), outcome: "fallback", fallbackReason: reason, status: null });
+        return { answers: null, latencyMs, error: reason };
+      }
+      let parsed: Record<string, any> | null = null;
+      try { const value = JSON.parse(response.body); parsed = value && typeof value === "object" ? value : null; } catch { parsed = null; }
+      const tokensIn = num(parsed?.usage?.input_tokens);
+      const responseModel = typeof parsed?.model === "string" ? String(parsed.model).slice(0, 40) : null;
+      const line = { ...base(request.tick), responseModel, tokensIn, tokensOut: num(parsed?.usage?.output_tokens), estimatedCostUsd: jevCostUsd(tokensIn), status: response.status };
+      if (response.status !== 200 || !parsed?.answers || typeof parsed.answers !== "object") {
+        options.ledger.record({ ...line, outcome: "fallback", fallbackReason: "error" });
+        return { answers: null, latencyMs, error: "error" };
+      }
+      options.ledger.record({ ...line, outcome: "model", fallbackReason: null });
+      return { answers: parsed.answers, latencyMs };
     },
   };
 }

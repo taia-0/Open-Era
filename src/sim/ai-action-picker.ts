@@ -89,7 +89,10 @@ export interface PickerEconomy {
   mateAllowancePerDay: number;
 }
 
-export function pickerState(world: WorldState, character: Character, economy?: PickerEconomy): { state: Record<string, unknown>; truncated: boolean } {
+export function pickerState(
+  world: WorldState, character: Character, economy?: PickerEconomy,
+  social?: { loyalty: unknown; grudges: unknown[] } | null, maxBytes: number = PICKER_STATE_MAX_BYTES,
+): { state: Record<string, unknown>; truncated: boolean } {
   const p = character.personality;
   const characterBlock = {
     id: character.id,
@@ -107,13 +110,14 @@ export function pickerState(world: WorldState, character: Character, economy?: P
     factionRate: faction ? r2(faction.taxRate) : null, factionTreasury: faction ? r2(faction.treasury) : null,
   };
   let truncated = validated?.truncated ?? false;
-  const state: Record<string, unknown> = { character: characterBlock, ...(economy ? { economy } : {}), briefing, situation };
+  // Slice 4 §6: `social` rides along when set (null when the read failed); cap 2,560 then.
+  const state: Record<string, unknown> = { character: characterBlock, ...(economy ? { economy } : {}), briefing, situation, ...(social !== undefined ? { social: social ? { loyalty: social.loyalty, grudges: [...social.grudges] } : null } : {}) };
   const size = () => Buffer.byteLength(canonicalJson(state), "utf8");
-  if (size() > PICKER_STATE_MAX_BYTES) { delete state.situation; truncated = true; }
+  if (size() > maxBytes) { delete state.situation; truncated = true; }
   const ports = (briefing as { knownPorts?: Array<{ ageTicks?: number }> } | null)?.knownPorts;
   if (briefing && Array.isArray(ports)) {
     const kept = [...ports];
-    while (size() > PICKER_STATE_MAX_BYTES && kept.length > 0) {
+    while (size() > maxBytes && kept.length > 0) {
       // Oldest = largest age; drop it.
       let oldest = 0;
       kept.forEach((port, index) => { if ((port.ageTicks ?? 0) > (kept[oldest].ageTicks ?? 0)) oldest = index; });
@@ -122,6 +126,9 @@ export function pickerState(world: WorldState, character: Character, economy?: P
       truncated = true;
     }
   }
+  // Slice 4 §6: then social grudges from the last; never social.loyalty.
+  const socialBlock = state.social as { grudges: unknown[] } | null | undefined;
+  while (socialBlock && size() > maxBytes && socialBlock.grudges.length > 0) { socialBlock.grudges.pop(); truncated = true; }
   return { state, truncated };
 }
 
@@ -136,6 +143,8 @@ export interface PickerRequest {
   scorerPick: string;
   /** The scorer's score per legal id (4 dp). For the blend prior; never sent to a vendor. */
   scores: Record<string, number>;
+  /** Slice 4: the social pick instructions (§4); absent for slice 3, which keeps PICKER_INSTRUCTIONS. */
+  instructions?: string;
 }
 
 export interface PickerAnswer {
@@ -184,6 +193,8 @@ export interface ActionPickerRecord {
   fallbackReason: PickerFallbackReason | null;
   truncated: boolean;
   latencyMs: number;
+  /** Slice 4 §9: sha256 of the social block in the pick state; absent in slice 3. */
+  socialInputHash?: string;
 }
 
 /** Section 5 step 3: keep legal keys with finite values in [0, 1]; renormalize in id order; null when nothing is left. */
