@@ -7,7 +7,8 @@ import { capsCheck, escalationCheck, flagOffCheck, loadRun, probeCheck, readoutC
  * written by `npm run action-picker` (events.jsonl, summary.json, cost.jsonl; the replay under <dir>/replay):
  *   npm run triage-gate -- --probe docs/playtests/jev-triage-set \
  *     --seed 1847:<triage run>:<picker-only run>:<never-flag run>:<always-flag run>[:<stub picker-only run>] ... --tests-log tests.log [--json out.json]
- * The triage run is the stub or live run under test, read against its picker-only run (checks 5–7).
+ * The triage run is the stub or live run under test, read against its picker-only run (checks 5–7); a live triage
+ * run uses `--cache <picker-only run>` so its picks are cached reads of that run (check 6).
  * Checks 3 and 4 always use the offline stubs; for a live run give the stub picker-only run as the 6th part.
  * Exits 1 when any check fails.
  */
@@ -20,10 +21,11 @@ const seeds = (values.seed ?? []).map((spec) => {
   return {
     seed: Number(seed),
     neverEqualsPickerOnly: { never: n.summary.stateHash.slice(0, 8), pickerOnly: sp.summary.stateHash.slice(0, 8), ok: n.summary.stateHash === sp.summary.stateHash },
-    alwaysFlag: (() => { const e = escalationCheck(a.events); return { ...e, ok: e.escalations === e.expected && e.cooldownBreaks === 0 && e.brainNotLegalOrFallback === 0 && e.railBreaks === 0 }; })(),
-    run: { mode: r.summary.mode, stateHash: r.summary.stateHash.slice(0, 8), escalation: escalationCheck(r.events), triageSummary: r.summary.triageSummary },
+    neverScoresEveryKind: { kinds: escalationCheck(n.triage).kinds, ok: escalationCheck(n.triage).triaged > 0 },
+    alwaysFlag: (() => { const e = escalationCheck(a.triage); return { ...e, ok: e.escalations === e.expected && e.cooldownBreaks === 0 && e.brainNotLegalOrFallback === 0 && e.railBreaks === 0 && e.defaultBreaks === 0 }; })(),
+    run: { mode: r.summary.mode, stateHash: r.summary.stateHash.slice(0, 8), escalation: escalationCheck(r.triage), triageSummary: r.summary.triageSummary },
     replay: { run: replayCheck(r), always: replayCheck(a) },
-    readout: readoutCheck(r.events, p.events),
+    readout: readoutCheck(r, p),
     caps: capsCheck(r),
   };
 });
@@ -34,10 +36,10 @@ const tests = testsCheck(values["tests-log"]);
 const checks: Record<string, boolean> = {
   "1_probe": !!probe?.pass,
   "2_flagOffPins": !!flagOff?.pass,
-  "3_neverFlagEqualsPickerOnly": seeds.every((s) => s.neverEqualsPickerOnly.ok),
+  "3_neverFlagEqualsPickerOnly": seeds.every((s) => s.neverEqualsPickerOnly.ok && s.neverScoresEveryKind.ok),
   "4_alwaysFlagEscalations": seeds.every((s) => s.alwaysFlag.ok),
   "5_replayExactZeroCalls": seeds.every((s) => s.replay.run.ok && s.replay.always.ok),
-  "6_divergenceWhenChanged": seeds.every((s) => s.readout.divergenceOk),
+  "6_picksUnchangedWithoutEscalation": seeds.every((s) => s.readout.picksUnchangedWithoutEscalation),
   "6_holderEntropyNotBelowPickerOnly": seeds.every((s) => s.readout.holderEntropy.notBelow),
   "7_caps": seeds.every((s) => s.caps.ok),
   "7_npmTest": tests.ok,

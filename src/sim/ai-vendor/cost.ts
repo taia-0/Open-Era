@@ -44,9 +44,7 @@ export function jevCostUsd(tokensIn: number): number {
 
 export interface CostLine {
   tick: number;
-  role: "brain.taxStep" | "context.taxStep" | "picker.action" | "picker.social" | "brain.escalation";
-  /** Slice 5: Noul questions riding on a `picker.action` call (jev-triage.md §4.6). */
-  triageQuestions?: number;
+  role: "brain.taxStep" | "context.taxStep" | "picker.action" | "picker.social" | "brain.escalation" | "triage.score";
   provider: "deepseek" | "jev";
   model: string;
   responseModel: string | null;
