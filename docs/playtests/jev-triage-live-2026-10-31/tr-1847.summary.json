@@ -1,0 +1,136 @@
+{
+  "mode": "jev",
+  "social": null,
+  "seed": 1847,
+  "ticks": 1200,
+  "maxCalls": 1000,
+  "capUsd": 0.05,
+  "actors": null,
+  "stateHash": "3a1ca401c2185cf789ddd0548fb071ca5c2c083eae1dad1a6f8ed9e8971455cf",
+  "events": 162099,
+  "consults": 675,
+  "calls": 675,
+  "offScorer": 171,
+  "fallbacks": 0,
+  "fallbackReasons": {
+    "timeout": 0,
+    "error": 0,
+    "illegal": 0,
+    "cap": 0
+  },
+  "railBreaks": 0,
+  "truncated": 0,
+  "spendUsd": 0.03094643999999988,
+  "costLines": 675,
+  "triage": "jev",
+  "brain": "deepseek",
+  "triageMaxCalls": 4000,
+  "cache": "/workspace/triage-live/po-1847",
+  "totalSpendUsd": 0.06269514199999984,
+  "triageSummary": {
+    "triaged": 604,
+    "scoreCalls": 604,
+    "scoreFallbacks": {},
+    "flaggedDecisions": 604,
+    "escalations": 50,
+    "budget": 50,
+    "skippedCooldown": 114,
+    "skippedBudget": 440,
+    "perKind": {
+      "tax": {
+        "triaged": 125,
+        "flagged": 125,
+        "escalated": 10
+      },
+      "desertion": {
+        "triaged": 2,
+        "flagged": 2,
+        "escalated": 0
+      },
+      "secession": {
+        "triaged": 5,
+        "flagged": 5,
+        "escalated": 0
+      },
+      "claim": {
+        "triaged": 380,
+        "flagged": 380,
+        "escalated": 38
+      },
+      "contract-break": {
+        "triaged": 92,
+        "flagged": 92,
+        "escalated": 2
+      }
+    },
+    "escalationsByKindRole": {
+      "claim/holder": 1,
+      "claim/governor": 8,
+      "claim/member": 29,
+      "tax/holder": 10,
+      "contract-break/carrier": 2
+    },
+    "triagedByKindRole": {
+      "claim/holder": 20,
+      "claim/governor": 71,
+      "claim/member": 289,
+      "tax/holder": 73,
+      "contract-break/carrier": 92,
+      "secession/governor": 5,
+      "desertion/member": 2,
+      "tax/acting-holder": 52
+    },
+    "perTest": {
+      "port_holding": {
+        "flagged": 386,
+        "escalated": 38
+      },
+      "faction_number": {
+        "flagged": 125,
+        "escalated": 10
+      },
+      "allegiance_freedom": {
+        "flagged": 7,
+        "escalated": 0
+      },
+      "broken_promise": {
+        "flagged": 94,
+        "escalated": 2
+      }
+    },
+    "brainModel": 46,
+    "brainFallbacks": {
+      "timeout": 0,
+      "error": 0,
+      "illegal": 4,
+      "cap": 0
+    },
+    "brainAgrees": 31,
+    "brainOverrides": 19,
+    "brainOverridesByKind": {
+      "claim: travel:cinder-key:- -> trade-local:-:arms": 1,
+      "claim: travel:crown-harbor:- -> rest:-:-": 1,
+      "claim: trade-local:-:arms -> rest:-:-": 1,
+      "claim: trade-local:-:arms -> work:-:-": 1,
+      "tax: hold -> up": 3,
+      "claim: travel:crown-harbor:- -> trade-local:-:medicine": 1,
+      "claim: buy-provisions:-:provisions -> work:-:-": 1,
+      "claim: trade-local:-:provisions -> rest:-:-": 1,
+      "claim: trade-local:-:provisions -> work:-:-": 4,
+      "tax: down -> up": 2,
+      "contract-break: break -> keep": 2,
+      "tax: down -> hold": 1
+    },
+    "brainDiffersShare": 0.38,
+    "brainRailBreaks": 0,
+    "defaultBreaks": 0,
+    "cooldownBreaks": 0,
+    "brainCalls": 50,
+    "brainSpendUsd": 0.012327524,
+    "brainCostLines": 50,
+    "triageSpendUsd": 0.019421177999999956,
+    "triageCostLines": 604,
+    "cacheHits": 0,
+    "cacheMisses": 675
+  }
+}
