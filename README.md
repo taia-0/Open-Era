@@ -69,6 +69,14 @@ Run the command again without `--reset` to recover the stored world and continue
 npm run simulate -- --ticks 24
 ```
 
+### Replay an AI pilot run offline
+
+```bash
+npm run ai-pilot -- --replay simulation-output/ai-judgment-v3/live-1847-a-240 --max-calls 10
+```
+
+`--replay <dir>` reads that run's `summary.json` and `trace.json` and runs it again without any network: the brain gets its recorded answers and the Jev reader its recorded briefings and answers, each looked up by request hash. It takes the seed and ticks from the summary, and the call cap too when the summary has `maxCalls`. Older summaries don't have it, so pass `--max-calls` yourself. It writes `<dir>/replay/replay.json` and exits 0 only when the final hash, the per-decision request hashes and the choices all match and no answer is missing. A run recorded under an older brain prompt is matched on its recorded `promptVersion`. The prompt is never sent in a replay, so `promptVersionMismatches` counts these cases instead of failing them. `--replay` refuses `--ai-vendor`.
+
 ## Use the interactive dashboard
 
 ```bash

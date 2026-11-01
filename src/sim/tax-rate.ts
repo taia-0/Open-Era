@@ -158,7 +158,7 @@ export function taxRateCommandRefusal(
  * A day of it is `ticksPerDay * 3`, which is 18, and the short-treasury test
  * is that day in whole cents: `mates * 1800`.
  */
-const PASSAGE_PER_TICK = 3;
+export const PASSAGE_PER_TICK = 3;
 
 export interface AutonomousTaxStep {
   holderId: string;

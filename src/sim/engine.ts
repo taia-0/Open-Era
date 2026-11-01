@@ -26,10 +26,11 @@ import {
 } from "./agency.ts";
 import { assessSupplyContract, contractRelationship, contractTravelTicks, openSupplyContract } from "./contracts.ts";
 import { agingDeathData, diesOfOldAge } from "./aging.ts";
-import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
-import { autonomousTaxStep, raiseShockData, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
+import { fullAllowance, resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
+import { autonomousTaxStep, PASSAGE_PER_TICK, raiseShockData, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
+import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
-import { CONTEXT_PROMPT_VERSION, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3455,6 +3456,11 @@ export interface TickAiOptions {
    * before a brain call; it shares the brain's per-run cap.
    */
   context?: ContextReader;
+  /**
+   * A5: the run's cost ledger, shared by the vendor providers. The engine
+   * only reports the lines each tick added, as `TickResult.aiCost`.
+   */
+  ledger?: CostLedger;
 }
 
 /** Slice A3: only Free Tide's tax step is put to the provider. */
@@ -3600,6 +3606,17 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
   if (context) {
     request.briefing = context.briefing;
     request.promptVersion = TAX_STEP_PROMPT_VERSION_BRIEFED;
+    // Judgment v3: what the scorer ignores. Read-only; set only with a context reader.
+    const personality = world.characters[step.holderId]?.personality;
+    const r2 = (value: number) => Math.round(value * 100) / 100;
+    if (personality) {
+      request.persona = {
+        ambition: r2(personality.ambition), aggression: r2(personality.aggression), caution: r2(personality.caution),
+        commerce: r2(personality.commerce), loyalty: r2(personality.loyalty),
+      };
+    }
+    const dayCents = Math.round(fullAllowance(world, PASSAGE_PER_TICK) * 100);
+    request.payDaysCovered = step.freeMates > 0 && dayCents > 0 ? Math.floor(step.treasuryCents / (step.freeMates * dayCents)) : null;
   }
   let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
   if (!capped) {
@@ -3614,7 +3631,9 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
   const fallbackReason: TaxStepFallbackReason | null = capped ? "cap" : answer.error
     ?? (answer.latencyMs > TAX_STEP_TIMEOUT_MS ? "timeout" : null);
   const raw = fallbackReason ? null : answer.raw;
-  const parsedChoice = fallbackReason ? null : parseTaxChoice(raw, step.options);
+  // Judgment v3 hard rail, with a context reader only: a railed answer is illegal and the scorer applies.
+  const legal = context ? railedOptions(step.options, step.pressed, step.short) : step.options;
+  const parsedChoice = fallbackReason ? null : parseTaxChoice(raw, legal);
   const reason = fallbackReason ?? (parsedChoice ? null : "illegal");
   return {
     role: "brain.taxStep" as const,
@@ -3631,6 +3650,10 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     fallbackReason: reason,
     latencyMs: answer.latencyMs,
     context,
+    ...(context ? {
+      railBlocked: !fallbackReason && parsedChoice === null && parseTaxChoice(raw, step.options) !== null,
+      reasonCheck: checkTaxStepReason(raw),
+    } : {}),
   };
 }
 
@@ -3673,6 +3696,7 @@ function readTaxStepContext(world: WorldState, factionId: string, holderId: stri
     droppedIds: validated ? validated.droppedIds : 0,
     truncated: chosen.truncated,
     latencyMs: answer.latencyMs,
+    ...(validated && !reason && answer.answers ? { answers: answer.answers } : {}),
   };
 }
 
@@ -3907,6 +3931,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   const aiTrace: TaxStepTraceEntry[] | undefined = options.ai?.brainTaxStep ? [] : undefined;
+  const costBefore = options.ai?.ledger?.lines.length ?? 0;
   chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
   declareAutonomousSecessions(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
@@ -4030,7 +4055,9 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     type: "tick-advanced",
     data: { nextTick: world.tick + 1, rngState: rng.state },
   });
-  return aiTrace ? { state: world, events, aiTrace } : { state: world, events };
+  if (!aiTrace) return { state: world, events };
+  const ledger = options.ai?.ledger;
+  return ledger ? { state: world, events, aiTrace, aiCost: ledger.lines.slice(costBefore) } : { state: world, events, aiTrace };
 }
 
 export function runTicks(world: WorldState, count: number, options: TickOptions = {}): { state: WorldState; events: SimEvent[]; aiTrace?: TaxStepTraceEntry[] } {
