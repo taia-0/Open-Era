@@ -38,6 +38,7 @@ import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "
 import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSION, finishBrain, sanitizeNoul, TRIAGE_BUDGET, TRIAGE_COOLDOWN_TICKS, TRIAGE_DEFAULT_SCORE_CAP, TRIAGE_KIND_BUDGETS, TRIAGE_PROMPT_VERSION, TRIAGE_QUESTIONS, TRIAGE_THRESHOLD, TriageReplay, triageStep, type EscalationAnswer, type EscalationBrain, type EscalationRequest, type TriageEntry, type TriageKind, type TriageRecord, type TriageScoreAnswer, type TriageScorer, type TriageSituation, type TriageState } from "./ai-triage.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { foodBaseline } from "./occupation.ts";
+import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge, type WgNudge, type WgRole } from "./ai-wg-picker.ts";
 import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
@@ -3543,6 +3544,15 @@ export interface TickAiOptions {
   /** Section 7: call cap, default 1,000. */
   pickerCap?: number;
   /**
+   * wg-jev-picker.md: which factions the action picker consults. Unset = ["free-tide"], today's path exactly.
+   * "world-government" adds WG's governors and an autonomous command holder (nudge-only, own cap).
+   */
+  pickerFactions?: string[];
+  /** wg-jev-picker.md ruling 1: WG consult call cap per run, default 1,853. */
+  wgPickerCap?: number;
+  /** Run memory: WG picker calls made so far. */
+  wgPickerCalls?: number;
+  /**
    * Slice 4 (jev-social-picker.md): the social reader. When set, the picker
    * consults every Free Tide member at decision time (pickerActors is ignored)
    * and feeds each member's read into the pick state. Default call cap 8,000.
@@ -3909,7 +3919,21 @@ function consultWeighted(
  * nothing is recorded or counted. Otherwise the chosen row is the same object
  * from `candidates`, so `resolveDecision` and the emit run unchanged.
  */
+/** wg-jev-picker.md ruling 2: WG's command holder (only while autonomous: dormant while it is the player) or a governor. */
+export function wgPickerRole(world: WorldState, character: Character): WgRole | null {
+  if (character.factionId !== WG_FACTION_ID || character.controller.kind !== "autonomous") return null;
+  if (commandHolderId(world, WG_FACTION_ID) === character.id) return "holder";
+  if (Object.values(world.settlements).some((s) => governorId(world, s.id) === character.id)) return "governor";
+  return null;
+}
+
 function consultActionPicker(world: WorldState, character: Character, candidates: DecisionCandidate[], ai: TickAiOptions): { row: DecisionCandidate; record: ActionPickerRecord; read?: SocialReadRecord } | null {
+  const factions = ai.pickerFactions ?? PICKER_FACTIONS_DEFAULT;
+  if (factions.includes(WG_FACTION_ID) && character.factionId === WG_FACTION_ID) {
+    const role = wgPickerRole(world, character);
+    return role ? consultWgPicker(world, character, candidates, ai, role) : null;
+  }
+  if (!factions.includes("free-tide")) return null;
   if (ai.social) {
     // Slice 4 §1: Free Tide members at the moment of the decision.
     if (character.factionId !== SOCIAL_FACTION_ID) return null;
@@ -3973,6 +3997,62 @@ function consultActionPicker(world: WorldState, character: Character, candidates
   }
   const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, true, ai.pickerBlend === undefined ? PICKER_BLEND : ai.pickerBlend);
   return { row: byId.get(record.sampled) ?? candidates[0], record: { ...record, ...socialExtra }, read: social?.record };
+}
+
+/**
+ * wg-jev-picker.md: the WG consult. Same eligibility and request as slice 3 (no social block); the record's
+ * `sampled` is the nudge's result, never Jev's own draw. Replay recomputes the nudge from the recorded answer.
+ */
+function consultWgPicker(world: WorldState, character: Character, candidates: DecisionCandidate[], ai: TickAiOptions, role: WgRole): { row: DecisionCandidate; record: ActionPickerRecord } | null {
+  const legal = legalIds(candidates);
+  if (!legal || legal.length < 2) return null;
+  const legalRows = candidates.filter((row) => row.score > -1000);
+  if (legalRows.some((row) => ESCALATION_ACTIONS.has(row.action))) return null;
+  const byId = new Map(legalRows.map((row) => [optionId(row), row]));
+  const scorerPick = optionId(candidates[0]);
+  const gross = workGross(character);
+  const workTax = character.locationId ? tradeTax(world, character.locationId, gross).tax : 0;
+  const r2 = (value: number) => Math.round(value * 100) / 100;
+  const passagePerDay = PASSAGE_COST_PER_TICK * world.ticksPerDay;
+  const economy = {
+    purse: r2(character.money), workGross: r2(gross), workTax: r2(workTax), workNet: r2(gross - workTax),
+    passagePerDay: r2(passagePerDay), purseDaysOfPassage: passagePerDay > 0 ? Math.floor(character.money / passagePerDay) : 0,
+    mateAllowancePerDay: r2(fullAllowance(world, PASSAGE_PER_TICK)),
+  };
+  const { state, truncated } = pickerState(world, character, economy);
+  const criteria = Object.fromEntries(legal.map((id) => [id, criterionFor(world, byId.get(id)!, economy.workNet)]));
+  const scores = Object.fromEntries(legal.map((id) => [id, Math.round(byId.get(id)!.score * 1e4) / 1e4]));
+  const request: PickerRequest = { tick: world.tick, actorId: character.id, legal, criteria, state, promptVersion: PICKER_PROMPT_VERSION, scorerPick, scores };
+  const inputHash = sha256(canonicalJson(request));
+  const draw = pickDraw(world.seed, character.id, world.tick);
+  const picker = ai.picker!;
+  let answer: PickerAnswer;
+  let provider = picker.name;
+  let model = picker.model;
+  let live = true;
+  let was: (ActionPickerRecord & { wg?: WgNudge }) | null = null;
+  if (picker instanceof ActionPickerReplay) {
+    was = picker.recorded(world.tick, character.id) as ActionPickerRecord & { wg?: WgNudge };
+    if (was.inputHash !== inputHash) throw new Error(`wg picker replay: inputHash mismatch for ${character.id} at tick ${world.tick}`);
+    provider = was.provider; model = was.model; live = false;
+    answer = was.fallbackReason && was.fallbackReason !== "illegal"
+      ? { probabilities: null, latencyMs: was.latencyMs, error: was.fallbackReason }
+      : { probabilities: was.probabilities, confidence: was.confidence, responseModel: was.responseModel, latencyMs: was.latencyMs, exact: was.exact === true };
+  } else if ((ai.wgPickerCalls ?? 0) >= (ai.wgPickerCap ?? WG_PICKER_DEFAULT_CAP)) {
+    answer = { probabilities: null, latencyMs: 0, error: "cap" };
+  } else {
+    ai.wgPickerCalls = (ai.wgPickerCalls ?? 0) + 1;
+    try { answer = picker.choose(request); } catch { answer = { probabilities: null, latencyMs: 0, error: "error" }; }
+  }
+  // Jev's own distribution (no scorer blend): the nudge does the blending.
+  const base = finishPick(request, answer, provider, model, inputHash, draw, truncated, live, null);
+  const nudge = was?.wg ? wgNudge(base, role, world.seed, character.id, world.tick, was.wg.prior, was.wg.weight) : wgNudge(base, role, world.seed, character.id, world.tick);
+  const sampled = nudge.kept ? scorerPick : nudge.alternative!;
+  const record = { ...base, sampled, wg: nudge } as ActionPickerRecord;
+  if (was && (record.sampled !== was.sampled || record.fallbackReason !== was.fallbackReason)) {
+    throw new Error(`wg picker replay: sampled ${record.sampled} != recorded ${was.sampled} for ${character.id} at tick ${world.tick}`);
+  }
+  return { row: byId.get(sampled) ?? candidates[0], record };
 }
 
 /** The actor's role at a triaged decision (reported per escalation). */

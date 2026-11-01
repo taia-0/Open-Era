@@ -30,6 +30,12 @@ echo "Running the 13-seed occupation sweep"
 node --experimental-strip-types scripts/occupation-sweep.ts --json "${evaluation_output}/occupation-sweep.json" 2>&1 | tee "${evaluation_output}/occupation-sweep.log"
 grep -q "OCCUPATION ACCEPTANCE PASSED" "${evaluation_output}/occupation-sweep.log"
 
+# wg-jev-picker.md acceptance 1–3: flag-off pins, default byte-identical, replay exact with 0 calls, 13-seed stub
+# run (secessions on ≥ 6 seeds, liveness, no new wipeouts) and the dormant holder path. Offline; no vendor call.
+echo "Running the WG picker acceptance"
+node --experimental-strip-types scripts/wg-picker-sweep.ts --json "${evaluation_output}/wg-picker-sweep.json" 2>&1 | tee "${evaluation_output}/wg-picker-sweep.log"
+grep -q "WG PICKER ACCEPTANCE PASSED" "${evaluation_output}/wg-picker-sweep.log"
+
 # Slice B feed reasons (feed-reasons.md section 10): stub brain on, 1,200 ticks,
 # stateHash equal to the default pins (EXILE_RECOVERY on); then an offline replay with zero writer
 # calls and byte-identical feed text.

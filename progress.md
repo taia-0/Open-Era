@@ -155,6 +155,61 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-01 — World Government Jev picker v1 behind `ai.pickerFactions` (wg-jev-picker.md, default off) (Cursor)
+
+- **Base:** origin/main eb37a63 (#175), on branch feature/wg-jev-picker.
+- **Flag and modules:**
+  - The run option is `ai.pickerFactions`, set on the CLI with `--picker-factions free-tide,world-government`.
+  - Unset means `["free-tide"]`, which is today's path byte for byte.
+  - The new code is in `src/sim/ai-wg-picker.ts`, with `consultWgPicker` and `wgPickerRole` in engine.ts.
+- **Scope (ruling 2):**
+  - WG governors are consulted, plus the command holder only while it is autonomous.
+  - The holder Mara Vane (`character-01`) is human, so the holder path is dormant. It is wired and tested: a fixture moves the seat to an NPC, the NPC is consulted as `holder`, and the run replays exactly.
+  - Eligibility is unchanged: at least 2 legal rows, and no legal raid or claim.
+  - Raids and claims stay with slice 5 triage.
+- **Nudge (ruling 3):**
+  - p is Jev's probability of the sim's own pick, from the railed distribution with no scorer blend.
+  - q = 0.7 · 0.95 + 0.3 · p.
+  - u comes from `pickerDraw("ai-pick-wg", …)`. The sim's pick is kept when u < q; otherwise Jev's top other legal id is taken.
+  - A fallback keeps the sim's pick.
+  - `data.ai.picker.wg` records role, p, reason, prior, weight, blend, u, alternative and kept, and replay checks them.
+- **Caps (ruling 1):**
+  - The WG call cap is `wgPickerCap`, default 1,853 per run. It has its own counter, separate from Free Tide's.
+  - With WG and no Free Tide, `--cap-usd` defaults to $0.11.
+- **Acceptance:** `scripts/wg-picker-sweep.ts`, run in evaluate-milestone. PASSED.
+  1. **Pins:** flag off gives 72 ticks 7f76e474 / 976c40bd / 08943ea5 and 1,200 ticks 94de9c02 / 7a3741c9 / af6eeaea. Unset equals `["free-tide"]` (1c099792 = 1c099792 with stubArgmax, 300 ticks).
+  2. **Replay:** exact (b8c2f459), 0 provider calls, 517/517 records used.
+  3. **13-seed stubUniform WG run:**
+     - secessions on 9/13 seeds (off: 12/13);
+     - claims 682 → 570 and port changes 713 → 604, with every seed > 0;
+     - no wipeouts in either run;
+     - 0 holder consults and 0 non-WG consults;
+     - 15,443 consults, 4,281 overrides.
+  4. **Live:** see below.
+- **Live run** (Jev, Micah's standing approval; WG only; 1,200 ticks; caps 1,853 calls and $0.11 per run; every call has a cost line):
+
+  | Seed | Calls | Spend | Cost lines | Overrides | Mean p | Replay |
+  |---|---|---|---|---|---|---|
+  | 1847 | 862 | $0.0421 | 862 | 205 | 0.285 | hash match, 0 calls |
+  | 2718 | 1,133 | $0.0548 | 1,133 | 295 | 0.225 | hash match, 0 calls |
+  | 4096 | 1,290 | $0.0633 | 1,290 | 343 | 0.236 | hash match, 0 calls |
+
+  - Total spend was $0.1602, with 0 fallbacks and 0 rail breaks. A key scan of all outputs and artifacts came back clean.
+  - Artifacts are in `docs/playtests/wg-jev-picker-live-2026-11-01/`: the summaries, replay results, cost lines and gzipped picker records.
+- **Governor entropy** (mean `entropyBits` over the governors consulted in the live run, whole run):
+
+  | Seed | Off | stubArgmax | stubUniform | Jev |
+  |---|---|---|---|---|
+  | 1847 | 1.983 | 1.932 | 1.970 | **1.838** |
+  | 2718 | 1.951 | 2.006 | 2.097 | **2.049** |
+  | 4096 | 2.040 | 1.904 | 2.249 | **2.215** |
+
+  - The "picker-only noise range" is taken as the span from off to stubArgmax: the nudge with a picker that always agrees.
+  - Jev falls outside that range on all three seeds, but not in one direction: below it on 1847 and above it on 2718 and 4096.
+  - That is n = 1 per seed, so it is not enough to justify adding members yet.
+- **Tests:** npm test (keys unset) 650/650 passed, including the new `tests/wg-picker.test.ts`. evaluate-milestone printed EXILE, OCCUPATION and WG PICKER ACCEPTANCE PASSED, and the recovery check passed.
+- **Tuning:** none, and no retry.
+
 ### 2026-11-01 — Occupation rebuilt to the §10 re-spec (behind OCCUPATION, default off) (Cursor)
 
 - **Base:** origin/main 555597a (#173) was merged into feature/occupation without force; the only conflict was in progress.md, and both sides were kept. The patch covers measurement only (H terms and acceptance). Drift (0.10·H), the regrowth stop, defection, integration and the subsistence floor are unchanged.
