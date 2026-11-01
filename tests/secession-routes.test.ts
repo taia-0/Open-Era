@@ -95,7 +95,9 @@ test("last-port exemption: a route never takes the faction's only port; tax stil
 });
 
 test("1,200-tick runs: every autonomous declaration records its routes; once per spell; never the holder; route-only never a last port", () => {
-  for (const seed of [1847, 2718, 4096]) {
+  // Port balance (home starts): seed 2718 has no secession at all in 1,200 ticks now, so seed 2000
+  // (a hated, a promise and a tax declaration) takes its place; 1847 and 4096 still declare by route.
+  for (const seed of [1847, 2000, 4096]) {
     const world = createPrototypeWorld(seed);
     const seen = new Set<string>();
     let nonTax = 0;
@@ -120,30 +122,35 @@ test("1,200-tick runs: every autonomous declaration records its routes; once per
   }
 });
 
-test("pins: 72-tick fixture unchanged; 1,200-tick pins re-recorded (5641b4c4 / a6ff3924 / b19aa02e)", () => {
-  const short: Record<number, string> = { 1847: "6efa334f", 2718: "e8f9cfab", 4096: "8ac8529b" };
+test("pins: 72-tick fixture and 1,200-tick pins (re-pinned for home starts) (b51aa07a / 091f7628 / 25bdbf15)", () => {
+  const short: Record<number, string> = { 1847: "66e8ccb7", 2718: "b4ccedab", 4096: "b04c5ac4" };
   for (const [seed, hash] of Object.entries(short)) assert.equal(stateHash(run(Number(seed), 72).world).slice(0, 8), hash);
   const long = run(2718, 1200);
-  assert.equal(stateHash(long.world).slice(0, 8), "a6ff3924");
-  assert.equal(long.events.length, 156996);
-  assert.ok(long.events.some((e) => e.type === "secession-declared" && (e.data.routes as string[]).includes("hated")));
+  assert.equal(stateHash(long.world).slice(0, 8), "091f7628");
+  assert.equal(long.events.length, 157208);
+  // Port balance: 2718 has no secession now; seed 2000's t262 declaration is the hated-route one.
+  assert.equal(long.events.some((e) => e.type === "secession-declared"), false);
+  const hated = run(2000, 263);
+  assert.ok(hated.events.some((e) => e.type === "secession-declared" && e.tick === 262 && (e.data.routes as string[]).includes("hated")));
 });
 
 test("WorldStore.recover across route declarations matches the continuous run (events replay through applyEvent)", () => {
   const directory = mkdtempSync(join(tmpdir(), "open-era-routes-"));
   try {
-    const continuous = run(4096, 260);
+    // Port balance: 4096's first route declaration moved to t346; seed 2000 declares by the hated route at t262.
+    const continuous = run(2000, 300);
     assert.ok(continuous.events.some((e) => e.type === "secession-declared" && !(e.data.routes as string[]).includes("tax")));
     const store = new WorldStore(join(directory, "world.sqlite"));
-    const world = createPrototypeWorld(4096);
+    const world = createPrototypeWorld(2000);
     store.initialize(world);
-    // 4096 declares by route at t185 and t189; 191 sits between snapshots, so recovery replays those ticks' events.
-    while (world.tick < 191) store.appendTick(runTick(world, {}).events, world);
+    // 2000 declares by the hated route at t262; 263 sits between the day snapshots at 258 and 264,
+    // so recovery replays that tick's events.
+    while (world.tick < 263) store.appendTick(runTick(world, {}).events, world);
     const recovered = store.recover();
     assert.ok(recovered.replayedEvents > 0);
     assert.equal(stateHash(recovered.state), stateHash(world));
     const resumed = recovered.state;
-    while (resumed.tick < 260) store.appendTick(runTick(resumed, {}).events, resumed);
+    while (resumed.tick < 300) store.appendTick(runTick(resumed, {}).events, resumed);
     assert.equal(stateHash(resumed), stateHash(continuous.world));
     store.close();
   } finally {

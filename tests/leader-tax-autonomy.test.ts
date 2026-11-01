@@ -243,6 +243,10 @@ test("a player set on the clock tick lands first and the autonomous step waits",
 test("factions step in id order, and a headless run includes the human holder", () => {
   const world = createPrototypeWorld(1847);
   runTicks(world, 24);
+  // Port balance: Pax is at sea at tick 24 now, where no stability news reaches him; dock him back
+  // at Crown Harbor (where he started) so both holders read the pressed ports.
+  world.characters["character-14"].locationId = "crown-harbor";
+  world.characters["character-14"].travel = null;
   assert.equal(world.characters["character-01"].controller.kind, "human");
   press(world, "free-tide", 40);
   press(world, "world-government", 40);
@@ -283,7 +287,8 @@ test("seed 1847 lets Mara choose at tick 72 in a headless run and not in a live 
   const set = headless.events.find((event) => event.type === "tax-rate-set" && event.targetId === "world-government");
   assert.ok(set);
   assert.equal(set.tick, 72);
-  assert.equal(set.sequence, 8505);
+  // Port balance: Free Tide's own t72 set (sequence 8248) comes first now; Mara's is 8249 (was 8505).
+  assert.equal(set.sequence, 8249);
   assert.equal(set.actorId, "character-01");
   assert.equal(set.data.taxRate, 0.13);
   assert.equal(set.data.previousTaxRate, 0.14);
@@ -358,11 +363,12 @@ test("recovery replays an autonomous set", () => {
     for (let index = 0; index < 200 && !set; index += 1) {
       const tick = runTick(world);
       store.appendTick(tick.events, world);
-      set = tick.events.find((event) => event.type === "tax-rate-set");
+      // Port balance: Free Tide also sets at t72 now (sequence 8248, 0.08 to 0.07); replay Mara's.
+      set = tick.events.find((event) => event.type === "tax-rate-set" && event.targetId === "world-government");
     }
     assert.ok(set);
     assert.equal(set.tick, 72);
-    assert.equal(set.sequence, 8505);
+    assert.equal(set.sequence, 8249);
     assert.equal(set.targetId, "world-government");
     assert.equal(set.actorId, "character-01");
     assert.equal(set.data.taxRate, 0.13);
@@ -371,14 +377,16 @@ test("recovery replays an autonomous set", () => {
     assert.equal(Object.hasOwn(set.data, "commandId"), false);
     assert.equal(world.tick, 73);
     assert.equal(world.factions["world-government"].taxRate, 0.13);
-    assert.equal(world.factions["free-tide"].taxRate, 0.08);
+    assert.equal(world.factions["free-tide"].taxRate, 0.07);
     const liveHash = stateHash(world);
     const recovered = store.recover();
     assert.ok(recovered.replayedEvents > 0);
     assert.equal(stateHash(recovered.state), liveHash);
     assert.equal(recovered.state.factions["world-government"].taxRate, world.factions["world-government"].taxRate);
     assert.equal(recovered.state.factions["world-government"].taxRateSetTick, set.tick);
-    assert.equal(Object.hasOwn(recovered.state.factions["free-tide"], "taxRateSetTick"), false);
+    // Port balance: Free Tide's t72 set replays too (was: Free Tide had no set tick).
+    assert.equal(recovered.state.factions["free-tide"].taxRate, 0.07);
+    assert.equal(recovered.state.factions["free-tide"].taxRateSetTick, 72);
   } finally {
     store.close();
     rmSync(directory, { recursive: true, force: true });

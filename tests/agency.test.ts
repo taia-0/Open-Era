@@ -9,6 +9,7 @@ import { runTick, runTicks } from "../src/sim/engine.ts";
 import { DeterministicRng } from "../src/sim/rng.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { applyEvent, clamp, round, stateHash } from "../src/sim/state.ts";
+import { placeAtOldStarts } from "./helpers/old-starts.ts";
 import type { Relationship, SimEvent, WorldState } from "../src/sim/types.ts";
 
 test("characters begin with rooted goals, beliefs, relationships, and faction orders", () => {
@@ -645,6 +646,8 @@ function pinCarrier(world: WorldState): void {
 
 test("Zara accepts price 18 and refuses price 8 at the opening factors, and scoring does not advance the rng", () => {
   const world = createPrototypeWorld(1847);
+  // Home starts put Zara at Cinder Key; dock her at her old start, Crown Harbor.
+  pinCarrier(world);
   const mara = world.characters["character-01"];
   const zara = world.characters["character-17"];
   assert.equal(zara.name, "Zara Gale");
@@ -664,22 +667,22 @@ test("Zara accepts price 18 and refuses price 8 at the opening factors, and scor
 
   assert.equal(accept.accepted, true);
   assert.equal(accept.gate, null);
-  assert.equal(accept.score, 0.671);
+  assert.equal(accept.score, 0.577);
   assert.equal(accept.threshold, 0.561);
   assert.equal(accept.costBasis, 14.7);
   assert.equal(accept.travelTicks, 0);
   assert.deepEqual(accept.factors, {
     commerce: 0.268,
     margin: 0.224,
-    trust: 0.093,
-    respect: 0.111,
-    grievance: -0.022,
-    obligation: 0.017,
+    trust: 0.049,
+    respect: 0.056,
+    grievance: -0,
+    obligation: 0,
     perceivedRisk: -0.02,
   });
   assert.equal(refuse.accepted, false);
   assert.equal(refuse.gate, "score");
-  assert.equal(refuse.score, 0.197);
+  assert.equal(refuse.score, 0.103);
   assert.equal(refuse.factors.margin, -0.25);
   assert.equal(refuse.threshold, 0.561);
   assert.equal(world.rngState, rng);
@@ -689,6 +692,8 @@ test("Zara accepts price 18 and refuses price 8 at the opening factors, and scor
 
 test("a carrier already at sea refuses under the travel gate and the escrow returns once", () => {
   const world = createPrototypeWorld(1847);
+  // Home starts put Corin at Cinder Key; dock him at his old start, Glassport.
+  placeAtOldStarts(world, ["character-16"]);
   const mara = world.characters["character-01"];
   const corin = world.characters["character-16"];
   assert.equal(corin.name, "Corin Hale");
@@ -828,6 +833,8 @@ test("scoring a contract always has a positive cost basis", () => {
 
 test("a docked voyage that misses the deadline keeps the computed score on the refusal", () => {
   const world = createPrototypeWorld(1847);
+  // Home starts put Corin at Cinder Key; dock him at his old start, Glassport.
+  placeAtOldStarts(world, ["character-16"]);
   const corin = world.characters["character-16"];
   assert.equal(corin.locationId, "glassport");
   assert.equal(corin.travel, null);
@@ -863,6 +870,7 @@ test("a docked voyage that misses the deadline keeps the computed score on the r
 
 test("fulfilling a delivery of 10 adds 10 provisions to Crown Harbor, pays the carrier from escrow, and is not a market-trade", () => {
   const world = createPrototypeWorld(1847);
+  pinCarrier(world); // Zara's old start; home starts put her at Cinder Key.
   const mara = world.characters["character-01"];
   const zara = world.characters["character-17"];
   const submission = offerDelivery(world, 18);

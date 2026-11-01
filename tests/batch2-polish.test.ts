@@ -14,17 +14,20 @@ function live(seed: number, ticks: number): { world: ReturnType<typeof createPro
 }
 
 test("a contract offer names the carrier and the cargo, and only the parties see the price", () => {
-  const { world, events } = live(1847, 137);
-  const offer = events.find((event) => event.sequence === 16039);
+  // Port balance (home starts): Bram's offer to Iris (seq 16039) is gone; Iris Stone's
+  // tick-129 offer to Toma Reef is the matching WG-to-WG Crown Harbor offer.
+  const { world, events } = live(1847, 130);
+  const offer = events.find((event) => event.sequence === 14782);
   assert.ok(offer);
-  const line = "Bram Quill offered Iris Stone a contract to carry 10 provisions to Crown Harbor.";
+  assert.equal(offer.type, "contract-offered");
+  const line = "Iris Stone offered Toma Reef a contract to carry 10 provisions to Crown Harbor.";
   for (const reader of ["character-01", "character-14"]) {
     const [row] = projectEventFeed(world, reader, [offer], events);
     assert.equal(row?.payloadWithheld, true);
     assert.equal(row?.summary, line);
     assert.equal(String(row?.summary).includes("56.25"), false);
   }
-  for (const reader of ["character-02", "character-06"]) {
+  for (const reader of ["character-06", "character-07"]) {
     const [row] = projectEventFeed(world, reader, [offer], events);
     assert.equal(row?.payloadWithheld, false);
     assert.equal(row?.summary, `${line} The price is 56.25.`);
@@ -50,5 +53,5 @@ test("seed 1847 says why Mara's morale falls when her hold runs dry, and only to
 test("the contract haul moves the 72-tick pin on 2718 and 4096 only", () => {
   // Re-pinned for the contract haul: 1847 has no haul by tick 72; 2718 and 4096 do.
   const hashes = [1847, 2718, 4096].map((seed) => stateHash(runTicks(createPrototypeWorld(seed), 72).state).slice(0, 8));
-  assert.deepEqual(hashes, ["6efa334f", "e8f9cfab", "8ac8529b"]);
+  assert.deepEqual(hashes, ["66e8ccb7", "b4ccedab", "b04c5ac4"]);
 });

@@ -817,7 +817,7 @@ test("an outscore win captures the senior losing officer on the dock at the draw
   assert.equal(capture.actorId, senior.id);
   assert.equal(capture.data.cause, "outscore-loss");
   assert.equal(capture.data.captureChance, 0.55);
-  assert.equal(capture.data.captureRoll, 0.5239);
+  assert.equal(capture.data.captureRoll, 0.3883);
   assert.equal(capture.data.health, seniorHealth);
   assert.equal(capture.data.morale, seniorMorale);
   const hold = capture.data.captivity as { captorFactionId: string; cause: string; scatteredTroops: { count: number } };
@@ -1135,8 +1135,10 @@ test("an immediate battle is still the higher score when morale is 0", () => {
 });
 
 test("buy-provisions stays scored at -1000 when the shelf is under 1", () => {
+  // Port balance: Bram is the opening Glassport governor now, and his tick-1 candidate list in this
+  // setup no longer includes buy-provisions; Niko Wren (a plain WG member) is the buyer.
   const closed = createPrototypeWorld(1847);
-  const buyer = closed.characters["character-02"];
+  const buyer = closed.characters["character-03"];
   assert.notEqual(buyer.id, closed.players["prototype-player"].characterId);
   assert.equal(buyer.controller.kind, "autonomous");
   buyer.locationId = "glassport";
@@ -1157,7 +1159,7 @@ test("buy-provisions stays scored at -1000 when the shelf is under 1", () => {
   assert.equal(closedBuy.score, -1000);
 
   const open = createPrototypeWorld(1847);
-  const openBuyer = open.characters["character-02"];
+  const openBuyer = open.characters["character-03"];
   openBuyer.locationId = "glassport";
   openBuyer.travel = null;
   openBuyer.money = 5;

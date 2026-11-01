@@ -255,7 +255,7 @@ test("the daily reset recomputes the share", () => {
   const recruited = recruitedTick.events.find((event) => event.type === "recruited" && event.actorId === bram.id);
   assert.ok(recruited);
   assert.equal(recruited.data.treasuryDrawn, 18);
-  assert.equal(recruited.data.purseDrawn, 6);
+  assert.equal(recruited.data.purseDrawn, 30);
   assert.equal(recruited.data.factionTreasury, round(treasuryBefore - 36 - 18, 2));
 });
 
@@ -345,7 +345,7 @@ test("a mixed escrow refunds each part to its source and does not restore the al
   assert.ok(offered);
   assert.equal(offered.data.treasuryDrawn, 18);
   assert.equal(offered.data.purseDrawn, 2);
-  assert.equal(world.characters[bram.id].money, 3);
+  assert.equal(world.characters[bram.id].money, 21);
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
   const contract = Object.values(world.contracts ?? {})[0];
   assert.equal(contract.escrowFromTreasury, 18);
@@ -357,9 +357,9 @@ test("a mixed escrow refunds each part to its source and does not restore the al
   assert.ok(cancelled);
   assert.equal(cancelled.data.treasuryRefunded, 18);
   assert.equal(cancelled.data.purseRefunded, 2);
-  assert.equal(cancelled.data.buyerMoney, 5);
+  assert.equal(cancelled.data.buyerMoney, 23);
   assert.equal(cancelled.data.factionTreasury, round(treasuryBeforeCancel + 18, 2));
-  assert.equal(world.characters[bram.id].money, 5);
+  assert.equal(world.characters[bram.id].money, 23);
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
   assert.equal("allowanceRemaining" in cancelled.data, false);
 });
@@ -374,7 +374,7 @@ test("a purse-paid escrow refunds to the purse", () => {
   const contract = Object.values(world.contracts ?? {})[0];
   assert.equal(contract.escrowFromTreasury, 0);
   assert.equal(contract.escrowFromPurse, 20);
-  assert.equal(world.characters[bram.id].money, 10);
+  assert.equal(world.characters[bram.id].money, 28);
   assert.equal(world.characters[bram.id].allowanceRemaining, undefined);
   assert.equal(cancel(world, contract.id).ok, true);
   const cancelledTick = runTick(world);
@@ -382,8 +382,8 @@ test("a purse-paid escrow refunds to the purse", () => {
   assert.ok(cancelled);
   assert.equal(cancelled.data.treasuryRefunded, 0);
   assert.equal(cancelled.data.purseRefunded, 20);
-  assert.equal(cancelled.data.buyerMoney, 30);
+  assert.equal(cancelled.data.buyerMoney, 48);
   assert.equal("factionTreasury" in cancelled.data, false);
-  assert.equal(world.characters[bram.id].money, 30);
+  assert.equal(world.characters[bram.id].money, 48);
   assert.equal(world.characters[bram.id].allowanceRemaining, undefined);
 });

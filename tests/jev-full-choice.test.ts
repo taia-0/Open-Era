@@ -104,9 +104,10 @@ test("stubs and fallbacks record no answers field; flag off and the stub runner 
     brainTaxStep: stubAgree(), context: jevContextReader({ transport: () => ({ kind: "timeout" }), ledger, env: ENV }), ledger,
   } });
   assert.ok(timeouts.aiTrace!.every((entry) => entry.ai.context!.fallbackReason === "timeout" && !("answers" in entry.ai.context!)));
-  // Re-pinned for the raise shock: the 240-tick flag-off hash (was a30b4361); the stub still equals flag off.
-  assert.equal(stateHash(stub.state), "7c9ed679c62291ae9eb269f573f46e4d7ef3d064848494e311be4969932b84e7");
+  // Re-pinned for port balance (home starts + Cinder Key fortification 1.5): the 240-tick flag-off hash
+  // (was 7c9ed679; a30b4361 before the raise shock); the stub still equals flag off.
+  assert.equal(stateHash(stub.state), "78cab498efe1756eafc6dc11c5359cc1b51e82b958f3a900e65a9fb13edaed6c");
   assert.equal(stateHash(runTicks(createPrototypeWorld(1847), 240).state), stateHash(stub.state));
-  assert.equal(stateHash(runTicks(createPrototypeWorld(1847), 72).state), "6efa334f66ef885392a88d7112e41984df1793b00ee5c57635946d5121bab9c3");
+  assert.equal(stateHash(runTicks(createPrototypeWorld(1847), 72).state), "66e8ccb73bb53b2355a1fbb020433ad9a400b0e6570aaf103f0017cbf8c9314c");
   assert.equal(fetchAttempts(), 0);
 });

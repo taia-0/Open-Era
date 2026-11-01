@@ -86,7 +86,7 @@ test("a faction ransom pays the treasury the whole amount and the leader nothing
   };
   assert.equal(release.type, "captivity-released");
   assert.equal(terms.moneyPaid, 58.13);
-  assert.equal(terms.debtValue, 315.38);
+  assert.equal(terms.debtValue, 202.57);
   assert.equal(ransom.treasuryShare, 58.13);
   assert.equal(ransom.leaderShare, 0);
   assert.equal(round(ransom.treasuryShare + ransom.leaderShare, 2), 58.13);
@@ -102,7 +102,7 @@ test("a faction ransom pays the treasury the whole amount and the leader nothing
   assert.equal(ransomIncomeNote(world, "character-01", [release]), null);
   assert.equal(
     captivityReleasedSentence(world, release),
-    "Sable Morrow was released from Crown Harbor. 58.13 was paid and 315.38 was recorded as debt. Loyalty fell. 58.13 went to the World Government treasury. The ransom line covers only the ransom.",
+    "Sable Morrow was released from Crown Harbor. 58.13 was paid and 202.57 was recorded as debt. Loyalty fell. 58.13 went to the World Government treasury. The ransom line covers only the ransom.",
   );
 });
 
@@ -123,7 +123,7 @@ test("a ransom of one cent pays the treasury and nothing to the leader", () => {
   assert.equal(ransomIncomeNote(world, "character-01", [release]), null);
   assert.equal(
     captivityReleasedSentence(world, release),
-    "Sable Morrow was released from Crown Harbor. 0.01 was paid and 373.5 was recorded as debt. Loyalty fell. 0.01 went to the World Government treasury. The ransom line covers only the ransom.",
+    "Sable Morrow was released from Crown Harbor. 0.01 was paid and 260.69 was recorded as debt. Loyalty fell. 0.01 went to the World Government treasury. The ransom line covers only the ransom.",
   );
 });
 
@@ -134,7 +134,7 @@ test("a ransom of zero pays nothing and leaves both balances", () => {
   const release = releaseOf(runTick(world).events, "character-04");
   const ransom = release.data.ransom as { treasuryShare: number; leaderShare: number };
   assert.equal((release.data.terms as { moneyPaid: number; debtValue: number }).moneyPaid, 0);
-  assert.equal((release.data.terms as { debtValue: number }).debtValue, 373.51);
+  assert.equal((release.data.terms as { debtValue: number }).debtValue, 260.7);
   assert.equal(ransom.treasuryShare, 0);
   assert.equal(ransom.leaderShare, 0);
   applyEvent(snapshot, release);
@@ -143,7 +143,7 @@ test("a ransom of zero pays nothing and leaves both balances", () => {
   assert.equal(snapshot.characters["character-04"].money, 0);
   assert.equal(
     captivityReleasedSentence(world, release),
-    "Sable Morrow was released from Crown Harbor. 0 was paid and 373.51 was recorded as debt. Loyalty fell. 0 went to the World Government treasury. The ransom line covers only the ransom.",
+    "Sable Morrow was released from Crown Harbor. 0 was paid and 260.7 was recorded as debt. Loyalty fell. 0 went to the World Government treasury. The ransom line covers only the ransom.",
   );
   assert.equal(ransomIncomeNote(world, "character-01", [release]), null);
 });
@@ -177,7 +177,7 @@ test("a captor with no faction pays the whole ransom to the party leader", () =>
     leaderMoney: number;
   };
   assert.equal(terms.moneyPaid, 40.01);
-  assert.equal(terms.debtValue, 333.5);
+  assert.equal(terms.debtValue, 220.69);
   assert.equal(ransom.treasuryFactionId, null);
   assert.equal(ransom.treasuryShare, 0);
   assert.equal(ransom.leaderShare, 40.01);
@@ -190,7 +190,7 @@ test("a captor with no faction pays the whole ransom to the party leader", () =>
   assert.equal(snapshot.factions["free-tide"].treasury, treasuryBefore["free-tide"]);
   assert.equal(
     captivityReleasedSentence(world, release),
-    "Sable Morrow was released from Verdant Cay. 40.01 was paid and 333.5 was recorded as debt. Loyalty fell. Sable Morrow paid 40.01 ransom: 40.01 to Niko Crow. The ransom line covers only the ransom.",
+    "Sable Morrow was released from Verdant Cay. 40.01 was paid and 220.69 was recorded as debt. Loyalty fell. Sable Morrow paid 40.01 ransom: 40.01 to Niko Crow. The ransom line covers only the ransom.",
   );
   assert.equal(
     ransomIncomeNote(world, "character-23", [release]),
@@ -226,7 +226,9 @@ test("the prisoner is not the party leader of their own ransom", () => {
   );
 });
 
-test("a constructed Glassport release pays Dax Pike's 62.69 entirely to the World Government", () => {
+// Home starts make Dax Pike the opening Cinder Key governor, so the release tick
+// pays his 18 seat stipend before the ransom: the whole 80.69 purse is paid.
+test("a constructed Glassport release pays Dax Pike's whole purse (62.69 plus the 18 stipend, 80.69) to the World Government", () => {
   const world = createPrototypeWorld(1847);
   dueForRelease(world, "character-20", "world-government", 62.69, "glassport");
   const maraBefore = world.characters["character-01"].money;
@@ -244,27 +246,27 @@ test("a constructed Glassport release pays Dax Pike's 62.69 entirely to the Worl
     factionTreasury: number;
     leaderMoney?: number;
   };
-  assert.equal(terms.moneyPaid, 62.69);
-  assert.equal(terms.debtValue, 310.62);
-  assert.equal(ransom.treasuryShare, 62.69);
+  assert.equal(terms.moneyPaid, 80.69);
+  assert.equal(terms.debtValue, 179.87);
+  assert.equal(ransom.treasuryShare, 80.69);
   assert.equal(ransom.leaderShare, 0);
   assert.equal(ransom.leaderId, undefined);
   assert.equal(ransom.leaderMoney, undefined);
-  assert.equal(ransom.factionTreasury, 18026.69);
-  assert.equal(round(treasuryBefore - 36 + 62.69, 2), 18026.69);
+  assert.equal(ransom.factionTreasury, 18044.69);
+  assert.equal(round(treasuryBefore - 36 + 80.69, 2), 18044.69);
   applyEvent(snapshot, release);
   assert.equal(snapshot.characters["character-01"].money, maraBefore);
-  assert.equal(snapshot.factions["world-government"].treasury, 18026.69);
+  assert.equal(snapshot.factions["world-government"].treasury, 18044.69);
   assert.equal(snapshot.characters["character-20"].money, 0);
   assert.equal(world.characters["character-01"].money, maraBefore);
   // Allowance draws in this tick move the treasury after the ransom credit.
   // The release event holds the credit. The end-of-tick balance does not.
   assert.equal(ransomIncomeNote(world, "character-01", [release]), null);
-  const line = "Dax Pike was released from Glassport. 62.69 was paid and 310.62 was recorded as debt. Loyalty fell. 62.69 went to the World Government treasury. The ransom line covers only the ransom.";
+  const line = "Dax Pike was released from Glassport. 80.69 was paid and 179.87 was recorded as debt. Loyalty fell. 80.69 went to the World Government treasury. The ransom line covers only the ransom.";
   assert.equal(captivityReleasedSentence(world, release), line);
   assert.equal(
     captivityReleasedChronicle(world, release),
-    "**Dax Pike** was released from **Glassport** under mandatory terms. 62.69 was paid and 310.62 was recorded as debt. Loyalty fell. 62.69 went to the **World Government** treasury. The ransom line covers only the ransom.",
+    "**Dax Pike** was released from **Glassport** under mandatory terms. 80.69 was paid and 179.87 was recorded as debt. Loyalty fell. 80.69 went to the **World Government** treasury. The ransom line covers only the ransom.",
   );
   const [maraRow] = projectEventFeed(world, "character-01", [release]);
   const [daxRow] = projectEventFeed(world, "character-20", [release]);
@@ -272,7 +274,7 @@ test("a constructed Glassport release pays Dax Pike's 62.69 entirely to the Worl
   assert.equal(maraRow?.payloadWithheld, true);
   assert.equal(
     daxRow?.summary,
-    "Dax Pike was released from Glassport. 62.69 was paid and 310.62 was recorded as debt. Loyalty fell. 62.69 went to the World Government treasury. The balance is not visible to you. The ransom line covers only the ransom.",
+    "Dax Pike was released from Glassport. 80.69 was paid and 179.87 was recorded as debt. Loyalty fell. 80.69 went to the World Government treasury. The balance is not visible to you. The ransom line covers only the ransom.",
   );
   assert.equal(daxRow?.payloadWithheld, false);
   assert.equal((daxRow?.data as { ransom: { factionTreasury?: number } }).ransom.factionTreasury, undefined);
@@ -280,9 +282,18 @@ test("a constructed Glassport release pays Dax Pike's 62.69 entirely to the Worl
 });
 
 test("a ransom release recovers from the snapshot before it", () => {
-  const live = runTicks(createPrototypeWorld(1847), 119);
-  const release = live.events.find((event) => event.sequence === 13680);
+  // Home starts: the first seed-1847 ransom release is Esme Dusk's from Glassport
+  // at tick 94 (sequence 10728), paid to the World Government (was Sable Morrow's
+  // at tick 119, sequence 13680, paid to Free Tide).
+  const live = runTicks(createPrototypeWorld(1847), 95);
+  const release = live.events.find((event) => event.sequence === 10728);
   assert.ok(release);
+  assert.equal(release.type, "captivity-released");
+  assert.equal(release.tick, 94);
+  assert.equal(release.actorId, "character-19");
+  const paid = release.data.ransom as { treasuryShare: number; treasuryFactionId: string };
+  assert.equal(paid.treasuryFactionId, "world-government");
+  assert.ok(paid.treasuryShare > 0);
   const directory = mkdtempSync(join(tmpdir(), "open-era-ransom-recovery-"));
   const databasePath = join(directory, "world.sqlite");
   const store = new WorldStore(databasePath);
@@ -292,10 +303,10 @@ test("a ransom release recovers from the snapshot before it", () => {
     let splitSequence: number | null = null;
     let splitJson: string | null = null;
     let splitHash: string | null = null;
-    for (let index = 0; index < 119; index += 1) {
+    for (let index = 0; index < 95; index += 1) {
       const result = runTick(world);
       store.appendTick(result.events, world);
-      if (world.tick === 118 && splitSequence === null) {
+      if (world.tick === 94 && splitSequence === null) {
         splitSequence = result.events.at(-1)!.sequence;
         splitJson = JSON.stringify(world);
         splitHash = stateHash(world);
@@ -304,16 +315,16 @@ test("a ransom release recovers from the snapshot before it", () => {
     assert.ok(splitSequence !== null && splitJson !== null && splitHash !== null);
     store.database.prepare(
       "INSERT OR REPLACE INTO snapshots(sequence, tick, state_json, state_hash) VALUES (?, ?, ?, ?)",
-    ).run(splitSequence, 118, splitJson, splitHash);
-    store.database.prepare("DELETE FROM snapshots WHERE tick > ?").run(118);
+    ).run(splitSequence, 94, splitJson, splitHash);
+    store.database.prepare("DELETE FROM snapshots WHERE tick > ?").run(94);
     const recovered = store.recover();
     assert.ok(recovered.replayedEvents > 0);
-    assert.equal(recovered.state.tick, 119);
+    assert.equal(recovered.state.tick, 95);
     assert.equal(stateHash(recovered.state), stateHash(live.state));
-    assert.equal(recovered.state.factions["free-tide"].treasury, live.state.factions["free-tide"].treasury);
-    assert.equal(recovered.state.characters["character-14"].money, live.state.characters["character-14"].money);
-    assert.equal(recovered.state.characters["character-04"].money, live.state.characters["character-04"].money);
-    assert.equal(recovered.state.characters["character-04"].debts.length, live.state.characters["character-04"].debts.length);
+    assert.equal(recovered.state.factions["world-government"].treasury, live.state.factions["world-government"].treasury);
+    assert.equal(recovered.state.characters["character-01"].money, live.state.characters["character-01"].money);
+    assert.equal(recovered.state.characters["character-19"].money, live.state.characters["character-19"].money);
+    assert.equal(recovered.state.characters["character-19"].debts.length, live.state.characters["character-19"].debts.length);
   } finally {
     store.close();
     rmSync(directory, { recursive: true, force: true });

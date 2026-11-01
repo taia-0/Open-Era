@@ -19,19 +19,20 @@ import type { SimEvent } from "../src/sim/types.ts";
  * The flag-off pins are the breakaway-polish baseline at 1200 ticks.
  */
 const FLAG_OFF_1200: Record<number, { hash: string; events: number }> = {
-  // Re-pinned for secession routes (secession-routes.md §5.5): was f80c529f/165833, 2b5060c0/157639, e8ae4443/162123.
+  // Re-pinned for home starts + Cinder Key fortification 1.5 (portless-diagnosis.md): was 5641b4c4/162167, a6ff3924/156996, b19aa02e/163536.
+  // Before that, for secession routes: f80c529f/165833, 2b5060c0/157639, e8ae4443/162123.
   // Before that, for the raise shock (low-tax-cost.md): c4d99822/163679, 738181c0/159177, cbd66565/161386.
-  1847: { hash: "5641b4c45aaf9f5097be2def442de81d727ae86a60199acde1011f431f2e5e54", events: 162167 },
-  2718: { hash: "a6ff3924ddc9d90a9e2839b9a14eda38935a51223b422db055e0b6511dc4ab9d", events: 156996 },
-  4096: { hash: "b19aa02e7e4b7603d2bce282ab67cf58d6413239d1abfff28f47d20340547cdc", events: 163536 },
+  1847: { hash: "b51aa07a45d336bf4ffa88b4db808541bd9c10e25e426d7fcf88706155e0631e", events: 156382 },
+  2718: { hash: "091f7628943c9ae6a1f7e943770a02dac8558af313d743a0632c560a27a8d975", events: 157208 },
+  4096: { hash: "25bdbf1533889947024e2f0f01e66065b84f8ea0f0d43db3ca465ca93db44cc4", events: 160697 },
 };
 /**
  * Calls the built gate makes on the agree stub over 1200 ticks. The brief's
  * harness counted 45 / 45 / 42 on an older tree that had no landless freeze;
  * this tree freezes a faction with no port, and a one-option set is not sent.
  */
-// Secession routes (secession-routes.md): 21 / 25 / 22; was 30 / 22 / 19 (raise shock).
-const CLOCK_POINTS_1200: Record<number, number> = { 1847: 21, 2718: 25, 4096: 22 };
+// Home starts + Cinder Key fortification 1.5 (port balance): 24 / 30 / 27; was 21 / 25 / 22 (secession routes), 30 / 22 / 19 (raise shock).
+const CLOCK_POINTS_1200: Record<number, number> = { 1847: 24, 2718: 30, 4096: 27 };
 const SEEDS = [1847, 2718, 4096];
 
 function run(seed: number, ticks: number, options: TickOptions = {}) {

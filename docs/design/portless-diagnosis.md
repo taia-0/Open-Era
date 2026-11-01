@@ -71,7 +71,7 @@ Reading:
 ## 4. Proposed fix (Lead's call; not built)
 
 1. **Claim rule (recommended first): a claimed port keeps the claimant's grip.**
-   - Either no surrender offer within 120 ticks of the port's last claim (measured as "grace": claims about halved, ping-pong mostly gone, same 72-tick fixture, which has no claim before t48);
+   - Either no surrender offer within 120 ticks of the port's last claim (measured as "grace": claims about halved, ping-pong mostly gone, the first claim lands at t48, inside the 72-tick fixture, so grace or any other claim-rule change moves the 72-tick fixture as well as the 1,200-tick pins);
    - or, unmeasured, the claimant leaves part of their party as the new garrison, so a claimed port does not start at 3–15.
 
    Expected effect: far fewer zero-port spells after the first exchange. World Government is never portless on 2718 with grace, and its first zero moves to t225–t914. It moves the 1,200-tick pins. It reads only an event tick, but needs one new stored field (the port's last-claim tick), so `applyEvent` must copy it.

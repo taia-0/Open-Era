@@ -240,8 +240,10 @@ test("server validation rejects commands outside player authority without mutati
 });
 
 test("a delivered standing order immediately enters autonomous plan review", () => {
+  // Port balance: Sable Morrow (docked at Glassport) now deviates from a Glassport protect order on
+  // tick 1; Niko Wren, docked at Crown Harbor, follows it, as Sable did from the old starts.
   const world = createPrototypeWorld(1847);
-  const recipient = world.characters["character-04"];
+  const recipient = world.characters["character-03"];
   const submission = submitCommand(world, {
     playerId: "prototype-player",
     type: "issue-order",
@@ -254,7 +256,7 @@ test("a delivered standing order immediately enters autonomous plan review", () 
   assert.equal(submission.ok, true);
 
   const result = runTick(world);
-  const seededId = "character-01:order:character-04";
+  const seededId = "character-01:order:character-03";
   const amended = result.events.find((event) => event.type === "standing-order-amended" && event.targetId === recipient.id);
   const review = result.events.find((event) => event.type === "plan-reconsidered" && event.actorId === recipient.id);
   assert.ok(amended);

@@ -41,8 +41,9 @@ function clearSeat(world: WorldState, settlementId: string): void {
 test("opening seats match the offices table and stay off the world", () => {
   const world = createPrototypeWorld(1847);
   assert.equal(world.characters[governorId(world, "crown-harbor")!].name, "Jun Marrow");
-  assert.equal(world.characters[governorId(world, "cinder-key")!].name, "Esme Dusk");
-  assert.equal(world.characters[governorId(world, "glassport")!].name, "Lio Crow");
+  // Port balance (home starts), matching offices.test.ts: was Esme Dusk / Lio Crow.
+  assert.equal(world.characters[governorId(world, "cinder-key")!].name, "Dax Pike");
+  assert.equal(world.characters[governorId(world, "glassport")!].name, "Bram Quill");
   assert.equal(governorId(world, "verdant-cay"), null);
   for (const settlement of Object.values(world.settlements)) {
     assert.equal(Object.hasOwn(settlement, "governorId"), false);

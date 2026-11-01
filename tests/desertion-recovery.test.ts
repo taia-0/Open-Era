@@ -12,8 +12,10 @@ import { stateHash } from "../src/sim/state.ts";
  * Seed 1847's Free Tide mates go short on the morning of tick 108 and stay
  * short. Tick 139 is the morning their streak is 6, before the roll at 12.
  */
-const SPLIT_AT = 139;
-const RESUME_TO = 180;
+// Port balance: seed 1847 has no short-morning streak at tick 139 now; the first long Free Tide
+// streak runs from t313, so the split sits mid-streak (streak 4) at 333. Was 139 / 180.
+const SPLIT_AT = 333;
+const RESUME_TO = 380;
 
 test("a restart in the middle of a short streak matches a continuous run", () => {
   const directory = mkdtempSync(join(tmpdir(), "open-era-desertion-recovery-"));

@@ -18,9 +18,13 @@ function idNamed(world: WorldState, name: string): string {
 
 test("opening seats name the cover sort, and the first morning pays 18 a seat", () => {
   const expected: Record<number, [string, string, string]> = {
-    1847: ["Jun Marrow", "Esme Dusk", "Lio Crow"],
-    2718: ["Ada Sorn", "Esme Dusk", "Vale Drake"],
-    4096: ["Orin Rill", "Esme Dusk", "Lio Crow"],
+    // Home starts (all Free Tide captains dock at Cinder Key; WG split between
+    // Crown Harbor and Glassport) change the cover sort's pool. Was
+    // 1847 Jun Marrow / Esme Dusk / Lio Crow, 2718 Ada Sorn / Esme Dusk / Vale Drake,
+    // 4096 Orin Rill / Esme Dusk / Lio Crow.
+    1847: ["Jun Marrow", "Dax Pike", "Bram Quill"],
+    2718: ["Ada Sorn", "Zara Gale", "Iris Stone"],
+    4096: ["Rook Tern", "Corin Hale", "Iris Stone"],
   };
   for (const [seedText, names] of Object.entries(expected)) {
     const world = createPrototypeWorld(Number(seedText));

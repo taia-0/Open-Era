@@ -104,8 +104,8 @@ test("event page count and total are the projected rows, and sequence gaps are t
     assert.equal(state.eventPage.hasMore, false);
     assert.equal(state.eventPage.count, state.events.length);
     assert.equal(state.eventPage.total, state.events.length);
-    assert.equal(state.eventPage.count, 184);
-    assert.equal(health.events, 186);
+    assert.equal(state.eventPage.count, 188);
+    assert.equal(health.events, 190);
     assert.equal(state.events.some((event) => event.type === "player-action-executed" || event.type === "player-command-resolved"), false);
     const sequences = new Set(state.events.map((event) => event.sequence));
     assert.equal(sequences.has(10), false);
@@ -153,8 +153,8 @@ test("Breakwater's line says the treasury starts empty, and the breakdown is the
   );
   assert.equal(line?.data?.faction?.treasury, 0);
   const breakwater = view.factions.find((faction) => faction.name === "Breakwater");
-  assert.equal(breakwater?.treasury, 4.37);
-  assert.equal(breakwater?.treasuryLine, "Tax income 4.37, spending 0, over the last 180 ticks.");
+  assert.equal(breakwater?.treasury, 2.16);
+  assert.equal(breakwater?.treasuryLine, "Tax income 2.16, spending 0, over the last 180 ticks.");
   const rival = view.factions.find((faction) => faction.id === "free-tide");
   assert.equal(rival?.treasuryLine, null);
 });

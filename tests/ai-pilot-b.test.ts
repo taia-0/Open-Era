@@ -23,12 +23,12 @@ const golden = JSON.parse(readFileSync(resolve(here, "fixtures/golden-hashes.jso
 };
 const FLAG_OFF_1200: Record<number, string> = {
   // Re-pinned for the raise shock (low-tax-cost.md): was c4d99822, 738181c0, cbd66565.
-  1847: "5641b4c45aaf9f5097be2def442de81d727ae86a60199acde1011f431f2e5e54",
-  2718: "a6ff3924ddc9d90a9e2839b9a14eda38935a51223b422db055e0b6511dc4ab9d",
-  4096: "b19aa02e7e4b7603d2bce282ab67cf58d6413239d1abfff28f47d20340547cdc",
+  1847: "b51aa07a45d336bf4ffa88b4db808541bd9c10e25e426d7fcf88706155e0631e",
+  2718: "091f7628943c9ae6a1f7e943770a02dac8558af313d743a0632c560a27a8d975",
+  4096: "25bdbf1533889947024e2f0f01e66065b84f8ea0f0d43db3ca465ca93db44cc4",
 };
-// Secession routes (secession-routes.md): 21 / 25 / 22; was 30 / 22 / 19.
-const CALLS_1200: Record<number, number> = { 1847: 21, 2718: 25, 4096: 22 };
+// Home starts + Cinder Key fortification 1.5 (port balance): 24 / 30 / 27; was 21 / 25 / 22 (secession routes), 30 / 22 / 19 before that.
+const CALLS_1200: Record<number, number> = { 1847: 24, 2718: 30, 4096: 27 };
 const SEEDS = [1847, 2718, 4096];
 const READERS: Record<string, () => ContextReader> = {
   echo: stubContextEcho,
@@ -174,7 +174,7 @@ test("7. replay never calls: recovery reaches the live hash with both counts unc
   }
 });
 
-test("8. calls: the reader is called exactly as often as the brain, 21 / 25 / 22 at 1200 ticks (secession routes; was 30 / 22 / 19)", () => {
+test("8. calls: the reader is called exactly as often as the brain, 24 / 30 / 27 at 1200 ticks (port balance; was 21 / 25 / 22)", () => {
   for (const seed of SEEDS) {
     let reads = 0;
     let decides = 0;

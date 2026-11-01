@@ -7,34 +7,41 @@ import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";
 import type { SimEvent } from "../src/sim/types.ts";
 
-function live168() {
+// Port balance (home starts): the seed-1847 tick 144-168 contract stories (Iris carrying for Bram
+// to Crown Harbor) no longer happen. The same shapes now run between the same two captains to
+// Glassport: Iris offers Bram three identical contracts on the tick 360-384 page, and Bram's offers
+// to Iris on the tick 288-312 page read differently to Mara.
+function livePage(from: number, to: number) {
   const world = createPrototypeWorld(1847);
   const events: SimEvent[] = [];
-  while (world.tick < 168) events.push(...runTick(world, { liveSession: true }).events);
-  return { world, page: events.filter((event) => event.tick >= 144) };
+  while (world.tick < to) events.push(...runTick(world, { liveSession: true }).events);
+  return { world, page: events.filter((event) => event.tick >= from) };
 }
 
 type Row = { sequence: number; summary: string; payloadWithheld: boolean; foldedSequences?: number[]; count?: number; data: unknown };
 
-test("Iris Stone's page folds her three identical landed offers to Bram Quill into one line", () => {
-  const { world, page } = live168();
+test("Iris Stone's page folds her three identical offers to Bram Quill into one line", () => {
+  const { world, page } = livePage(360, 384);
   const before = stateHash(world);
   const rows = projectEventFeed(world, "character-06", page) as Row[];
-  const folded = rows.find((row) => row.sequence === 18624);
-  assert.equal(folded?.summary, "Iris Stone offered Bram Quill a contract to carry 10 provisions to Crown Harbor (3 times since tick 154). The price is 56.25.");
+  const folded = rows.find((row) => row.sequence === 44067);
+  assert.equal(folded?.summary, "Iris Stone offered Bram Quill a contract to carry 10 provisions to Glassport (3 times since tick 360). The price is 56.25.");
   assert.equal(folded?.count, 3);
-  assert.deepEqual(folded?.foldedSequences, [18148, 18376]);
-  assert.equal(rows.some((row) => row.sequence === 18148 || row.sequence === 18376), false);
-  // The tick-160 offer was refused, a different ending, so it stays its own line.
-  assert.equal(rows.find((row) => row.sequence === 18876)?.summary, "Iris Stone offered Bram Quill a contract to carry 10 provisions to Crown Harbor. The price is 56.25.");
+  assert.deepEqual(folded?.foldedSequences, [42502, 43280]);
+  assert.equal(rows.some((row) => row.sequence === 42502 || row.sequence === 43280), false);
+  // The tick-377 offer was accepted, a different ending, so it stays its own line.
+  assert.equal(rows.find((row) => row.sequence === 44726)?.summary, "Iris Stone offered Bram Quill a contract to carry 10 provisions to Glassport. The price is 56.25.");
   assert.equal(stateHash(world), before);
 });
 
 test("an offer line that differs for the viewer does not fold", () => {
-  const { world, page } = live168();
+  const { world, page } = livePage(288, 312);
+  // Iris (a party) folds Bram's two offers; Mara reads a different treasury draw on each, so they differ.
+  const iris = projectEventFeed(world, "character-06", page) as Row[];
+  assert.equal(iris.find((row) => row.sequence === 35283)?.count, 2);
+  assert.deepEqual(iris.find((row) => row.sequence === 35283)?.foldedSequences, [34035]);
   const rows = projectEventFeed(world, "character-01", page) as Row[];
-  // Mara reads a treasury draw on the tick-156 offer only, so the three lines differ.
-  for (const sequence of [18148, 18376, 18624]) {
+  for (const sequence of [34035, 35283]) {
     const row = rows.find((item) => item.sequence === sequence);
     assert.ok(row);
     assert.equal(row.count, undefined);
@@ -43,28 +50,29 @@ test("an offer line that differs for the viewer does not fold", () => {
 });
 
 test("the acceptance and its order on the same tick are one line, in each viewer's words", () => {
-  const { world, page } = live168();
+  const { world, page } = livePage(360, 384);
   const mara = projectEventFeed(world, "character-01", page) as Row[];
+  const bram = projectEventFeed(world, "character-02", page) as Row[];
   const iris = projectEventFeed(world, "character-06", page) as Row[];
-  const rival = mara.find((row) => row.sequence === 17666);
-  assert.equal(rival?.summary, "Iris Stone accepted the contract and took the order to carry 10 provisions to Crown Harbor.");
+  const rival = mara.find((row) => row.sequence === 44854);
+  assert.equal(rival?.summary, "Bram Quill accepted the contract and took the order to carry 10 provisions to Glassport.");
   assert.equal(rival?.payloadWithheld, true);
   assert.equal(rival?.data, null);
-  assert.deepEqual(rival?.foldedSequences, [17667]);
-  assert.equal(mara.some((row) => row.sequence === 17667), false);
-  const own = iris.find((row) => row.sequence === 17666);
-  assert.equal(own?.summary, "Iris Stone accepted the provisions contract and took the order to carry 10 provisions to Crown Harbor by tick 151.");
+  assert.deepEqual(rival?.foldedSequences, [44855]);
+  assert.equal(mara.some((row) => row.sequence === 44855), false);
+  const own = bram.find((row) => row.sequence === 44854);
+  assert.equal(own?.summary, "Bram Quill accepted the provisions contract and took the order to carry 10 provisions to Glassport by tick 382.");
   assert.equal(own?.payloadWithheld, false);
-  // As buyer she cannot read Bram's deadline, so the order half stays public.
-  assert.equal(iris.find((row) => row.sequence === 18264)?.summary, "Bram Quill accepted the provisions contract and took the order to carry 10 provisions to Crown Harbor.");
+  // As buyer Iris cannot read Bram's deadline, so the order half stays public.
+  assert.equal(iris.find((row) => row.sequence === 44854)?.summary, "Bram Quill accepted the provisions contract and took the order to carry 10 provisions to Glassport.");
 });
 
 test("a refusal gives the stored reason to the parties and a figure-free reason to others", () => {
-  const { world, page } = live168();
+  const { world, page } = livePage(360, 384);
   const mara = projectEventFeed(world, "character-01", page) as Row[];
   const iris = projectEventFeed(world, "character-06", page) as Row[];
-  assert.equal(mara.find((row) => row.sequence === 18994)?.summary, "Bram Quill refused a contract: they could not make the voyage.");
-  assert.equal(iris.find((row) => row.sequence === 18994)?.summary, "Bram Quill refused the provisions contract. The carrier is already at sea.");
+  assert.equal(mara.find((row) => row.sequence === 42626)?.summary, "Bram Quill refused a contract: they could not make the voyage.");
+  assert.equal(iris.find((row) => row.sequence === 42626)?.summary, "Bram Quill refused the provisions contract. The carrier is already at sea.");
 });
 
 test("each refusal gate has a public reason without figures", () => {
@@ -75,15 +83,14 @@ test("each refusal gate has a public reason without figures", () => {
   assert.equal(publicRefusalReason({ ...base, data: {} }), null);
 });
 
-test("an untagged Toma Reef merges, and Mara's tick-216 page folds Iris Stone's two offers to Toma Reef", () => {
-  const world = createPrototypeWorld(1847);
-  const events: SimEvent[] = [];
-  while (world.tick < 216) events.push(...runTick(world, { liveSession: true }).events);
-  const page = events.filter((event) => event.tick >= 192);
+// Port balance: Iris's two offers to Toma Reef on Mara's tick 192-216 page no longer happen; Mara's
+// tick 312-336 page folds Bram Quill's two offers to Iris Stone the same way.
+test("Mara's tick-336 page folds Bram Quill's two offers to Iris Stone, and the acceptance folds its order", () => {
+  const { world, page } = livePage(312, 336);
   const rows = projectEventFeed(world, "character-01", page) as Row[];
-  const folded = rows.find((row) => row.sequence === 24468);
-  assert.equal(folded?.summary, "Iris Stone offered Toma Reef a contract to carry 10 provisions to Crown Harbor (2 times since tick 194).");
-  assert.deepEqual(folded?.foldedSequences, [22795]);
-  assert.equal(rows.find((row) => row.sequence === 24591)?.summary, "Toma Reef accepted the contract and took the order to carry 10 provisions to Crown Harbor.");
-  assert.equal(rows.some((row) => row.sequence === 24592), false);
+  const folded = rows.find((row) => row.sequence === 39068);
+  assert.equal(folded?.summary, "Bram Quill offered Iris Stone a contract to carry 10 provisions to Glassport (2 times since tick 326). Bram Quill drew 12 from the treasury and paid 44.25 from the purse.");
+  assert.deepEqual(folded?.foldedSequences, [38010]);
+  assert.equal(rows.find((row) => row.sequence === 39205)?.summary, "Iris Stone accepted the contract and took the order to carry 10 provisions to Glassport.");
+  assert.equal(rows.some((row) => row.sequence === 39206), false);
 });
