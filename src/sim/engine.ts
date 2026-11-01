@@ -31,6 +31,7 @@ import { autonomousTaxStep, PASSAGE_PER_TICK, raiseShockData, taxChoiceCents, ta
 import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
 import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMPT_VERSION_REASON, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { ActionPickerReplay, blendDistribution, PICKER_BLEND, type BlendParams, criterionFor, ESCALATION_ACTIONS, legalIds, optionId, pickDraw, PICKER_DEFAULT_CAP, PICKER_PROMPT_VERSION, PICKER_ROLE, PICKER_TIMEOUT_MS, pickerState, railProbabilities, sampleId, type ActionPicker, type ActionPickerRecord, type PickerAnswer, type PickerFallbackReason, type PickerRequest } from "./ai-action-picker.ts";
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
@@ -3459,6 +3460,20 @@ export interface TickAiOptions {
   pickerStub?: "stubArgmax" | "stubUniform";
   /** Slice 1 replay: use the recorded p and u per decision; throws on a missing record or a mismatch. Needs `weighted`. */
   pickerReplay?: PickerReplay;
+  /**
+   * Slice 1/3 action picker (next-slices.md, jev-action-picker.md): probabilities
+   * over the legal rows of `buildCandidates`; the sim draws on the `ai-pick`
+   * side stream. Unset: today's `candidates[0]`, byte-identical.
+   */
+  picker?: ActionPicker;
+  /** Who is consulted. Default: Free Tide's holder, `character-14` (slice 3). "all" for every free autonomous character. */
+  pickerActors?: string[] | "all";
+  /** Section 7: call cap, default 1,000. */
+  pickerCap?: number;
+  /** Lead ruling 1: the scorer-prior blend. Default PICKER_BLEND; null = Jev's distribution alone. */
+  pickerBlend?: BlendParams | null;
+  /** Run memory: picker calls made so far. */
+  pickerCalls?: number;
   /** Per-run call cap (section 5, check 6). Default 50. */
   cap?: number;
   /**
@@ -3758,6 +3773,88 @@ function consultWeighted(
     reason,
     reasonSource: modelReason ? "model" : "template",
     picker,
+  };
+}
+
+/**
+ * Slice 3 consult (jev-action-picker.md section 5). Returns null when the
+ * decision is not consulted (actor not selected, fewer than 2 legal ids, a
+ * duplicate id, or a raid / claim-settlement row legal): today's path runs and
+ * nothing is recorded or counted. Otherwise the chosen row is the same object
+ * from `candidates`, so `resolveDecision` and the emit run unchanged.
+ */
+function consultActionPicker(world: WorldState, character: Character, candidates: DecisionCandidate[], ai: TickAiOptions): { row: DecisionCandidate; record: ActionPickerRecord } | null {
+  const actors = ai.pickerActors ?? ["character-14"];
+  if (actors !== "all" && !actors.includes(character.id)) return null;
+  const legal = legalIds(candidates);
+  if (!legal || legal.length < 2) return null;
+  const legalRows = candidates.filter((row) => row.score > -1000);
+  if (legalRows.some((row) => ESCALATION_ACTIONS.has(row.action))) return null;
+  const byId = new Map(legalRows.map((row) => [optionId(row), row]));
+  const scorerPick = optionId(candidates[0]);
+  const gross = workGross(character);
+  const workTax = character.locationId ? tradeTax(world, character.locationId, gross).tax : 0;
+  const r2 = (value: number) => Math.round(value * 100) / 100;
+  const passagePerDay = PASSAGE_COST_PER_TICK * world.ticksPerDay;
+  const economy = {
+    purse: r2(character.money), workGross: r2(gross), workTax: r2(workTax), workNet: r2(gross - workTax),
+    passagePerDay: r2(passagePerDay), purseDaysOfPassage: passagePerDay > 0 ? Math.floor(character.money / passagePerDay) : 0,
+    mateAllowancePerDay: r2(fullAllowance(world, PASSAGE_PER_TICK)),
+  };
+  const { state, truncated } = pickerState(world, character, economy);
+  const criteria = Object.fromEntries(legal.map((id) => [id, criterionFor(world, byId.get(id)!, economy.workNet)]));
+  const scores = Object.fromEntries(legal.map((id) => [id, Math.round(byId.get(id)!.score * 1e4) / 1e4]));
+  const request: PickerRequest = { tick: world.tick, actorId: character.id, legal, criteria, state, promptVersion: PICKER_PROMPT_VERSION, scorerPick, scores };
+  const inputHash = sha256(canonicalJson(request));
+  const draw = pickDraw(world.seed, character.id, world.tick);
+  const picker = ai.picker!;
+  let answer: PickerAnswer;
+  let provider = picker.name;
+  let model = picker.model;
+  if (picker instanceof ActionPickerReplay) {
+    // Replay: the recorded probabilities, never a new call. A different request or sample fails loudly.
+    const was = picker.recorded(world.tick, character.id);
+    if (was.inputHash !== inputHash) throw new Error(`action picker replay: inputHash mismatch for ${character.id} at tick ${world.tick}`);
+    provider = was.provider; model = was.model;
+    answer = was.fallbackReason && was.fallbackReason !== "illegal"
+      ? { probabilities: null, latencyMs: was.latencyMs, error: was.fallbackReason }
+      : { probabilities: was.probabilities, confidence: was.confidence, responseModel: was.responseModel, latencyMs: was.latencyMs, exact: was.exact === true };
+    // The recorded blend, not the current default: replay is exact from the record.
+    const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, false, was.blend ?? null);
+    if (record.sampled !== was.sampled || record.fallbackReason !== was.fallbackReason) {
+      throw new Error(`action picker replay: sampled ${record.sampled} != recorded ${was.sampled} for ${character.id} at tick ${world.tick}`);
+    }
+    return { row: byId.get(record.sampled) ?? candidates[0], record };
+  }
+  const capped = (ai.pickerCalls ?? 0) >= (ai.pickerCap ?? PICKER_DEFAULT_CAP);
+  if (capped) answer = { probabilities: null, latencyMs: 0, error: "cap" };
+  else {
+    ai.pickerCalls = (ai.pickerCalls ?? 0) + 1;
+    try { answer = picker.choose(request); } catch { answer = { probabilities: null, latencyMs: 0, error: "error" }; }
+  }
+  const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, true, ai.pickerBlend === undefined ? PICKER_BLEND : ai.pickerBlend);
+  return { row: byId.get(record.sampled) ?? candidates[0], record };
+}
+
+function finishPick(request: PickerRequest, answer: PickerAnswer, provider: string, model: string, inputHash: string, draw: number, truncated: boolean, live: boolean, blendParams: BlendParams | null): ActionPickerRecord {
+  let fallbackReason: PickerFallbackReason | null = answer.error ?? (live && answer.latencyMs > PICKER_TIMEOUT_MS ? "timeout" : null);
+  const railed = fallbackReason ? null : railProbabilities(answer.probabilities, request.legal);
+  if (!fallbackReason && !railed) fallbackReason = "illegal";
+  const exact = answer.exact === true;
+  const blend = railed && !exact && blendParams ? blendParams : null;
+  const blended = railed && blend ? blendDistribution(railed.distribution, request.scores, request.scorerPick, request.legal, blend) : null;
+  const final = blended ? blended.distribution : railed ? railed.distribution : null;
+  const sampled = final ? sampleId(final, request.legal, draw) : request.scorerPick;
+  const probabilities = railed ? railed.kept : null;
+  const sum = probabilities ? Math.round(Object.values(probabilities).reduce((a, b) => a + b, 0) * 1e6) / 1e6 : null;
+  const confidence = typeof answer.confidence === "number" && Number.isFinite(answer.confidence) ? answer.confidence : null;
+  return {
+    role: PICKER_ROLE, provider, model, responseModel: answer.responseModel ?? null,
+    promptVersion: request.promptVersion, inputHash, legal: request.legal,
+    probabilities, probabilitySum: sum, confidence: railed ? confidence : null,
+    jevDistribution: railed ? railed.distribution : null, prior: blended ? blended.prior : null, blend, exact,
+    distribution: final, draw, sampled, scorerPick: request.scorerPick,
+    outcome: fallbackReason ? "fallback" : "model", fallbackReason, truncated, latencyMs: answer.latencyMs,
   };
 }
 
@@ -4088,9 +4185,15 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
       continue;
     }
     const candidates = buildCandidates(world, character, rng);
-    const chosen = candidates[0];
+    let chosen = candidates[0];
     if (!chosen) continue;
     const haul = activeHaul(world, character);
+    // Slice 3: the picker may replace the index, never the draws above (ai-brain.md section 2, item 3).
+    let pickerRecord: ActionPickerRecord | null = null;
+    if (options.ai?.picker && (!haul || !haulPlan(world, character, haul).canAct)) {
+      const consulted = consultActionPicker(world, character, candidates, options.ai);
+      if (consulted) { chosen = consulted.row; pickerRecord = consulted.record; }
+    }
     if (haul) {
       const plan = haulPlan(world, character, haul);
       const marks = marksFor(world, haul.id);
@@ -4126,6 +4229,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
         targetKnowledge: chosen.targetId ? character.knowledge[chosen.targetId] : undefined,
         chosen,
         candidates: candidates.slice(0, 6),
+        ...(pickerRecord ? { ai: { picker: pickerRecord } } : {}),
       },
     });
     const order = updateOrderAdherence(world, character, chosen, events);
