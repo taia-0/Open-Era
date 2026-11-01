@@ -113,7 +113,7 @@ The sample has **no positives** (0 invented, 0 misleading). The checker can ther
 1. **Keep the checker advisory, and make it opt-in, off by default.**
    - On the live output it never fires at 0.5. At 0.3 it fires only on verbatim restatements.
    - Its proven catch rate is 3 of 8.
-   - It costs $0.0102 of $0.1144 on the three plain live runs (`progress.md` #162, about 9%).
+   - It costs $0.0102 of $0.1140 on the three plain live runs (`progress.md` #162, about 9%).
    - The validator (names, numbers, pronouns) plus trigger-only causes are what keep the reasons faithful.
 2. **Do not run the optional rewording now.** No live reason is wrong, so a reworded check could only be scored on the 8 synthetic first-sample positives. That is too few to tell 6 of 8 from chance, so it is not clearly worth the spend. Revisit if the prompt changes or the event list grows.
 3. **Re-audit with this method** (rebuild facts by `inputHash`, stratified seeded sample, hand grade) whenever the prompt, the facts or the event list changes. Cost: $0.
