@@ -1,4 +1,5 @@
 import { believedGarrison } from "../sim/agency.ts";
+import { withFeedReason } from "../sim/feed-reasons.ts";
 import { combatForecast } from "../sim/combat.ts";
 import { COMMAND_LIMITS, commandCapabilities } from "../sim/commands.ts";
 import {
@@ -141,7 +142,12 @@ function capturedTroopsClause(world: WorldState, reader: Character | undefined, 
   return `${scattered.count} troops were taken, power ${power}.`;
 }
 
+/** Slice B: today's line, then ` — <reason>` when the brain wrote one (feed-reasons.md section 4). */
 function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], reader?: Character): string {
+  return withFeedReason(baseEventSummary(world, event, events, reader), event);
+}
+
+function baseEventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], reader?: Character): string {
   const actor = event.actorId ? characterName(world, event.actorId, event.actorId) : "World";
   const target = labelOf(world, event.targetId);
   const settlement = event.settlementId ? world.settlements[event.settlementId]?.name ?? event.settlementId : null;
