@@ -23,6 +23,11 @@ export const FEED_REASON_TIMEOUT_MS = 8_000;
 /** Lead ruling: $0.10 and 200 calls per run. */
 export const FEED_REASON_CAP_USD = 0.10;
 export const FEED_REASON_CALL_CAP = 200;
+/** Lead ruling: with EXILE_RECOVERY on (more qualifying events), the brain call cap is 300. The Jev check count and the $0.10 cap are unchanged. */
+export const FEED_REASON_CALL_CAP_EXILE = 300;
+export function feedReasonCallCap(exileRecovery: boolean): number {
+  return exileRecovery ? FEED_REASON_CALL_CAP_EXILE : FEED_REASON_CALL_CAP;
+}
 /** Section 12 checker: one Jev Noul per reason, flag at noul ≥ 0.5. Advisory only (section 14): it never replaces text. */
 export const FEED_REASON_CHECK_THRESHOLD = 0.5;
 export const FEED_REASON_CHECK_TIMEOUT_MS = 2_000;
@@ -59,7 +64,7 @@ export interface FeedReasonChecker {
 export interface FeedReasonOptions {
   writer: FeedReasonWriter;
   checker?: FeedReasonChecker;
-  /** Calls per run; default 200. Counted on the writer only; the checker keeps its own count under the same cap. */
+  /** Brain calls per run; default 200, or 300 with exileRecovery. Counted on the writer only; the Jev checker keeps its own count, capped at 200. */
   callCap?: number;
   /** Run memory. */
   calls?: number;
@@ -207,7 +212,8 @@ export function stubFeedReasonWriter(): FeedReasonWriter {
 
 /** Section 4 + 6: annotate this tick's qualifying events. Never touches world state. */
 export function annotateFeedReasons(world: WorldState, events: SimEvent[], options: FeedReasonOptions): void {
-  const cap = options.callCap ?? FEED_REASON_CALL_CAP;
+  const cap = options.callCap ?? feedReasonCallCap(options.exileRecovery === true);
+  const checkCap = Math.min(cap, FEED_REASON_CALL_CAP);
   options.cache ??= new Map();
   for (const event of events) {
     const kind = feedReasonKind(event);
@@ -231,7 +237,7 @@ export function annotateFeedReasons(world: WorldState, events: SimEvent[], optio
         record = { ...base, text, outcome: text ? "model" : "fallback", fallbackReason: text ? null : (answer.error ?? "illegal"), latencyMs: answer.latencyMs };
         if (text) options.cache.set(inputHash, text);
         if (text && options.checker) {
-          if ((options.checks ?? 0) >= cap) record.check = { noul: null, flagged: false, outcome: "cap" };
+          if ((options.checks ?? 0) >= checkCap) record.check = { noul: null, flagged: false, outcome: "cap" };
           else {
             record.check = options.checker.check(facts, text, event.tick);
             if (record.check.outcome !== "cap" && record.check.outcome !== "missing-key") options.checks = (options.checks ?? 0) + 1;

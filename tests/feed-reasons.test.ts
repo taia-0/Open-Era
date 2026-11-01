@@ -5,7 +5,7 @@ import { CostLedger } from "../src/sim/ai-vendor/cost.ts";
 import type { SyncTransport } from "../src/sim/ai-vendor/sync-http.ts";
 import { runTick } from "../src/sim/engine.ts";
 import {
-  annotateFeedReasons, buildFeedFacts, deepSeekFeedReasonWriter, feedReasonKind, feedReasonReplay, jevFeedReasonChecker,
+  annotateFeedReasons, FEED_REASON_CALL_CAP, FEED_REASON_CALL_CAP_EXILE, FEED_REASON_CAP_USD, feedReasonCallCap, buildFeedFacts, deepSeekFeedReasonWriter, feedReasonKind, feedReasonReplay, jevFeedReasonChecker,
   stubFeedReasonWriter, validateFeedReason, withFeedReason, type FeedReasonOptions, type FeedReasonRecord,
 } from "../src/sim/feed-reasons.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
@@ -138,5 +138,27 @@ test("nothing in src/sim reads data.ai.reason (section 5)", () => {
     const text = readFileSync(`src/sim/${file}`, "utf8");
     assert.ok(!/ai\??\.reason\b|\["reason"\]/.test(text), `${file} reads the reason`);
     if (file !== "engine.ts") assert.ok(!text.includes("feed-reasons"), `${file} imports feed-reasons`);
+  }
+});
+
+test("EXILE_RECOVERY raises the brain call cap to 300; the Jev check count stays separate at 200 and the $0.10 cap is unchanged", () => {
+  assert.equal(feedReasonCallCap(false), 200); assert.equal(feedReasonCallCap(true), 300);
+  assert.equal(FEED_REASON_CALL_CAP, 200); assert.equal(FEED_REASON_CALL_CAP_EXILE, 300); assert.equal(FEED_REASON_CAP_USD, 0.10);
+  for (const exileRecovery of [false, true]) {
+    const world = createPrototypeWorld(1847);
+    const name = world.characters["character-01"].name;
+    let writes = 0; let checks = 0;
+    const options: FeedReasonOptions = {
+      writer: { model: "count", write: () => { writes++; return { raw: reply(`${name} claimed Glassport.`), latencyMs: 0 }; } },
+      checker: { check: () => { checks++; return { noul: 0.1, flagged: false, outcome: "model" } as never; } },
+      exileRecovery,
+    };
+    const events = Array.from({ length: 450 }, (_, i) => ({ sequence: i + 1, tick: i + 1, type: "settlement-claimed", actorId: "character-01", settlementId: "glassport", data: {} }) as unknown as SimEvent);
+    for (const e of events) annotateFeedReasons(world, [e], options);
+    assert.equal(writes, exileRecovery ? 300 : 200);
+    assert.equal(options.calls, writes);
+    assert.equal(checks, 200);
+    assert.equal(options.checks, 200);
+    assert.ok(events.slice(-1)[0].data.ai === undefined || (events.slice(-1)[0].data.ai as { reason?: FeedReasonRecord }).reason?.fallbackReason === "cap");
   }
 });
