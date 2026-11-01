@@ -32,6 +32,7 @@ import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
 import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMPT_VERSION_REASON, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { ActionPickerReplay, blendDistribution, PICKER_BLEND, type BlendParams, criterionFor, ESCALATION_ACTIONS, legalIds, optionId, pickDraw, PICKER_DEFAULT_CAP, PICKER_PROMPT_VERSION, PICKER_ROLE, PICKER_TIMEOUT_MS, pickerState, railProbabilities, sampleId, type ActionPicker, type ActionPickerRecord, type PickerAnswer, type PickerFallbackReason, type PickerRequest } from "./ai-action-picker.ts";
+import { READ_PROMPT_VERSION, SOCIAL_CACHE_TICKS, SOCIAL_DEFAULT_CALL_CAP, SOCIAL_FACTION_ID, SOCIAL_PICK_INSTRUCTIONS, SOCIAL_ROLE, SOCIAL_STATE_MAX_BYTES, SocialReplay, socialFromAnswer, socialReadRequest, type SocialBlock, type SocialReader, type SocialReadRecord } from "./ai-social.ts";
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
@@ -3470,6 +3471,14 @@ export interface TickAiOptions {
   pickerActors?: string[] | "all";
   /** Section 7: call cap, default 1,000. */
   pickerCap?: number;
+  /**
+   * Slice 4 (jev-social-picker.md): the social reader. When set, the picker
+   * consults every Free Tide member at decision time (pickerActors is ignored)
+   * and feeds each member's read into the pick state. Default call cap 8,000.
+   */
+  social?: SocialReader;
+  /** Run-local read cache (§5). Not on the world; rebuilt on replay from the records. */
+  socialCache?: Map<string, { key: string; readTick: number; block: SocialBlock }>;
   /** Lead ruling 1: the scorer-prior blend. Default PICKER_BLEND; null = Jev's distribution alone. */
   pickerBlend?: BlendParams | null;
   /** Run memory: picker calls made so far. */
@@ -3783,9 +3792,14 @@ function consultWeighted(
  * nothing is recorded or counted. Otherwise the chosen row is the same object
  * from `candidates`, so `resolveDecision` and the emit run unchanged.
  */
-function consultActionPicker(world: WorldState, character: Character, candidates: DecisionCandidate[], ai: TickAiOptions): { row: DecisionCandidate; record: ActionPickerRecord } | null {
-  const actors = ai.pickerActors ?? ["character-14"];
-  if (actors !== "all" && !actors.includes(character.id)) return null;
+function consultActionPicker(world: WorldState, character: Character, candidates: DecisionCandidate[], ai: TickAiOptions): { row: DecisionCandidate; record: ActionPickerRecord; read?: SocialReadRecord } | null {
+  if (ai.social) {
+    // Slice 4 §1: Free Tide members at the moment of the decision.
+    if (character.factionId !== SOCIAL_FACTION_ID) return null;
+  } else {
+    const actors = ai.pickerActors ?? ["character-14"];
+    if (actors !== "all" && !actors.includes(character.id)) return null;
+  }
   const legal = legalIds(candidates);
   if (!legal || legal.length < 2) return null;
   const legalRows = candidates.filter((row) => row.score > -1000);
@@ -3801,10 +3815,18 @@ function consultActionPicker(world: WorldState, character: Character, candidates
     passagePerDay: r2(passagePerDay), purseDaysOfPassage: passagePerDay > 0 ? Math.floor(character.money / passagePerDay) : 0,
     mateAllowancePerDay: r2(fullAllowance(world, PASSAGE_PER_TICK)),
   };
-  const { state, truncated } = pickerState(world, character, economy);
+  const callCap = ai.pickerCap ?? (ai.social ? SOCIAL_DEFAULT_CALL_CAP : PICKER_DEFAULT_CAP);
+  const social = ai.social ? readSocial(world, character, ai, callCap) : null;
+  const { state, truncated } = social
+    ? pickerState(world, character, economy, social.block ? { loyalty: social.block.loyalty, grudges: social.block.grudges } : null, SOCIAL_STATE_MAX_BYTES)
+    : pickerState(world, character, economy);
   const criteria = Object.fromEntries(legal.map((id) => [id, criterionFor(world, byId.get(id)!, economy.workNet)]));
   const scores = Object.fromEntries(legal.map((id) => [id, Math.round(byId.get(id)!.score * 1e4) / 1e4]));
-  const request: PickerRequest = { tick: world.tick, actorId: character.id, legal, criteria, state, promptVersion: PICKER_PROMPT_VERSION, scorerPick, scores };
+  const request: PickerRequest = {
+    tick: world.tick, actorId: character.id, legal, criteria, state, promptVersion: social ? SOCIAL_PICK_PROMPT_VERSION : PICKER_PROMPT_VERSION, scorerPick, scores,
+    ...(social ? { instructions: SOCIAL_PICK_INSTRUCTIONS } : {}),
+  };
+  const socialExtra = social ? { socialInputHash: sha256(canonicalJson(state.social ?? null)) } : {};
   const inputHash = sha256(canonicalJson(request));
   const draw = pickDraw(world.seed, character.id, world.tick);
   const picker = ai.picker!;
@@ -3824,16 +3846,73 @@ function consultActionPicker(world: WorldState, character: Character, candidates
     if (record.sampled !== was.sampled || record.fallbackReason !== was.fallbackReason) {
       throw new Error(`action picker replay: sampled ${record.sampled} != recorded ${was.sampled} for ${character.id} at tick ${world.tick}`);
     }
-    return { row: byId.get(record.sampled) ?? candidates[0], record };
+    return { row: byId.get(record.sampled) ?? candidates[0], record: { ...record, ...socialExtra }, read: social?.record };
   }
-  const capped = (ai.pickerCalls ?? 0) >= (ai.pickerCap ?? PICKER_DEFAULT_CAP);
+  const capped = (ai.pickerCalls ?? 0) >= callCap;
   if (capped) answer = { probabilities: null, latencyMs: 0, error: "cap" };
   else {
     ai.pickerCalls = (ai.pickerCalls ?? 0) + 1;
     try { answer = picker.choose(request); } catch { answer = { probabilities: null, latencyMs: 0, error: "error" }; }
   }
   const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, true, ai.pickerBlend === undefined ? PICKER_BLEND : ai.pickerBlend);
-  return { row: byId.get(record.sampled) ?? candidates[0], record };
+  return { row: byId.get(record.sampled) ?? candidates[0], record: { ...record, ...socialExtra }, read: social?.record };
+}
+
+export const SOCIAL_PICK_PROMPT_VERSION = sha256(`${PICKER_PROMPT_VERSION}\n${SOCIAL_PICK_INSTRUCTIONS}`);
+
+/**
+ * Slice 4 §5, §8, §9: one member's social read, through the run-local cache.
+ * A hit (same signature, under 24 ticks old) reuses the stored distributions
+ * and calls nothing. A miss asks the reader; a failed read is not cached and
+ * the pick proceeds with `social: null`. Under replay the recorded read is
+ * used and `hit` / `inputHash` must match, or replay fails.
+ */
+function readSocial(world: WorldState, character: Character, ai: TickAiOptions, callCap: number): { block: SocialBlock | null; record: SocialReadRecord } {
+  const built = socialReadRequest(world, character.id);
+  const cache = ai.socialCache ?? (ai.socialCache = new Map());
+  const reader = ai.social!;
+  const replayed = reader instanceof SocialReplay ? reader.recorded(world.tick, character.id) : undefined;
+  if (reader instanceof SocialReplay && !replayed) throw new Error(`social replay: no read record for ${character.id} at tick ${world.tick}`);
+  if (!built) {
+    const record: SocialReadRecord = { role: SOCIAL_ROLE, cacheKey: "", hit: false, readTick: world.tick, outcome: "fallback", fallbackReason: "illegal", latencyMs: 0 };
+    return { block: null, record };
+  }
+  const { request, key } = built;
+  const entry = cache.get(character.id);
+  const hit = !!entry && entry.key === key && world.tick - entry.readTick < SOCIAL_CACHE_TICKS;
+  if (replayed && replayed.hit !== hit) throw new Error(`social replay: hit ${hit} != recorded ${replayed.hit} for ${character.id} at tick ${world.tick}`);
+  if (hit) return { block: entry!.block, record: { role: SOCIAL_ROLE, cacheKey: key, hit: true, readTick: entry!.readTick } };
+  const inputHash = sha256(canonicalJson(request));
+  let parsed: ReturnType<typeof socialFromAnswer> = null;
+  let fallbackReason: SocialReadRecord["fallbackReason"] = null;
+  let latencyMs = 0;
+  let provider = reader.name;
+  let model = reader.model;
+  if (replayed) {
+    if (replayed.inputHash !== inputHash) throw new Error(`social replay: inputHash mismatch for ${character.id} at tick ${world.tick}`);
+    fallbackReason = replayed.fallbackReason ?? null;
+    parsed = fallbackReason ? null : { loyalty: replayed.loyalty ?? null, grudges: replayed.grudges ?? [] };
+    latencyMs = replayed.latencyMs ?? 0; provider = replayed.provider ?? provider; model = replayed.model ?? model;
+  } else if ((ai.pickerCalls ?? 0) + 2 > callCap) {
+    // §8: reads are skipped before picks near the call cap.
+    fallbackReason = "cap";
+  } else {
+    ai.pickerCalls = (ai.pickerCalls ?? 0) + 1;
+    let answer;
+    try { answer = reader.read(request); } catch { answer = { answers: null, latencyMs: 0, error: "error" as const }; }
+    latencyMs = answer.latencyMs;
+    fallbackReason = answer.error ?? (answer.latencyMs > PICKER_TIMEOUT_MS ? "timeout" : null);
+    parsed = fallbackReason ? null : socialFromAnswer(request, answer);
+    if (!fallbackReason && !parsed) fallbackReason = "illegal";
+  }
+  const record: SocialReadRecord = {
+    role: SOCIAL_ROLE, cacheKey: key, hit: false, readTick: world.tick, inputHash, promptVersion: READ_PROMPT_VERSION, provider, model,
+    outcome: fallbackReason ? "fallback" : "model", fallbackReason, loyalty: parsed?.loyalty ?? null, grudges: parsed?.grudges ?? [], latencyMs,
+  };
+  if (!parsed) return { block: null, record };
+  const block: SocialBlock = { loyalty: parsed.loyalty, grudges: parsed.grudges, readTick: world.tick, readInputHash: inputHash };
+  cache.set(character.id, { key, readTick: world.tick, block });
+  return { block, record };
 }
 
 function finishPick(request: PickerRequest, answer: PickerAnswer, provider: string, model: string, inputHash: string, draw: number, truncated: boolean, live: boolean, blendParams: BlendParams | null): ActionPickerRecord {
@@ -4190,9 +4269,10 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     const haul = activeHaul(world, character);
     // Slice 3: the picker may replace the index, never the draws above (ai-brain.md section 2, item 3).
     let pickerRecord: ActionPickerRecord | null = null;
+    let readRecord: SocialReadRecord | null = null;
     if (options.ai?.picker && (!haul || !haulPlan(world, character, haul).canAct)) {
       const consulted = consultActionPicker(world, character, candidates, options.ai);
-      if (consulted) { chosen = consulted.row; pickerRecord = consulted.record; }
+      if (consulted) { chosen = consulted.row; pickerRecord = consulted.record; readRecord = consulted.read ?? null; }
     }
     if (haul) {
       const plan = haulPlan(world, character, haul);
@@ -4229,7 +4309,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
         targetKnowledge: chosen.targetId ? character.knowledge[chosen.targetId] : undefined,
         chosen,
         candidates: candidates.slice(0, 6),
-        ...(pickerRecord ? { ai: { picker: pickerRecord } } : {}),
+        ...(pickerRecord ? { ai: { ...(readRecord ? { read: readRecord } : {}), picker: pickerRecord } } : {}),
       },
     });
     const order = updateOrderAdherence(world, character, chosen, events);
