@@ -153,6 +153,15 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-31 — Social picker (slice 4): Free Tide reads + picks; live gate passed first attempt
+- **Agent:** Grok Bot (as taia-0) | **Branch:** `feature/social-picker` | **Commits:** `7fbc106`, `e817e4d`, this entry
+- **Type:** Change
+- **Changed:** `src/sim/ai-social.ts` (social read: exact §4 wording, signature cache key, rails, trait stub, `SocialReplay`). Engine: with `ai.social` set, every `free-tide` member is consulted at decision time; the read goes through a run-local 24-tick cache, and failed reads are not cached. The pick state carries `social` (2,560-byte cap; grudges dropped from the last, loyalty kept) and the social pick instructions. `data.ai.read` is recorded alongside `socialInputHash`; replay checks `hit` and `inputHash`. Reads are skipped when fewer than 2 calls remain. `jevSocialReader` writes `picker.social` cost lines. Runner: `--social stub|jev` (caps 8,000 / $0.35) and `--picker fitted --fit`. `picker-gate --social [--live]` (src/tools/social-gate.ts, committed before any result). `dynamism --ai`. 11 stub tests.
+- **Why:** docs/design/jev-social-picker.md.
+- **Verified:** stubArgmax+social equals the flag-off pins at 72 and 1200 ticks on all seeds. npm test passed 591/591; evaluate-milestone social-picker passed. Live (blend 1.75/24/0.4/0.02, no retuning): member entropy 2.2421/2.2616/2.2294 vs floors 1.8683/1.7446/1.9165. Desertions 4/3/3 vs 4/0/5; loyalty-driven picks 594/317/631. Calls 4,368/4,408/4,678 with one cost line each. Spend $0.2375/$0.2344/$0.2545 (total $0.7264). Replay exact with 0 calls. Key scan clean. All spec gate checks pass.
+- **Left open:** Two slice-3 checks fail; they were reported only, not gated: holder entropy is down on 2718 (2.2675 vs 2.3385), and 1847 has 0 secessions vs 4 under flag off.
+- **Links:** docs/design/jev-social-picker.md
+
 ### 2026-10-31 — Action picker gate: work share is a one-sided floor (Lead ruling)
 - **Agent:** Grok Bot (executor) | **Branch:** `feature/jev-action-picker` | **Type:** Gate rule
 - **Changed** — `src/tools/picker-gate.ts`: the work-share check (`workShareFloor`) passes when the holder's work share is at least 70% of flag off's or at least 0.05 absolute, with no ceiling. The ±30% two-sided band is withdrawn.
