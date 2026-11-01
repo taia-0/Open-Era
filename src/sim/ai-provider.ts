@@ -78,6 +78,7 @@ export const TAX_STEP_PROMPT_TEMPLATE_BRIEFED = [
   "Unrest: {unrestText}",
   "Pay: {payText} Treasury {treasuryCents} cents, {payDaysText} for {freeMates} free mates.",
   "Your temperament (0 to 1): {personaText}",
+  "Cost of raising: {raiseCostText}",
   "Safety: {safetyText}",
   "Options: {optionsText}",
   "Briefing on you (validated, at most 1,024 bytes): {briefing}.",
@@ -94,7 +95,7 @@ export const TAX_STEP_BRIEFED_WORDING = {
   system: "Answer as JSON: {\"reason\":\"<at most 12 words naming the trait or situation that decides it>\",\"choice\":\"<option>\"}.",
   noReport: "no current stability report from your ports.",
   unrest: "lowest port stability {low}; revolt risk at or below {floor}. {pressedText}",
-  pressed: "PRESSED: a port is at or below the revolt line.",
+  pressed: "PRESSED: a port is at or below the revolt line. You may cut or hold; you may not raise.",
   notPressed: "Not pressed.",
   short: "SHORT: the treasury cannot cover a day's pay for the mates.",
   covered: "The treasury covers a day's pay.",
@@ -102,7 +103,15 @@ export const TAX_STEP_BRIEFED_WORDING = {
   noMates: "no mates to pay",
   persona: "ambition {ambition}, aggression {aggression}, caution {caution}, commerce {commerce}, loyalty {loyalty}.",
   personaUnknown: "unknown.",
-  safety: "when a port is at or below the revolt line ({floor}) you may not raise; when pay is short and no port is pressed you may not cut. An answer that breaks this is refused.",
+  safety: "when a port is at or below the revolt line ({floor}) you may not raise, but you may cut or hold; when pay is short and no port is pressed you may not cut. An answer that breaks this is refused.",
+  // Raise costs, from what the engine does (judgment v3.1): tax income is gross trade times the rate
+  // (engine.ts:512, 968); each peaceful upkeep subtracts taxDrift(rate) from every held port's stability
+  // (engine.ts:354, tax-rate.ts:41: 0 up to 15%, then 0.03 per band of 5 points) while a fed port
+  // gains 0.03 (engine.ts:354); above 15% an owner at or below the revolt line may secede
+  // (secession.ts:429-430, engine.ts:3492-3493). No engine path ties the tax rate to morale; short pay
+  // costs a mate 0.5 morale per upkeep (engine.ts:631), so income guards morale only through pay.
+  raiseCost: "income goes from {rate}% to {next}% of taxed trade; tax drift on every port you hold goes from {driftNow} to {driftNext} stability per upkeep, against +0.03 a fed port regains; above 15%, a port owner at or below the revolt line may secede. Tax does not touch morale directly; a mate short of pay loses 0.5 morale per upkeep.",
+  noRaise: "raising is not an option.",
   down: "down = cut the rate one point (calms unrest, less income)",
   hold: "hold = keep the rate",
   up: "up = raise the rate one point (more income, more unrest)",

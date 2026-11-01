@@ -1,3 +1,4 @@
+import { taxDrift } from "../tax-rate.ts";
 import { parseTaxChoice, TAX_STEP_BRIEFED_WORDING, TAX_STEP_PROMPT_TEMPLATE, TAX_STEP_PROMPT_TEMPLATE_BRIEFED, TAX_STEP_TIMEOUT_MS, type TaxStepAnswer, type TaxStepProvider, type TaxStepRequest } from "../ai-provider.ts";
 import { canonicalJson, CLAIM_STABILITY_FLOOR } from "../state.ts";
 import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, type CostLine } from "./cost.ts";
@@ -47,7 +48,11 @@ export function taxStepPromptSlots(request: TaxStepRequest): Record<string, stri
     : W.personaUnknown;
   // Judgment v3: the scorer's pick and reason are not shown. Prompt text only.
   const safetyText = W.safety.replace("{floor}", CLAIM_STABILITY_FLOOR.toFixed(2));
-  return { unrestText, payText, payDaysText, personaText, safetyText, optionsText: request.options.map((option) => W[option]).join("; ") + "." };
+  const next = request.rateCents + 1;
+  const raiseCostText = !request.options.includes("up") ? W.noRaise : W.raiseCost
+    .replace("{rate}", String(request.rateCents)).replace("{next}", String(next))
+    .replace("{driftNow}", taxDrift(request.rateCents / 100).toFixed(2)).replace("{driftNext}", taxDrift(next / 100).toFixed(2));
+  return { unrestText, payText, payDaysText, personaText, safetyText, raiseCostText, optionsText: request.options.map((option) => W[option]).join("; ") + "." };
 }
 
 export function deepSeekRequestBody(request: TaxStepRequest): string {
