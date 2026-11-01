@@ -1,0 +1,668 @@
+{
+  "probe": {
+    "threshold": 0.6,
+    "perTest": {
+      "port_holding": {
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "tn": 21,
+        "precision": 1,
+        "recall": 1,
+        "ok": true
+      },
+      "faction_number": {
+        "tp": 6,
+        "fp": 0,
+        "fn": 0,
+        "tn": 23,
+        "precision": 1,
+        "recall": 1,
+        "ok": true
+      },
+      "allegiance_freedom": {
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "tn": 21,
+        "precision": 1,
+        "recall": 1,
+        "ok": true
+      },
+      "broken_promise": {
+        "tp": 4,
+        "fp": 2,
+        "fn": 0,
+        "tn": 23,
+        "precision": 0.6667,
+        "recall": 1,
+        "ok": true,
+        "acceptedBy": "Lead ruling 2026-10-31: the two FPs are secessions (triage-02, -18) that escalate on three other tests"
+      }
+    },
+    "item29FactionNumber": 0.97,
+    "pass": true
+  },
+  "flagOff": {
+    "rows": [
+      {
+        "seed": 1847,
+        "t72": "66e8ccb7",
+        "t1200": "b51aa07a",
+        "ok": true
+      },
+      {
+        "seed": 2718,
+        "t72": "b4ccedab",
+        "t1200": "091f7628",
+        "ok": true
+      },
+      {
+        "seed": 4096,
+        "t72": "b04c5ac4",
+        "t1200": "25bdbf15",
+        "ok": true
+      }
+    ],
+    "pass": true
+  },
+  "seeds": [
+    {
+      "seed": 1847,
+      "neverEqualsPickerOnly": {
+        "never": "b51aa07a",
+        "pickerOnly": "b51aa07a",
+        "ok": true
+      },
+      "neverScoresEveryKind": {
+        "kinds": {
+          "tax": 88,
+          "desertion": 3,
+          "secession": 4,
+          "claim": 427,
+          "contract-break": 63
+        },
+        "ok": true
+      },
+      "alwaysFlag": {
+        "triaged": 987,
+        "kinds": {
+          "tax": 109,
+          "desertion": 7,
+          "secession": 7,
+          "claim": 857,
+          "contract-break": 7
+        },
+        "eligibleOffCooldown": 858,
+        "expected": 50,
+        "escalations": 50,
+        "cooldownBreaks": 0,
+        "brainNotLegalOrFallback": 0,
+        "railBreaks": 0,
+        "defaultBreaks": 0,
+        "ok": true
+      },
+      "run": {
+        "mode": "jev",
+        "stateHash": "50a4fff3",
+        "escalation": {
+          "triaged": 470,
+          "kinds": {
+            "tax": 116,
+            "desertion": 6,
+            "secession": 5,
+            "claim": 281,
+            "contract-break": 62
+          },
+          "eligibleOffCooldown": 358,
+          "expected": 50,
+          "escalations": 0,
+          "cooldownBreaks": 0,
+          "brainNotLegalOrFallback": 0,
+          "railBreaks": 0,
+          "defaultBreaks": 0
+        },
+        "triageSummary": {
+          "triaged": 470,
+          "scoreCalls": 470,
+          "scoreFallbacks": {},
+          "flaggedDecisions": 470,
+          "escalations": 0,
+          "budget": 50,
+          "skippedCooldown": 0,
+          "skippedBudget": 470,
+          "perKind": {
+            "tax": {
+              "triaged": 116,
+              "flagged": 116,
+              "escalated": 0
+            },
+            "desertion": {
+              "triaged": 6,
+              "flagged": 6,
+              "escalated": 0
+            },
+            "secession": {
+              "triaged": 5,
+              "flagged": 5,
+              "escalated": 0
+            },
+            "claim": {
+              "triaged": 281,
+              "flagged": 281,
+              "escalated": 0
+            },
+            "contract-break": {
+              "triaged": 62,
+              "flagged": 62,
+              "escalated": 0
+            }
+          },
+          "escalationsByKindRole": {},
+          "triagedByKindRole": {
+            "claim/holder": 11,
+            "claim/governor": 23,
+            "claim/member": 247,
+            "tax/holder": 74,
+            "contract-break/carrier": 62,
+            "secession/governor": 5,
+            "tax/acting-holder": 42,
+            "desertion/member": 6
+          },
+          "perTest": {
+            "port_holding": {
+              "flagged": 289,
+              "escalated": 0
+            },
+            "faction_number": {
+              "flagged": 116,
+              "escalated": 0
+            },
+            "allegiance_freedom": {
+              "flagged": 11,
+              "escalated": 0
+            },
+            "broken_promise": {
+              "flagged": 68,
+              "escalated": 0
+            }
+          },
+          "brainModel": 0,
+          "brainFallbacks": {
+            "timeout": 0,
+            "error": 0,
+            "illegal": 0,
+            "cap": 0
+          },
+          "brainAgrees": 0,
+          "brainOverrides": 0,
+          "brainOverridesByKind": {},
+          "brainDiffersShare": 0,
+          "brainRailBreaks": 0,
+          "defaultBreaks": 0,
+          "cooldownBreaks": 0,
+          "brainCalls": 0,
+          "brainSpendUsd": 0,
+          "brainCostLines": 0,
+          "triageSpendUsd": 0.014876526000000006,
+          "triageCostLines": 470,
+          "cacheHits": 672,
+          "cacheMisses": 0
+        }
+      },
+      "replay": {
+        "run": {
+          "present": true,
+          "hashMatches": true,
+          "providerCalls": 0,
+          "fetchAttempts": 0,
+          "ok": true
+        },
+        "always": {
+          "present": true,
+          "hashMatches": true,
+          "providerCalls": 0,
+          "fetchAttempts": 0,
+          "ok": true
+        }
+      },
+      "readout": {
+        "escalations": 0,
+        "overrides": 0,
+        "firstOverrideTick": null,
+        "firstDivergentTick": null,
+        "hashEqualPickerOnly": true,
+        "picksUnchangedWithoutEscalation": true,
+        "holderEntropy": {
+          "run": 2.4376,
+          "pickerOnly": 2.4376,
+          "notBelow": true
+        },
+        "escalationsPerTest": {
+          "port_holding": 0,
+          "faction_number": 0,
+          "allegiance_freedom": 0,
+          "broken_promise": 0
+        },
+        "escalationsByKindRole": {},
+        "brainAgrees": 0,
+        "brainDiffersShare": 0
+      },
+      "caps": {
+        "brainCalls": 0,
+        "brainSpendUsd": 0,
+        "brainCostLines": 0,
+        "scoreCalls": 470,
+        "scoreCostLines": 470,
+        "pickerLiveCalls": 0,
+        "pickerCostLines": 0,
+        "totalSpendUsd": 0.014876526000000006,
+        "ok": true
+      }
+    },
+    {
+      "seed": 2718,
+      "neverEqualsPickerOnly": {
+        "never": "091f7628",
+        "pickerOnly": "091f7628",
+        "ok": true
+      },
+      "neverScoresEveryKind": {
+        "kinds": {
+          "tax": 77,
+          "desertion": 2,
+          "secession": 0,
+          "claim": 714,
+          "contract-break": 26
+        },
+        "ok": true
+      },
+      "alwaysFlag": {
+        "triaged": 674,
+        "kinds": {
+          "tax": 128,
+          "desertion": 3,
+          "secession": 10,
+          "claim": 520,
+          "contract-break": 13
+        },
+        "eligibleOffCooldown": 526,
+        "expected": 50,
+        "escalations": 50,
+        "cooldownBreaks": 0,
+        "brainNotLegalOrFallback": 0,
+        "railBreaks": 0,
+        "defaultBreaks": 0,
+        "ok": true
+      },
+      "run": {
+        "mode": "jev",
+        "stateHash": "e7650ca4",
+        "escalation": {
+          "triaged": 701,
+          "kinds": {
+            "tax": 91,
+            "desertion": 2,
+            "secession": 3,
+            "claim": 589,
+            "contract-break": 16
+          },
+          "eligibleOffCooldown": 552,
+          "expected": 50,
+          "escalations": 0,
+          "cooldownBreaks": 0,
+          "brainNotLegalOrFallback": 0,
+          "railBreaks": 0,
+          "defaultBreaks": 0
+        },
+        "triageSummary": {
+          "triaged": 701,
+          "scoreCalls": 701,
+          "scoreFallbacks": {},
+          "flaggedDecisions": 701,
+          "escalations": 0,
+          "budget": 50,
+          "skippedCooldown": 0,
+          "skippedBudget": 701,
+          "perKind": {
+            "tax": {
+              "triaged": 91,
+              "flagged": 91,
+              "escalated": 0
+            },
+            "desertion": {
+              "triaged": 2,
+              "flagged": 2,
+              "escalated": 0
+            },
+            "secession": {
+              "triaged": 3,
+              "flagged": 3,
+              "escalated": 0
+            },
+            "claim": {
+              "triaged": 589,
+              "flagged": 589,
+              "escalated": 0
+            },
+            "contract-break": {
+              "triaged": 16,
+              "flagged": 16,
+              "escalated": 0
+            }
+          },
+          "escalationsByKindRole": {},
+          "triagedByKindRole": {
+            "claim/holder": 19,
+            "claim/member": 491,
+            "claim/governor": 79,
+            "tax/holder": 75,
+            "contract-break/carrier": 16,
+            "secession/governor": 3,
+            "tax/acting-holder": 16,
+            "desertion/member": 2
+          },
+          "perTest": {
+            "port_holding": {
+              "flagged": 592,
+              "escalated": 0
+            },
+            "faction_number": {
+              "flagged": 91,
+              "escalated": 0
+            },
+            "allegiance_freedom": {
+              "flagged": 5,
+              "escalated": 0
+            },
+            "broken_promise": {
+              "flagged": 18,
+              "escalated": 0
+            }
+          },
+          "brainModel": 0,
+          "brainFallbacks": {
+            "timeout": 0,
+            "error": 0,
+            "illegal": 0,
+            "cap": 0
+          },
+          "brainAgrees": 0,
+          "brainOverrides": 0,
+          "brainOverridesByKind": {},
+          "brainDiffersShare": 0,
+          "brainRailBreaks": 0,
+          "defaultBreaks": 0,
+          "cooldownBreaks": 0,
+          "brainCalls": 0,
+          "brainSpendUsd": 0,
+          "brainCostLines": 0,
+          "triageSpendUsd": 0.023162874000000153,
+          "triageCostLines": 701,
+          "cacheHits": 388,
+          "cacheMisses": 0
+        }
+      },
+      "replay": {
+        "run": {
+          "present": true,
+          "hashMatches": true,
+          "providerCalls": 0,
+          "fetchAttempts": 0,
+          "ok": true
+        },
+        "always": {
+          "present": true,
+          "hashMatches": true,
+          "providerCalls": 0,
+          "fetchAttempts": 0,
+          "ok": true
+        }
+      },
+      "readout": {
+        "escalations": 0,
+        "overrides": 0,
+        "firstOverrideTick": null,
+        "firstDivergentTick": null,
+        "hashEqualPickerOnly": true,
+        "picksUnchangedWithoutEscalation": true,
+        "holderEntropy": {
+          "run": 2.5332,
+          "pickerOnly": 2.5332,
+          "notBelow": true
+        },
+        "escalationsPerTest": {
+          "port_holding": 0,
+          "faction_number": 0,
+          "allegiance_freedom": 0,
+          "broken_promise": 0
+        },
+        "escalationsByKindRole": {},
+        "brainAgrees": 0,
+        "brainDiffersShare": 0
+      },
+      "caps": {
+        "brainCalls": 0,
+        "brainSpendUsd": 0,
+        "brainCostLines": 0,
+        "scoreCalls": 701,
+        "scoreCostLines": 701,
+        "pickerLiveCalls": 0,
+        "pickerCostLines": 0,
+        "totalSpendUsd": 0.023162874000000153,
+        "ok": true
+      }
+    },
+    {
+      "seed": 4096,
+      "neverEqualsPickerOnly": {
+        "never": "25bdbf15",
+        "pickerOnly": "25bdbf15",
+        "ok": true
+      },
+      "neverScoresEveryKind": {
+        "kinds": {
+          "tax": 121,
+          "desertion": 4,
+          "secession": 4,
+          "claim": 200,
+          "contract-break": 72
+        },
+        "ok": true
+      },
+      "alwaysFlag": {
+        "triaged": 379,
+        "kinds": {
+          "tax": 133,
+          "desertion": 10,
+          "secession": 8,
+          "claim": 215,
+          "contract-break": 13
+        },
+        "eligibleOffCooldown": 274,
+        "expected": 50,
+        "escalations": 50,
+        "cooldownBreaks": 0,
+        "brainNotLegalOrFallback": 0,
+        "railBreaks": 0,
+        "defaultBreaks": 0,
+        "ok": true
+      },
+      "run": {
+        "mode": "jev",
+        "stateHash": "cbc7fb38",
+        "escalation": {
+          "triaged": 375,
+          "kinds": {
+            "tax": 114,
+            "desertion": 8,
+            "secession": 3,
+            "claim": 201,
+            "contract-break": 49
+          },
+          "eligibleOffCooldown": 279,
+          "expected": 50,
+          "escalations": 0,
+          "cooldownBreaks": 0,
+          "brainNotLegalOrFallback": 0,
+          "railBreaks": 0,
+          "defaultBreaks": 0
+        },
+        "triageSummary": {
+          "triaged": 375,
+          "scoreCalls": 375,
+          "scoreFallbacks": {},
+          "flaggedDecisions": 375,
+          "escalations": 0,
+          "budget": 50,
+          "skippedCooldown": 0,
+          "skippedBudget": 375,
+          "perKind": {
+            "tax": {
+              "triaged": 114,
+              "flagged": 114,
+              "escalated": 0
+            },
+            "desertion": {
+              "triaged": 8,
+              "flagged": 8,
+              "escalated": 0
+            },
+            "secession": {
+              "triaged": 3,
+              "flagged": 3,
+              "escalated": 0
+            },
+            "claim": {
+              "triaged": 201,
+              "flagged": 201,
+              "escalated": 0
+            },
+            "contract-break": {
+              "triaged": 49,
+              "flagged": 49,
+              "escalated": 0
+            }
+          },
+          "escalationsByKindRole": {},
+          "triagedByKindRole": {
+            "claim/holder": 14,
+            "claim/governor": 18,
+            "claim/member": 169,
+            "tax/holder": 69,
+            "contract-break/carrier": 49,
+            "desertion/member": 8,
+            "secession/governor": 3,
+            "tax/acting-holder": 45
+          },
+          "perTest": {
+            "port_holding": {
+              "flagged": 207,
+              "escalated": 0
+            },
+            "faction_number": {
+              "flagged": 114,
+              "escalated": 0
+            },
+            "allegiance_freedom": {
+              "flagged": 11,
+              "escalated": 0
+            },
+            "broken_promise": {
+              "flagged": 57,
+              "escalated": 0
+            }
+          },
+          "brainModel": 0,
+          "brainFallbacks": {
+            "timeout": 0,
+            "error": 0,
+            "illegal": 0,
+            "cap": 0
+          },
+          "brainAgrees": 0,
+          "brainOverrides": 0,
+          "brainOverridesByKind": {},
+          "brainDiffersShare": 0,
+          "brainRailBreaks": 0,
+          "defaultBreaks": 0,
+          "cooldownBreaks": 0,
+          "brainCalls": 0,
+          "brainSpendUsd": 0,
+          "brainCostLines": 0,
+          "triageSpendUsd": 0.011789022,
+          "triageCostLines": 375,
+          "cacheHits": 747,
+          "cacheMisses": 0
+        }
+      },
+      "replay": {
+        "run": {
+          "present": true,
+          "hashMatches": true,
+          "providerCalls": 0,
+          "fetchAttempts": 0,
+          "ok": true
+        },
+        "always": {
+          "present": true,
+          "hashMatches": true,
+          "providerCalls": 0,
+          "fetchAttempts": 0,
+          "ok": true
+        }
+      },
+      "readout": {
+        "escalations": 0,
+        "overrides": 0,
+        "firstOverrideTick": null,
+        "firstDivergentTick": null,
+        "hashEqualPickerOnly": true,
+        "picksUnchangedWithoutEscalation": true,
+        "holderEntropy": {
+          "run": 2.3791,
+          "pickerOnly": 2.3791,
+          "notBelow": true
+        },
+        "escalationsPerTest": {
+          "port_holding": 0,
+          "faction_number": 0,
+          "allegiance_freedom": 0,
+          "broken_promise": 0
+        },
+        "escalationsByKindRole": {},
+        "brainAgrees": 0,
+        "brainDiffersShare": 0
+      },
+      "caps": {
+        "brainCalls": 0,
+        "brainSpendUsd": 0,
+        "brainCostLines": 0,
+        "scoreCalls": 375,
+        "scoreCostLines": 375,
+        "pickerLiveCalls": 0,
+        "pickerCostLines": 0,
+        "totalSpendUsd": 0.011789022,
+        "ok": true
+      }
+    }
+  ],
+  "tests": {
+    "given": true,
+    "pass": 615,
+    "fail": 0,
+    "ok": true
+  },
+  "checks": {
+    "1_probe": true,
+    "2_flagOffPins": true,
+    "3_neverFlagEqualsPickerOnly": true,
+    "4_alwaysFlagEscalations": true,
+    "5_replayExactZeroCalls": true,
+    "6_picksUnchangedWithoutEscalation": true,
+    "6_holderEntropyNotBelowPickerOnly": true,
+    "7_caps": true,
+    "7_npmTest": true
+  },
+  "pass": true
+}
