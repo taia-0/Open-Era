@@ -13,18 +13,18 @@ function live(seed: number, ticks: number): { world: ReturnType<typeof createPro
   return { world, events };
 }
 
-test("seed 1847 shows every Free Tide step from 7% to the tick 792 cut, each with its previous rate", () => {
-  // Re-pinned for the contract haul: the haul run has 16 Free Tide steps, ending with the tick 792 cut.
+test("seed 1847 shows every Free Tide step from 7% to the tick 840 raise, each with its previous rate", () => {
+  // Re-pinned for the raise shock (low-tax-cost.md): 20 Free Tide steps by tick 840 (was 16, ending with the tick 792 cut).
   const { world, events } = live(1847, 841);
   const steps = events.filter((event) => event.type === "tax-rate-set" && event.data.factionId === "free-tide");
   const rows = steps.map((event) => projectEventFeed(world, "character-01", [event], events)[0]);
-  assert.equal(rows.length, 16);
+  assert.equal(rows.length, 20);
   assert.equal(rows.every((row) => row?.payloadWithheld === true), true);
   // Breakaway polish ruling 2: a faction holding one port names it as the pressed port.
   assert.equal(rows[0]?.summary, "Pax Ash lowered the Free Tide Compact tax from 8% to 7% (unrest at Glassport).");
-  assert.equal(rows[1]?.summary, "Pax Ash raised the Free Tide Compact tax from 7% to 8% (treasury short).");
-  assert.equal(rows[14]?.summary, "Pax Ash raised the Free Tide Compact tax from 14% to 15% (treasury short).");
-  assert.equal(rows[15]?.summary, "Pax Ash lowered the Free Tide Compact tax from 15% to 14% (unrest).");
+  assert.equal(rows[1]?.summary, "Pax Ash raised the Free Tide Compact tax from 7% to 8% (treasury short). The raise cost stability at Cinder Key 56.74 to 55.74, Glassport 59.02 to 58.02.");
+  assert.equal(rows[18]?.summary, "Pax Ash lowered the Free Tide Compact tax from 10% to 9% (unrest).");
+  assert.equal(rows[19]?.summary, "Pax Ash raised the Free Tide Compact tax from 9% to 10% (treasury short). The raise cost stability at Cinder Key 56.51 to 55.51.");
   for (let index = 1; index < steps.length; index += 1) {
     assert.equal(steps[index].data.previousTaxRate, steps[index - 1].data.taxRate);
   }

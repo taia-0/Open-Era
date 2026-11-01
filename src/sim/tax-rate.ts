@@ -22,6 +22,39 @@ export const TAX_DRIFT_THRESHOLD = 0.15;
 /** Stability subtracted for one band of 0.05 above the threshold. */
 export const TAX_DRIFT_PER_BAND = 0.03;
 
+/**
+ * Raise shock (docs/design/low-tax-cost.md at aa87529): each point of tax
+ * raised subtracts this much stability, once, from every port the faction
+ * holds, at any rate. A hold or a cut has no shock.
+ */
+export const RAISE_SHOCK_PER_POINT = 1.0;
+
+export interface RaiseShockEntry { settlementId: string; before: number; stability: number }
+
+/**
+ * The stabilities a raise leaves, for the raising `tax-rate-set` to carry as
+ * `data.raiseShock`; the reducer writes them. Empty for a hold or a cut.
+ * Ports are in id order; each result is clamped at 0 and kept to hundredths.
+ */
+export function raiseShock(world: WorldState, factionId: string, previousRate: number, taxRate: number): RaiseShockEntry[] {
+  const points = Math.round(taxRate * 100) - Math.round(previousRate * 100);
+  if (points <= 0) return [];
+  return Object.values(world.settlements)
+    .filter((settlement) => settlement.factionId === factionId)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .map((settlement) => ({
+      settlementId: settlement.id,
+      before: settlement.stability,
+      stability: Math.max(0, Math.round((settlement.stability - points * RAISE_SHOCK_PER_POINT) * 100) / 100),
+    }));
+}
+
+/** `data` fields for a `tax-rate-set`: the raise shock when it raises, nothing otherwise. */
+export function raiseShockData(world: WorldState, factionId: string, previousRate: number, taxRate: number): { raiseShock?: RaiseShockEntry[] } {
+  const shock = raiseShock(world, factionId, previousRate, taxRate);
+  return shock.length > 0 ? { raiseShock: shock } : {};
+}
+
 const TAX_RATE_ERROR = "The tax rate must be from 0.00 to 0.30 in steps of 0.01.";
 
 /** Whole percent for a rate already on the one-cent grid. 0.12 is 12. */

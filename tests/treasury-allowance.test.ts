@@ -132,17 +132,18 @@ test("a Free Tide reader sees none of World Government's allowance or balance", 
   assert.equal(stateHash(world), before);
 });
 
-test("seed 1847 tick 534 binds the acting commander and does not uncap the captive holder", () => {
+test("seed 1847 tick 732 binds the acting commander and does not uncap the captive holder", () => {
+  // Re-pinned for the raise shock (low-tax-cost.md): Mara is now taken on tick 726; tick 732 is the day boundary in that hold (was 534).
   // Re-pinned for the contract haul: Mara's Crown Harbor hold is read from the live session.
   // Batch 2 seats Jun Marrow while Mara is held at Crown Harbor. Tick 534 is a day boundary.
-  const run = liveTicks(1847, 534);
+  const run = liveTicks(1847, 732);
   const world = run.state;
-  assert.equal(world.tick, 534);
+  assert.equal(world.tick, 732);
   const mara = world.characters["character-01"];
   const jun = world.characters["character-05"];
   assert.equal(jun.name, "Jun Marrow");
   assert.equal(world.factions["world-government"].actingCommanderId, "character-05");
-  assert.equal(mara.captivity?.capturedTick, 528);
+  assert.equal(mara.captivity?.capturedTick, 726);
   assert.equal(mara.captivity?.settlementId, "crown-harbor");
   const before = stateHash(world);
   const holder = card(world, mara, mara);
@@ -157,8 +158,8 @@ test("seed 1847 tick 534 binds the acting commander and does not uncap the capti
   assert.equal(cover.allowanceUncapped, false);
   assert.equal(cover.allowanceCap, 18);
   assert.equal(cover.allowanceOnDayBoundary, true);
-  assert.equal(cover.allowanceDayStart, 534);
-  assert.equal(cover.allowanceResetsOnTick, 540);
+  assert.equal(cover.allowanceDayStart, 732);
+  assert.equal(cover.allowanceResetsOnTick, 738);
   // Nothing has been drawn for Jun today, so the remainder stays omitted.
   assert.equal("allowanceRemaining" in cover, false);
   assert.equal(cover.allowanceNote, "none spent today");
@@ -197,18 +198,19 @@ test("seed 1847 sequence 43 names Toma Reef untagged on the feed row and tagged 
   assert.equal(stateHash(run.state), before);
 });
 
-test("seed 1847 tick 613 hides the Free Tide balance and keeps the paid amount", () => {
+test("seed 1847 tick 811 hides the Free Tide balance and keeps the paid amount", () => {
+  // Re-pinned for the raise shock (low-tax-cost.md): Mara's release is now tick 810, sequence 109241; the balance on the event is 152.95.
   // Re-pinned for the contract haul: the live session keeps this release; sequence, balance and debt moved.
   // Batch 2 moved the hidden balance to Mara's own release. The payment is 108. The balance on the event is 123.7.
-  const run = liveTicks(1847, 613);
+  const run = liveTicks(1847, 811);
   const world = run.state;
-  assert.equal(world.tick, 613);
-  const release = run.events.find((event) => event.sequence === 79032);
+  assert.equal(world.tick, 811);
+  const release = run.events.find((event) => event.sequence === 109241);
   assert.ok(release);
   const balance = (release.data.ransom as { factionTreasury: number }).factionTreasury;
-  assert.equal(balance, 123.7);
+  assert.equal(balance, 152.95);
   const before = stateHash(world);
-  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 80.85 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
+  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 139.93 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
   const [maraRow] = projectEventFeed(world, "character-01", [release]);
   assert.equal(maraRow?.payloadWithheld, false);
   assert.equal((maraRow?.data as { ransom: { factionTreasury?: number } }).ransom.factionTreasury, undefined);
@@ -220,7 +222,7 @@ test("seed 1847 tick 613 hides the Free Tide balance and keeps the paid amount",
   assert.equal(paxRow?.data, null);
   assert.equal(
     paxRow?.summary,
-    "Mara Vane was released from Crown Harbor. 108 was paid and 80.85 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.",
+    "Mara Vane was released from Crown Harbor. 108 was paid and 139.93 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.",
   );
   assert.equal(String(paxRow?.summary).includes("not visible to you"), false);
   const view = dashboardState(world, run.events, fullEventFeed(run.events)) as {
@@ -230,7 +232,7 @@ test("seed 1847 tick 613 hides the Free Tide balance and keeps the paid amount",
   const freeTide = view.factions.find((faction) => faction.id === "free-tide");
   assert.equal(freeTide?.treasury, null);
   assert.equal(freeTide?.treasuryNote, "not visible to you");
-  const shown = view.events.find((event) => event.sequence === 79032);
+  const shown = view.events.find((event) => event.sequence === 109241);
   assert.equal(shown?.summary, line);
   assert.equal(shown?.data?.ransom?.factionTreasury, undefined);
   assert.equal(stateHash(world), before);

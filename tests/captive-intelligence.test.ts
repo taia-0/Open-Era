@@ -487,19 +487,20 @@ function recoverThrough(seed: number, splitAt: number, through: number, characte
   }
 }
 
-test("Zara Gale's release at tick 791 recovers from the tick 791 snapshot", () => {
-  // Re-pinned for the contract haul: Mara Vane is no longer released on headless 1847 by tick 754.
-  // The held-captain release used here is Zara Gale's at tick 791, from Crown Harbor.
-  const live = runTicks(createPrototypeWorld(1847), 792).state;
-  const zara = live.characters["character-17"];
-  assert.equal(zara.name, "Zara Gale");
-  assert.equal(zara.captivity, null);
-  assert.equal(zara.releaseSighting?.observedTick, 791);
-  assert.equal(zara.releaseSighting?.garrison, 13);
-  const split = recoverThrough(1847, 791, 792, "character-17");
+test("Mara Vane's release at tick 722 recovers from the tick 722 snapshot", () => {
+  // Re-pinned for the raise shock (low-tax-cost.md): Zara Gale is no longer captured on headless 1847.
+  // The held-captain release used here is Mara Vane's at tick 722, from Crown Harbor (was Zara Gale's at tick 791).
+  const live = runTicks(createPrototypeWorld(1847), 723).state;
+  const mara = live.characters["character-01"];
+  assert.equal(mara.name, "Mara Vane");
+  assert.equal(mara.captivity, null);
+  assert.equal(mara.releaseSighting?.observedTick, 722);
+  assert.equal(mara.releaseSighting?.settlementId, "crown-harbor");
+  assert.equal(mara.releaseSighting?.garrison, 11);
+  const split = recoverThrough(1847, 722, 723, "character-01");
   assert.equal(split.rebuiltHash, split.liveHash);
   assert.equal(split.liveHash, stateHash(live));
-  assert.deepEqual(split.rebuiltRecord, zara.releaseSighting);
+  assert.deepEqual(split.rebuiltRecord, mara.releaseSighting);
 });
 
 

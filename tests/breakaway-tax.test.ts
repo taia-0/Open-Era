@@ -72,7 +72,8 @@ test("a captive or departed founder, or a faction with no founder, has no seat",
 });
 
 test("a secession stores its founder from the declaration", () => {
-  const run = runTicks(createPrototypeWorld(1847), 553);
+  // Re-pinned for the raise shock (low-tax-cost.md): the first headless secession on seed 1847 is now tick 768 (was 552).
+  const run = runTicks(createPrototypeWorld(1847), 769);
   const declared = run.events.find((event) => event.type === "secession-declared");
   assert.ok(declared);
   const faction = run.state.factions[(declared.data.faction as { id: string }).id];
