@@ -1,0 +1,148 @@
+diff --git a/scripts/diag/port-transfer-sweep.ts b/scripts/diag/port-transfer-sweep.ts
+new file mode 100644
+index 0000000..5fb44ea
+--- /dev/null
++++ b/scripts/diag/port-transfer-sweep.ts
+@@ -0,0 +1,43 @@
++// PORT_TRANSFER prototype sweep: 13 seeds × 1,200 ticks, main defaults, transfer off vs on. Offline, no AI.
++import { runTick } from "../../src/sim/engine.ts";
++import { createPrototypeWorld } from "../../src/sim/scenario.ts";
++import { stateHash } from "../../src/sim/state.ts";
++import { dynamismReadout } from "../../src/tools/dynamism.ts";
++import type { SimEvent } from "../../src/sim/types.ts";
++const seeds = [1847, 2718, 4096, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
++const PINS: Record<number, string> = { 1847: "94de9c02", 2718: "7a3741c9", 4096: "af6eeaea" };
++function run(seed: number, on: boolean) {
++  const w = createPrototypeWorld(seed); const events: SimEvent[] = []; const viol: string[] = []; let vcOwnedTicks = 0; const vcOwners = new Set<string>();
++  for (let i = 0; i < 1200; i++) {
++    const vcBefore = w.settlements["verdant-cay"].factionId;
++    const evs = runTick(w, { portTransfer: on } as never).events; events.push(...evs);
++    for (const e of evs) if (e.type === "settlement-purchased") {
++      const d = e.data as Record<string, any>;
++      if (e.tick % 24 !== 0 || e.tick === 0) viol.push(`off-clock t${e.tick}`);
++      if (vcBefore !== null && e.settlementId === "verdant-cay") viol.push(`port not neutral t${e.tick}`);
++      if (!d.payerFactionId || !w.factions[d.payerFactionId]) viol.push(`no payer t${e.tick}`);
++      if (d.price !== 12 * d.priceBasis.garrison || d.price <= 0) viol.push(`price basis t${e.tick}`);
++      if (d.treasuryBefore < d.price + d.reserve) viol.push(`treasury short t${e.tick}`);
++      if (Math.abs(d.treasuryAfter - (d.treasuryBefore - d.price)) > 0.005) viol.push(`payment mismatch t${e.tick}`);
++      if (!d.cause) viol.push(`no cause t${e.tick}`);
++      if (w.characters[d.ownerId]?.factionId !== d.factionId) viol.push(`agent not of buyer t${e.tick}`);
++    }
++    const f = w.settlements["verdant-cay"].factionId; if (f) { vcOwnedTicks++; vcOwners.add(f.startsWith("secession") ? "secession" : f); }
++  }
++  const t = dynamismReadout(events).totals;
++  const ports = (f: string) => Object.values(w.settlements).filter((s) => s.factionId === f).length;
++  const members = (f: string) => Object.values(w.characters).filter((c) => !c.dead && c.factionId === f).length;
++  const buys = events.filter((e) => e.type === "settlement-purchased");
++  const causes: Record<string, number> = {}; const buyers: Record<string, number> = {}; for (const b of buys) { const k = String(b.data.cause).split(":")[0]; causes[k] = (causes[k] ?? 0) + 1; const f = String(b.data.factionId); const fk = f.startsWith("secession") ? "secession" : f; buyers[fk] = (buyers[fk] ?? 0) + 1; }
++  return { seed, on, hash: stateHash(w).slice(0, 8), claims: events.filter((e) => e.type === "settlement-claimed").length, portChanges: t.portOwnershipChanges, secessions: t.secessions,
++    vcBattles: events.filter((e) => e.type === "battle-started" && e.settlementId === "verdant-cay").length, vcClaims: events.filter((e) => e.type === "settlement-claimed" && e.settlementId === "verdant-cay").length,
++    buys: buys.length, firstBuy: buys[0]?.tick ?? null, prices: buys.map((b) => b.data.price as number), causes, buyers, vcOwnedTicks, vcOwners: [...vcOwners], vcEnd: w.settlements["verdant-cay"].factionId, wipeouts: ["world-government", "free-tide"].filter((f) => ports(f) === 0 && members(f) === 0), viol };
++}
++const off = seeds.map((s) => run(s, false)); const on = seeds.map((s) => run(s, true));
++console.log("| Seed | Off hash | Purchases (first tick) | Buyer | Prices | VC owned ticks on | VC owner t1200 | VC battles / claims on | Claims off/on | Port changes off/on | Secessions off/on | Wipeouts on/off | Violations |");
++for (const s of seeds) { const a = off.find((r) => r.seed === s)!, b = on.find((r) => r.seed === s)!; console.log(`| ${s} | ${a.hash}${PINS[s] ? (a.hash === PINS[s] ? " pin" : " MISMATCH") : ""} | ${b.buys} (${b.firstBuy}) | ${JSON.stringify(b.buyers)} | ${b.prices.join(", ")} | ${b.vcOwnedTicks} | ${b.vcEnd ?? "neutral"} | ${b.vcBattles} / ${b.vcClaims} | ${a.claims} / ${b.claims} | ${a.portChanges} / ${b.portChanges} | ${a.secessions} / ${b.secessions} | ${JSON.stringify(b.wipeouts)} / ${JSON.stringify(a.wipeouts)} | ${b.viol.length} |`); }
++const sum = (rs: typeof on, k: "claims" | "portChanges" | "secessions" | "buys" | "vcBattles" | "vcClaims") => rs.reduce((x, r) => x + r[k], 0);
++const causeTot: Record<string, number> = {}; for (const r of on) for (const [k, v] of Object.entries(r.causes)) causeTot[k] = (causeTot[k] ?? 0) + v;
++console.log(JSON.stringify({ claims: [sum(off, "claims"), sum(on, "claims")], portChanges: [sum(off, "portChanges"), sum(on, "portChanges")], secessions: [sum(off, "secessions"), sum(on, "secessions")], purchases: sum(on, "buys"), seedsWithPurchase: on.filter((r) => r.buys).length, causeTot, vcBattlesOn: sum(on, "vcBattles"), vcClaimsOn: sum(on, "vcClaims"), vcBattlesOff: sum(off, "vcBattles"),
++  minClaims: Math.min(...on.map((r) => r.claims)), minPortChanges: Math.min(...on.map((r) => r.portChanges)), seedsWithSecession: on.filter((r) => r.secessions > 0).length,
++  newWipeouts: on.filter((r) => r.wipeouts.some((f) => !off.find((o) => o.seed === r.seed)!.wipeouts.includes(f))).map((r) => r.seed), violations: on.flatMap((r) => r.viol).slice(0, 10) }));
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 3f391c3..9fa3d2d 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -39,6 +39,7 @@ import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSIO
+ import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
+ import { foodBaseline } from "./occupation.ts";
+ import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge, type WgNudge, type WgRole } from "./ai-wg-picker.ts";
++import { PORT_TRANSFER_DEFAULT, portPurchases } from "./port-transfer.ts";
+ import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
+ import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
+ import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+@@ -4508,9 +4509,11 @@ export const EXILE_RECOVERY_DEFAULT = true;
+ /** Set for the duration of one `runTick` from `options.occupation` (single-threaded, deterministic). */
+ let occupationOn = false;
+ let alliancesOn = false;
++let portTransferOn = false;
+ 
+ export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
++  portTransferOn = (options as { portTransfer?: boolean }).portTransfer ?? PORT_TRANSFER_DEFAULT;
+   alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
+   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
+   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
+@@ -4539,6 +4542,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+   chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
+   declareAutonomousSecessions(world, events, options.liveSession === true, options.ai);
+   if (alliancesOn) allianceForms(world, (d) => emit(world, events, d as EventDraft));
++  if (portTransferOn) portPurchases(world, (d) => emit(world, events, d as EventDraft));
+   resolveOfferedContracts(world, events);
+   resolveContractOutcomes(world, events);
+   offerAutonomousSupply(world, events);
+diff --git a/src/sim/port-transfer.ts b/src/sim/port-transfer.ts
+new file mode 100644
+index 0000000..59f0912
+--- /dev/null
++++ b/src/sim/port-transfer.ts
+@@ -0,0 +1,44 @@
++import { freeMateCount } from "./allowance.ts";
++import type { SimEvent, WorldState } from "./types.ts";
++/**
++ * PORT_TRANSFER prototype (docs/design/port-transfer.md v1): purchase of a neutral port by a faction treasury.
++ * Deterministic, no RNG, no AI. Flag off: nothing runs.
++ */
++export const PORT_TRANSFER_DEFAULT = false;
++export const PURCHASE_CLOCK = 24;
++/** engine.ts recruit: 12 money per soldier. */
++export const PRICE_PER_SOLDIER = 12;
++/** governor.ts stipend: 18 per free mate and per seat. */
++export const RESERVE_PER_HEAD = 18;
++export const ADJACENT = 30;
++const dist = (w: WorldState, a: string, b: string) => { const p = w.settlements[a].position, q = w.settlements[b].position; return Math.hypot(p.x - q.x, p.y - q.y); };
++type Emit = (d: { type: string; actorId?: string; settlementId?: string; targetId?: string; data: Record<string, unknown> }) => void;
++export function purchaseTerms(world: WorldState, portId: string, factionId: string) {
++  const port = world.settlements[portId]; const faction = world.factions[factionId];
++  const held = Object.values(world.settlements).filter((s) => s.factionId === factionId).sort((a, b) => a.id.localeCompare(b.id));
++  const price = PRICE_PER_SOLDIER * port.garrison;
++  const reserve = RESERVE_PER_HEAD * (freeMateCount(world, factionId) + held.length);
++  const adj = held.find((s) => dist(world, s.id, portId) <= ADJACENT);
++  const cause = adj ? `adjacent: ${factionId} holds ${adj.id} at ${dist(world, adj.id, portId).toFixed(3)}` : !held.length ? `landless: ${factionId} holds no port` : null;
++  return { price, reserve, treasury: faction.treasury, covers: faction.treasury >= price + reserve, cause };
++}
++export function portPurchases(world: WorldState, emit: Emit): void {
++  if (world.tick <= 0 || world.tick % PURCHASE_CLOCK !== 0) return;
++  for (const port of Object.values(world.settlements).sort((a, b) => a.id.localeCompare(b.id))) {
++    if (port.factionId !== null) continue;
++    if (Object.values(world.activeBattles).some((b) => b.settlementId === port.id)) continue;
++    const agents = Object.values(world.characters).filter((c) => !c.dead && !c.captivity && !c.travel && c.factionId && c.locationId === port.id).sort((a, b) => a.id.localeCompare(b.id));
++    for (const agent of agents) {
++      const t = purchaseTerms(world, port.id, agent.factionId!);
++      if (!t.cause || !t.covers) continue;
++      emit({ type: "settlement-purchased", actorId: agent.id, settlementId: port.id, targetId: agent.factionId!, data: { factionId: agent.factionId, ownerId: agent.id, payerFactionId: agent.factionId, price: t.price, priceBasis: { garrison: port.garrison, perSoldier: PRICE_PER_SOLDIER }, reserve: t.reserve, treasuryBefore: t.treasury, treasuryAfter: Math.round((t.treasury - t.price) * 100) / 100, cause: t.cause, stability: port.stability, population: port.population } });
++      break;
++    }
++  }
++}
++export function applyPurchase(world: WorldState, event: SimEvent): boolean {
++  if (event.type !== "settlement-purchased") return false;
++  const s = world.settlements[event.settlementId!]; const f = world.factions[event.data.payerFactionId as string];
++  s.factionId = event.data.factionId as string; s.ownerId = event.data.ownerId as string; s.surrender = null;
++  f.treasury = event.data.treasuryAfter as number; return true;
++}
+diff --git a/src/sim/state.ts b/src/sim/state.ts
+index c0827fc..f5092be 100644
+--- a/src/sim/state.ts
++++ b/src/sim/state.ts
+@@ -1,3 +1,4 @@
++import { applyPurchase } from "./port-transfer.ts";
+ import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
+ import { createHash } from "node:crypto";
+ import type {
+@@ -558,6 +559,7 @@ function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrd
+ }
+ 
+ export function applyEvent(world: WorldState, event: SimEvent): void {
++  if (event.type === "settlement-purchased" && applyPurchase(world, event)) return;
+   if ((event.type === "alliance-formed" || event.type === "alliance-broken" || event.type === "alliance-ledger-opened") && applyAllianceEvent(world, event)) {
+     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+     return;

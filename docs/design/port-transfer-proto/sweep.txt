@@ -1,0 +1,15 @@
+| Seed | Off hash | Purchases (first tick) | Buyer | Prices | VC owned ticks on | VC owner t1200 | VC battles / claims on | Claims off/on | Port changes off/on | Secessions off/on | Wipeouts on/off | Violations |
+| 1847 | 94de9c02 pin | 1 (24) | {"world-government":1} | 840 | 1176 | world-government | 3 / 7 | 51 / 55 | 52 / 56 | 1 / 1 | [] / [] | 0 |
+| 2718 | 7a3741c9 pin | 1 (24) | {"world-government":1} | 840 | 1176 | secession-character-17-crown-harbor-1095 | 0 / 6 | 64 / 34 | 64 / 38 | 0 / 4 | [] / [] | 0 |
+| 4096 | af6eeaea pin | 1 (24) | {"world-government":1} | 840 | 1176 | secession-character-12-crown-harbor-444 | 4 / 6 | 56 / 63 | 59 / 67 | 3 / 4 | [] / [] | 0 |
+| 1000 | 5f303e45 | 1 (24) | {"world-government":1} | 840 | 1176 | world-government | 2 / 6 | 42 / 55 | 44 / 55 | 2 / 0 | [] / [] | 0 |
+| 2000 | 3dec6c14 | 1 (24) | {"world-government":1} | 840 | 1176 | world-government | 1 / 4 | 50 / 40 | 52 / 40 | 2 / 0 | [] / [] | 0 |
+| 3000 | 945a5b23 | 1 (24) | {"world-government":1} | 840 | 1176 | world-government | 2 / 2 | 42 / 26 | 44 / 29 | 2 / 3 | [] / [] | 0 |
+| 4000 | 05583438 | 1 (24) | {"world-government":1} | 840 | 1176 | world-government | 7 / 8 | 63 / 66 | 64 / 67 | 1 / 1 | [] / [] | 0 |
+| 5000 | ad712dfa | 1 (24) | {"world-government":1} | 840 | 1176 | world-government | 1 / 6 | 55 / 47 | 57 / 51 | 2 / 4 | [] / [] | 0 |
+| 6000 | 020028d7 | 1 (24) | {"world-government":1} | 840 | 1176 | secession-character-17-crown-harbor-1031 | 3 / 8 | 50 / 62 | 55 / 68 | 5 / 6 | [] / [] | 0 |
+| 7000 | 9638fa13 | 1 (24) | {"world-government":1} | 840 | 1176 | world-government | 2 / 4 | 61 / 58 | 65 / 58 | 4 / 0 | [] / [] | 0 |
+| 8000 | 6e74df8b | 1 (24) | {"world-government":1} | 840 | 1176 | world-government | 4 / 6 | 62 / 24 | 66 / 24 | 4 / 0 | [] / [] | 0 |
+| 9000 | 450acb6b | 1 (48) | {"world-government":1} | 852 | 1152 | secession-character-21-glassport-91 | 6 / 6 | 58 / 52 | 60 / 57 | 2 / 5 | [] / [] | 0 |
+| 10000 | a1567d5f | 1 (24) | {"world-government":1} | 840 | 1176 | secession-character-06-crown-harbor-408 | 3 / 6 | 28 / 59 | 31 / 64 | 3 / 5 | [] / [] | 0 |
+{"claims":[682,641],"portChanges":[713,674],"secessions":[31,33],"purchases":13,"seedsWithPurchase":13,"causeTot":{"adjacent":13},"vcBattlesOn":38,"vcClaimsOn":75,"vcBattlesOff":0,"minClaims":24,"minPortChanges":24,"seedsWithSecession":9,"newWipeouts":[],"violations":[]}
