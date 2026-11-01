@@ -26,10 +26,13 @@ import {
 } from "./agency.ts";
 import { assessSupplyContract, contractRelationship, contractTravelTicks, openSupplyContract } from "./contracts.ts";
 import { agingDeathData, diesOfOldAge } from "./aging.ts";
-import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
-import { autonomousTaxStep, raiseShockData, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
+import { fullAllowance, resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
+import { autonomousTaxStep, PASSAGE_PER_TICK, raiseShockData, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
+import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
-import { CONTEXT_PROMPT_VERSION, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMPT_VERSION_REASON, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
+import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3442,6 +3445,20 @@ export interface TickOptions {
 
 export interface TickAiOptions {
   brainTaxStep?: TaxStepProvider;
+  /**
+   * ai-tax-weighted (variant b): the sim draws the tax step from the
+   * trait-weighted distribution (ai-weighted.ts) on its own derived stream;
+   * the provider writes only the reason. Unset keeps the brain's choice path.
+   */
+  weighted?: boolean;
+  /**
+   * Slice 1 picker stubs (next-slices.md): replace the trait distribution with
+   * `stubArgmax` (probability 1 on the scorer's pick) or `stubUniform`. No
+   * provider call; the reason comes from the template. Needs `weighted`.
+   */
+  pickerStub?: "stubArgmax" | "stubUniform";
+  /** Slice 1 replay: use the recorded p and u per decision; throws on a missing record or a mismatch. Needs `weighted`. */
+  pickerReplay?: PickerReplay;
   /** Per-run call cap (section 5, check 6). Default 50. */
   cap?: number;
   /**
@@ -3455,6 +3472,11 @@ export interface TickAiOptions {
    * before a brain call; it shares the brain's per-run cap.
    */
   context?: ContextReader;
+  /**
+   * A5: the run's cost ledger, shared by the vendor providers. The engine
+   * only reports the lines each tick added, as `TickResult.aiCost`.
+   */
+  ledger?: CostLedger;
 }
 
 /** Slice A3: only Free Tide's tax step is put to the provider. */
@@ -3597,10 +3619,24 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
   // Pilot B: the reader runs after the cap check, before the brain, and its
   // validated briefing is part of the brain's request (and its inputHash).
   const context = ai.context ? readTaxStepContext(world, factionId, step.holderId, ai.context, capped) : null;
-  if (context) {
-    request.briefing = context.briefing;
-    request.promptVersion = TAX_STEP_PROMPT_VERSION_BRIEFED;
+  if (context || ai.weighted) {
+    if (context) {
+      request.briefing = context.briefing;
+      request.promptVersion = TAX_STEP_PROMPT_VERSION_BRIEFED;
+    }
+    // Judgment v3: what the scorer ignores. Read-only; set only with a context reader.
+    const personality = world.characters[step.holderId]?.personality;
+    const r2 = (value: number) => Math.round(value * 100) / 100;
+    if (personality) {
+      request.persona = {
+        ambition: r2(personality.ambition), aggression: r2(personality.aggression), caution: r2(personality.caution),
+        commerce: r2(personality.commerce), loyalty: r2(personality.loyalty),
+      };
+    }
+    const dayCents = Math.round(fullAllowance(world, PASSAGE_PER_TICK) * 100);
+    request.payDaysCovered = step.freeMates > 0 && dayCents > 0 ? Math.floor(step.treasuryCents / (step.freeMates * dayCents)) : null;
   }
+  if (ai.weighted) return consultWeighted(world, factionId, step, provider, ai, request, context, capped);
   let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
   if (!capped) {
     ai.calls = (ai.calls ?? 0) + 1;
@@ -3614,7 +3650,9 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
   const fallbackReason: TaxStepFallbackReason | null = capped ? "cap" : answer.error
     ?? (answer.latencyMs > TAX_STEP_TIMEOUT_MS ? "timeout" : null);
   const raw = fallbackReason ? null : answer.raw;
-  const parsedChoice = fallbackReason ? null : parseTaxChoice(raw, step.options);
+  // Judgment v3 hard rail, with a context reader only: a railed answer is illegal and the scorer applies.
+  const legal = context ? railedOptions(step.options, step.pressed, step.short) : step.options;
+  const parsedChoice = fallbackReason ? null : parseTaxChoice(raw, legal);
   const reason = fallbackReason ?? (parsedChoice ? null : "illegal");
   return {
     role: "brain.taxStep" as const,
@@ -3631,6 +3669,95 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     fallbackReason: reason,
     latencyMs: answer.latencyMs,
     context,
+    ...(context ? {
+      railBlocked: !fallbackReason && parsedChoice === null && parseTaxChoice(raw, step.options) !== null,
+      reasonCheck: checkTaxStepReason(raw),
+    } : {}),
+  };
+}
+
+/**
+ * ai-tax-weighted: the choice is drawn by the sim, never by the vendor. The
+ * rails run before the draw, so the draw is always legal. The provider (when
+ * not capped) is asked for a reason only; a missing or bad reason falls back
+ * to `templateReason`. Everything needed to replay the draw is recorded.
+ */
+function consultWeighted(
+  world: WorldState, factionId: string, step: TaxStepOptions, provider: TaxStepProvider, ai: TickAiOptions,
+  request: TaxStepRequest, context: ContextRecord | null, capped: boolean,
+): TaxStepAiRecord {
+  const persona = request.persona ?? { ambition: 0.5, aggression: 0.5, caution: 0.5, commerce: 0.5, loyalty: 0.5 };
+  const answers = context?.answers;
+  const weighted = taxStepDistribution(step.scorerChoice, step.options, step.pressed, step.short, persona, answers);
+  if (ai.pickerStub) {
+    const weights = ai.pickerStub === "stubArgmax" ? stubArgmax(weighted.legal, step.scorerChoice) : stubUniform(weighted.legal);
+    const total = Object.values(weights).reduce((a, b) => a + b, 0);
+    weighted.distribution = Object.fromEntries(weighted.legal.map((id) => [id, weights[id] / total]));
+  }
+  // Replay reuses the recorded p and u (never recomputed); take() throws on a missing record or a mismatch.
+  const recorded = ai.pickerReplay ? ai.pickerReplay.take(world.tick, factionId, weighted.legal) : null;
+  if (recorded) weighted.distribution = Object.fromEntries(recorded.options.map((id, i) => [id, recorded.p[i]]));
+  const draw = recorded ? recorded.u : weightedDraw(world.seed, factionId, world.tick);
+  const picked = pick(weighted.distribution as Record<string, number>, weighted.legal, draw);
+  const sampled = picked.options[picked.index] as TaxStepRequest["scorerChoice"];
+  const escalation = triage(answers);
+  request.chosen = sampled;
+  request.escalation = escalation.why;
+  request.promptVersion = TAX_STEP_PROMPT_VERSION_REASON;
+  let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
+  const stub = ai.pickerStub ?? null;
+  if (!capped && !stub) {
+    ai.calls = (ai.calls ?? 0) + 1;
+    try {
+      answer = provider.decide(request);
+    } catch {
+      answer = { raw: null, latencyMs: 0, error: "error" };
+    }
+  }
+  const failed: TaxStepFallbackReason | null = stub ? null : capped ? "cap" : answer.error ?? (answer.latencyMs > TAX_STEP_TIMEOUT_MS ? "timeout" : null);
+  const raw = failed || stub ? null : answer.raw;
+  const modelReason = failed || stub ? null : parseReason(raw);
+  const fallbackReason = stub ? null : failed ?? (modelReason ? null : "illegal");
+  const inputHash = taxStepInputHash(request);
+  const picker: PickerRecord = {
+    model: stub ?? "tax-weighted",
+    promptVersion: WEIGHTED_PARAMS_VERSION,
+    inputHash,
+    outcome: recorded ? "replay" : stub ? "stub" : "model",
+    options: picked.options, p: picked.p, index: picked.index, u: draw,
+  };
+  const reason = modelReason ?? templateReason(sampled, persona, step.pressed, step.short);
+  return {
+    role: "brain.taxStep" as const,
+    provider: stub ?? provider.name,
+    model: stub ?? provider.model,
+    promptVersion: request.promptVersion,
+    inputHash,
+    options: step.options,
+    scorerChoice: step.scorerChoice,
+    rawAnswer: raw === null ? null : raw.slice(0, RAW_ANSWER_MAX),
+    parsedChoice: null,
+    finalChoice: sampled,
+    outcome: fallbackReason ? "fallback" : "model",
+    fallbackReason,
+    latencyMs: answer.latencyMs,
+    context,
+    railBlocked: false,
+    reasonCheck: checkTaxStepReason(JSON.stringify({ reason })),
+    weighted: {
+      paramsVersion: WEIGHTED_PARAMS_VERSION,
+      params: WEIGHTED_PARAMS,
+      persona,
+      legal: weighted.legal,
+      components: weighted.components,
+      distribution: weighted.distribution,
+      draw,
+      sampled,
+      escalation: escalation.escalate ? escalation.why : null,
+    },
+    reason,
+    reasonSource: modelReason ? "model" : "template",
+    picker,
   };
 }
 
@@ -3673,6 +3800,7 @@ function readTaxStepContext(world: WorldState, factionId: string, holderId: stri
     droppedIds: validated ? validated.droppedIds : 0,
     truncated: chosen.truncated,
     latencyMs: answer.latencyMs,
+    ...(validated && !reason && answer.answers ? { answers: answer.answers } : {}),
   };
 }
 
@@ -3907,6 +4035,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   produceSettlements(world, events);
   processPlayerCommands(world, events, rng);
   const aiTrace: TaxStepTraceEntry[] | undefined = options.ai?.brainTaxStep ? [] : undefined;
+  const costBefore = options.ai?.ledger?.lines.length ?? 0;
   chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
   declareAutonomousSecessions(world, events, options.liveSession === true);
   resolveOfferedContracts(world, events);
@@ -4030,7 +4159,9 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     type: "tick-advanced",
     data: { nextTick: world.tick + 1, rngState: rng.state },
   });
-  return aiTrace ? { state: world, events, aiTrace } : { state: world, events };
+  if (!aiTrace) return { state: world, events };
+  const ledger = options.ai?.ledger;
+  return ledger ? { state: world, events, aiTrace, aiCost: ledger.lines.slice(costBefore) } : { state: world, events, aiTrace };
 }
 
 export function runTicks(world: WorldState, count: number, options: TickOptions = {}): { state: WorldState; events: SimEvent[]; aiTrace?: TaxStepTraceEntry[] } {

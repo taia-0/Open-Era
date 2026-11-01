@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit && node --experimental-strip-types --test tests/*.test.ts",
     "golden:update": "node --experimental-strip-types scripts/update-golden-hashes.ts",
-    "golden:check": "node --experimental-strip-types --test tests/golden.test.ts"
+    "golden:check": "node --experimental-strip-types --test tests/golden.test.ts",
+    "ai-pilot": "node --experimental-strip-types src/cli/run-ai-pilot.ts"
   },
   "devDependencies": {
     "@types/node": "^24.13.6",

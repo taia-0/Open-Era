@@ -816,6 +816,8 @@ export interface TickResult {
   events: SimEvent[];
   /** AI pilot A: present only when `TickOptions.ai.brainTaxStep` is set. Never on the world. */
   aiTrace?: import("./ai-provider.ts").TaxStepTraceEntry[];
+  /** A5: cost lines the vendor providers wrote this tick. Never on the world. */
+  aiCost?: import("./ai-vendor/cost.ts").CostLine[];
 }
 
 export const RESOURCE_KEYS: ResourceKey[] = [

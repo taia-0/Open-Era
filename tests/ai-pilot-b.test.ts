@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
+import "./helpers/no-network.ts";
 import { fileURLToPath } from "node:url";
 import { runTick, runTicks, type TickOptions } from "../src/sim/engine.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
