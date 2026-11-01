@@ -23,7 +23,7 @@ Status: **Open / build spec; probe run; threshold ruled 0.6.** The live probe ra
 
 A Noul answer is one probability of "yes", `noul` in [0, 1], with no `confidence` (`jev-capabilities.md:43,53`).
 
-**Threshold.** A test flags when `noul ≥ 0.7`; triage flags when any of the four flags. 0.7 is **proposed**, lowered from `ai-brain.md:169`'s 0.8 because recall matters more than precision for a gate that can only add escalations (`ai-brain.md:166`) and is budget-capped. The probe reports 0.5, 0.7 and 0.8, and the Lead sets the final value from it. Proposed probe pass: recall ≥ 0.75 and precision ≥ 0.75 per test at the chosen threshold, and `faction_number` ≥ 0.7 on item 29 (the P4 miss). With 4–8 positives per test these are coarse; one item moves recall by 0.125–0.25.
+**Threshold.** A test flags when `noul ≥ 0.6`; triage flags when any of the four flags. **0.6 is ruled** (Lead, 2026-10-31; §6), lowered from `ai-brain.md`'s original 0.8 because recall matters more than precision for a gate that can only add escalations (`ai-brain.md:166`) and is budget-capped, and from the proposed 0.7 for margin: both desertions scored exactly 0.70. The probe reported 0.5, 0.7 and 0.8; the 0.6 figures are recomputed from its recorded log. Proposed probe pass: recall ≥ 0.75 and precision ≥ 0.75 per test at the chosen threshold, and `faction_number` ≥ 0.6 on item 29 (the P4 miss). With 4–8 positives per test these are coarse; one item moves recall by 0.125–0.25.
 
 ## 2. The labelled set
 
@@ -95,7 +95,7 @@ Path: **`/workspace/jev-triage-probe-main/probe.mjs`** (re-pointed copy of `/wor
 - **One request per item**: `{model: "jev-1.14.0", state, questions: {the four Nouls}}` to `POST https://api.typesafe.ai/v1/systemone` (`@7636a40 src/sim/ai-vendor/jev.ts:6–7`). Each item is sent once, with no retry and a 2,000 ms timeout.
 - **Hard caps**, checked before each call: **30 calls** and **$0.01**, with worst case = request UTF-8 bytes × $0.042 / M, the rule in `jev-capabilities.md` §9 and `ai-providers.md` §6. Output is free (`@7636a40 cost.ts:14–19`). A capped item is logged as `cap` and not sent.
 - **Key-safe logs.** The key goes only in the `Authorization` header and is never written, printed or hashed. `live-log.jsonl` records the request body, status, latency, response model, tokens, cost and running spend.
-- **Scoring.** Per test at thresholds 0.5, 0.7 (primary) and 0.8: TP, FP, FN, TN, missing, precision and recall against the proposed labels.
+- **Scoring.** Per test at thresholds 0.5, 0.7 (the probe's primary when it ran; the ruled 0.6 is recomputed in §6) and 0.8: TP, FP, FN, TN, missing, precision and recall against the proposed labels.
 
 **Cost estimate (not run):**
 - **Worst case:** 45,871 bytes × $0.042 / M = **$0.0019** for 29 calls, under both caps.
@@ -111,7 +111,7 @@ Path: **`/workspace/jev-triage-probe-main/probe.mjs`** (re-pointed copy of `/wor
 The four Nouls ride on the picker's own Jev request as extra questions against the same `state` (`ai-brain.md:159`; any number of questions per request, `jev-capabilities.md:38`), so they add no request. The picker's `state` gets a `situation` block `{tick, kind: "decision", actorId, settlementId, facts: {legalOptions}}` in §2's shape.
 
 **4.2 Scores to escalation.** Escalate when all of these hold:
-- any `noul ≥ 0.7` (§1);
+- any `noul ≥ 0.6` (§1);
 - the run's triage budget of **50** is not spent (`ai-brain.md:169`);
 - the actor has not been triage-escalated in the last **24** ticks (`ai-brain.md:169`).
 
@@ -133,7 +133,7 @@ The flag is deterministic given the recorded `noul` values. No draw is used: a s
 "ai": {
   "picker": { "…": "slice 3 §6" },
   "triage": { "promptVersion": "sha256:…", "noul": { "port_holding": 0.81, "faction_number": 0.04, "allegiance_freedom": 0.12, "broken_promise": 0.02 },
-              "threshold": 0.7, "flagged": ["port_holding"], "budgetLeft": 49, "cooldownUntilTick": 436, "escalated": true },
+              "threshold": 0.6, "flagged": ["port_holding"], "budgetLeft": 49, "cooldownUntilTick": 436, "escalated": true },
   "brain": { "provider": "deepseek", "model": "deepseek-v4-pro", "promptVersion": "sha256:…", "inputHash": "sha256:…",
              "raw": "{\"choice\":\"travel:glassport:-\"}", "choice": "travel:glassport:-", "outcome": "model", "fallbackReason": null }
 }
@@ -167,7 +167,7 @@ Values are shape only.
 
 **Stub tests** (`tests/jev-triage.test.ts`, importing the no-network guard):
 - question wording and threshold constants;
-- the flag rule at 0.69, 0.70 and 0.71;
+- the flag rule at 0.59, 0.60 and 0.61;
 - budget and cooldown;
 - no triage under a hard test;
 - illegal or `length` brain answers fall back;
@@ -185,12 +185,12 @@ Running the probe (≤ 30 calls, ≤ $0.01, estimated $0.0012) and any live tria
 
 **Run.** `node probe.mjs --live` on the box, model `jev-1.14.0`, set rebuilt from offline AI-off 1,200-tick runs of seeds 1847 / 2718 / 4096 on main `0cadb85` (the sources and ticks are in `docs/playtests/jev-triage-set/set.jsonl`; same picking rules and labels as before, but the ticks moved with the #154 pins). Caps 30 calls / $0.01, checked before each call. **29 calls, all HTTP 200, 19,060 input tokens, $0.0008005 actual** (dry-run worst case $0.0019255). Latency 42–141 ms. Per-call log with cost and raw responses: `docs/playtests/jev-triage-set/live-log-2026-10-31.jsonl` (no key in it).
 
-**Per test** (TP / FP / FN / TN; precision; recall):
+**Per test as run, with the original labels** (TP / FP / FN / TN; precision; recall). The ruled 0.6 with the new labels is under Rulings below:
 
 | Threshold | port_holding | faction_number | allegiance_freedom | broken_promise |
 |---|---|---|---|---|
 | 0.5 | 8/0/0/21; 1.00; 1.00 | 4/2/0/23; 0.667; 1.00 | 8/0/0/21; 1.00; 1.00 | 4/2/0/23; 0.667; 1.00 |
-| **0.7** | 8/0/0/21; 1.00; 1.00 | 4/2/0/23; 0.667; 1.00 | 8/0/0/21; 1.00; 1.00 | 4/0/0/25; 1.00; 1.00 |
+| 0.7 (superseded) | 8/0/0/21; 1.00; 1.00 | 4/2/0/23; 0.667; 1.00 | 8/0/0/21; 1.00; 1.00 | 4/0/0/25; 1.00; 1.00 |
 | 0.8 | 7/0/1/21; 1.00; 0.875 | 4/2/0/23; 0.667; 1.00 | 6/0/2/21; 1.00; 0.75 | 4/0/0/25; 1.00; 1.00 |
 
 **Per item (triage escalates when any test flags; 22 of 29 items have at least one true label):**
@@ -198,7 +198,7 @@ Running the probe (≤ 30 calls, ≤ $0.01, estimated $0.0012) and any live tria
 | Threshold | Escalations | Correct | False escalations | Missed items |
 |---|---|---|---|---|
 | 0.5 | 22 | 22 | 0 | none |
-| **0.7** | 22 | 22 | 0 | none |
+| 0.7 (superseded) | 22 | 22 | 0 | none |
 | 0.8 | 19 | 19 | 0 | triage-01 claim (port 0.79), triage-04 and triage-21 desert (allegiance 0.70 each) |
 
 - The per-test false positives are both secessions (triage-02, -18): faction_number 0.94 / 0.91 at every threshold, and broken_promise 0.68 / 0.62 at 0.5. Both items are true escalations anyway, so no extra brain call results. Whether a secession "decides a faction-wide number" (the new faction's tax rate) is a labelling question for the Lead.
