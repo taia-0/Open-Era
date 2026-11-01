@@ -1,0 +1,46 @@
+{
+  "exileRecovery": true,
+  "mode": "replay",
+  "social": null,
+  "seed": 4096,
+  "ticks": 1200,
+  "maxCalls": 1000,
+  "capUsd": 0.11,
+  "actors": null,
+  "stateHash": "81bdcdeaf5469ff5b7195797e6d463b0e55d3711cc40e80d7c78e9ca5c2774c4",
+  "events": 164153,
+  "consults": 1290,
+  "calls": 0,
+  "offScorer": 343,
+  "fallbacks": 0,
+  "fallbackReasons": {
+    "timeout": 0,
+    "error": 0,
+    "illegal": 0,
+    "cap": 0
+  },
+  "railBreaks": 0,
+  "truncated": 0,
+  "spendUsd": 0,
+  "costLines": 0,
+  "pickerFactions": [
+    "world-government"
+  ],
+  "wgMaxCalls": 1853,
+  "wgConsults": 1290,
+  "wgCalls": 0,
+  "wgByRole": {
+    "holder": 0,
+    "governor": 1290
+  },
+  "wgModel": 1290,
+  "wgOverrides": 343,
+  "wgMeanP": 0.2361,
+  "replayOf": "/tmp/wglive/jev-4096",
+  "fetchAttempts": 0,
+  "recordedStateHash": "81bdcdeaf5469ff5b7195797e6d463b0e55d3711cc40e80d7c78e9ca5c2774c4",
+  "hashMatches": true,
+  "providerCalls": 0,
+  "recordsUsed": 1290,
+  "recordsRecorded": 1290
+}

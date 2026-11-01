@@ -12,6 +12,7 @@ import { alwaysScorer, kindScorer, neverScorer, stubBrainLast, stubBrainLiveLike
 import { sha256 } from "../sim/ai-provider.ts";
 import { canonicalJson } from "../sim/state.ts";
 import { runTick, type TickAiOptions } from "../sim/engine.ts";
+import { parsePickerFactions, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, WG_PICKER_DEFAULT_SPEND_CAP_USD, type WgNudge } from "../sim/ai-wg-picker.ts";
 import { createPrototypeWorld } from "../sim/scenario.ts";
 import { stateHash } from "../sim/state.ts";
 
@@ -32,6 +33,9 @@ import { stateHash } from "../sim/state.ts";
  * and calls the live picker only on a miss, so at 0 escalations the run equals the picker-only run exactly.
  * `--triage-budget 0` scores live and never escalates (check 6 at 0 escalations).
  * Triage records go to triage.jsonl; all cost lines to cost.jsonl.
+ * wg-jev-picker.md: `--picker-factions free-tide,world-government` (default free-tide) adds World Government's
+ * governors (and an autonomous holder) as nudge-only consults, own cap `--wg-max-calls` (default 1,853).
+ * With world-government and no free-tide, `--cap-usd` defaults to $0.11.
  */
 const { values } = parseArgs({
   options: {
@@ -56,6 +60,8 @@ const { values } = parseArgs({
     "brain-prior": { type: "string" },
     "brain-weight": { type: "string" },
     "brain-default-kinds": { type: "string" },
+    "picker-factions": { type: "string" },
+    "wg-max-calls": { type: "string", default: String(WG_PICKER_DEFAULT_CAP) },
     ...EXILE_FLAG_OPTIONS,
   },
 });
@@ -76,6 +82,8 @@ if (replayDir) {
   if (summary.actors) values.actors = summary.actors;
   if (summary.social) values.social = summary.social;
   if (summary.triage) values.triage = summary.triage;
+  if (summary.pickerFactions) values["picker-factions"] = summary.pickerFactions.join(",");
+  if (summary.wgMaxCalls) values["wg-max-calls"] = String(summary.wgMaxCalls);
   if (summary.exileRecovery === false) values["no-exile-recovery"] = true;
 }
 const exileRecovery = resolveExileRecovery(values);
@@ -85,6 +93,11 @@ const socialOn = values.social !== "off";
 const argv = process.argv.join(" ");
 if (socialOn && !replayDir && !argv.includes("--max-calls")) values["max-calls"] = String(SOCIAL_DEFAULT_CALL_CAP);
 if (socialOn && !argv.includes("--cap-usd")) values["cap-usd"] = String(SOCIAL_DEFAULT_SPEND_CAP_USD);
+const pickerFactions = parsePickerFactions(values["picker-factions"]);
+const wgOn = pickerFactions?.includes(WG_FACTION_ID) === true;
+const wgMaxCalls = Number.parseInt(values["wg-max-calls"]!, 10);
+if (wgOn && !pickerFactions!.includes("free-tide") && !argv.includes("--cap-usd") && !replayDir) values["cap-usd"] = String(WG_PICKER_DEFAULT_SPEND_CAP_USD);
+if (replayDir && recorded!.summary.capUsd !== undefined) values["cap-usd"] = String(recorded!.summary.capUsd);
 const maxCalls = Number.parseInt(values["max-calls"]!, 10);
 const capUsd = Number(values["cap-usd"]);
 const output = resolve(values.output ?? (replayDir ? join(replayDir, "replay") : join("simulation-output", "jev-action-picker", `${values.picker}-${seed}-${ticks}`)));
@@ -173,7 +186,7 @@ if (defaultKinds.size && brain && !triageReplay) {
   brain = { name: inner.name, model: inner.model, escalate(q) { return defaultKinds.has(q.kind) ? { raw: JSON.stringify({ choice: q.defaultChoice }), latencyMs: 0 } : inner.escalate(q); } };
 }
 const ai: TickAiOptions = {
-  ...(picker ? { picker } : {}), ...(social ? { social } : {}), pickerCap: maxCalls, ...(values.actors === "all" ? { pickerActors: "all" as const } : {}),
+  ...(picker ? { picker } : {}), ...(social ? { social } : {}), pickerCap: maxCalls, ...(pickerFactions ? { pickerFactions, wgPickerCap: wgMaxCalls } : {}), ...(values.actors === "all" ? { pickerActors: "all" as const } : {}),
   ...(triageOn && brain ? { triage: { brain, ...(scorer ? { scorer } : {}), ...(values["brain-prior"] ? { prior: Number(values["brain-prior"]) } : {}), ...(values["brain-weight"] ? { weight: Number(values["brain-weight"]) } : {}), scoreCap: triageMaxCalls, ...(triageBudget !== undefined ? { budget: triageBudget } : {}) } } : {}),
 };
 
@@ -257,6 +270,12 @@ const summary = {
   fallbackReasons: Object.fromEntries(["timeout", "error", "illegal", "cap"].map((reason) => [reason, count((r) => r.fallbackReason === reason)])),
   railBreaks: count((r) => !r.legal.includes(r.sampled)), truncated: count((r) => r.truncated),
   spendUsd: ledger.spendUsd, costLines: ledger.lines.length,
+  ...(pickerFactions ? { pickerFactions, wgMaxCalls } : {}),
+  ...(wgOn ? (() => { const wg = records.map((r) => (r as ActionPickerRecord & { wg?: WgNudge }).wg).filter((w): w is WgNudge => !!w); return {
+    wgConsults: wg.length, wgCalls: ai.wgPickerCalls ?? 0, wgByRole: { holder: wg.filter((w) => w.role === "holder").length, governor: wg.filter((w) => w.role === "governor").length },
+    wgModel: wg.filter((w) => w.p !== null).length, wgOverrides: wg.filter((w) => !w.kept).length,
+    wgMeanP: wg.some((w) => w.p !== null) ? Math.round(wg.filter((w) => w.p !== null).reduce((a, w) => a + w.p!, 0) / wg.filter((w) => w.p !== null).length * 1e4) / 1e4 : null,
+  }; })() : {}),
   ...(triageOn ? { triage: values.triage, brain: recorded ? "replay" : values.brain, triageMaxCalls, triageBudget: triageBudget ?? null, cache: values.cache ?? null, totalSpendUsd: ledger.spendUsd + brainLedger.spendUsd + triageLedger.spendUsd, triageSummary: triageSummary() } : {}),
   ...(socialOn ? {
     reads: reads.length, readHits: reads.filter((r) => r.hit).length, readMisses: reads.filter((r) => !r.hit).length,
