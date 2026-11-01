@@ -71,7 +71,7 @@ Readings:
 | Seed | Decisions | Raid legal | Raid chosen | Blocked: garrison < 15 because the captain believes FT still holds a port | …of which garrison 8–14 (would pass the landless floor) | Blocked: garrison < 8 (truly landless) | Blocked: troops < 25 | Cooldown / open battle | Unexplained |
 |---|---|---|---|---|---|---|---|---|---|
 | 1847 | 465 | 2 | 2 | 304 | 156 | 101 | 97 | 6 | 0 |
-| 2718 | 356 | 47 | 5 | 118 | 16 | 183 | 6 | 11 | 3 |
+| 2718 | 356 | 47 | 5 | 118 | 16 | 181 | 6 | 12 | 3 |
 | 4096 | 389 | 4 | 3 | 180 | 24 | 205 | 9 | 7 | 0 |
 
 The blocked columns count every clause that fails, so a decision can appear in more than one. The 3 unexplained cases on 2718 are a raid that was legal at the start of the tick but missing at decision time, because state changed within the tick.
@@ -95,7 +95,7 @@ The blocked columns count every clause that fails, so a decision can appear in m
 **Readings**
 - **Raids are rare mainly because the gate never opens.** Score is rarely the blocker: legal raids number 2 / 47 / 4, out of 465 / 356 / 389 decisions.
 - **Biggest blocker: the landless floor is switched off by stale belief.** Most captains still think FT holds a port (305 / 173 / 180 decisions), so the garrison-15 rule applies. Garrisons are mostly under 15, because claimed ports keep 3–15 (`portless-diagnosis.md`).
-- **Second blocker: truly weak ports.** Garrisons under 8 block 101 / 183 / 205 decisions. That is a material condition, not a defect.
+- **Second blocker: truly weak ports.** Garrisons under 8 block 101 / 181 / 205 decisions. That is a material condition, not a defect.
 - **Score matters only on 2718,** where raids are legal 47 times but lose 42 of them, mostly to rest.
 
 **Bug verdict.** No clause is a typo-level bug. Thresholds, the cooldown and the battle check match the M28 rule (`portless-recovery.md:65`, option E/B). The `landless` test is **knowledge-based by deliberate change**: commit `147978e` ("Post public news…") replaced `held.factionId` with `character.knowledge[held.id]?.factionId`. That makes it a belief rule, consistent with acting on news.
