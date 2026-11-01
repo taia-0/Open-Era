@@ -39,6 +39,7 @@ import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSIO
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { foodBaseline } from "./occupation.ts";
 import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge, type WgNudge, type WgRole } from "./ai-wg-picker.ts";
+import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
 import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
@@ -920,7 +921,7 @@ function buildCandidates(
     ...travelCandidates(world, character, exile),
   ];
 
-  const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null;
+  const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null && !(alliancesOn && allied(world, character.factionId, settlement.factionId));
   if (hostileTerritory && character.troops.count > 0 && settlementClaimAvailableTo(settlement, character.id)) {
     candidates.push({
       action: "claim-settlement",
@@ -1192,19 +1193,26 @@ function resolveImmediateBattle(
   rng: DeterministicRng,
 ): void {
   const settlement = world.settlements[character.locationId!];
-  const attackerBase = partyPower(character);
-  const defenderBase = settlementDefensePower(settlement);
+  const join = alliancesOn ? allyJoiners(world, character, settlement) : null;
+  const attackerBase0 = partyPower(character);
+  const defenderBase0 = settlementDefensePower(settlement);
+  const attackerBase = attackerBase0 + (join?.attackerPower ?? 0);
+  const defenderBase = defenderBase0 + (join?.defenderPower ?? 0);
   const uncertainty = 0.38 * (1 - character.skills.strategy / 125);
   const attackerRoll = 1 + rng.between(-uncertainty, uncertainty);
   const defenderRoll = 1 + rng.between(-0.22, 0.22);
   const attackerScore = attackerBase * attackerRoll;
   const defenderScore = defenderBase * defenderRoll;
   const attackerWon = attackerScore > defenderScore;
+  const allyFlip = join && join.joiners.length ? (attackerBase0 * attackerRoll > defenderBase0 * defenderRoll) !== attackerWon : false;
   const ratio = Math.min(3, Math.max(0.2, attackerScore / Math.max(1, defenderScore)));
   const attackerLossRate = attackerWon ? 0.05 + 0.11 / ratio : 0.16 + 0.2 / ratio;
   const defenderLossRate = attackerWon ? 0.28 + 0.12 * ratio : 0.07 + 0.08 * ratio;
-  const attackerLosses = Math.min(character.troops.count, Math.max(1, Math.round(character.troops.count * attackerLossRate)));
-  const defenderLosses = Math.min(settlement.garrison, Math.max(1, Math.round(settlement.garrison * defenderLossRate)));
+  const attackerSplit = shareSideLosses(character.troops.count, attackerBase0, attackerLossRate, join?.joiners.filter((j) => j.side === "attacker") ?? []);
+  const defenderSplit = shareSideLosses(settlement.garrison, defenderBase0, defenderLossRate, join?.joiners.filter((j) => j.side === "defender") ?? []);
+  const attackerLosses = attackerSplit.principal;
+  const defenderLosses = defenderSplit.principal;
+  const joinersWithLosses = join ? withLosses(join.joiners, attackerSplit.joiners, defenderSplit.joiners) : [];
   const settlementStocks = cloneResources(settlement.stocks);
   const lootArms = attackerWon ? round(Math.min(settlementStocks.arms, 8 + character.troops.count * 0.08)) : 0;
   settlementStocks.arms = round(settlementStocks.arms - lootArms);
@@ -1247,6 +1255,7 @@ function resolveImmediateBattle(
       settlementStocks,
       surrender,
       phases: 1,
+      ...(join && join.joiners.length ? { allyJoiners: joinersWithLosses, allyFlip } : {}),
       ...practicedSkillData(character, ["strategy", "leadership"]),
     },
   });
@@ -1400,18 +1409,27 @@ function resolveBattlePhase(
   const character = world.characters[battle.attackerId];
   const settlement = world.settlements[battle.settlementId];
   const phase = battle.phase + 1;
-  const attackerBase = partyPower(character);
-  const defenderBase = settlementDefensePower(settlement);
+  const join = alliancesOn ? allyJoiners(world, character, settlement) : null;
+  const attackerBase0 = partyPower(character);
+  const defenderBase0 = settlementDefensePower(settlement);
+  const attackerBase = attackerBase0 + (join?.attackerPower ?? 0);
+  const defenderBase = defenderBase0 + (join?.defenderPower ?? 0);
   const uncertainty = 0.38 * (1 - character.skills.strategy / 125);
-  const attackerScore = attackerBase * (1 + rng.between(-uncertainty, uncertainty));
-  const defenderScore = defenderBase * (1 + rng.between(-0.22, 0.22));
+  const aRoll = 1 + rng.between(-uncertainty, uncertainty);
+  const dRoll = 1 + rng.between(-0.22, 0.22);
+  const attackerScore = attackerBase * aRoll;
+  const defenderScore = defenderBase * dRoll;
   const attackerAdvantage = attackerScore > defenderScore;
+  const allyFlip = join && join.joiners.length ? (attackerBase0 * aRoll > defenderBase0 * dRoll) !== attackerAdvantage : false;
   const ratio = clamp(attackerScore / Math.max(1, defenderScore), 0.2, 3);
   const intensity = [0.34, 0.42, 0.5][Math.min(2, phase - 1)];
   const attackerLossRate = (attackerAdvantage ? 0.05 + 0.11 / ratio : 0.16 + 0.2 / ratio) * intensity;
   const defenderLossRate = (attackerAdvantage ? 0.28 + 0.12 * ratio : 0.07 + 0.08 * ratio) * intensity;
-  const attackerLosses = Math.min(character.troops.count, Math.max(1, Math.round(character.troops.count * attackerLossRate)));
-  const defenderLosses = Math.min(settlement.garrison, Math.max(1, Math.round(settlement.garrison * defenderLossRate)));
+  const attackerSplit = shareSideLosses(character.troops.count, attackerBase0, attackerLossRate, join?.joiners.filter((j) => j.side === "attacker") ?? []);
+  const defenderSplit = shareSideLosses(settlement.garrison, defenderBase0, defenderLossRate, join?.joiners.filter((j) => j.side === "defender") ?? []);
+  const attackerLosses = attackerSplit.principal;
+  const defenderLosses = defenderSplit.principal;
+  const joinersWithLosses = join ? withLosses(join.joiners, attackerSplit.joiners, defenderSplit.joiners) : [];
   const attackerHealth = round(clamp(character.health - (attackerAdvantage ? 2 : 6), 1, 100));
   const attackerMorale = round(clamp(character.morale + (attackerAdvantage ? 3 : -7), 0, 100));
   const attackerTroops = character.troops.count - attackerLosses;
@@ -1450,6 +1468,7 @@ function resolveBattlePhase(
       battle: updatedBattle,
       phase,
       outcome: lastPhase.outcome,
+      ...(join && join.joiners.length ? { allyJoiners: joinersWithLosses, allyFlip } : {}),
       attackerScore: round(attackerScore),
       defenderScore: round(defenderScore),
       attackerLosses,
@@ -3508,6 +3527,8 @@ export interface TickOptions {
   exileRecovery?: boolean | "news-only";
   /** OCCUPATION (occupation.md): occupation response after a claim. Off by default; off is byte-identical. */
   occupation?: boolean;
+  /** ALLIANCES (alliances.md): pacts against a shared enemy, joint battles. Off by default; off is byte-identical. */
+  alliances?: boolean;
   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
   /**
    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
@@ -4486,9 +4507,11 @@ export const EXILE_RECOVERY_DEFAULT = true;
 
 /** Set for the duration of one `runTick` from `options.occupation` (single-threaded, deterministic). */
 let occupationOn = false;
+let alliancesOn = false;
 
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
+  alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
   const leading: SimEvent[] = [];
@@ -4515,6 +4538,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   const costBefore = options.ai?.ledger?.lines.length ?? 0;
   chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
   declareAutonomousSecessions(world, events, options.liveSession === true, options.ai);
+  if (alliancesOn) allianceForms(world, (d) => emit(world, events, d as EventDraft));
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
   offerAutonomousSupply(world, events);
@@ -4660,6 +4684,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     evolveLocalRelationship(world, character, events, rng);
   }
 
+  if (alliancesOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
   emit(world, events, { type: "metrics-recorded", data: metrics(world) });
   emit(world, events, {
     type: "tick-advanced",
@@ -4680,4 +4705,11 @@ export function runTicks(world: WorldState, count: number, options: TickOptions 
     if (result.aiTrace) aiTrace.push(...result.aiTrace);
   }
   return options.ai?.brainTaxStep ? { state: world, events, aiTrace } : { state: world, events };
+}
+
+function allyJoiners(world: WorldState, attacker: Character, settlement: WorldState["settlements"][string]) { return allyJoinersWith(world, attacker, settlement, partyPower); }
+/** The joiners in event order with each one's share of its side's losses (ruling: no free help). */
+function withLosses(joiners: AllyJoiner[], attackerLosses: number[], defenderLosses: number[]): AllyJoiner[] {
+  let a = 0, d = 0;
+  return joiners.map((j) => ({ ...j, losses: j.side === "attacker" ? attackerLosses[a++] : defenderLosses[d++] }));
 }
