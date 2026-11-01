@@ -183,6 +183,8 @@ export function jevPickerRequestBody(request: PickerRequest): string {
     state: request.state,
     questions: {
       next_action: { type: "choice", instructions: request.instructions ?? PICKER_INSTRUCTIONS_TEXT, criteria: request.criteria },
+      // Slice 5 (jev-triage.md §4.1): the triage Nouls ride on the same request.
+      ...(request.triage ?? {}),
     },
   });
 }
@@ -201,8 +203,10 @@ export function jevActionPicker(options: JevReaderOptions): ActionPicker {
     name: "jev",
     model: JEV_MODEL,
     choose(request: PickerRequest): PickerAnswer {
+      // Slice 5 §4.6: the triage rides on picker.action with `triageQuestions` added.
+      const triageLine = request.triage ? { triageQuestions: Object.keys(request.triage).length } : {};
       const unreached = (reason: "cap" | "error"): PickerAnswer => {
-        options.ledger.record({ ...base(request.tick), outcome: "fallback", fallbackReason: reason, status: null });
+        options.ledger.record({ ...base(request.tick), outcome: "fallback", fallbackReason: reason, status: null, ...triageLine });
         return { probabilities: null, latencyMs: 0, error: reason };
       };
       if (!key) return unreached("error");
@@ -213,14 +217,14 @@ export function jevActionPicker(options: JevReaderOptions): ActionPicker {
       const latencyMs = Math.max(0, now().getTime() - started.getTime());
       if (response.kind !== "response") {
         const reason = response.kind === "timeout" ? "timeout" : "error";
-        options.ledger.record({ ...base(request.tick), outcome: "fallback", fallbackReason: reason, status: null });
+        options.ledger.record({ ...base(request.tick), outcome: "fallback", fallbackReason: reason, status: null, ...triageLine });
         return { probabilities: null, latencyMs, error: reason };
       }
       let parsed: Record<string, any> | null = null;
       try { const value = JSON.parse(response.body); parsed = value && typeof value === "object" ? value : null; } catch { parsed = null; }
       const tokensIn = num(parsed?.usage?.input_tokens);
       const responseModel = typeof parsed?.model === "string" ? String(parsed.model).slice(0, 40) : null;
-      const line = { ...base(request.tick), responseModel, tokensIn, tokensOut: num(parsed?.usage?.output_tokens), estimatedCostUsd: jevCostUsd(tokensIn), status: response.status };
+      const line = { ...base(request.tick), responseModel, tokensIn, tokensOut: num(parsed?.usage?.output_tokens), estimatedCostUsd: jevCostUsd(tokensIn), status: response.status, ...triageLine };
       const answer = parsed?.answers?.next_action;
       const probabilities = answer && typeof answer.probabilities === "object" && answer.probabilities ? answer.probabilities as Record<string, unknown> : null;
       if (response.status !== 200 || !probabilities) {
@@ -228,7 +232,8 @@ export function jevActionPicker(options: JevReaderOptions): ActionPicker {
         return { probabilities: null, latencyMs, error: "error" };
       }
       options.ledger.record({ ...line, outcome: "model", fallbackReason: null });
-      return { probabilities, confidence: typeof answer.confidence === "number" ? answer.confidence : null, responseModel, latencyMs };
+      const noul = request.triage ? Object.fromEntries(Object.keys(request.triage).map((name) => [name, parsed?.answers?.[name]])) : undefined;
+      return { probabilities, confidence: typeof answer.confidence === "number" ? answer.confidence : null, responseModel, latencyMs, ...(noul ? { noul } : {}) };
     },
   };
 }
