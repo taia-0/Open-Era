@@ -170,7 +170,7 @@ test("an autonomous tax set names the reason, and settlementId is null", () => {
   const raisedEvent = raisedTick.events.find((event) => event.type === "tax-rate-set");
   assert.ok(raisedEvent);
   const raisedRow = projectEventFeed(raised, "character-01", [raisedEvent], raisedTick.events)[0];
-  assert.equal(raisedRow.summary, "Pax Ash raised the Free Tide Compact tax from 8% to 9% (treasury short).");
+  assert.equal(raisedRow.summary, "Pax Ash raised the Free Tide Compact tax from 8% to 9% (treasury short). The raise cost stability at Cinder Key 90.03 to 89.03.");
   assert.equal(raisedRow.settlementId, null);
   assert.equal(Object.hasOwn(raisedRow, "settlementId"), true);
   assert.equal(raisedRow.payloadWithheld, true);
