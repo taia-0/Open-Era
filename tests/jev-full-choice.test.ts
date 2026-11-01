@@ -104,7 +104,9 @@ test("stubs and fallbacks record no answers field; flag off and the stub runner 
     brainTaxStep: stubAgree(), context: jevContextReader({ transport: () => ({ kind: "timeout" }), ledger, env: ENV }), ledger,
   } });
   assert.ok(timeouts.aiTrace!.every((entry) => entry.ai.context!.fallbackReason === "timeout" && !("answers" in entry.ai.context!)));
-  assert.equal(stateHash(stub.state), "a30b4361229cf8736238e50411523ab06454445edc0478ae8b57a0524b2b7ab7");
+  // Re-pinned for the raise shock: the 240-tick flag-off hash (was a30b4361); the stub still equals flag off.
+  assert.equal(stateHash(stub.state), "7c9ed679c62291ae9eb269f573f46e4d7ef3d064848494e311be4969932b84e7");
+  assert.equal(stateHash(runTicks(createPrototypeWorld(1847), 240).state), stateHash(stub.state));
   assert.equal(stateHash(runTicks(createPrototypeWorld(1847), 72).state), "6efa334f66ef885392a88d7112e41984df1793b00ee5c57635946d5121bab9c3");
   assert.equal(fetchAttempts(), 0);
 });

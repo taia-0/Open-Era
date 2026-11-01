@@ -15,6 +15,8 @@ import { CLAIM_STABILITY_FLOOR } from "../src/sim/state.ts";
 /** v3.0 (66cf8b2), the prompt the three live runs used. v3.1 adds the raise costs and the pressed-cut wording. */
 const V3_0_BRIEFED = "sha256:890a2ce6960b3d8e80a29c97d20326f11e3eb2ca169ef9712ed2698558173197";
 const V3_1_BRIEFED = "sha256:cfa55be67c855476b944322940831822e98b1c20c4dbb3232501ce71000b9cd5";
+/** v3.2: the cost line carries the raise shock (low-tax-cost.md). */
+const V3_2_BRIEFED = "sha256:c18b109c24cd52f0ce3e036f36f0889b95e6fd2c33ba1a0d7af5919859242bd0";
 const V1_PLAIN = "sha256:a1c414139184ff5f08c1e187f443f13fc815383ecd8570ca6b87c826b179e8a5";
 
 const tick96: TaxStepRequest = {
@@ -27,7 +29,8 @@ const tick96: TaxStepRequest = {
 };
 
 test("the v3 promptVersion is pinned; the plain one did not move", () => {
-  assert.equal(TAX_STEP_PROMPT_VERSION_BRIEFED, V3_1_BRIEFED);
+  assert.equal(TAX_STEP_PROMPT_VERSION_BRIEFED, V3_2_BRIEFED);
+  assert.notEqual(V3_2_BRIEFED, V3_1_BRIEFED);
   assert.notEqual(V3_1_BRIEFED, V3_0_BRIEFED);
   assert.equal(TAX_STEP_PROMPT_VERSION, V1_PLAIN);
 });
@@ -38,7 +41,7 @@ test("the tick-96 v3 prompt hides the scorer and shows temperament, pay days and
   for (const line of [
     "You are character-14, who holds the tax seat of free-tide at tick 96. Decide as this person would, from their temperament and situation.",
     "Unrest: lowest port stability 55.00; revolt risk at or below 55.00. PRESSED: a port is at or below the revolt line. You may cut or hold; you may not raise.",
-    "Cost of raising: income goes from 8% to 9% of taxed trade; tax drift on every port you hold goes from 0.00 to 0.00 stability per upkeep, against +0.03 a fed port regains; above 15%, a port owner at or below the revolt line may secede. Tax does not touch morale directly; a mate short of pay loses 0.5 morale per upkeep.",
+    "Cost of raising: every port you hold loses 1.00 stability at once; income goes from 8% to 9% of taxed trade; tax drift goes from 0.00 to 0.00 stability per upkeep, against +0.03 a fed port regains, so the 1.00 takes about 34 fed upkeeps to win back; above 15%, a port owner at or below the revolt line may secede. Tax does not touch morale directly; a mate short of pay loses 0.5 morale per upkeep.",
     "Pay: The treasury covers a day's pay. Treasury 62518 cents, 26 days of pay for 8 free mates.",
     "Your temperament (0 to 1): ambition 0.62, aggression 0.31, caution 0.77, commerce 0.4, loyalty 0.71.",
     `Safety: when a port is at or below the revolt line (${CLAIM_STABILITY_FLOOR.toFixed(2)}) you may not raise, but you may cut or hold; when pay is short and no port is pressed you may not cut. An answer that breaks this is refused.`,
@@ -53,7 +56,7 @@ test("the tick-96 v3 prompt hides the scorer and shows temperament, pay days and
   const slots = taxStepPromptSlots({ ...tick96, persona: undefined, payDaysCovered: null });
   assert.equal(slots.personaText, "unknown.");
   assert.equal(slots.payDaysText, "no mates to pay");
-  assert.match(taxStepPromptSlots({ ...tick96, rateCents: 15 }).raiseCostText, /from 15% to 16% .* from 0\.00 to 0\.03 stability/);
+  assert.match(taxStepPromptSlots({ ...tick96, rateCents: 15 }).raiseCostText, /from 15% to 16% .* from 0\.00 to 0\.03 stability.*a fed port does not win the 1\.00 back/);
   assert.match(taxStepPromptSlots({ ...tick96, rateCents: 20 }).raiseCostText, /from 0\.03 to 0\.06 stability/);
   assert.equal(taxStepPromptSlots({ ...tick96, rateCents: 30, options: ["down", "hold"] }).raiseCostText, "raising is not an option.");
   assert.equal(fetchAttempts(), 0);

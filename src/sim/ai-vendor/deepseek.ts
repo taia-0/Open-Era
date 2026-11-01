@@ -1,4 +1,4 @@
-import { taxDrift } from "../tax-rate.ts";
+import { RAISE_SHOCK_PER_POINT, taxDrift } from "../tax-rate.ts";
 import { parseTaxChoice, TAX_STEP_BRIEFED_WORDING, TAX_STEP_PROMPT_TEMPLATE, TAX_STEP_PROMPT_TEMPLATE_BRIEFED, TAX_STEP_TIMEOUT_MS, type TaxStepAnswer, type TaxStepProvider, type TaxStepRequest } from "../ai-provider.ts";
 import { canonicalJson, CLAIM_STABILITY_FLOOR } from "../state.ts";
 import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, type CostLine } from "./cost.ts";
@@ -30,6 +30,12 @@ export function fillTemplate(template: string, values: Record<string, unknown>):
 
 const W = TAX_STEP_BRIEFED_WORDING;
 
+/** How long a fed port takes to win back one raise's shock at the new rate (engine.ts:354), or that it never does. */
+function healText(nextCents: number): string {
+  const net = Math.round((0.03 - taxDrift(nextCents / 100)) * 100) / 100;
+  return net > 0 ? W.healIn.replace("{heal}", String(Math.ceil(RAISE_SHOCK_PER_POINT / net))) : W.healNever;
+}
+
 /** Plain-language slots for the briefed template (ai-brain-hold-bias.md, ai-brain-judgment.md v3). Derived from the request only; prompt text only. */
 export function taxStepPromptSlots(request: TaxStepRequest): Record<string, string> {
   const low = request.lowestStabilityThousandths;
@@ -51,7 +57,9 @@ export function taxStepPromptSlots(request: TaxStepRequest): Record<string, stri
   const next = request.rateCents + 1;
   const raiseCostText = !request.options.includes("up") ? W.noRaise : W.raiseCost
     .replace("{rate}", String(request.rateCents)).replace("{next}", String(next))
-    .replace("{driftNow}", taxDrift(request.rateCents / 100).toFixed(2)).replace("{driftNext}", taxDrift(next / 100).toFixed(2));
+    .replace("{driftNow}", taxDrift(request.rateCents / 100).toFixed(2)).replace("{driftNext}", taxDrift(next / 100).toFixed(2))
+    .replace("{healText}", healText(next))
+    .replaceAll("{shock}", RAISE_SHOCK_PER_POINT.toFixed(2));
   return { unrestText, payText, payDaysText, personaText, safetyText, raiseCostText, optionsText: request.options.map((option) => W[option]).join("; ") + "." };
 }
 

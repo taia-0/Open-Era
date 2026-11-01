@@ -104,13 +104,17 @@ export const TAX_STEP_BRIEFED_WORDING = {
   persona: "ambition {ambition}, aggression {aggression}, caution {caution}, commerce {commerce}, loyalty {loyalty}.",
   personaUnknown: "unknown.",
   safety: "when a port is at or below the revolt line ({floor}) you may not raise, but you may cut or hold; when pay is short and no port is pressed you may not cut. An answer that breaks this is refused.",
-  // Raise costs, from what the engine does (judgment v3.1): tax income is gross trade times the rate
-  // (engine.ts:512, 968); each peaceful upkeep subtracts taxDrift(rate) from every held port's stability
-  // (engine.ts:354, tax-rate.ts:41: 0 up to 15%, then 0.03 per band of 5 points) while a fed port
-  // gains 0.03 (engine.ts:354); above 15% an owner at or below the revolt line may secede
-  // (secession.ts:429-430, engine.ts:3492-3493). No engine path ties the tax rate to morale; short pay
-  // costs a mate 0.5 morale per upkeep (engine.ts:631), so income guards morale only through pay.
-  raiseCost: "income goes from {rate}% to {next}% of taxed trade; tax drift on every port you hold goes from {driftNow} to {driftNext} stability per upkeep, against +0.03 a fed port regains; above 15%, a port owner at or below the revolt line may secede. Tax does not touch morale directly; a mate short of pay loses 0.5 morale per upkeep.",
+  // Raise costs, from what the engine does (judgment v3.2, raise shock): tax income is gross trade times
+  // the rate (engine.ts:512, 968). The raise itself takes RAISE_SHOCK_PER_POINT (1.0) stability per point,
+  // once, from every port the faction holds (tax-rate.ts:30, 39; carried on the event and written at
+  // state.ts:635-636). Each peaceful upkeep then subtracts taxDrift(rate) (tax-rate.ts:74, engine.ts:354:
+  // 0 up to 15%, then 0.03 per band of 5 points) while a fed port gains 0.03 (engine.ts:354), so one
+  // point heals in about 34 fed upkeeps. Above 15% an owner at or below the revolt line may secede
+  // (secession.ts:429-430, engine.ts:3494). No engine path ties the tax rate to morale; short pay costs
+  // a mate 0.5 morale per upkeep (engine.ts:631), so income guards morale only through pay.
+  raiseCost: "every port you hold loses {shock} stability at once; income goes from {rate}% to {next}% of taxed trade; tax drift goes from {driftNow} to {driftNext} stability per upkeep, against +0.03 a fed port regains, {healText}; above 15%, a port owner at or below the revolt line may secede. Tax does not touch morale directly; a mate short of pay loses 0.5 morale per upkeep.",
+  healIn: "so the {shock} takes about {heal} fed upkeeps to win back",
+  healNever: "so at that rate a fed port does not win the {shock} back",
   noRaise: "raising is not an option.",
   down: "down = cut the rate one point (calms unrest, less income)",
   hold: "hold = keep the rate",
