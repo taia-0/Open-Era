@@ -1,5 +1,6 @@
 import { existsSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
+import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-flag.ts";
 import { parseArgs } from "node:util";
 import { runTick } from "../sim/engine.ts";
 import { DeterministicDialogueProvider, resolveDueReplies } from "../sim/conversations.ts";
@@ -16,11 +17,11 @@ const { values } = parseArgs({
     output: { type: "string", short: "o", default: "simulation-output/latest" },
     reset: { type: "boolean", default: false },
     // EXILE_RECOVERY (after-triage.md (b)): on by default; --no-exile-recovery or EXILE_RECOVERY=0 opts out.
-    "exile-recovery": { type: "boolean", default: false },
-    "no-exile-recovery": { type: "boolean", default: false },
+    ...EXILE_FLAG_OPTIONS,
   },
 });
-const exileRecovery = !(values["no-exile-recovery"] === true || process.env.EXILE_RECOVERY === "0");
+maybeHelp(values, "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset]");
+const exileRecovery = resolveExileRecovery(values);
 
 const ticks = Number.parseInt(values.ticks!, 10);
 const seed = Number.parseInt(values.seed!, 10);

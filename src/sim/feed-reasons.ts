@@ -120,7 +120,8 @@ export function raidCause(event: SimEvent, siblings: SimEvent[], exileRecovery =
   if (decision.data.orderId) return { cause: "order", trigger: "following a standing raid order from the commander" };
   const reason = String((decision.data.chosen as { reason?: string } | undefined)?.reason ?? "");
   const plan = /supports plan: ([^;]+)/.exec(reason)?.[1]?.replace(/[.\s]+$/, "");
-  if (plan) return { cause: "plan", trigger: `to further the plan: ${plan}` };
+  // The plan's own words carry the cause ("to build a capable and respected party"), so the writer keeps its name.
+  if (plan) return { cause: "plan", trigger: `as part of the plan to ${plan.charAt(0).toLowerCase()}${plan.slice(1)}` };
   const garrison = /estimated garrison \((\d+)/.exec(reason)?.[1];
   if (/seize supplies/.test(reason)) return { cause: "loot", trigger: garrison ? `to seize supplies from a garrison believed to be about ${garrison}` : "to seize supplies" };
   return null;
