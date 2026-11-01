@@ -287,19 +287,20 @@ test("overtaking, passing, and arriving read as sentences, and the kind stays", 
   );
 });
 
-test("seed 1847 at tick 530 names Verdant Cay while she is held", () => {
+test("seed 1847 at tick 728 names Verdant Cay while she is held", () => {
   // The batch 2 pin moved Mara's hold to Crown Harbor, captured on tick 528.
-  const result = liveTicks(1847, 530);
+  // Re-pinned for the raise shock (low-tax-cost.md): she is now captured at Crown Harbor on tick 726, so the same check runs at tick 728 (was 530).
+  const result = liveTicks(1847, 728);
   const commander = commanderOf(result.state);
   const view = dashboardState(result.state, result.events, fullEventFeed(result.events)) as {
     day: number;
     party: { resupply: { settlementId: string; provisions: number; price: number; reachable: boolean; travelTicks: number | null } | null };
     briefing: { items: Array<{ id: string; summary: string; settlementId: string | null }> };
   };
-  assert.equal(result.state.tick, 530);
-  assert.equal(view.day, 88.33);
+  assert.equal(result.state.tick, 728);
+  assert.equal(view.day, 121.33);
   assert.equal(commander.captivity?.settlementId, "crown-harbor");
-  assert.equal(commander.captivity?.capturedTick, 528);
+  assert.equal(commander.captivity?.capturedTick, 726);
   assert.equal(commander.locationId, "crown-harbor");
   const starving = view.briefing.items.find((item) => item.id === "provision:critical");
   assert.ok(starving);
@@ -318,12 +319,13 @@ test("seed 1847 at tick 530 names Verdant Cay while she is held", () => {
   assert.equal(resupply.travelTicks, null);
 });
 
-test("seed 1847 at tick 613 shows only the rounded scarred loyalty", () => {
+test("seed 1847 at tick 811 shows only the rounded scarred loyalty", () => {
   // The batch 2 pin moved Mara's scar to the release at tick 612.
-  const world = liveTicks(1847, 613).state;
+  // Re-pinned for the raise shock (low-tax-cost.md): her release is now tick 810.
+  const world = liveTicks(1847, 811).state;
   const commander = commanderOf(world);
   const card = projectCharacter(world, commander, commander);
-  assert.equal(world.tick, 613);
+  assert.equal(world.tick, 811);
   assert.equal(commander.captivity, null);
   assert.equal(commander.loyaltyAdjustment, -0.04);
   assert.equal(card.loyalty, 0.768);

@@ -53,3 +53,17 @@ test("every raise in a 1200-tick run carries the shock; no hold or cut does; rep
   assert.ok(raises > 0);
   assert.match(stateHash(result.state), /^f80c529f/);
 });
+
+test("the raise label says treasury short only for the scorer's raise; an AI override is the ruler's choice", () => {
+  const world = createPrototypeWorld(1847);
+  const base = { sequence: 1, tick: 0, type: "tax-rate-set", actorId: "character-14", targetId: faction } as const;
+  const data = { factionId: faction, taxRate: 0.09, previousTaxRate: 0.08, taxRateSetTick: 0 };
+  const scorer = { ...base, data } as unknown as SimEvent;
+  const agreed = { ...base, data: { ...data, ai: { finalChoice: "up", scorerChoice: "up" } } } as unknown as SimEvent;
+  const override = { ...base, data: { ...data, ai: { finalChoice: "up", scorerChoice: "hold" } } } as unknown as SimEvent;
+  const cut = { ...base, data: { ...data, taxRate: 0.07, ai: { finalChoice: "down", scorerChoice: "hold" } } } as unknown as SimEvent;
+  assert.equal(taxRateSetSentence(world, scorer, "Pax Ash"), "Pax Ash raised the Free Tide Compact tax from 8% to 9% (treasury short).");
+  assert.equal(taxRateSetSentence(world, agreed, "Pax Ash"), "Pax Ash raised the Free Tide Compact tax from 8% to 9% (treasury short).");
+  assert.equal(taxRateSetSentence(world, override, "Pax Ash"), "Pax Ash raised the Free Tide Compact tax from 8% to 9% (ruler's choice).");
+  assert.equal(taxRateSetSentence(world, cut, "Pax Ash"), "Pax Ash lowered the Free Tide Compact tax from 8% to 7% (ruler's choice).");
+});

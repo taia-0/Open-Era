@@ -140,12 +140,13 @@ test("briefing titles on a held captain and on returned troops are sentences", (
   assert.deepEqual(returns.map((event) => event.tick), [167, 173, 179, 185, 191, 197]);
 
   // The batch 2 pin moved Mara's hold to Crown Harbor, captured on tick 528. Tick 534 is a day boundary during that hold.
-  const held = liveTicks(1847, 534);
+  // Re-pinned for the raise shock (low-tax-cost.md): she is now captured on tick 726; tick 732 is the day boundary during that hold (was 534).
+  const held = liveTicks(1847, 732);
   assert.equal(held.state.characters["character-01"].captivity?.settlementId, "crown-harbor");
   const heldView = dashboardState(held.state, held.events, fullEventFeed(held.events)) as {
     briefing: { items: Array<{ id: string; title: string }> };
   };
-  const captivity = heldView.briefing.items.find((item) => item.id === "captivity:528");
+  const captivity = heldView.briefing.items.find((item) => item.id === "captivity:726");
   assert.ok(captivity);
   assert.equal(captivity.title, "A captain is held captive.");
 });
@@ -162,9 +163,10 @@ test("the loyalty note uses plain words and only the rounded figure", () => {
 });
 
 test("seed 1847 shows the release debt and the ransom credit the line already states", () => {
+  // Re-pinned for the raise shock (low-tax-cost.md): Mara's release is now tick 810, so the cards are read at tick 811 (was 613).
   // Re-pinned for the contract haul: the live session keeps both debts; the figures moved.
   // The batch 2 pin leaves Corin Hale's Crown Harbor debt, and Mara's own Crown Harbor debt, on the cards at tick 613.
-  const at613 = liveTicks(1847, 613);
+  const at613 = liveTicks(1847, 811);
   const before = stateHash(at613.state);
   const mara = at613.state.characters["character-01"];
   const dax = at613.state.characters["character-16"];
@@ -174,32 +176,33 @@ test("seed 1847 shows the release debt and the ransom credit the line already st
   assert.equal(dax.captivity, null);
   assert.equal(daxCard.debts, null);
   assert.equal(daxCard.releaseDebtNote, "Owes 79.38 from the release at Crown Harbor.");
-  assert.equal(maraCard.releaseDebtNote, "Owes 80.85 from the release at Crown Harbor.");
+  assert.equal(maraCard.releaseDebtNote, "Owes 139.93 from the release at Crown Harbor.");
   assert.equal(maraCard.ransomIncomeNote, null);
   assert.equal(stateHash(at613.state), before);
 });
 
-test("seed 1847 tick 612 separates the ransom from the Crown Harbor work", () => {
+test("seed 1847 tick 810 separates the ransom from the Crown Harbor work", () => {
+  // Re-pinned for the raise shock (low-tax-cost.md): release and work now on tick 810; the Crown Harbor worker is Kessa Dusk; upkeep visibility moved with the port holders.
   // Re-pinned for the contract haul: the live session keeps this release; sequences, the debt and the worker moved.
   // The batch 2 pin put Mara's release and Crown Harbor work on tick 612. They stay different sentences.
-  const run = liveTicks(1847, 613);
+  const run = liveTicks(1847, 811);
   const before = stateHash(run.state);
-  const release = run.events.find((event) => event.sequence === 79032);
-  const cinderUpkeep = run.events.find((event) => event.sequence === 79025);
-  const crownUpkeep = run.events.find((event) => event.sequence === 79027);
-  const glassUpkeep = run.events.find((event) => event.sequence === 79029);
-  const verdantUpkeep = run.events.find((event) => event.sequence === 79031);
-  const traded = run.events.find((event) => event.sequence === 79062);
+  const release = run.events.find((event) => event.sequence === 109241);
+  const cinderUpkeep = run.events.find((event) => event.sequence === 109234);
+  const crownUpkeep = run.events.find((event) => event.sequence === 109236);
+  const glassUpkeep = run.events.find((event) => event.sequence === 109238);
+  const verdantUpkeep = run.events.find((event) => event.sequence === 109240);
+  const traded = run.events.find((event) => event.sequence === 109380);
   assert.ok(release && cinderUpkeep && crownUpkeep && glassUpkeep && verdantUpkeep && traded);
   const mara = run.state.characters["character-01"];
-  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 80.85 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
+  const line = "Mara Vane was released from Crown Harbor. 108 was paid and 139.93 was recorded as debt. Loyalty fell. 108 went to the Free Tide Compact treasury. The balance is not visible to you. The ransom line covers only the ransom. Mara Vane holds the seat of World Government again.";
   const [releaseRow] = projectEventFeed(run.state, "character-01", [release]);
   assert.equal(releaseRow?.payloadWithheld, false);
   assert.equal(releaseRow?.summary, line);
   assert.deepEqual(releaseRow?.details, captivityReleasedParts(run.state, release, false, mara));
   assert.deepEqual(releaseRow?.details, [
     "Mara Vane was released from Crown Harbor.",
-    "108 was paid and 80.85 was recorded as debt.",
+    "108 was paid and 139.93 was recorded as debt.",
     "Loyalty fell.",
     "108 went to the Free Tide Compact treasury. The balance is not visible to you.",
     "The ransom line covers only the ransom.",
@@ -212,7 +215,7 @@ test("seed 1847 tick 612 separates the ransom from the Crown Harbor work", () =>
   const [glass] = projectEventFeed(run.state, "character-01", [glassUpkeep]);
   const [verdant] = projectEventFeed(run.state, "character-01", [verdantUpkeep]);
   assert.equal(cinder?.summary, "Cinder Key kept its stores.");
-  assert.equal(cinder?.payloadWithheld, false);
+  assert.equal(cinder?.payloadWithheld, true);
   assert.equal(crown?.summary, "Crown Harbor kept its stores.");
   assert.equal(crown?.payloadWithheld, true);
   assert.equal(glass?.summary, "Glassport kept its stores.");
@@ -222,11 +225,11 @@ test("seed 1847 tick 612 separates the ransom from the Crown Harbor work", () =>
 
   const [workRow] = projectEventFeed(run.state, "character-01", [traded]);
   assert.equal(traded.type, "worked");
-  assert.equal(traded.actorId, "character-08");
+  assert.equal(traded.actorId, "character-30");
   assert.equal(workRow?.payloadWithheld, true);
   assert.equal(workRow?.data, null);
-  assert.equal(workRow?.summary, "Vale Drake worked at Crown Harbor.");
+  assert.equal(workRow?.summary, "Kessa Dusk worked at Crown Harbor.");
   assert.equal(String(workRow?.summary).includes("108"), false);
-  assert.equal(String(workRow?.summary).includes("80.85"), false);
+  assert.equal(String(workRow?.summary).includes("139.93"), false);
   assert.equal(stateHash(run.state), before);
 });

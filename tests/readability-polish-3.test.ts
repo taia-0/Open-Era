@@ -133,21 +133,22 @@ test("seed 1847 names both captains and does not say each one took the port", ()
   }
 });
 
-test("seed 1847 tick 484 says morale gave out, and does not say nerve broke", () => {
+test("seed 1847 tick 527 says morale gave out, and does not say nerve broke", () => {
   // Re-pinned for the contract haul: this fight moved to Jun Marrow at Crown Harbor on tick 484.
-  const run = runTicks(createPrototypeWorld(1847), 485);
-  const battle = run.events.find((event) => event.sequence === 60632);
+  // Re-pinned for the raise shock (low-tax-cost.md): Jun Marrow's tick-484 fight is gone; the same kind of win is Dax Pike's at Cinder Key on tick 527.
+  const run = runTicks(createPrototypeWorld(1847), 528);
+  const battle = run.events.find((event) => event.sequence === 67049);
   assert.ok(battle);
   assert.equal(battle.type, "battle-resolved");
-  assert.equal(battle.tick, 484);
-  assert.equal(battle.actorId, "character-05");
-  assert.equal(battle.settlementId, "crown-harbor");
+  assert.equal(battle.tick, 527);
+  assert.equal(battle.actorId, "character-20");
+  assert.equal(battle.settlementId, "cinder-key");
   assert.equal(battle.data.outcome, "attacker-victory");
   assert.equal(typeof battle.data.battleId, "string");
   const [row] = projectEventFeed(run.state, "character-01", [battle]);
   assert.equal(row?.payloadWithheld, true);
   assert.equal(row?.data, null);
-  assert.equal(row?.summary, "Jun Marrow won the fight at Crown Harbor on a higher score, after morale gave out. A surrender was offered.");
+  assert.equal(row?.summary, "Dax Pike won the fight at Cinder Key on a higher score, after morale gave out. A surrender was offered.");
   assert.equal(String(row?.summary).includes("nerve"), false);
   assert.equal(String(row?.summary).includes("outscore"), false);
 });

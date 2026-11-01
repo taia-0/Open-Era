@@ -207,6 +207,7 @@ test("an autonomous tax set names the reason, and settlementId is null", () => {
 test("an autonomous secession with no successor names the founder who sets its tax", () => {
   // Breakaway polish ruling 1: the founder clause replaces "(no leader yet)".
   // Re-pinned for the contract haul: the first live secession with no successor is now Corin Hale at Cinder Key, seed 4096, tick 1088.
+  // Re-pinned for the raise shock (low-tax-cost.md): the same declaration now lands on tick 870.
   const world = createPrototypeWorld(4096);
   const declared: SimEvent[] = [];
   let siblings: SimEvent[] = [];
@@ -219,9 +220,9 @@ test("an autonomous secession with no successor names the founder who sets its t
       break;
     }
   }
-  assert.equal(world.tick, 1089);
+  assert.equal(world.tick, 871);
   assert.equal(declared.length, 1);
-  assert.equal(declared[0]?.tick, 1088);
+  assert.equal(declared[0]?.tick, 870);
   const view = projectEventFeed(world, "character-01", declared, siblings);
   assert.equal(
     view.find((row) => row.settlementId === "cinder-key")?.summary,
