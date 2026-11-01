@@ -173,7 +173,7 @@ That is below the earlier ≈ $0.11 estimate (`next-dynamic-slice.md`), which as
 
 **Prompt and facts as built for the re-sample** (they supersede sections 3–4 where they differ):
 - **Every fact packet has a `trigger` field in words**, taken from the engine's own rule:
-  - secession: the route, e.g. "broken promises: 12 supply contracts owed to Glassport were broken in the last 240 days (the line is 10)", from `secessionRoutes` (`src/sim/secession.ts:466–484`); the tax and grievance routes have their own wording;
+  - secession: the route, e.g. "broken promises: 12 supply contracts owed to Glassport were broken in the last 40 days (240 ticks) (the line is 10)", from `secessionRoutes` (`src/sim/secession.ts:466–484`); the tax and grievance routes have their own wording;
   - desertion: "twelve mornings in a row without money for a day of passage, then a desertion roll that came up" (`src/sim/desertion.ts:48–77`);
   - breach: "dropped the accepted contract for a better-paying option";
   - claim: "the port surrendered and the claim was accepted";
@@ -265,3 +265,17 @@ The re-sample has no invented facts, so it can only test false alarms. To test c
   - false alarms: #25 (traits given as the cause; graded misleading, not invented) 0.64, and #27 (a faithful desertion line) 0.65.
 - On the 28 re-sample reasons, the checker agreed 28 / 28 (max noul 0.16).
 - **Ruling recorded: the checker is advisory only.** Headline agreement is 83%, but that figure is padded by easy negatives. On the items that matter it **catches 3 of 8 (38%)**, and on the 14 first-sample items it agrees 7 / 14. It is logged in `data.ai.reason.check` and shown in the dashboard. It does **not** replace text, until a reworded check catches at least 6 of 8 with no more than 2 false alarms in 34. The pronoun ban and the trigger-only cause rule are the real defence: they took invented facts from 8 to 0.
+
+## 15. Re-audit rule
+
+The free offline re-audit is **re-run whenever the prompt, the fact packet or the event list changes**. Changes include:
+- the prompt: system or user text, or the caps;
+- the facts: any field `src/sim/feed-reasons.ts` puts in a packet, or how it is worded, such as the secession window "40 days (240 ticks)" (`PROMISE_WINDOW_TICKS / world.ticksPerDay`, `feed-reasons.ts:124`, with `ticksPerDay: 6` in `scenario.ts:426`);
+- the event list: which events get a reason (§2).
+
+**How:**
+1. Rebuild the facts with [`rebuild-facts.ts`](../playtests/feed-reasons-audit-2026-11-01/rebuild-facts.ts). It re-runs each seed for 1,200 ticks with a capturing stub writer, so it makes no calls.
+2. Check that every rebuilt packet reproduces its logged `inputHash`.
+3. Grade [`sample.jsonl`](../playtests/feed-reasons-audit-2026-11-01/sample.jsonl), or a fresh sample drawn the same way, against the rebuilt facts. Grade as in [the audit](feed-reasons-audit.md).
+
+A new live sample still needs Micah's go-ahead.
