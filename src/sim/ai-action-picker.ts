@@ -213,13 +213,12 @@ export function railProbabilities(raw: Record<string, unknown> | null, legal: st
  */
 export interface BlendParams { centre: number; temperature: number; jevWeight: number; floor: number }
 /**
- * Tuned offline (Lead ruling 3) with `stubFittedPicker` over the 1,265 recorded
- * live Jev distributions (96–99% of requests matched an exact recorded legal
- * list), 1,200 ticks, seeds 1847 / 2718 / 4096: scorer overrides 35.6 / 35.8 /
- * 25.1%, holder entropy up on all three, secessions / port changes / captures
- * pass; the work-share check fails on 2718 and 4096 (see progress.md).
+ * Tuned offline (Lead ruling 3) with `stubFittedPicker` over the recorded live
+ * Jev distributions; centre raised from 1.25 to 1.75 after the second live gate
+ * (overrides 43 / 38 / 36% live). Fitted-stub check at 1.75, 1,200 ticks,
+ * 1847 / 2718 / 4096: overrides 27.4 / 30.9 / 24.1% (see progress.md).
  */
-export const PICKER_BLEND: BlendParams = { centre: 1.25, temperature: 24, jevWeight: 0.4, floor: 0.02 };
+export const PICKER_BLEND: BlendParams = { centre: 1.75, temperature: 24, jevWeight: 0.4, floor: 0.02 };
 
 export function blendDistribution(jev: Record<string, number>, scores: Record<string, number>, scorerPick: string, legal: string[], params: BlendParams): { prior: Record<string, number>; distribution: Record<string, number> } {
   const top = scores[scorerPick] ?? 0;
