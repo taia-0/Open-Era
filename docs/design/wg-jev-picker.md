@@ -26,7 +26,15 @@ So (a) is next. Its remaining precondition, "new caps are agreed", is decision 1
 
 **Mode (ruling 3): the brain nudges and never picks.**
 - Each nudge is blended as in triage v3: q = 0.7 · prior + 0.3 · p, with prior 0.95 and weight 0.3. The draw is u from `pickerDraw`, and the sim's choice is kept when u < q (`progress.md`, "Slice 5 v3").
-- p, reason, prior, weight, blend and u are recorded and replay-checked.
+- p, prior, weight, blend and u are recorded and replay-checked.
+
+**Nudge definitions (as built in #176, modelled on triage v3; `src/sim/ai-wg-picker.ts`)**
+- **p** is Jev's probability for the sim's own choice (`scorerPick`). It is read from Jev's railed distribution over the legal ids, with no scorer-prior blend.
+- **The alternative** is Jev's top other legal option: the highest-probability legal id that is not the sim's choice. Ties go to the earlier id in id order.
+- **The blend** is q = 0.7 · 0.95 + 0.3 · p (prior 0.95, weight 0.3, as `brainBlend` in triage v3). q is the probability of keeping the sim's choice.
+- **The draw** is u = `pickerDraw("ai-pick-wg", seed, actorId, tick)`. This is a derived stream of its own, so it never touches the main RNG or the slice 3 `ai-pick` stream.
+- **The result:** the sim's choice is kept when u < q, and the alternative is taken otherwise. On a fallback (timeout, error, illegal answer or cap), the sim's choice is kept and p, q and u are null.
+- **No reason is recorded.** The picker returns probabilities only, so the record's `reason` is always null. Reasons belong to feedReasons.
 
 **Flag and defaults**
 - A run option `ai.picker.factions` (`--picker-factions free-tide,world-government`). The default is `free-tide` only.

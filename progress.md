@@ -155,6 +155,51 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-01 — WG picker: nudge definitions in the doc and the live noise band (report only, no gate) (Cursor)
+
+- **Doc:** wg-jev-picker.md now defines, as built in #176 and modelled on triage v3:
+  - p, Jev's probability for the sim's own choice;
+  - the alternative, Jev's top other legal option;
+  - the blend q = 0.7 · 0.95 + 0.3 · p;
+  - the `ai-pick-wg` draw stream.
+
+  It also notes that no reason is recorded; reasons belong to feedReasons.
+- **Live runs:** 3 more WG-only sets on 1847/2718/4096 (9 runs).
+  - Jev, Micah's standing approval; 1,200 ticks; caps 1,853 calls and $0.11 per run; every call has a cost line.
+  - All 9 runs replay with a hash match, 0 provider calls and 0 network attempts, using every record.
+  - 0 fallbacks.
+  - Spend: $0.5182 for the 9 runs, at most $0.0711 per run. Including the original set, the total is $0.6784.
+  - A key scan of the outputs and artifacts came back clean.
+  - Artifacts: `docs/playtests/wg-picker-noise-2026-11-01/`.
+- **Governor entropy method:**
+  - The figure is the mean `entropyBits` over a fixed governor set per seed, taken as the union of the governors consulted in any of the 4 sets: 10 on 1847, 9 on 2718, 9 on 4096.
+  - The same set is applied to flag off and to the stubs.
+  - Because the set is wider than the one used in #176, the original set's figures differ from those reported there (for example 1847 is now 2.039; it was 1.838 over 4 governors).
+
+  | Seed | Off | stubArgmax | stubUniform | Jev ×4 | Jev mean ± sd | Jev range | Shift vs off |
+  |---|---|---|---|---|---|---|---|
+  | 1847 | 2.061 | 2.066 | 2.022 | 2.039, 2.102, 2.168, 2.117 | 2.106 ± 0.053 | 2.039–2.168 | +0.046 (0.9 sd) |
+  | 2718 | 2.004 | 2.031 | 2.079 | 2.016, 2.119, 2.048, 2.185 | 2.092 ± 0.075 | 2.016–2.185 | +0.088 (1.2 sd) |
+  | 4096 | 2.063 | 1.999 | 2.223 | 2.191, 2.116, 2.147, 2.034 | 2.122 ± 0.066 | 2.034–2.191 | +0.059 (0.9 sd) |
+
+- **Choices changed** (sets 1–4):
+  - 1847: 205 / 202 / 268 / 281.
+  - 2718: 295 / 332 / 319 / 386.
+  - 4096: 343 / 330 / 421 / 316.
+  - That is about 24–29 % of consults.
+- **Mean p** (sets 1–4):
+  - 1847: 0.285 / 0.241 / 0.246 / 0.249.
+  - 2718: 0.225 / 0.187 / 0.214 / 0.218.
+  - 4096: 0.236 / 0.242 / 0.215 / 0.266.
+- **Reading:**
+  - Jev's mean is above flag off on all three seeds, by 0.05–0.09 bits.
+  - The shift does not exceed the live noise band on any seed:
+    - on 1847 and 4096, flag off sits inside the Jev range, and the shift is under 1 sd;
+    - on 2718, off (2.004) is only just below the Jev minimum (2.016), and the shift is 1.2 sd. Call it marginal.
+  - The #176 reading, "outside the range in mixed directions", was a single-run artifact.
+  - So this does not support adding members on entropy grounds. That is report only.
+- **Tests:** npm test (keys unset) 650/650 passed.
+
 ### 2026-11-01 — World Government Jev picker v1 behind `ai.pickerFactions` (wg-jev-picker.md, default off) (Cursor)
 
 - **Base:** origin/main eb37a63 (#175), on branch feature/wg-jev-picker.

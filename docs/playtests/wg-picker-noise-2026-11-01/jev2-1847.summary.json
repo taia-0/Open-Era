@@ -1,0 +1,39 @@
+{
+  "exileRecovery": true,
+  "mode": "jev",
+  "social": null,
+  "seed": 1847,
+  "ticks": 1200,
+  "maxCalls": 1000,
+  "capUsd": 0.11,
+  "actors": null,
+  "stateHash": "3dec65721581493f3abe234c55a729ef9eef0a2b89567f186a85da469da68862",
+  "events": 163236,
+  "consults": 816,
+  "calls": 0,
+  "offScorer": 202,
+  "fallbacks": 0,
+  "fallbackReasons": {
+    "timeout": 0,
+    "error": 0,
+    "illegal": 0,
+    "cap": 0
+  },
+  "railBreaks": 0,
+  "truncated": 0,
+  "spendUsd": 0.039601464000000045,
+  "costLines": 816,
+  "pickerFactions": [
+    "world-government"
+  ],
+  "wgMaxCalls": 1853,
+  "wgConsults": 816,
+  "wgCalls": 816,
+  "wgByRole": {
+    "holder": 0,
+    "governor": 816
+  },
+  "wgModel": 816,
+  "wgOverrides": 202,
+  "wgMeanP": 0.2414
+}
