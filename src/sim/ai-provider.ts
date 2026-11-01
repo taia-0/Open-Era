@@ -28,6 +28,10 @@ export interface TaxStepRequest {
   persona?: TaxStepPersona;
   /** Judgment v3: whole days of the mates' pay the treasury covers; null with no mates. Present only with a context reader. */
   payDaysCovered?: number | null;
+  /** ai-tax-weighted: the option the sim already drew. Present only in weighted mode; the vendor writes the reason only. */
+  chosen?: TaxChoice;
+  /** ai-tax-weighted: Jev triage's escalation note, or null. Reason prompt only; never changes the choice. */
+  escalation?: string | null;
 }
 
 export interface TaxStepPersona { ambition: number; aggression: number; caution: number; commerce: number; loyalty: number }
@@ -121,6 +125,40 @@ export const TAX_STEP_BRIEFED_WORDING = {
   up: "up = raise the rate one point (more income, more unrest)",
 } as const;
 export const TAX_STEP_PROMPT_VERSION_BRIEFED = sha256(`${TAX_STEP_PROMPT_TEMPLATE_BRIEFED}\n${canonicalJson(TAX_STEP_BRIEFED_WORDING)}`);
+
+/**
+ * ai-tax-weighted: the reason-only template. The sim has drawn the choice
+ * from the trait-weighted distribution (ai-weighted.ts); the vendor writes
+ * one line of reason for it and nothing else.
+ */
+export const TAX_STEP_PROMPT_TEMPLATE_REASON = [
+  "You are {holderId}, who holds the tax seat of {factionId} at tick {tick}.",
+  "Tax rate: {rateCents}% (allowed 0% to 30%, one point per step).",
+  "Unrest: {unrestText}",
+  "Pay: {payText} Treasury {treasuryCents} cents, {payDaysText} for {freeMates} free mates.",
+  "Your temperament (0 to 1): {personaText}",
+  "Cost of raising: {raiseCostText}",
+  "{escalationText}",
+  "Briefing on you (validated, at most 1,024 bytes): {briefing}.",
+  "You have decided: {chosenText}",
+  "In at most 12 words, give the reason in your temperament or situation for this decision. Reply as JSON: {\"reason\":\"...\"}.",
+].join("\n");
+export const TAX_STEP_REASON_WORDING = {
+  system: "Answer as JSON: {\"reason\":\"<at most 12 words naming the trait or situation behind the decision>\"}.",
+  escalation: "Your crew's mood needs care: {why}.",
+  noEscalation: "",
+} as const;
+export const TAX_STEP_PROMPT_VERSION_REASON = sha256(`${TAX_STEP_PROMPT_TEMPLATE_REASON}\n${canonicalJson(TAX_STEP_REASON_WORDING)}\n${canonicalJson(TAX_STEP_BRIEFED_WORDING)}`);
+
+/** ai-tax-weighted: the reason string from a reason-only answer, or null (bad JSON, no string, empty, over 200 chars). */
+export function parseReason(raw: string | null): string | null {
+  if (raw === null) return null;
+  try {
+    const value = JSON.parse(raw) as { reason?: unknown };
+    const reason = typeof value?.reason === "string" ? value.reason.trim() : "";
+    return reason.length > 0 && reason.length <= 200 ? reason : null;
+  } catch { return null; }
+}
 
 /** Brain timeout from ai-brain.md. Proposed, not measured; stubs never reach it. */
 export const TAX_STEP_TIMEOUT_MS = 30_000;
@@ -228,6 +266,21 @@ export interface TaxStepAiRecord {
   railBlocked?: boolean;
   /** Judgment v3, with a context reader only: whether the reason names a trait or situation. Recorded; never changes the choice. */
   reasonCheck?: ReasonCheck;
+  /** ai-tax-weighted only: the distribution, its parts and the draw, enough to replay the choice. */
+  weighted?: {
+    paramsVersion: string;
+    params: import("./ai-weighted.ts").WeightedParams;
+    persona: TaxStepPersona;
+    legal: TaxChoice[];
+    components: import("./ai-weighted.ts").WeightedComponents;
+    distribution: import("./ai-weighted.ts").Distribution;
+    draw: number;
+    sampled: TaxChoice;
+    escalation: string | null;
+  };
+  /** ai-tax-weighted only: the reason line and who wrote it. */
+  reason?: string;
+  reasonSource?: "model" | "template";
 }
 
 /**

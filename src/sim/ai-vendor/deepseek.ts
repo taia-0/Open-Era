@@ -1,5 +1,5 @@
 import { RAISE_SHOCK_PER_POINT, taxDrift } from "../tax-rate.ts";
-import { parseTaxChoice, TAX_STEP_BRIEFED_WORDING, TAX_STEP_PROMPT_TEMPLATE, TAX_STEP_PROMPT_TEMPLATE_BRIEFED, TAX_STEP_TIMEOUT_MS, type TaxStepAnswer, type TaxStepProvider, type TaxStepRequest } from "../ai-provider.ts";
+import { parseReason, parseTaxChoice, TAX_STEP_BRIEFED_WORDING, TAX_STEP_PROMPT_TEMPLATE_REASON, TAX_STEP_REASON_WORDING, TAX_STEP_PROMPT_TEMPLATE, TAX_STEP_PROMPT_TEMPLATE_BRIEFED, TAX_STEP_TIMEOUT_MS, type TaxStepAnswer, type TaxStepProvider, type TaxStepRequest } from "../ai-provider.ts";
 import { canonicalJson, CLAIM_STABILITY_FLOOR } from "../state.ts";
 import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, type CostLine } from "./cost.ts";
 import type { SyncTransport } from "./sync-http.ts";
@@ -64,6 +64,22 @@ export function taxStepPromptSlots(request: TaxStepRequest): Record<string, stri
 }
 
 export function deepSeekRequestBody(request: TaxStepRequest): string {
+  if (request.chosen) {
+    const escalationText = request.escalation ? TAX_STEP_REASON_WORDING.escalation.replace("{why}", request.escalation) : TAX_STEP_REASON_WORDING.noEscalation;
+    const user = fillTemplate(TAX_STEP_PROMPT_TEMPLATE_REASON, {
+      ...taxStepPromptSlots(request), ...(request as unknown as Record<string, unknown>),
+      escalationText, chosenText: W[request.chosen], briefing: request.briefing ?? "none",
+    });
+    return JSON.stringify({
+      model: DEEPSEEK_MODEL,
+      messages: [{ role: "system", content: TAX_STEP_REASON_WORDING.system }, { role: "user", content: user }],
+      thinking: { type: "disabled" },
+      response_format: { type: "json_object" },
+      max_tokens: DEEPSEEK_MAX_TOKENS,
+      temperature: 0,
+      stream: false,
+    });
+  }
   const template = request.briefing ? TAX_STEP_PROMPT_TEMPLATE_BRIEFED : TAX_STEP_PROMPT_TEMPLATE;
   const user = fillTemplate(template, { ...taxStepPromptSlots(request), ...(request as unknown as Record<string, unknown>) });
   return JSON.stringify({
@@ -149,7 +165,7 @@ export function deepSeekBrain(options: DeepSeekBrainOptions): TaxStepProvider {
       const content = typeof choice?.message?.content === "string" ? choice.message.content : null;
       // A cut answer (finish_reason "length") is illegal: no raw, no error, so the engine records illegal.
       const raw = choice?.finish_reason === "length" ? null : content;
-      const legal = parseTaxChoice(raw, request.options) !== null;
+      const legal = request.chosen ? parseReason(raw) !== null : parseTaxChoice(raw, request.options) !== null;
       options.ledger.record({ ...line, outcome: legal ? "model" : "fallback", fallbackReason: legal ? null : "illegal" });
       return { raw, latencyMs };
     },

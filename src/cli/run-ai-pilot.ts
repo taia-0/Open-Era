@@ -27,10 +27,12 @@ const { values } = parseArgs({
     "max-calls": { type: "string", default: String(TAX_STEP_DEFAULT_CAP) },
     output: { type: "string" },
     replay: { type: "string" },
+    // ai-tax-weighted: "weighted" (default) draws the choice from the trait-weighted distribution; "brain" lets the vendor choose.
+    "choice-mode": { type: "string", default: "weighted" },
   },
 });
 const replayDir = values.replay === undefined ? null : resolve(values.replay);
-let recordedSummary: { seed: number; ticks: number; stateHash: string; maxCalls?: number } | null = null;
+let recordedSummary: { seed: number; ticks: number; stateHash: string; maxCalls?: number; choiceMode?: string } | null = null;
 let recordedTrace: TaxStepTraceEntry[] = [];
 if (replayDir) {
   if (values["ai-vendor"]) throw new Error("--replay runs offline; it cannot be combined with --ai-vendor");
@@ -41,7 +43,11 @@ if (replayDir) {
   values.seed = String(recordedSummary!.seed);
   values.ticks = String(recordedSummary!.ticks);
   if (recordedSummary!.maxCalls !== undefined) values["max-calls"] = String(recordedSummary!.maxCalls);
+  // Runs recorded before ai-tax-weighted have no choiceMode: the brain chose.
+  values["choice-mode"] = recordedSummary!.choiceMode ?? "brain";
 }
+const choiceMode = values["choice-mode"];
+if (choiceMode !== "weighted" && choiceMode !== "brain") throw new Error("--choice-mode must be weighted or brain");
 const seed = Number.parseInt(values.seed!, 10);
 const ticks = Number.parseInt(values.ticks!, 10);
 const capUsd = Number(values["cap-usd"]);
@@ -74,7 +80,7 @@ if (replayDir) {
   brain = stubAgree();
   context = stubContextEcho();
 }
-const ai: TickAiOptions = { brainTaxStep: brain, context, cap: maxCalls, ledger };
+const ai: TickAiOptions = { brainTaxStep: brain, context, cap: maxCalls, ledger, weighted: choiceMode === "weighted" };
 
 const world = createPrototypeWorld(seed);
 const trace: TaxStepTraceEntry[] = [];
@@ -89,7 +95,7 @@ const finalHash = stateHash(world);
 if (replay && recordedSummary) {
   const report = replay.report(trace);
   const result = {
-    mode: "replay", replayOf: replayDir, seed, ticks, maxCalls, stateHash: finalHash, recordedStateHash: recordedSummary.stateHash,
+    mode: "replay", replayOf: replayDir, seed, ticks, maxCalls, choiceMode, stateHash: finalHash, recordedStateHash: recordedSummary.stateHash,
     hashMatches: finalHash === recordedSummary.stateHash, ...report,
     currentPromptVersion: TAX_STEP_PROMPT_VERSION_BRIEFED,
   };
@@ -100,10 +106,16 @@ if (replay && recordedSummary) {
 }
 const summary = {
   mode: vendor ? "vendor" : "stub",
-  seed, ticks, stateHash: finalHash, events,
+  choiceMode, seed, ticks, stateHash: finalHash, events,
   calls: ai.calls ?? 0, maxCalls, capUsd, spendUsd: ledger.spendUsd, costLines: ledger.lines.length,
   costLog: vendor ? costPath : null,
   fallbacks: trace.filter((entry) => entry.ai.outcome === "fallback").length,
+  decisions: trace.length,
+  disagreements: trace.filter((entry) => entry.ai.finalChoice !== entry.ai.scorerChoice).length,
+  expectedDisagreement: trace.length === 0 ? 0 : Math.round(trace.reduce((sum, entry) =>
+    sum + (entry.ai.weighted ? 1 - (entry.ai.weighted.distribution[entry.ai.scorerChoice] ?? 0) : 0), 0) / trace.length * 1e4) / 1e4,
+  escalations: trace.filter((entry) => entry.ai.weighted?.escalation).length,
+  modelReasons: trace.filter((entry) => entry.ai.reasonSource === "model").length,
 };
 writeFileSync(join(output, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
 console.log(JSON.stringify(summary));

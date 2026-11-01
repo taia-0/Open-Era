@@ -30,7 +30,8 @@ import { fullAllowance, resolvePassageCharge, resolveQuotedSpend, shortPayMember
 import { autonomousTaxStep, PASSAGE_PER_TICK, raiseShockData, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
 import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
-import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMPT_VERSION_REASON, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
+import { sampleChoice, taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3443,6 +3444,12 @@ export interface TickOptions {
 
 export interface TickAiOptions {
   brainTaxStep?: TaxStepProvider;
+  /**
+   * ai-tax-weighted (variant b): the sim draws the tax step from the
+   * trait-weighted distribution (ai-weighted.ts) on its own derived stream;
+   * the provider writes only the reason. Unset keeps the brain's choice path.
+   */
+  weighted?: boolean;
   /** Per-run call cap (section 5, check 6). Default 50. */
   cap?: number;
   /**
@@ -3603,9 +3610,11 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
   // Pilot B: the reader runs after the cap check, before the brain, and its
   // validated briefing is part of the brain's request (and its inputHash).
   const context = ai.context ? readTaxStepContext(world, factionId, step.holderId, ai.context, capped) : null;
-  if (context) {
-    request.briefing = context.briefing;
-    request.promptVersion = TAX_STEP_PROMPT_VERSION_BRIEFED;
+  if (context || ai.weighted) {
+    if (context) {
+      request.briefing = context.briefing;
+      request.promptVersion = TAX_STEP_PROMPT_VERSION_BRIEFED;
+    }
     // Judgment v3: what the scorer ignores. Read-only; set only with a context reader.
     const personality = world.characters[step.holderId]?.personality;
     const r2 = (value: number) => Math.round(value * 100) / 100;
@@ -3618,6 +3627,7 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
     const dayCents = Math.round(fullAllowance(world, PASSAGE_PER_TICK) * 100);
     request.payDaysCovered = step.freeMates > 0 && dayCents > 0 ? Math.floor(step.treasuryCents / (step.freeMates * dayCents)) : null;
   }
+  if (ai.weighted) return consultWeighted(world, factionId, step, provider, ai, request, context, capped);
   let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
   if (!capped) {
     ai.calls = (ai.calls ?? 0) + 1;
@@ -3654,6 +3664,72 @@ function consultTaxStep(world: WorldState, factionId: string, step: TaxStepOptio
       railBlocked: !fallbackReason && parsedChoice === null && parseTaxChoice(raw, step.options) !== null,
       reasonCheck: checkTaxStepReason(raw),
     } : {}),
+  };
+}
+
+/**
+ * ai-tax-weighted: the choice is drawn by the sim, never by the vendor. The
+ * rails run before the draw, so the draw is always legal. The provider (when
+ * not capped) is asked for a reason only; a missing or bad reason falls back
+ * to `templateReason`. Everything needed to replay the draw is recorded.
+ */
+function consultWeighted(
+  world: WorldState, factionId: string, step: TaxStepOptions, provider: TaxStepProvider, ai: TickAiOptions,
+  request: TaxStepRequest, context: ContextRecord | null, capped: boolean,
+): TaxStepAiRecord {
+  const persona = request.persona ?? { ambition: 0.5, aggression: 0.5, caution: 0.5, commerce: 0.5, loyalty: 0.5 };
+  const answers = context?.answers;
+  const weighted = taxStepDistribution(step.scorerChoice, step.options, step.pressed, step.short, persona, answers);
+  const draw = weightedDraw(world.seed, factionId, world.tick);
+  const sampled = sampleChoice(weighted.distribution, weighted.legal, draw);
+  const escalation = triage(answers);
+  request.chosen = sampled;
+  request.escalation = escalation.why;
+  request.promptVersion = TAX_STEP_PROMPT_VERSION_REASON;
+  let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
+  if (!capped) {
+    ai.calls = (ai.calls ?? 0) + 1;
+    try {
+      answer = provider.decide(request);
+    } catch {
+      answer = { raw: null, latencyMs: 0, error: "error" };
+    }
+  }
+  const failed: TaxStepFallbackReason | null = capped ? "cap" : answer.error ?? (answer.latencyMs > TAX_STEP_TIMEOUT_MS ? "timeout" : null);
+  const raw = failed ? null : answer.raw;
+  const modelReason = failed ? null : parseReason(raw);
+  const fallbackReason = failed ?? (modelReason ? null : "illegal");
+  const reason = modelReason ?? templateReason(sampled, persona, step.pressed, step.short);
+  return {
+    role: "brain.taxStep" as const,
+    provider: provider.name,
+    model: provider.model,
+    promptVersion: request.promptVersion,
+    inputHash: taxStepInputHash(request),
+    options: step.options,
+    scorerChoice: step.scorerChoice,
+    rawAnswer: raw === null ? null : raw.slice(0, RAW_ANSWER_MAX),
+    parsedChoice: null,
+    finalChoice: sampled,
+    outcome: fallbackReason ? "fallback" : "model",
+    fallbackReason,
+    latencyMs: answer.latencyMs,
+    context,
+    railBlocked: false,
+    reasonCheck: checkTaxStepReason(JSON.stringify({ reason })),
+    weighted: {
+      paramsVersion: WEIGHTED_PARAMS_VERSION,
+      params: WEIGHTED_PARAMS,
+      persona,
+      legal: weighted.legal,
+      components: weighted.components,
+      distribution: weighted.distribution,
+      draw,
+      sampled,
+      escalation: escalation.escalate ? escalation.why : null,
+    },
+    reason,
+    reasonSource: modelReason ? "model" : "template",
   };
 }
 
