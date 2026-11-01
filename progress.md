@@ -153,6 +153,53 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-10-31 — Exile recovery (slice A, behind EXILE_RECOVERY)
+
+Flag: `runTick(world, { exileRecovery: true })`, CLI `--exile-recovery` or `EXILE_RECOVERY=1`. With the flag off, runs match the pins (72t 66e8ccb7/b4ccedab/b04c5ac4, 1200t b51aa07a/091f7628/25bdbf15).
+- Step 1 (`src/sim/news.ts` `ownLossCouriers`): a faction courier brings news of a lost own port to members `OWN_LOSS_COURIER_TICKS = 6` ticks after the claim (1 day, a courier crossing the longest sea leg). Only claim losses are couriered; secession losses are not.
+- Step 2 (`src/sim/exile.ts`): w = (0.5L + 0.3Ag + 0.2Am - 0.3C) x (1 + grievance) x 0.5^((t - served)/240). Raid +40w, travel +20w, with the reason "to win back P, lost to H". `homeService` is recorded through `decision-made`.
+
+Trace (seeds 1847/2718/4096), off / news-only / on:
+
+| | off | news | on |
+|---|---|---|---|
+| raids chosen | 2/5/3 | 8/16/4 | 9/12/3 (home 8/9/3) |
+| stale-belief blocks | 305/118/180 | 50/67/11 | 79/90/17 |
+| gate open | 0/48/2 | 2/15/0 | 1/13/1 |
+| garrison<8 | 251/283/363 | 2270/749/168 | 516/509/1060 |
+| belief age median | 380/167/703 | 9/12/31 | 31/10/9 |
+
+13-seed sweep totals off / on: claims 437/684, secessions 42/36, port changes 479/720, desertions 58/63, portless raids 245/342 (per-seed rows: `scripts/exile-sweep.ts`).
+
+**Lead rulings (2026-10-31, game-vision.md:39, no forced balance):**
+1. No WG guard. WG ending portless on a minority of seeds is emergent; the earlier "WG keeps a port" balance target is dropped.
+2. Secessions are judged over the 13 seeds: the flag-on median within ±1 of flag off, AND at least one secession on most seeds (≥ 7/13). The per-seed ±1 band is dropped. Encoded in `scripts/exile-sweep.ts` (exit 1 on failure).
+3. The troop-limited case on 4096 (garrison < 8) is exempt from "portless raids above baseline".
+4. Couriers also report ports lost to secession: `secession-loss-recorded` (flag on only) stores `Settlement.secessionLoss`, and `ownLossCouriers` uses the newer of claim and secession.
+
+Sweep after ruling 4 (13 seeds × 1200 ticks, off / on):
+
+| Seed | Claims off/on | Secessions off/on | Port changes off/on | Desertions off/on | Portless raids off/on | WG ports t_end off/on | FT members t_end off/on |
+|---|---|---|---|---|---|---|---|
+| 1847 | 26 / 51 | 4 / 1 | 30 / 52 | 3 / 4 | 12 / 20 | 1 / 0 | 3 / 3 |
+| 2718 | 25 / 64 | 0 / 0 | 25 / 64 | 2 / 2 | 8 / 20 | 1 / 2 | 6 / 6 |
+| 4096 | 39 / 56 | 4 / 3 | 43 / 59 | 4 / 7 | 24 / 36 | 1 / 1 | 1 / 3 |
+| 1000 | 27 / 42 | 0 / 2 | 27 / 44 | 4 / 3 | 14 / 27 | 1 / 1 | 5 / 5 |
+| 2000 | 31 / 50 | 5 / 2 | 36 / 52 | 5 / 5 | 19 / 30 | 1 / 1 | 1 / 2 |
+| 3000 | 34 / 42 | 3 / 2 | 37 / 44 | 6 / 7 | 16 / 26 | 1 / 2 | 1 / 2 |
+| 4000 | 37 / 63 | 4 / 1 | 41 / 64 | 6 / 2 | 23 / 30 | 1 / 1 | 3 / 4 |
+| 5000 | 50 / 55 | 7 / 2 | 57 / 57 | 6 / 8 | 37 / 32 | 1 / 1 | 1 / 3 |
+| 6000 | 33 / 50 | 2 / 5 | 35 / 55 | 5 / 7 | 18 / 23 | 1 / 2 | 3 / 2 |
+| 7000 | 34 / 61 | 3 / 4 | 37 / 65 | 3 / 4 | 15 / 22 | 2 / 1 | 3 / 2 |
+| 8000 | 24 / 62 | 2 / 4 | 26 / 66 | 6 / 8 | 10 / 41 | 2 / 1 | 1 / 2 |
+| 9000 | 35 / 58 | 3 / 2 | 38 / 60 | 4 / 5 | 24 / 34 | 1 / 0 | 3 / 3 |
+| 10000 | 42 / 28 | 5 / 3 | 47 / 31 | 4 / 4 | 25 / 19 | 1 / 1 | 1 / 1 |
+| total | 437 / 682 | 42 / 31 | 479 / 713 | 58 / 66 | 245 / 360 | | |
+
+Result: secession median 3 → 2 (within ±1); 12/13 seeds have ≥ 1 secession with the flag on. EXILE ACCEPTANCE PASSED. WG ends with 0 ports on 1847 and 9000 (accepted per ruling 1).
+
+Earlier (before ruling 4): Acceptance: pins hold; a home raid happens on all 3 seeds; belief age drops; no FT wipeout. Failures: on 1847, secessions go 4 to 1 and WG holds 0 ports at t1200 (7000 also ends with WG at 0); on 4096, FT portless raids stay at 3 because garrisons are below 8. These are open Lead decisions.
+
 ### 2026-10-31 — Feed name fixture: restore the untagged Toma Reef merge
 - **Agent:** Grok Bot for the Lead | **Branch:** `feature/feed-name-fixture` off `origin/main` `2c90621` | **Type:** Tests
 - **Changed** — `tests/contract-feed-polish.test.ts` gains "an untagged Toma Reef merges, and a fixture page folds Iris Stone's two offers to Toma Reef". It builds a page on the opening seed-1847 world from hand-made events plus a tagged copy of sequence 43, without changing the simulation. The projector tags Toma Reef as "Toma Reef (World Government)", and the stored summaries come both tagged and untagged. The test restores the pre-port-balance assertions at full strength: the folded offer reads "Iris Stone offered Toma Reef a contract to carry 10 provisions to Crown Harbor (2 times since tick 194).", folds [22795], the acceptance 24591 folds order 24592, and no row carries a tag. It fails if `unqualifiedFeedNames` stops stripping the tag. The secession t54 test already asserts that Free Tide holds Cinder Key beside its null readout, so no change was needed there.

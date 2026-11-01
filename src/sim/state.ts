@@ -793,6 +793,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!actor) throw new Error("Decision event has no actor");
       actor.currentGoal = event.data.goal as string;
       actor.lastDecisionTick = world.tick;
+      if (typeof event.data.homeService === "string") actor.homeService = { ...(actor.homeService ?? {}), [event.data.homeService]: event.tick };
       break;
     case "knowledge-updated": {
       if (!actor) throw new Error("Knowledge event has no actor");
@@ -1049,6 +1050,11 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.surrender = null;
       delete settlement.secessionDeclaredBy;
       break;
+    case "secession-loss-recorded": {
+      if (!settlement) throw new Error("Secession loss record is missing a port");
+      settlement.secessionLoss = { tick: Number(event.data.tick), previousFactionId: String(event.data.previousFactionId), factionId: String(event.data.factionId) };
+      break;
+    }
     case "secession-declared": {
       if (!settlement) throw new Error("Secession event is missing a settlement");
       const faction = event.data.faction as Faction | undefined;

@@ -85,6 +85,11 @@ export interface Settlement {
    */
   secessionDeclaredBy?: string;
   /**
+   * Exile recovery (flag on only): the latest secession that took this port,
+   * from `secession-loss-recorded`. The courier rule reads it next to claim news.
+   */
+  secessionLoss?: { tick: number; previousFactionId: string; factionId: string };
+  /**
    * Public items posted at this port. Absent until the first post.
    * Stability and the scarred-follower list sit beside the item.
    */
@@ -712,6 +717,13 @@ export interface Character {
   plan: CharacterPlan | null;
   relationships: Record<string, Relationship>;
   knowledge: Record<string, SettlementKnowledge>;
+  /**
+   * Exile recovery (next-dynamic-slice.md, revised slice A item 2): the last tick
+   * this captain decided while docked at a port their faction held, by port id.
+   * Written only from a `decision-made` that carries `homeService`, which only
+   * the EXILE_RECOVERY flag adds. Absent otherwise, so flag-off worlds hash as before.
+   */
+  homeService?: Record<string, number>;
   /**
    * Parties seen anchored in a port, keyed by the subject's id.
    *
