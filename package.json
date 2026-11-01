@@ -17,6 +17,7 @@
     "golden:update": "node --experimental-strip-types scripts/update-golden-hashes.ts",
     "golden:check": "node --experimental-strip-types --test tests/golden.test.ts",
     "action-picker": "node --experimental-strip-types src/cli/run-action-picker.ts",
+    "picker-gate": "node --experimental-strip-types src/cli/picker-gate.ts",
     "ai-pilot": "node --experimental-strip-types src/cli/run-ai-pilot.ts"
   },
   "devDependencies": {

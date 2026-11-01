@@ -31,7 +31,7 @@ import { autonomousTaxStep, PASSAGE_PER_TICK, raiseShockData, taxChoiceCents, ta
 import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
 import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMPT_VERSION_REASON, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
-import { ActionPickerReplay, criterionFor, ESCALATION_ACTIONS, legalIds, optionId, pickDraw, PICKER_DEFAULT_CAP, PICKER_PROMPT_VERSION, PICKER_ROLE, PICKER_TIMEOUT_MS, pickerState, railProbabilities, sampleId, type ActionPicker, type ActionPickerRecord, type PickerAnswer, type PickerFallbackReason, type PickerRequest } from "./ai-action-picker.ts";
+import { ActionPickerReplay, blendDistribution, PICKER_BLEND, type BlendParams, criterionFor, ESCALATION_ACTIONS, legalIds, optionId, pickDraw, PICKER_DEFAULT_CAP, PICKER_PROMPT_VERSION, PICKER_ROLE, PICKER_TIMEOUT_MS, pickerState, railProbabilities, sampleId, type ActionPicker, type ActionPickerRecord, type PickerAnswer, type PickerFallbackReason, type PickerRequest } from "./ai-action-picker.ts";
 import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
@@ -3470,6 +3470,8 @@ export interface TickAiOptions {
   pickerActors?: string[] | "all";
   /** Section 7: call cap, default 1,000. */
   pickerCap?: number;
+  /** Lead ruling 1: the scorer-prior blend. Default PICKER_BLEND; null = Jev's distribution alone. */
+  pickerBlend?: BlendParams | null;
   /** Run memory: picker calls made so far. */
   pickerCalls?: number;
   /** Per-run call cap (section 5, check 6). Default 50. */
@@ -3790,9 +3792,19 @@ function consultActionPicker(world: WorldState, character: Character, candidates
   if (legalRows.some((row) => ESCALATION_ACTIONS.has(row.action))) return null;
   const byId = new Map(legalRows.map((row) => [optionId(row), row]));
   const scorerPick = optionId(candidates[0]);
-  const { state, truncated } = pickerState(world, character);
-  const criteria = Object.fromEntries(legal.map((id) => [id, criterionFor(world, byId.get(id)!)]));
-  const request: PickerRequest = { tick: world.tick, actorId: character.id, legal, criteria, state, promptVersion: PICKER_PROMPT_VERSION, scorerPick };
+  const gross = workGross(character);
+  const workTax = character.locationId ? tradeTax(world, character.locationId, gross).tax : 0;
+  const r2 = (value: number) => Math.round(value * 100) / 100;
+  const passagePerDay = PASSAGE_COST_PER_TICK * world.ticksPerDay;
+  const economy = {
+    purse: r2(character.money), workGross: r2(gross), workTax: r2(workTax), workNet: r2(gross - workTax),
+    passagePerDay: r2(passagePerDay), purseDaysOfPassage: passagePerDay > 0 ? Math.floor(character.money / passagePerDay) : 0,
+    mateAllowancePerDay: r2(fullAllowance(world, PASSAGE_PER_TICK)),
+  };
+  const { state, truncated } = pickerState(world, character, economy);
+  const criteria = Object.fromEntries(legal.map((id) => [id, criterionFor(world, byId.get(id)!, economy.workNet)]));
+  const scores = Object.fromEntries(legal.map((id) => [id, Math.round(byId.get(id)!.score * 1e4) / 1e4]));
+  const request: PickerRequest = { tick: world.tick, actorId: character.id, legal, criteria, state, promptVersion: PICKER_PROMPT_VERSION, scorerPick, scores };
   const inputHash = sha256(canonicalJson(request));
   const draw = pickDraw(world.seed, character.id, world.tick);
   const picker = ai.picker!;
@@ -3806,8 +3818,9 @@ function consultActionPicker(world: WorldState, character: Character, candidates
     provider = was.provider; model = was.model;
     answer = was.fallbackReason && was.fallbackReason !== "illegal"
       ? { probabilities: null, latencyMs: was.latencyMs, error: was.fallbackReason }
-      : { probabilities: was.probabilities, confidence: was.confidence, responseModel: was.responseModel, latencyMs: was.latencyMs };
-    const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, false);
+      : { probabilities: was.probabilities, confidence: was.confidence, responseModel: was.responseModel, latencyMs: was.latencyMs, exact: was.exact === true };
+    // The recorded blend, not the current default: replay is exact from the record.
+    const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, false, was.blend ?? null);
     if (record.sampled !== was.sampled || record.fallbackReason !== was.fallbackReason) {
       throw new Error(`action picker replay: sampled ${record.sampled} != recorded ${was.sampled} for ${character.id} at tick ${world.tick}`);
     }
@@ -3819,15 +3832,19 @@ function consultActionPicker(world: WorldState, character: Character, candidates
     ai.pickerCalls = (ai.pickerCalls ?? 0) + 1;
     try { answer = picker.choose(request); } catch { answer = { probabilities: null, latencyMs: 0, error: "error" }; }
   }
-  const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, true);
+  const record = finishPick(request, answer, provider, model, inputHash, draw, truncated, true, ai.pickerBlend === undefined ? PICKER_BLEND : ai.pickerBlend);
   return { row: byId.get(record.sampled) ?? candidates[0], record };
 }
 
-function finishPick(request: PickerRequest, answer: PickerAnswer, provider: string, model: string, inputHash: string, draw: number, truncated: boolean, live: boolean): ActionPickerRecord {
+function finishPick(request: PickerRequest, answer: PickerAnswer, provider: string, model: string, inputHash: string, draw: number, truncated: boolean, live: boolean, blendParams: BlendParams | null): ActionPickerRecord {
   let fallbackReason: PickerFallbackReason | null = answer.error ?? (live && answer.latencyMs > PICKER_TIMEOUT_MS ? "timeout" : null);
   const railed = fallbackReason ? null : railProbabilities(answer.probabilities, request.legal);
   if (!fallbackReason && !railed) fallbackReason = "illegal";
-  const sampled = railed ? sampleId(railed.distribution, request.legal, draw) : request.scorerPick;
+  const exact = answer.exact === true;
+  const blend = railed && !exact && blendParams ? blendParams : null;
+  const blended = railed && blend ? blendDistribution(railed.distribution, request.scores, request.scorerPick, request.legal, blend) : null;
+  const final = blended ? blended.distribution : railed ? railed.distribution : null;
+  const sampled = final ? sampleId(final, request.legal, draw) : request.scorerPick;
   const probabilities = railed ? railed.kept : null;
   const sum = probabilities ? Math.round(Object.values(probabilities).reduce((a, b) => a + b, 0) * 1e6) / 1e6 : null;
   const confidence = typeof answer.confidence === "number" && Number.isFinite(answer.confidence) ? answer.confidence : null;
@@ -3835,7 +3852,8 @@ function finishPick(request: PickerRequest, answer: PickerAnswer, provider: stri
     role: PICKER_ROLE, provider, model, responseModel: answer.responseModel ?? null,
     promptVersion: request.promptVersion, inputHash, legal: request.legal,
     probabilities, probabilitySum: sum, confidence: railed ? confidence : null,
-    distribution: railed ? railed.distribution : null, draw, sampled, scorerPick: request.scorerPick,
+    jevDistribution: railed ? railed.distribution : null, prior: blended ? blended.prior : null, blend, exact,
+    distribution: final, draw, sampled, scorerPick: request.scorerPick,
     outcome: fallbackReason ? "fallback" : "model", fallbackReason, truncated, latencyMs: answer.latencyMs,
   };
 }

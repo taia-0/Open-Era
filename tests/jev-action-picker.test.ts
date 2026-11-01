@@ -5,8 +5,9 @@ import { join } from "node:path";
 import test from "node:test";
 import { fetchAttempts } from "./helpers/no-network.ts";
 import { stubContextEcho } from "../src/sim/ai-context.ts";
+import { pickerGate, seedGate, WORK_SHARE_FLOOR } from "../src/tools/picker-gate.ts";
 import {
-  ActionPickerReplay, legalIds, optionId, pickDraw, PICKER_STATE_MAX_BYTES, pickerState, railProbabilities, stubArgmaxPicker, stubScriptedPicker,
+  ActionPickerReplay, blendDistribution, PICKER_BLEND, stubFittedPicker, legalIds, optionId, pickDraw, PICKER_STATE_MAX_BYTES, pickerState, railProbabilities, stubArgmaxPicker, stubScriptedPicker,
   stubUniformPicker, type ActionPicker, type ActionPickerRecord, type PickerAnswer,
 } from "../src/sim/ai-action-picker.ts";
 import { stubAgree } from "../src/sim/ai-provider.ts";
@@ -116,7 +117,7 @@ test("6. rails: garbage drops to legal ids or falls back to candidates[0] with i
   // Argmax on an illegal id plus some legal mass: drops to legal ids.
   const mixed = stubScriptedPicker((request) => ({ probabilities: { "raid:x:-": 0.9, [request.legal[0]]: 0.1 }, latencyMs: 0 }));
   const m = run({ picker: mixed }, 1847, 120);
-  assert.ok(m.records.every((r) => r.picker.outcome === "model" && r.picker.sampled === r.picker.legal[0]));
+  assert.ok(m.records.every((r) => r.picker.outcome === "model" && r.picker.jevDistribution![r.picker.legal[0]] === 1 && r.picker.legal.includes(r.picker.sampled)));
 });
 
 test("7. failures: timeout, error and cap fall back with the right reason; the Jev cost line shows 0 tokens", () => {
@@ -208,4 +209,70 @@ test("state stays within 2,048 bytes", () => {
   for (let i = 0; i < 200; i += 1) runTick(world);
   const { state } = pickerState(world, world.characters["character-14"]);
   assert.ok(Buffer.byteLength(canonicalJson(state), "utf8") <= PICKER_STATE_MAX_BYTES);
+});
+
+test("blend: the prior centres on the scorer's row, Jev tilts it, the weight and floor bound it, and it sums to 1", () => {
+  const legal = ["rest:-:-", "travel:a:-", "work:-:-"];
+  const scores = { "rest:-:-": 30, "travel:a:-": 20, "work:-:-": 40 };
+  const flat = blendDistribution({ "rest:-:-": 1 / 3, "travel:a:-": 1 / 3, "work:-:-": 1 / 3 }, scores, "work:-:-", legal, PICKER_BLEND);
+  assert.ok(flat.distribution["work:-:-"] > flat.distribution["rest:-:-"] && flat.distribution["rest:-:-"] > flat.distribution["travel:a:-"]);
+  assert.equal(flat.prior["work:-:-"], PICKER_BLEND.centre);
+  assert.ok(Math.abs(Object.values(flat.distribution).reduce((a, b) => a + b, 0) - 1) < 1e-5);
+  const jev = blendDistribution({ "rest:-:-": 0, "travel:a:-": 1, "work:-:-": 0 }, scores, "work:-:-", legal, PICKER_BLEND);
+  assert.ok(jev.distribution["travel:a:-"] > flat.distribution["travel:a:-"]);
+  assert.ok(jev.distribution["rest:-:-"] > 0, "the floor keeps a zero-probability row possible");
+  const off = blendDistribution({ "rest:-:-": 0, "travel:a:-": 1, "work:-:-": 0 }, scores, "work:-:-", legal, { ...PICKER_BLEND, jevWeight: 0 });
+  assert.deepEqual(off.distribution, flat.distribution);
+});
+
+test("blend records the prior, Jev's distribution, the weight, the final distribution and the draw; replay uses the recorded blend", () => {
+  const live = run({ picker: stubUniformPicker() }, 1847, 300);
+  assert.ok(live.records.length > 0);
+  for (const { picker } of live.records) {
+    assert.deepEqual(picker.blend, PICKER_BLEND);
+    assert.ok(picker.prior && picker.jevDistribution && picker.distribution);
+    assert.equal(picker.prior![picker.scorerPick], PICKER_BLEND.centre);
+  }
+  // Replaying with a different default blend still follows the record.
+  const again = run({ picker: new ActionPickerReplay(live.records), pickerBlend: { centre: 9, temperature: 1, jevWeight: 3, floor: 0.5 } }, 1847, 300);
+  assert.equal(again.hash, live.hash);
+});
+
+test("Jev's state says what work earns, within 2,048 bytes", () => {
+  const seen: string[] = [];
+  const spy = stubScriptedPicker((request) => { seen.push(canonicalJson(request.state)); assert.match(request.criteria["work:-:-"] ?? "Work here for dependable local income: about 0.00", /about \d+\.\d\d coins after tax/); return { probabilities: Object.fromEntries(request.legal.map((id) => [id, 1])), latencyMs: 0 }; });
+  run({ picker: spy }, 2718, 200);
+  assert.ok(seen.length > 0);
+  for (const state of seen) {
+    const parsed = JSON.parse(state);
+    for (const field of ["purse", "workGross", "workTax", "workNet", "passagePerDay", "purseDaysOfPassage", "mateAllowancePerDay"]) assert.equal(typeof parsed.economy[field], "number");
+    assert.ok(Buffer.byteLength(state, "utf8") <= PICKER_STATE_MAX_BYTES);
+  }
+});
+
+test("the fitted stub replays recorded distributions by exact legal list, else per-kind means", () => {
+  const stub = stubFittedPicker([{ legal: ["rest:-:-", "work:-:-"], distribution: { "rest:-:-": 0.8, "work:-:-": 0.2 } }]);
+  const base = { tick: 1, actorId: "c", criteria: {}, state: {}, promptVersion: "v", scorerPick: "work:-:-", scores: {} };
+  assert.deepEqual(stub.choose({ ...base, legal: ["rest:-:-", "work:-:-"] }).probabilities, { "rest:-:-": 0.8, "work:-:-": 0.2 });
+  const p = stub.choose({ ...base, legal: ["rest:-:-", "travel:x:-", "work:-:-"] }).probabilities as Record<string, number>;
+  assert.ok(p["rest:-:-"] > p["work:-:-"]);
+  assert.equal(stub.exactHits, 1);
+});
+
+test("gate additions: entropy up, no zero where flag off has some, not systematically below, work share within 30%", () => {
+  const ev = (tick: number, type: string, data: Record<string, unknown> = {}, actorId = "character-14") => ({ sequence: 0, tick, type, actorId, data } as SimEvent);
+  const off = [ev(1, "decision-made", { goal: "rest" }), ev(2, "decision-made", { goal: "rest" }), ev(3, "decision-made", { goal: "work" }), ev(4, "character-captured"), ev(5, "secession-declared")];
+  const good = [ev(1, "decision-made", { goal: "rest" }), ev(2, "decision-made", { goal: "travel" }), ev(3, "decision-made", { goal: "work" }), ev(4, "character-captured"), ev(5, "secession-declared")];
+  const g = seedGate(1, good, off);
+  assert.equal(g.holderEntropy.up, true);
+  assert.equal(g.workShare.ok, true);
+  assert.equal(pickerGate([g]).pass, true);
+  const bad = [ev(1, "decision-made", { goal: "rest" }), ev(2, "decision-made", { goal: "rest" }), ev(3, "decision-made", { goal: "rest" })];
+  const b = seedGate(1, bad, off);
+  const gate = pickerGate([b, b]);
+  assert.equal(gate.checks.holderEntropyUpAllSeeds, false);
+  assert.equal(gate.checks.secessionsNoZeroWhereBaselineHas, false);
+  assert.equal(gate.checks.capturesNotSystematicallyBelow, false);
+  assert.equal(gate.checks.workShareWithin30pct, false);
+  assert.ok(WORK_SHARE_FLOOR > 0);
 });

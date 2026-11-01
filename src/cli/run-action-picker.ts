@@ -13,6 +13,7 @@ import { stateHash } from "../sim/state.ts";
  * Slice 3 runner (jev-action-picker.md).
  *   npm run action-picker -- --picker uniform|argmax|jev --seed 1847 --ticks 1200 [--max-calls 1000] [--cap-usd 0.05] [--actors all] --output <dir>
  *   npm run action-picker -- --replay <dir>
+ * `--picker off` writes the flag-off baseline. Then `npm run picker-gate -- --pair 1847:<run>/events.jsonl:<off>/events.jsonl ...`.
  * Writes events.jsonl (for `npm run dynamism`), picker.jsonl, summary.json and cost.jsonl.
  * `--picker jev` needs JEV_API_KEY in the environment and Micah's go-ahead; the key is never written.
  */
@@ -53,9 +54,10 @@ let picker: ActionPicker & { calls?: number };
 if (recorded) picker = new ActionPickerReplay(recorded.records);
 else if (values.picker === "argmax") picker = stubArgmaxPicker();
 else if (values.picker === "uniform") picker = stubUniformPicker();
+else if (values.picker === "off") picker = null as unknown as ActionPicker;
 else if (values.picker === "jev") picker = jevActionPicker({ transport: workerTransport(), ledger });
-else throw new Error("--picker must be argmax, uniform or jev");
-const ai: TickAiOptions = { picker, pickerCap: maxCalls, ...(values.actors === "all" ? { pickerActors: "all" as const } : {}) };
+else throw new Error("--picker must be off, argmax, uniform or jev");
+const ai: TickAiOptions = { ...(picker ? { picker } : {}), pickerCap: maxCalls, ...(values.actors === "all" ? { pickerActors: "all" as const } : {}) };
 
 const world = createPrototypeWorld(seed);
 const eventsPath = join(output, "events.jsonl");
@@ -64,7 +66,7 @@ writeFileSync(eventsPath, ""); writeFileSync(pickerPath, "");
 const records: ActionPickerRecord[] = [];
 let events = 0;
 for (let index = 0; index < ticks; index += 1) {
-  const result = runTick(world, { ai });
+  const result = runTick(world, picker ? { ai } : {});
   const lines: string[] = [];
   const pickLines: string[] = [];
   for (const event of result.events) {
