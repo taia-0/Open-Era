@@ -25,6 +25,11 @@ echo "Running the 13-seed exile sweep"
 node --experimental-strip-types scripts/exile-sweep.ts 2>&1 | tee "${evaluation_output}/exile-sweep.log"
 grep -q "EXILE ACCEPTANCE PASSED" "${evaluation_output}/exile-sweep.log"
 
+# occupation.md §5–§6: OCCUPATION off (exile-on baseline) vs on, 13 seeds; exits 1 on any acceptance item, including the churn guard.
+echo "Running the 13-seed occupation sweep"
+node --experimental-strip-types scripts/occupation-sweep.ts --json "${evaluation_output}/occupation-sweep.json" 2>&1 | tee "${evaluation_output}/occupation-sweep.log"
+grep -q "OCCUPATION ACCEPTANCE PASSED" "${evaluation_output}/occupation-sweep.log"
+
 # Slice B feed reasons (feed-reasons.md section 10): stub brain on, 1,200 ticks,
 # stateHash equal to the default pins (EXILE_RECOVERY on); then an offline replay with zero writer
 # calls and byte-identical feed text.

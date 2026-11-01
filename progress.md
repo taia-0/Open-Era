@@ -155,6 +155,166 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-01 — Occupation rebuilt to the §10 re-spec (behind OCCUPATION, default off) (Cursor)
+
+- **Base:** origin/main 555597a (#173) was merged into feature/occupation without force; the only conflict was in progress.md, and both sides were kept. The patch covers measurement only (H terms and acceptance). Drift (0.10·H), the regrowth stop, defection, integration and the subsistence floor are unchanged.
+- **H terms (§10.1):**
+  - Tax is unchanged: it is measured against the rate at capture.
+  - Conduct is now min(1, breaches/4).
+  - Grievance now uses a 0.075 scale.
+  - Food is baseline-relative: `max(0, foodBaseline − provisions/demand)`, clamped to ≤ 1. `foodBaseline` is stored on the occupation record at the claim. It is the mean post-upkeep provisions/demand over the 20 ticks before the capture, taken from `Settlement.foodRatios`.
+  - `Settlement.foodRatios` is a 20-tick per-port history that is event-sourced from `settlement-upkeep.foodRatio`. It is written only when the flag is on, so flag-off state is unchanged.
+- **Sweep (scripts/occupation-sweep.ts):** updated to the §10 acceptance.
+  - Liveness: claims and port changes on every seed, aggregate claims ≥ 0.33×, and no new wipeouts.
+  - Buckets are tertiles of mean H over the first 60 ticks.
+  - 2a is gated on upkeeps only; raw 2a is reported for information only.
+  - 2b is defectors per retake.
+  - 2c is measured at the flip and gated only when n ≥ 10.
+  - 4a, 4b, 5, 7a (≤ 1069) and 7b (≥ 38/38/37) are unchanged.
+  - The 0.75× claims bound is removed.
+- **Acceptance: PASSED.** No tuning or retry. The results match §10.2 exactly.
+  - Tertile cut points: t1 0.1563, t2 0.2972; n = 445.
+  - Liveness: claims 445/682 (0.6525×); minimum per seed is 11 claims and 11 port changes; no wipeouts in either run.
+  - 2a upkeeps-only: harsh 0.410 vs benign −0.816. Raw 2a: 3.339 vs 2.560.
+  - 2b: 1.222 (121/99) vs 0.024 (2/84).
+  - 2c at the flip: 105/141 vs 80/134.
+  - 4a: secession median 2 → 1. 4b: 8/13 seeds have a secession.
+  - 5: 15 integrations, on 9/13 seeds.
+  - 7a: 460 port changes. 7b: holds 41.5/48/57.
+- **Per seed (exile on), claims off→on and hold median off→on:**
+
+  | Seed | Claims | Hold median |
+  |---|---|---|
+  | 1847 | 51→36 | 38→41.5 |
+  | 2718 | 64→13 | 39→48 |
+  | 4096 | 56→37 | 37.5→57 |
+  | 1000 | 42→11 | 38→115 |
+  | 2000 | 50→24 | 38.5→48.5 |
+  | 3000 | 42→31 | 62→87 |
+  | 4000 | 63→51 | 38→44 |
+  | 5000 | 55→47 | 45→41 |
+  | 6000 | 50→32 | 49→59 |
+  | 7000 | 61→38 | 44→62 |
+  | 8000 | 62→61 | 38→39 |
+  | 9000 | 58→51 | 42→41 |
+  | 10000 | 28→13 | 56→153 |
+
+- **H terms after the re-spec** (scripts/diag/occupation-terms.ts, per upkeep over the first 60 ticks):
+
+  | Term | Non-zero share | Median | p90 |
+  |---|---|---|---|
+  | tax | 46% | 0 | 0.6 |
+  | food | 58% | 0.031 | 0.190 |
+  | conduct | 72% | 0.304 | 1 |
+  | residents | 98% | 0.333 | 0.5 |
+
+  Mean H: median 0.233, p90 0.414, max 0.660; 17 occupations have mean H ≥ 0.5.
+- **Pins:** flag off is byte-identical, with main's fixture.
+  - Default, 72 ticks: 7f76e474 / 976c40bd / 08943ea5.
+  - Default, 1200 ticks: 94de9c02 / 7a3741c9 / af6eeaea.
+  - Opt-out, 72 ticks: 66e8ccb7 / b4ccedab / b04c5ac4.
+  - Opt-out, 1200 ticks: b51aa07a / 091f7628 / 25bdbf15.
+- **Tests:** npm test (keys unset) 644/644 passed. evaluate-milestone: EXILE and OCCUPATION ACCEPTANCE PASSED, and the feed pins match on replay.
+  - The integration/recovery test moved from seed 1847 to 2718, because 1847 has 0 integrations under §10.
+  - New test for the food baseline and for the ratio history existing only when the flag is on.
+
+### 2026-11-01 — Occupation diagnosis (no mechanism change) (Cursor)
+
+Diagnosis mode on `feature/occupation`. `src/` is unchanged. The diagnostic harness is new under `scripts/diag/`. `occupation-variants.sh` builds patched *copies* of `src/` in /tmp with one sub-mechanism disabled at a time. `occupation-trace.ts`, `occupation-claims-sweep.ts` and `occupation-terms.ts` read engine state only.
+
+**1. Why claims and battles drop (exile on, 1200 ticks).** Results are claims off→on, then battles, per variant:
+
+| Variant | 1847 | 2718 | 4096 | 13-seed claims |
+|---|---|---|---|---|
+| full | 51→19, 73→50 | 64→26, 62→47 | 56→38, 63→47 | 682→513 |
+| no recruit stop | identical to full | identical | identical | 513 |
+| forecast subtracts defectors | identical to full | identical | identical | n/a |
+| no drift | 20, 50 | 56, 52 | 57, 58 | n/a |
+| no defection | 20, 50 | 24, 44 | 30, 39 | n/a |
+| drift only | 20, 50 | 24, 44 | 30, 39 | 544 |
+| defection only | 20, 50 | 56, 52 | 57, 58 | 629 |
+| drift ×2 (0.20) | 45, 69 | 44, 59 | 49, 65 | 615 |
+| drift ×0.01 | = off | = off | = off | n/a |
+| no effects (record and fields only) | = off | = off | = off | 682 |
+
+- **Recruit stop:** contributes 0. No upkeep ever reaches H ≥ 0.5 (max 0.53 at one upkeep; `engine.ts:369`).
+- **Forecast:** not subtracting defectors contributes 0. The forecast is only read as `captureRisk` (`engine.ts:1348,1367`).
+- **Record and event fields:** contribute 0.
+- **Drift** (`engine.ts:364`) is the main channel: −138 of −169 claims on 13 seeds. Defection is second: −53 alone.
+- **The effect is not monotone in strength:** doubling the drift *restores* claims (615 vs 544). The drop is a trajectory or regime change set off by the perturbation, not a steady "occupied ports surrender less" effect.
+- **First behavioural divergence** is the first flag-on upkeep after the first claim. At 1847 t59 Glassport stability is 55.02 on vs 55.03 off (H 0.10, claimed t58). At 2718 t40 Cinder Key is 55.009 vs 55.03 (H 0.21). At 4096 t43 Glassport is 55.027 vs 55.03 (H 0.033). The state hash diverges at the claim, because the record itself is new. With defection only, behaviour diverges at t228 (1847, 2718) and t292 (4096).
+- **Where the claims are lost:** in 1847, claims per 200 ticks go from 3/2/9/8/16/13 (off) to 3/2/3/0/5/6 (on). The losses come after t400, and the off run's secession faction (10 claims) never appears.
+- **Not isolated:** the causal path from a 0.01–0.02 stability nudge to fewer claims. A likely route is the surrender or secession gates around the 55 floor (`state.ts:26`), but this is untested.
+
+**2. Why H is almost never ≥ 0.5** (513 occupations, 13 seeds; mean over each occupation's first 60 ticks):
+
+| Term | Raw input: median / p90 / max | Term: median / p90 | Weighted: median / p90 / max | Non-zero |
+|---|---|---|---|---|
+| tax (0.35) | rate − fromRate: 0 / 0.057 / 0.114. **250 negative, 13 zero, 250 positive** | 0 / 0.56 | 0 / 0.196 / 0.35 | 48.9 % |
+| food (0.25) | shortage in 24 ticks: never | 0 | 0 / 0 / 0 | **0 %** |
+| conduct (0.20) | breaches in 240 ticks: 1.97 / 6.25 / 15 | 0.196 / 0.625 | 0.039 / 0.125 / 0.20 | 71.5 % |
+| residents (0.20) | docked: 2 / 4.17 / 7.5; earned grievance: 0 / 0 / 0.095, non-zero 9.9 % | 0.333 / 0.50 | 0.067 / 0.10 / 0.151 | 96.3 % |
+
+- **Overall:** mean H has median 0.166, p90 0.334 and max 0.502. With food dead, the ceiling is 0.75.
+- **Tax** (`occupation.ts:37`) is structurally zero on about half of occupations. The holds ping-pong between two factions, so every flip swaps raiser and cutter.
+- **Food** (`occupation.ts:39`) is dead (see 3).
+- **Residents:** the grievance half of the term (`occupation.ts:54–55`) is dead in practice. Earned grievance never reaches `HATED_GRIEVANCE` 0.12 (max 0.095), so the term is effectively ≤ 0.5·min(1, docked/3), and contributes ≤ 0.10 weighted.
+- **Conduct** (`occupation.ts:45`) is mis-scaled for this use. The median is 2 breaches against a scale of 10, giving 0.04 weighted.
+- **Typical H:** reaching 0.5 needs the full tax term (a rise of 0.10 or more) plus most of conduct and residents together. That almost never happens.
+
+**3. Food is unreachable by design, not a units bug.** `producedStocks` gives provisions `max(penalized, min(unpenalized, provisionDemand))` (`engine.ts:267–268`). That is a subsistence floor: every tick a port produces at least its own demand whenever its base output covers demand. On all four ports base output covers demand: Crown Harbor 5.5 vs 5.0, Verdant Cay 11.875 vs 2.0, Cinder Key 3.2 vs 1.78, Glassport 4.1 vs 2.92 (`createPrototypeWorld`). Production runs before consumption in the same upkeep (`engine.ts:343` then `355`), and `consumedStocks` (`engine.ts:282–295`) only reports a shortage when stocks after production are below demand. So `shortage` is always 0: 0 `settlement-shortage` events on 1847, 2718 and 4096 in 1200 ticks, even though provisions do hit 0 after upkeep (market purchases). The occupation code reads `shortage > 0` correctly (`engine.ts:362`, `occupation.ts:38–39`). The doc's §1 "0 / 0 / 0" was the signal.
+
+**4. Measurement-only 2a** (in `scripts/occupation-sweep.ts`, not gated). This measures the stability change from upkeeps alone over the first 60 ticks, which excludes battle losses at the port. At the doc defaults the median is harsh **1.21** (n = 1) vs benign **−0.52**: benign ports gain stability from upkeeps. The raw 2a was 1.21 vs 0.69, so battles accounted for most of the benign "loss". The gate's checks and result are unchanged (still PASSED).
+
+**Re-spec options for the Lead and Researcher (none chosen):**
+- **Tax:**
+  - (a) compare the holder's rate with the port's rate *before the first claim of the current ping-pong*, or with a fixed reference such as 0.15, instead of `fromRate`;
+  - (b) use |Δrate| or only rises, but bucket rises separately;
+  - (c) keep it and accept that half of occupations are tax-benign.
+- **Food:**
+  - (a) drop the term and renormalise the weights;
+  - (b) redefine it as low stocks, e.g. provisions after upkeep below k·demand, or 0 after market sales;
+  - (c) remove or limit the subsistence floor for occupied ports. That would change behaviour, and is a separate ruling.
+- **Residents:**
+  - (a) scale earned grievance to the measured range, e.g. p90 of positives, or use raw grievance at the owner rather than earned;
+  - (b) count docked members only.
+- **Conduct:** a scale of about 3–5 breaches instead of 10, from the median of 2 and p90 of 6.
+- **Buckets and acceptance:**
+  - (a) define harsh and benign by tertiles of mean H rather than fixed 0.5 and 0.25;
+  - (b) adopt the upkeep-only 2a so battles do not dominate.
+- **Claims drop:** before any re-spec, decide whether item 3 or 7 should also bound claims (e.g. at least 0.75× exile-on). Also decide whether the drift should only act below the 55 floor or only after N ticks, so that a tiny early nudge does not flip the regime.
+
+**Verified:**
+- `npm test` 640/640 offline with the keys unset.
+- Flag off still matches the pins: default 7f76e474/976c40bd/08943ea5 and 94de9c02/7a3741c9/af6eeaea; opt-out 66e8ccb7/b4ccedab/b04c5ac4 and b51aa07a/091f7628/25bdbf15.
+- The occupation sweep's gate output is identical to f9e7ba2.
+- **Not verified:** the causal path from the drift to fewer claims (item 1, last bullet).
+
+### 2026-11-01 — Occupation response behind OCCUPATION (occupation.md, default off) (Cursor)
+
+- **Change:** `src/sim/occupation.ts`, plus hooks in `engine.ts` and `state.ts`, implements §2 with the Lead's §8 rulings.
+  - A flag-on `settlement-claimed` carries the `occupation` record, which is stored on `Settlement.occupation`. A later claim, a secession, or `occupation-integrated` clears it.
+  - Harshness H uses the doc's weights: 0.35 tax (scale 0.10), 0.25 food (shortage in the last 24 ticks), 0.20 conduct (breaches in 240 ticks / 10) and 0.20 residents (previous-faction members docked / 3, plus their earned grievance at the owner / 0.12; unaffiliated residents do not count).
+  - Each upkeep drifts stability by −0.10·H and stops regrowth at H ≥ 0.5; the upkeep event carries `occupation` and `occupationTerms`.
+  - When the previous faction attacks, floor(garrison·H/2) soldiers defect before the battle, recorded as `occupationDefectors` on `battle-started` (other attackers get none). Flag on, `battle-started` also records `attackerFactionId`.
+  - Integration comes after 240 ticks at H < 0.25.
+  - No RNG draw is used. Run option `occupation: true`; default `OCCUPATION_DEFAULT = false`.
+- **Flag off:** byte-identical, with no new field on any event or settlement. Pins hold for the default (7f76e474/976c40bd/08943ea5 at 72 ticks; 94de9c02/7a3741c9/af6eeaea at 1,200) and the opt-out (66e8ccb7/b4ccedab/b04c5ac4; b51aa07a/091f7628/25bdbf15). This is tested in tests/occupation.test.ts, along with item 6 (H = 0 gives no defector or drift), defection for the previous faction only, and recovery with the flag on.
+- **Gate:** `scripts/occupation-sweep.ts`, now in `evaluate-milestone.sh`. It runs 13 seeds with exile on in both, occupation off vs on, and exits 1 on §5 items 2–5 and 7 (the churn guard).
+- **Result at the doc defaults: passes, but item 2 is underpowered.**
+  - Port changes are 713 → 526 (limit 1,069). Hold medians on 1847/2718/4096 are 38/39/37.5 → 55/51.5/62, against a baseline of 38/38/37.
+  - Secessions are 31 → 13 (median 2 → 1); 8 of 13 seeds have at least one secession. Integrations happen on 9 of 13 seeds. No new wipeouts.
+  - Item 2 (harsh vs benign) passes on **only 1 harsh occupation** (mean H ≥ 0.5 over the first 60 ticks) against 382 benign. Mean H peaks at 0.50 and food is 0 throughout. On a 5-seed subset, 2a fails.
+- **One tuning retry (recorded):** tax scale 0.10 → 0.05, so that a single 0.05 tax band reads as fully harsh, the measured common change. It gave 16 harsh occupations, but **items 2a and 2c failed**: harsh ports lost a median 1.63 stability against 2.52 for benign, and flipped back 3 of 15 against 205 of 320. Port changes were 507 and holds rose. I reverted to the doc's 0.10 and did not loop further.
+- **Readings for the Lead:**
+  - Claims fall sharply with the flag on (1847 51→19, 2718 64→26, 4096 56→38) and battles fall (73→50, 62→47, 63→47); the cause is not yet traced.
+  - Benign ports lose stability too, from battles at the port, so the stability comparison is dominated by fighting rather than by H.
+- **Dynamism, 1200 ticks, occupation off → on** (battles, ownership changes, claims, secessions):
+  - 1847: 73/52/51/1 → 50/19/19/0
+  - 2718: 62/64/64/0 → 47/26/26/0
+  - 4096: 63/59/56/3 → 47/39/38/1
+- **Verified:** `npm test` passes offline with the keys unset, and so does `./scripts/evaluate-milestone.sh occupation`.
+
 ### 2026-11-01 — Exile CLI polish (Cursor)
 
 - **(a) Plan trigger:** the feed-reasons plan cause now reads "as part of the plan to <plan in its own words>" (for example "…to build a capable and respected party"), replacing "to further the plan: X", which the live model shortened to "to further the plan.".
