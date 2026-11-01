@@ -16,6 +16,7 @@
     "check": "tsc --noEmit && node --experimental-strip-types --test tests/*.test.ts",
     "golden:update": "node --experimental-strip-types scripts/update-golden-hashes.ts",
     "golden:check": "node --experimental-strip-types --test tests/golden.test.ts",
+    "action-picker": "node --experimental-strip-types src/cli/run-action-picker.ts",
     "ai-pilot": "node --experimental-strip-types src/cli/run-ai-pilot.ts"
   },
   "devDependencies": {
