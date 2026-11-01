@@ -30,18 +30,16 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Latest (2026-10-31):** main `cde526c` (secession routes, #151). 1200-tick pins `5641b4c4` / `a6ff3924` / `b19aa02e`. The slice-3/4 live re-judge passes under the Lead's rulings (see the 2026-10-31 re-judge entry).
-- **Baseline:** `feature/batch2`, merging `origin/main` at `f451793` (PR #125). Desertion stores the short-morning streak. Ports have governors and a morning stipend. Seated work and sales pay a 0.05 levy. News is on the world and tax and secession read it, with a 24-tick cap. A supply offer goes only to a carrier who would already accept, and never to the buyer himself, at 56.25, when provisions are below 1. Death is certain at 120. A faction with no port does not step its rate. An accepted carrier buys and sails (the contract haul), and the walk skips a carrier that cannot do the job from where it stands. The 72-tick fixture is `6efa334f` / `e8f9cfab` / `8ac8529b` (8496 / 8566 / 8486). The old reference pin in build-order.md is retired.
-- **Last verified:** 470 tests passed before this merge. `./scripts/evaluate-milestone.sh batch2` passed on `a0da447`, including recovery. The split at tick 47 plus 25 ticks replayed 595 events and matched `6efa334f66ef885392a88d7112e41984df1793b00ee5c57635946d5121bab9c3`.
-- **Gate status:** `./scripts/evaluate-milestone.sh secession-3` passed on `4222ffe`. `feed-polish-2` passed on `61e558f`. `secession-founder-name` passed on `4a52a77`. `autonomous-faction-names` passed on `208ed60`. `hazards-projection` passed on `c2c31b7`. `progression-skill-step` passed on `697f6d9`. `progression-readout` passed on `b01eeed`. `batch1-wage-morale` passed on `f02ed4e`, including recovery. `batch1-polish` passed on `ac81f55`, including recovery. `queue-polish` passed on `22ce1fc`, including recovery. `batch2` passed on `a0da447`, including recovery.
-- **Headline:** Batch 2 stores the desertion streak, seats governors, levies seated income, posts news, offers supply only to a willing carrier, and kills at age 120. The branch is the new pin. The old reference pin is not reproducible.
-- **Runtime:** Node 24.21.0, pinned by `.node-version`. ICU 78.3.
+- **Baseline:** `origin/main` `02a799d`. Merged #140–#152: the raise shock (#140), the dynamism readout (#142), weighted tax (#145), the Jev action picker (#147), the social picker (#150), secession routes (#151) and the re-judge (#152); #141, #143, #144, #146, #148 and #149 are design docs.
+- **Pins (verified on `02a799d`):** 72 ticks `6efa334f` / `e8f9cfab` / `8ac8529b` (8496 / 8566 / 8486). 1,200 ticks `5641b4c4` / `a6ff3924` / `b19aa02e` (162167 / 156996 / 163536).
+- **Last verified:** `npm test` and `./scripts/evaluate-milestone.sh portless-diagnosis` on this branch (see the 2026-10-31 portless entry).
+- **Runtime:** Node 24.21.0, pinned by `.node-version`.
 
 ## Open items
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
-| Balance: World Government and Free Tide both go portless early in flag-off runs through settlement claims (Free Tide t49–t64, World Government t268–t1012 on 1847/2718/4096). | Balance | Open Era Lead | open question |
+| Balance: World Government and Free Tide both go portless early in flag-off runs through settlement claims (Free Tide t49–t64, World Government t268–t1012 on 1847/2718/4096). | Balance | Open Era Lead | **Diagnosed** in [portless-diagnosis.md](docs/design/portless-diagnosis.md): the surrender-then-claim rule, with a claimed port keeping its 3–15 garrison, plus Free Tide's single port. Fix proposed, not built |
 | Batch 2: desertion streak on the world, governors and the stipend, the 0.05 levy, news slices 2–6 with the 24-tick cap, supply at 56.25 only to a carrier who would accept, death at 120, and the portless rate freeze. | Behavior | Open Era Engineer | **Fixed** on `feature/batch2`. The branch is the pin: 72 ticks `6efa334f` / `f8af3edf` / `2b32bffb`, 1200 ticks `e95a9f81` / `8f0b7daa` / `f19aa3d1`. The blind plan is not yet run by a separate operator |
 | Queue polish: the pay note is only on the member's card and their holder's card, and an attention pause says why time stopped. | Projection | Open Era Engineer | **Fixed** on `feature/queue-polish`. Mara's null note is the holder exclusion, not a bug. Hashes stay `86507558` / `c6268c39` / `d62ab7f9` and `7314d632` / `b7015fce` / `7f0f865b`. The playtest is `PROMOTE` at `d248e56` |
 | Batch 1 wording: drop the desertion roll from the sentence, name the creditor on a debt line, and show the short-pay clause only to the member and their holder. | Projection | Open Era Engineer | **Fixed** on `feature/batch1-polish`. Hashes stay `86507558` / `c6268c39` / `d62ab7f9` and `7314d632` / `b7015fce` / `7f0f865b`. The blind plan is not yet run by a separate operator |
@@ -154,6 +152,26 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-31 — Portless diagnosis (report only)
+- **Agent:** Grok Bot (as taia-0) | **Branch:** `feature/portless-diagnosis` (off `02a799d`) | **Commits:** this entry
+- **Type:** Note
+- **Changed:**
+  - Added docs/design/portless-diagnosis.md.
+  - Refreshed Current state.
+  - No sim change.
+- **Why:** The Open items balance question from the re-judge.
+- **Verified:**
+  - **The early loss:**
+    - Every faction loss is an accepted-surrender claim (`engine.ts:1565`).
+    - Free Tide's only port, Cinder Key (garrison 115, +1 per 31 ticks), takes 7–14 battles by t48 under a raid gate with no strength test (`engine.ts:922–928`).
+    - It is claimed at t49–58 once its garrison is ≤ 15.
+  - **The repeats:** a claimed port keeps its 3–15 garrison and stability 55. One win then re-offers surrender, so it changes hands again and again.
+  - **Measured variants (scratch only):**
+    - Members starting at their faction's ports does not prevent the t36–52 loss.
+    - A 120-tick claim grace halves claims (39 / 27 / 42 → 17 / 12 / 20).
+- **Left open:** The Lead's call on the fix (doc §4).
+- **Links:** [portless-diagnosis.md](docs/design/portless-diagnosis.md)
 
 ### 2026-10-31 — Slice 3/4 live re-judge on secession routes (main `cde526c`)
 - **Agent:** Grok Bot (as taia-0) | **Branch:** `feature/rejudge-routes` (off `cde526c`) | **Commits:** this entry only
