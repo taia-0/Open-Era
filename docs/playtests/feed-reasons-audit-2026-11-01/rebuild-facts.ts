@@ -1,0 +1,12 @@
+import { writeFileSync } from "node:fs";
+const R="/workspace/oe-audit/src/sim/";
+const { runTick } = await import(R+"engine.ts"); const { createPrototypeWorld } = await import(R+"scenario.ts");
+const FR = await import(R+"feed-reasons.ts");
+const [seed, exile] = [Number(process.argv[2]), process.argv[3]==="x"];
+const facts:Record<string,unknown>={};
+const stub=FR.stubFeedReasonWriter();
+const writer={model:"capture",write(f:any,t:number){facts[FR.feedReasonInputHash(f)]=f;return stub.write(f,t);}};
+const opts:any={writer,exileRecovery:exile,callCap:100000};
+const w=createPrototypeWorld(seed);
+for(let i=0;i<1200;i++) runTick(w,{...(exile?{exileRecovery:true}:{}),ai:{feedReasons:opts}});
+writeFileSync(`/tmp/fa/facts-${seed}${exile?"x":""}.json`,JSON.stringify(facts)); console.log(seed,exile,Object.keys(facts).length);
