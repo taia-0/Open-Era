@@ -30,6 +30,7 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
+- **Latest (2026-10-31):** main `cde526c` (secession routes, #151). 1200-tick pins `5641b4c4` / `a6ff3924` / `b19aa02e`. The slice-3/4 live re-judge passes under the Lead's rulings (see the 2026-10-31 re-judge entry).
 - **Baseline:** `feature/batch2`, merging `origin/main` at `f451793` (PR #125). Desertion stores the short-morning streak. Ports have governors and a morning stipend. Seated work and sales pay a 0.05 levy. News is on the world and tax and secession read it, with a 24-tick cap. A supply offer goes only to a carrier who would already accept, and never to the buyer himself, at 56.25, when provisions are below 1. Death is certain at 120. A faction with no port does not step its rate. An accepted carrier buys and sails (the contract haul), and the walk skips a carrier that cannot do the job from where it stands. The 72-tick fixture is `6efa334f` / `e8f9cfab` / `8ac8529b` (8496 / 8566 / 8486). The old reference pin in build-order.md is retired.
 - **Last verified:** 470 tests passed before this merge. `./scripts/evaluate-milestone.sh batch2` passed on `a0da447`, including recovery. The split at tick 47 plus 25 ticks replayed 595 events and matched `6efa334f66ef885392a88d7112e41984df1793b00ee5c57635946d5121bab9c3`.
 - **Gate status:** `./scripts/evaluate-milestone.sh secession-3` passed on `4222ffe`. `feed-polish-2` passed on `61e558f`. `secession-founder-name` passed on `4a52a77`. `autonomous-faction-names` passed on `208ed60`. `hazards-projection` passed on `c2c31b7`. `progression-skill-step` passed on `697f6d9`. `progression-readout` passed on `b01eeed`. `batch1-wage-morale` passed on `f02ed4e`, including recovery. `batch1-polish` passed on `ac81f55`, including recovery. `queue-polish` passed on `22ce1fc`, including recovery. `batch2` passed on `a0da447`, including recovery.
@@ -40,6 +41,7 @@ Git remains the complete history. This file exists for three things git does not
 
 | Item | Type | Owner | Status |
 | --- | --- | --- | --- |
+| Balance: World Government and Free Tide both go portless early in flag-off runs through settlement claims (Free Tide t49–t64, World Government t268–t1012 on 1847/2718/4096). | Balance | Open Era Lead | open question |
 | Batch 2: desertion streak on the world, governors and the stipend, the 0.05 levy, news slices 2–6 with the 24-tick cap, supply at 56.25 only to a carrier who would accept, death at 120, and the portless rate freeze. | Behavior | Open Era Engineer | **Fixed** on `feature/batch2`. The branch is the pin: 72 ticks `6efa334f` / `f8af3edf` / `2b32bffb`, 1200 ticks `e95a9f81` / `8f0b7daa` / `f19aa3d1`. The blind plan is not yet run by a separate operator |
 | Queue polish: the pay note is only on the member's card and their holder's card, and an attention pause says why time stopped. | Projection | Open Era Engineer | **Fixed** on `feature/queue-polish`. Mara's null note is the holder exclusion, not a bug. Hashes stay `86507558` / `c6268c39` / `d62ab7f9` and `7314d632` / `b7015fce` / `7f0f865b`. The playtest is `PROMOTE` at `d248e56` |
 | Batch 1 wording: drop the desertion roll from the sentence, name the creditor on a debt line, and show the short-pay clause only to the member and their holder. | Projection | Open Era Engineer | **Fixed** on `feature/batch1-polish`. Hashes stay `86507558` / `c6268c39` / `d62ab7f9` and `7314d632` / `b7015fce` / `7f0f865b`. The blind plan is not yet run by a separate operator |
@@ -152,6 +154,36 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-10-31 — Slice 3/4 live re-judge on secession routes (main `cde526c`)
+- **Agent:** Grok Bot (as taia-0) | **Branch:** `feature/rejudge-routes` (off `cde526c`) | **Commits:** this entry only
+- **Type:** Note
+- **Changed:** Nothing in code. One live run per seed in a clean worktree at `cde526c`: action picker plus social reads (Jev), 1200 ticks, $0.33 cap per run, no retries. Flag-off baselines on the same commit reproduce the pins `5641b4c4` / `a6ff3924` / `b19aa02e`.
+- **Why:** The Lead asked to re-judge slices 3 and 4 against the new secession routes.
+- **Verified:**
+
+| Seed | Secessions run / off | By route, run (off) | Holder entropy run / off | Member entropy run / off (floor) | Desertions run / off |
+| ---: | --- | --- | --- | --- | --- |
+| 1847 | 5 / 5 | promise+hated 1, promise 1, tax 3 (promise 2, tax 3) | 2.4991 / 2.2473 | 2.2235 / 2.0296 (1.8683) | 3 / 7 |
+| 2718 | 6 / 1 | tax 6 (hated 1) | 2.3765 / 2.3749 | 2.2536 / 1.7686 (1.7446) | 1 / 0 |
+| 4096 | 5 / 4 | promise 3, tax 2 (promise 2, tax+promise 1, tax 1) | 2.0418 / 1.5462 | 1.9434 / 1.7257 (1.9165) | 5 / 6 |
+
+| Seed | Captures run / off | Port changes run / off | Work share run / off | Replay | Calls (= cost lines) | Cost |
+| ---: | --- | --- | --- | --- | ---: | ---: |
+| 1847 | 10 / 11 | 48 / 44 | 0.2602 / 0.2268 | exact, 0 calls | 3,516 | $0.1875 |
+| 2718 | 8 / 20 | 39 / 28 | 0.1859 / 0.0625 | exact, 0 calls | 4,815 | $0.2589 |
+| 4096 | 6 / 7 | 51 / 46 | 0.2680 / 0.1305 | exact, 0 calls | 2,963 | $0.1509 |
+
+  - Total cost **$0.5972**. Key scan clean (key names only, values absent from 38 output files).
+  - `picker-gate --social --live`: every check passes.
+  - Slice-3 checks: holder entropy up on all seeds (1847 secessions and 2718 holder entropy now pass), secessions, port changes and work share pass. Captures are below flag off on every seed (not systematically below fails).
+  - **Rulings (Lead):**
+    1. Captures are reported only. Flag it if any seed falls below 30% of flag off. Here the lowest is 2718 at 40%.
+    2. The 2718 tax jump (1 → 6) is acceptable as emergent behavior.
+    3. "No faction wiped out" is judged by reading (b), zero ports caused by a secession route, as in #149. There are no failures: every live loss of a faction's last port came by a settlement claim.
+  - **Observation:** Free Tide ends live 2718 with 0 ports against 1 with the flag off.
+- **Left open:** The early portless balance question (Open items).
+- **Links:** docs/design/secession-routes.md, docs/design/jev-social-picker.md
 
 ### 2026-10-31 — Secession routes: broken promises, earned grievance, last-port exemption
 - **Agent:** Grok Bot (as taia-0) | **Branch:** `feature/secession-routes` (off `60434e4`) | **Commits:** see branch
