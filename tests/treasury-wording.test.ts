@@ -179,7 +179,8 @@ test("a spent-out allowance reads cap used, and a partial remainder stays blank"
 test("own-faction money stays hidden at sea, which the Lead left as an open question", () => {
   const run = runTicks(createPrototypeWorld(1847), 6);
   const mara = run.state.characters["character-01"];
-  const sable = run.state.characters["character-04"];
+  // Home starts: Sable Morrow is docked at tick 6 now; Toma Reef is at sea.
+  const sable = run.state.characters["character-07"];
   assert.equal(sable.locationId, null);
   assert.ok(sable.travel);
   const card = projectCharacter(run.state, mara, sable);

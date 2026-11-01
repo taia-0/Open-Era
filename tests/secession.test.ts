@@ -297,14 +297,16 @@ test("the panel shows the readout on an exact port and withholds it offshore", (
   assert.equal(typeof harborAway.secession.followerCount, "number");
 });
 
-test("Glassport at tick 72 is a World Government port the commander is standing away from", () => {
+// Port balance: Free Tide takes Glassport at t60 now, so the away-port check moves to t54, when
+// Glassport is still the original (unclaimed) World Government port and Mara knows it. Was t72, owner Rook Tern.
+test("Glassport at tick 54 is a World Government port the commander is standing away from", () => {
   const world = createPrototypeWorld(1847);
-  runTicks(world, 72);
+  runTicks(world, 54);
   const live = world.settlements["glassport"];
   const mara = world.characters["character-01"];
   assert.equal(mara.locationId, "crown-harbor");
   assert.equal(live.factionId, "world-government");
-  assert.equal(live.ownerId, "character-11");
+  assert.equal(live.ownerId, null);
   assert.equal(mara.knowledge["glassport"].factionId, "world-government");
 
   const view = viewOf(world);
@@ -316,7 +318,9 @@ test("Glassport at tick 72 is a World Government port the commander is standing 
   assert.equal(typeof glass.secession.followerCount, "number");
   assert.ok(harbor?.secession);
   assert.equal(typeof harbor.secession.followerCount, "number");
-  assert.ok(cinder?.secession);
-  assert.equal(typeof cinder.secession.followerCount, "number");
+  // At t54 Cinder Key is still Free Tide's: a rival port Mara is away from shows no readout
+  // (at t72 it had been World Government's, so it showed one).
+  assert.equal(world.settlements["cinder-key"].factionId, "free-tide");
+  assert.equal(cinder?.secession, null);
   assert.equal(verdant?.secession, null);
 });

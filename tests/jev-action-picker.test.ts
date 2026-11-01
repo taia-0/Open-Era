@@ -52,7 +52,7 @@ test("1. option ids are stable and sorted, and legal excludes -1000 rows", () =>
 });
 
 test("2. flag off: the 72-tick fixture and no data.ai.picker anywhere", () => {
-  const pins: Record<number, string> = { 1847: "6efa334f", 2718: "e8f9cfab", 4096: "8ac8529b" };
+  const pins: Record<number, string> = { 1847: "66e8ccb7", 2718: "b4ccedab", 4096: "b04c5ac4" };
   for (const seed of [1847, 2718, 4096]) {
     const off = run(null, seed, 72);
     assert.equal(off.hash.slice(0, 8), pins[seed]);
@@ -60,11 +60,12 @@ test("2. flag off: the 72-tick fixture and no data.ai.picker anywhere", () => {
   }
 });
 
-test("3. stubArgmax: 1,200-tick hash equals flag off (5641b4c4) and every sampled is the scorer's pick", () => {
+test("3. stubArgmax: 1,200-tick hash equals flag off (b51aa07a) and every sampled is the scorer's pick", () => {
   const picker = stubArgmaxPicker();
   const on = run({ picker, pickerCap: 1e9 }, 1847, 1200);
-  assert.equal(on.hash.slice(0, 8), "5641b4c4");
-  assert.ok(on.records.length > 800);
+  assert.equal(on.hash.slice(0, 8), "b51aa07a");
+  // Port balance: Pax is consulted 549 times now (840 before home starts); pinned exactly instead of the old > 800 floor.
+  assert.equal(on.records.length, 549);
   assert.ok(on.records.every((r) => r.picker.sampled === r.picker.scorerPick && r.picker.outcome === "model"));
 });
 

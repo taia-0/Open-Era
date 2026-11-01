@@ -67,8 +67,8 @@ test("source purse skips the allowance and pays the purse", () => {
   assert.equal(recruited.data.purseDrawn, 96);
   assert.equal("allowanceRemaining" in recruited.data, false);
   assert.equal("factionTreasury" in recruited.data, false);
-  assert.equal(recruited.data.characterMoney, 0);
-  assert.equal(world.characters[bram.id].money, 0);
+  assert.equal(recruited.data.characterMoney, 18);
+  assert.equal(world.characters[bram.id].money, 18);
   assert.equal(world.characters[bram.id].allowanceRemaining, undefined);
 
   const replay = before;
@@ -77,7 +77,7 @@ test("source purse skips the allowance and pays the purse", () => {
   for (const event of result.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
   assert.equal(replay.characters[bram.id].allowanceRemaining, undefined);
-  assert.equal(replay.characters[bram.id].money, 0);
+  assert.equal(replay.characters[bram.id].money, 18);
 });
 
 test("a command without source still draws the allowance, then the purse", () => {
@@ -100,7 +100,7 @@ test("a command without source still draws the allowance, then the purse", () =>
   assert.equal(recruited.data.purseDrawn, 78);
   assert.equal(recruited.data.allowanceRemaining, 0);
   assert.equal(recruited.data.factionTreasury, treasuryBefore - 36 - 18);
-  assert.equal(world.characters[bram.id].money, 18);
+  assert.equal(world.characters[bram.id].money, 36);
   assert.equal(world.characters[bram.id].allowanceRemaining, 0);
 });
 
@@ -272,8 +272,8 @@ test("a purse contract does not draw the allowance, and replay keeps the purse",
   assert.equal(offered.data.purseDrawn, 20);
   assert.equal("allowanceRemaining" in offered.data, false);
   assert.equal("factionTreasury" in offered.data, false);
-  assert.equal(offered.data.characterMoney, 10);
-  assert.equal(world.characters[bram.id].money, 10);
+  assert.equal(offered.data.characterMoney, 28);
+  assert.equal(world.characters[bram.id].money, 28);
   assert.equal(world.characters[bram.id].allowanceRemaining, undefined);
 
   const replay = before;
@@ -328,10 +328,11 @@ test("a purse voyage quotes the purse and does not draw the allowance at sea", (
   assert.equal(upkeep.data.passageCost, PASSAGE_COST_PER_TICK);
   assert.equal(upkeep.data.treasuryDrawn, 0);
   assert.equal(upkeep.data.purseDrawn, PASSAGE_COST_PER_TICK);
-  assert.equal(upkeep.data.characterMoney, quote.cost - PASSAGE_COST_PER_TICK);
+  // + 18: home starts seat Bram as the Glassport governor, paid each morning.
+  assert.equal(upkeep.data.characterMoney, quote.cost + 18 - PASSAGE_COST_PER_TICK);
   assert.equal("allowanceRemaining" in upkeep.data, false);
   assert.equal(world.characters[bram.id].allowanceRemaining, undefined);
-  assert.equal(world.characters[bram.id].money, quote.cost - PASSAGE_COST_PER_TICK);
+  assert.equal(world.characters[bram.id].money, quote.cost + 18 - PASSAGE_COST_PER_TICK);
   assert.equal("factionTreasury" in upkeep.data, false);
   assert.equal(world.characters[bram.id].travel?.source, "purse");
 
@@ -341,5 +342,5 @@ test("a purse voyage quotes the purse and does not draw the allowance at sea", (
   for (const event of result.events) applyEvent(replay, event);
   assert.equal(stateHash(replay), stateHash(world));
   assert.equal(replay.characters[bram.id].travel?.source, "purse");
-  assert.equal(replay.characters[bram.id].money, quote.cost - PASSAGE_COST_PER_TICK);
+  assert.equal(replay.characters[bram.id].money, quote.cost + 18 - PASSAGE_COST_PER_TICK);
 });

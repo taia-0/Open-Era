@@ -7,6 +7,7 @@ import { combatForecast } from "../src/sim/combat.ts";
 import { ACTION_CAPABILITIES, COMMAND_LIMITS, submitCommand } from "../src/sim/commands.ts";
 import { passageCost, quotedPassage, runTick, runTicks, travelDuration } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
+import { governorId } from "../src/sim/governor.ts";
 import { applyEvent } from "../src/sim/state.ts";
 import type { Character, Settlement, SettlementGround, SettlementKnowledge, SimEvent, StandingOrder, WorldState } from "../src/sim/types.ts";
 
@@ -626,7 +627,7 @@ test("a garrison age equals the world tick minus the tick the player is shown", 
   assert.equal(verdant.intelligence.ageTicks, world.tick - verdant.intelligence.observedTick);
 
   const harbor = shown("crown-harbor");
-  assert.equal(harbor.garrison, 256);
+  assert.equal(harbor.garrison, 217);
   assert.ok(harbor.garrisonIntelligence);
   assert.ok(harbor.intelligence);
   assert.equal(harbor.garrisonIntelligence.source, "owned");
@@ -757,7 +758,12 @@ test("a player voyage the quoted passage cannot cover is refused", () => {
 
 function curiousTraveler(money: number): { world: WorldState; traveler: Character; away: Settlement } {
   const world = createPrototypeWorld(1847);
-  const traveler = Object.values(world.characters).find((character) => character.controller.kind === "autonomous" && character.factionId)!;
+  // Port balance: the first autonomous captain (Bram) is now a seated governor whose morning stipend
+  // refills the purse before the choice; the traveler is the first one without a seat.
+  const seated = new Set(Object.keys(world.settlements).map((id) => governorId(world, id)));
+  const traveler = Object.values(world.characters).find((character) =>
+    character.controller.kind === "autonomous" && character.factionId && !seated.has(character.id)
+  )!;
   const home = Object.values(world.settlements).find((settlement) => settlement.factionId === traveler.factionId)!;
   place(traveler, home.id);
   const away = Object.values(world.settlements).find((settlement) => settlement.id !== home.id)!;

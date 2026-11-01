@@ -51,7 +51,7 @@ test("every raise in a 1200-tick run carries the shock; no hold or cut does; rep
     assert.equal(Array.isArray(event.data.raiseShock), up);
   }
   assert.ok(raises > 0);
-  assert.match(stateHash(result.state), /^5641b4c4/);
+  assert.match(stateHash(result.state), /^b51aa07a/);
 });
 
 test("the raise label says treasury short only for the scorer's raise; an AI override is the ruler's choice", () => {

@@ -24,8 +24,10 @@ test("twelve short mornings roll the side stream once, and a roll under 0.5 leav
   const mates = Object.values(world.characters)
     .filter((character) => character.factionId === "free-tide" && character.id !== holderId)
     .sort((left, right) => left.id.localeCompare(right.id));
-  const stays = mates[0];
-  const leaves = mates[1];
+  // Port balance: the side-stream rolls now fall the other way round, so Mina Vale (mates[0])
+  // rolls under 0.5 and Corin Hale (mates[1]) stays; it was Corin who left from the old starts.
+  const stays = mates[1];
+  const leaves = mates[0];
   assert.ok(stays && leaves);
 
   const seen: SimEvent[] = [];
@@ -55,7 +57,7 @@ test("twelve short mornings roll the side stream once, and a roll under 0.5 leav
 
   assert.equal(seen.length, 1);
   assert.equal(seen[0].actorId, leaves.id);
-  assert.equal(seen[0].data.roll, 0.245);
+  assert.equal(seen[0].data.roll, 0.019);
   assert.equal(seen[0].data.factionId, null);
   assert.equal(leaves.factionId, null);
   assert.equal(stays.factionId, "free-tide");
@@ -66,10 +68,10 @@ test("twelve short mornings roll the side stream once, and a roll under 0.5 leav
   const name = leaves.name;
   const [projected] = projectEventFeed(world, commander.id, [seen[0]]);
   assert.equal(projected.summary, `${name} left Free Tide Compact.`);
-  assert.equal(String(projected.summary).includes("0.245"), false);
+  assert.equal(String(projected.summary).includes("0.019"), false);
   assert.equal(String(projected.summary).includes("roll"), false);
   assert.equal(projected.data, null);
   const [own] = projectEventFeed(world, leaves.id, [seen[0]]);
   assert.equal(own.summary, `${name} left Free Tide Compact.`);
-  assert.equal((own.data as { roll?: number } | null)?.roll, 0.245);
+  assert.equal((own.data as { roll?: number } | null)?.roll, 0.019);
 });

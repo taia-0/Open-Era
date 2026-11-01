@@ -57,17 +57,17 @@ test("1. pick state with social holds 2,560 bytes; truncation drops situation, p
 
 test("2. flag off: the 72-tick fixture and no data.ai.read anywhere", () => {
   const off = run(null, 1847, 72);
-  assert.equal(off.hash.slice(0, 8), "6efa334f");
-  assert.equal(off.events.length, 8496);
+  assert.equal(off.hash.slice(0, 8), "66e8ccb7");
+  assert.equal(off.events.length, 8239);
   assert.ok(off.events.every((e) => !(e.data as { ai?: unknown }).ai));
 });
 
 test("3. stubArgmax with social reads for all members: flag-off hashes at 72 and 1,200 ticks; sampled is always the scorer's pick", () => {
   const short = run({ picker: stubArgmaxPicker(), social: stubSocialFromTraits() }, 1847, 72);
-  assert.equal(short.hash.slice(0, 8), "6efa334f");
+  assert.equal(short.hash.slice(0, 8), "66e8ccb7");
   const long = run({ picker: stubArgmaxPicker(), social: stubSocialFromTraits() }, 1847, 1200);
-  assert.equal(long.hash.slice(0, 8), "5641b4c4");
-  assert.equal(long.events.length, 162167);
+  assert.equal(long.hash.slice(0, 8), "b51aa07a");
+  assert.equal(long.events.length, 156382);
   assert.ok(long.records.length > 1000); // 4,546 before secession routes; members leave Free Tide sooner now
   assert.ok(long.records.every((r) => r.picker.sampled === r.picker.scorerPick && r.read));
   assert.ok(new Set(long.records.map((r) => r.actorId)).size > 1);

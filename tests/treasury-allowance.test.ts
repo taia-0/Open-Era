@@ -139,11 +139,11 @@ test("seed 1847 sequence 43 names Toma Reef untagged on the feed row and tagged 
   assert.equal(row?.summary, "Toma Reef accepted the trade supplies order.");
   const toma = card(run.state, run.state.characters["character-01"], run.state.characters["character-07"]);
   const report = toma.standingOrders.map((order) => order.lastReport?.summary).find((summary) => summary?.includes("Toma Reef"));
-  assert.equal(report, "Toma Reef (World Government) reports the supply transaction at Cinder Key complete and requests confirmation.");
+  assert.equal(report, "Toma Reef (World Government) reports the supply transaction at Crown Harbor complete and requests confirmation.");
   const storedReport = run.state.characters["character-07"].standingOrders
     .map((order) => order.lastReport?.summary)
     .find((summary) => summary?.includes("Toma Reef"));
-  assert.equal(storedReport, "Toma Reef reports the supply transaction at Cinder Key complete and requests confirmation.");
+  assert.equal(storedReport, "Toma Reef reports the supply transaction at Crown Harbor complete and requests confirmation.");
   assert.equal(run.state.characters["character-07"].name, "Toma Reef");
   // Re-pinned for ruling 5 (breakaway polish): feed sentences carry no faction tag.
   const tagged = /Toma (Reef|Hale) \(/;
@@ -199,11 +199,13 @@ test("a quoted bill draws the allowance in whole cents, then the purse, or refus
   delete world.factions["world-government"].actingCommanderId;
 });
 
-test("seed 1847 sequence 26 names the purse share recorded on the event", () => {
-  const run = runTicks(createPrototypeWorld(1847), 1);
-  const stored = run.events.find((event) => event.sequence === 26);
+test("seed 1847 sequence 749 names the purse share recorded on the event", () => {
+  // Home starts: no tick-0 recruit draws the treasury now (was Kessa Calder, sequence 26).
+  // The first 18 + 78 recruit is Kessa Calder's at Verdant Cay on tick 6.
+  const run = runTicks(createPrototypeWorld(1847), 7);
+  const stored = run.events.find((event) => event.sequence === 749);
   assert.ok(stored);
-  assert.equal(stored.actorId, "character-04");
+  assert.equal(stored.actorId, "character-10");
   assert.equal(stored.data.treasuryDrawn, 18);
   assert.equal(stored.data.purseDrawn, 78);
   const before = stateHash(run.state);
@@ -213,14 +215,14 @@ test("seed 1847 sequence 26 names the purse share recorded on the event", () => 
   // A recruit with a treasury draw uses one sentence. The draw line is not repeated.
   assert.equal(stored.data.quantity, 8);
   assert.equal(stored.data.cost, 96);
-  assert.equal(row?.summary, "Sable Morrow recruited 8 at Glassport for 96: 18 from the treasury and 78 from the purse.");
+  assert.equal(row?.summary, "Kessa Calder recruited 8 at Verdant Cay for 96: 18 from the treasury and 78 from the purse.");
   assert.equal(
     treasuryDrawSentence(run.state, "world-government", stored),
-    "Sable Morrow drew 18 from the treasury and paid 78 from the purse.",
+    "Kessa Calder drew 18 from the treasury and paid 78 from the purse.",
   );
   const [rival] = projectEventFeed(run.state, "character-14", [stored]);
   // A rival keeps the public sentence. Count and cost stay off it.
-  assert.equal(rival?.summary, "Sable Morrow recruited at Glassport.");
+  assert.equal(rival?.summary, "Kessa Calder recruited at Verdant Cay.");
   assert.equal(rival?.data, null);
   assert.equal(
     treasuryDrawSentence(run.state, "world-government", {
@@ -233,7 +235,7 @@ test("seed 1847 sequence 26 names the purse share recorded on the event", () => 
     "Mara Vane drew 12 from the treasury.",
   );
   assert.equal(treasuryDrawSentence(run.state, "free-tide", stored), null);
-  const sable = card(run.state, run.state.characters["character-14"], run.state.characters["character-04"]);
+  const sable = card(run.state, run.state.characters["character-14"], run.state.characters["character-10"]);
   assert.equal(sable.allowanceCap, null);
   assert.equal(sable.allowanceNote, null);
   assert.equal(stateHash(run.state), before);

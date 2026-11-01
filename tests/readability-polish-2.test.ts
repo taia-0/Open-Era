@@ -19,10 +19,12 @@ function rawTypeLine(world: WorldState, event: SimEvent): string {
 }
 
 test("seed 1847 withholds standing-order refusals as sentences, and no feed row keeps the raw type", () => {
-  const early = runTicks(createPrototypeWorld(1847), 30);
+  // Port balance: the tick-0 refusals are sequences 114 (Finn) and 141 (Bram Tern) now (were 113 / 137).
+  // At tick 36 Finn is at sea and Bram Tern is docked, the same two readings as tick 30 before.
+  const early = runTicks(createPrototypeWorld(1847), 36);
   const before = stateHash(early.state);
-  const finn = early.events.find((event) => event.sequence === 113);
-  const bram = early.events.find((event) => event.sequence === 137);
+  const finn = early.events.find((event) => event.sequence === 114);
+  const bram = early.events.find((event) => event.sequence === 141);
   assert.ok(finn && bram);
   assert.equal(finn.type, "standing-order-refused");
   assert.equal(bram.type, "standing-order-refused");
@@ -30,10 +32,10 @@ test("seed 1847 withholds standing-order refusals as sentences, and no feed row 
   const [bramRow] = projectEventFeed(early.state, "character-01", [bram]);
   assert.equal(finnRow?.payloadWithheld, true);
   assert.equal(finnRow?.data, null);
-  assert.equal(finnRow?.summary, "Finn Frost refused a standing order. Finn Frost is sailing from Crown Harbor to Verdant Cay.");
+  assert.equal(finnRow?.summary, "Finn Frost refused a standing order. Finn Frost is sailing from Verdant Cay to Crown Harbor.");
   assert.equal(String(finnRow?.summary).includes("explore"), false);
   assert.equal(bramRow?.payloadWithheld, true);
-  assert.equal(bramRow?.summary, "Bram Tern refused a standing order. Bram Tern is at Verdant Cay.");
+  assert.equal(bramRow?.summary, "Bram Tern refused a standing order. Bram Tern is at Crown Harbor.");
   assert.equal(String(bramRow?.summary).includes("trade supplies"), false);
 
   const feed = projectEventFeed(early.state, "character-01", early.events);
@@ -42,22 +44,24 @@ test("seed 1847 withholds standing-order refusals as sentences, and no feed row 
   assert.equal(stateHash(early.state), before);
 });
 
-test("seed 1847 at state tick 12 agrees the routine digest with completed orders", () => {
-  const run = runTicks(createPrototypeWorld(1847), 12);
+// Port balance: on seed 1847 at tick 12 the digest is now pushed off the capped check-in by warnings
+// (omittedInfoCount 1). Seed 4096 at tick 12 shows a digest with accepted, resumed and completed updates.
+test("seed 4096 at state tick 12 agrees the routine digest with completed orders", () => {
+  const run = runTicks(createPrototypeWorld(4096), 12);
   const view = dashboardState(run.state, run.events, fullEventFeed(run.events)) as {
     briefing: { items: Array<{ title: string; summary: string }> };
   };
   const digest = view.briefing.items.find((item) => item.summary.includes("routine order"));
   assert.ok(digest);
-  assert.equal(digest.title, "Jun Marrow sent a routine digest.");
+  assert.equal(digest.title, "Rook Tern sent a routine digest.");
   assert.equal(
     digest.summary,
-    "16 routine order updates: 8 accepted, 3 resumed, 5 completed. No command decision is required.",
+    "18 routine order updates: 10 accepted, 2 resumed, 6 completed. No command decision is required.",
   );
   assert.equal(digest.summary.includes("confirmed"), false);
   assert.equal(digest.summary.includes("1 routine order updates"), false);
 
-  const one = run.events.find((event) => event.sequence === 718);
+  const one = run.events.find((event) => event.sequence === 702);
   assert.ok(one);
   assert.equal(one.type, "standing-order-completed");
   assert.equal(one.tick, 6);
@@ -69,9 +73,9 @@ test("seed 1847 at state tick 12 agrees the routine digest with completed orders
   assert.equal(single.summary, "1 routine order update: 1 completed. No command decision is required.");
 });
 
-test("seed 2718 Mina Vale at tick 80 rounds the held troop figures", () => {
-  // The skill step moved her capture to seed 2718, tick 79.
-  const run = runTicks(createPrototypeWorld(2718), 80);
+test("seed 2718 Mina Vale at tick 93 rounds the held troop figures", () => {
+  // The skill step moved her capture to seed 2718, tick 79; port balance moved it to tick 92.
+  const run = runTicks(createPrototypeWorld(2718), 93);
   const before = stateHash(run.state);
   const mina = run.state.characters["character-15"];
   const mara = run.state.characters["character-01"];
@@ -87,7 +91,7 @@ test("seed 2718 Mina Vale at tick 80 rounds the held troop figures", () => {
   assert.equal(troops.discipline, round(mina.troops.discipline, 3));
   assert.equal(
     card.troopsNote,
-    "0 with Mina Vale; 12 held by World Government. The experience and discipline are the troops now held by World Government.",
+    "0 with Mina Vale; 7 held by World Government. The experience and discipline are the troops now held by World Government.",
   );
   const scattered = (card.captivity as { scatteredTroops: { experience: number; discipline: number } }).scatteredTroops;
   assert.equal(scattered.experience, 0.199);
@@ -108,16 +112,43 @@ test("briefing titles on returned troops are sentences", () => {
     briefing: { attentionCount: number; omittedInfoCount: number };
   };
   assert.equal(counted.length, 5_000);
-  assert.equal(counted[0]?.tick, 126);
-  assert.equal(countedView.briefing.attentionCount, 4);
+  assert.equal(counted[0]?.tick, 125);
+  assert.equal(countedView.briefing.attentionCount, 8);
   assert.equal(countedView.briefing.omittedInfoCount, 0);
   const windowed = checkInEvents(scattered.events, scattered.state.tick);
   const full = dashboardState(scattered.state, windowed, fullEventFeed(windowed)) as {
     briefing: { items: Array<{ title: string; summary: string }>; attentionCount: number; omittedInfoCount: number };
   };
-  assert.deepEqual(full.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A battle was decided', 'A captain was taken', 'An order was not followed, 5 times.', 'A battle was decided', 'A battle was decided', 'An order was not followed, 3 times.', 'An order was refused', 'An order was refused', 'An order was refused', 'An order was refused' ]);
-  assert.equal(full.briefing.attentionCount, 14);
-  assert.equal(full.briefing.omittedInfoCount, 8);
+  // Re-pinned for port balance (home starts): the 2718 tick-168 check-in titles (was 14 items).
+  assert.deepEqual(full.briefing.items.map((item) => item.title), [
+    "The party is starving",
+    "Intelligence is stale",
+    "Intelligence is stale",
+    "Intelligence is stale",
+    "Intelligence is stale",
+    "Intelligence is stale",
+    "Intelligence is stale",
+    "A captain was taken",
+    "A captain was released",
+    "An order was not followed, 11 times.",
+    "A captain was released",
+    "A captain was taken",
+    "A battle was decided",
+    "A battle was decided, 2 times.",
+    "A battle was decided",
+    "A battle was decided",
+    "A captain was taken",
+    "A battle was decided",
+    "A captain was taken",
+    "An order was refused",
+    "An order was refused",
+    "An order was not followed.",
+    "An order was refused",
+    "An order was refused",
+    "An order was refused",
+  ]);
+  assert.equal(full.briefing.attentionCount, 25);
+  assert.equal(full.briefing.omittedInfoCount, 13);
   const returnedRun = runTicks(createPrototypeWorld(2718), 200);
   const returnsOnly = dashboardState(
     returnedRun.state,
@@ -126,11 +157,11 @@ test("briefing titles on returned troops are sentences", () => {
   ) as { briefing: { items: Array<{ title: string; summary: string }> } };
   const returned = returnsOnly.briefing.items.find((item) => item.title.startsWith("Scattered troops came back"));
   assert.ok(returned);
-  assert.equal(returned.title, "Scattered troops came back, 6 times.");
+  assert.equal(returned.title, "Scattered troops came back, 3 times.");
   assert.equal(returned.summary.includes(".."), false);
   assert.equal(full.briefing.items.some((item) => item.title.startsWith("An order was not followed")), true);
   const returns = returnedRun.events.filter((event) => event.type === "scattered-troops-returned");
-  assert.deepEqual(returns.map((event) => event.tick), [167, 173, 179, 185, 191, 197]);
+  assert.deepEqual(returns.map((event) => event.tick), [107, 113, 114, 119, 120, 125, 126, 131, 132, 137, 143, 182, 188, 194]);
 
   // The held-captain title is checked on every player hold in tests/story-properties.test.ts.
 });

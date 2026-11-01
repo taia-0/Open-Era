@@ -786,6 +786,12 @@ test("a foreign beach names the owner, and an offshore port does not", () => {
   assert.equal(beach.factionId, cinder.factionId);
 });
 
+// Home starts put Zara Gale at Cinder Key; the delivery tests dock her at her old start, Crown Harbor.
+function dockZaraAtCrownHarbor(world: WorldState): void {
+  world.characters["character-17"].locationId = "crown-harbor";
+  world.characters["character-17"].travel = null;
+}
+
 function offerProvisions(world: WorldState, price: number, expiresInTicks: number) {
   return submitCommand(world, {
     playerId: PLAYER,
@@ -813,7 +819,16 @@ function assertEscrowConserved(events: { type: string; data: Record<string, unkn
 
 test("a headless Crown Harbor run has no contract event, and fulfilment is not production", () => {
   const headless = runTicks(createPrototypeWorld(1847), 72);
-  assert.equal(headless.events.some((event) => event.type.startsWith("contract-")), false);
+  // Port balance: the headless 72 ticks now hold exactly one autonomous contract, Pax's Glassport
+  // offer to Mina at t67 and her refusal at t68. None of it touches Crown Harbor (was: no contract event).
+  const contractEvents = headless.events.filter((event) => event.type.startsWith("contract-"));
+  assert.deepEqual(contractEvents.map((event) => `${event.tick}:${event.sequence}:${event.type}`), [
+    "67:7677:contract-offered",
+    "68:7788:contract-refused",
+  ]);
+  assert.ok(contractEvents.every((event) =>
+    (event.data.contract as { destinationId: string }).destinationId === "glassport"
+  ));
   assert.ok(headless.events.some((event) =>
     event.type === "settlement-produced" && event.settlementId === "crown-harbor"
   ));
@@ -821,6 +836,7 @@ test("a headless Crown Harbor run has no contract event, and fulfilment is not p
   assert.deepEqual(view.contracts, []);
 
   const world = createPrototypeWorld(1847);
+  dockZaraAtCrownHarbor(world);
   const submission = offerProvisions(world, 18, 12);
   assert.equal(submission.ok, true);
   runTick(world);
@@ -850,6 +866,7 @@ test("a headless Crown Harbor run has no contract event, and fulfilment is not p
 
 test("offer, fulfilment, refusal, and breach conserve the two purses and the escrow", () => {
   const fulfilled = createPrototypeWorld(1847);
+  dockZaraAtCrownHarbor(fulfilled);
   const fulfilBuyer = fulfilled.characters["character-01"];
   const fulfilCarrier = fulfilled.characters["character-17"];
   assert.equal(offerProvisions(fulfilled, 18, 12).ok, true);
@@ -866,6 +883,8 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   assert.equal(fulfilBuyer.money, 108);
 
   const refused = createPrototypeWorld(1847);
+
+  dockZaraAtCrownHarbor(refused);
   const refuseBuyer = refused.characters["character-01"];
   const refuseCarrier = refused.characters["character-17"];
   assert.equal(offerProvisions(refused, 8, 12).ok, true);
@@ -880,7 +899,7 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   const refusal = refuseTick.events.find((event) => event.type === "contract-refused");
   assert.ok(refusal);
   assert.equal(refusal.data.gate, "score");
-  assert.equal(refusal.data.score, 0.197);
+  assert.equal(refusal.data.score, 0.103);
   assert.equal(refusal.data.escrow, 0);
   // The treasury-funded 8 returns to the treasury. The purse stays 108.
   // It used to be credited to the purse, which raised the buyer to 116 and kept the purse-and-escrow sum flat.
@@ -896,6 +915,8 @@ test("offer, fulfilment, refusal, and breach conserve the two purses and the esc
   );
 
   const expired = createPrototypeWorld(1847);
+
+  dockZaraAtCrownHarbor(expired);
   const expireBuyer = expired.characters["character-01"];
   const expireCarrier = expired.characters["character-17"];
   // An empty shelf floors the margin, so the offer pays 80 to clear the threshold.

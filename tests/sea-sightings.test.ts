@@ -292,18 +292,21 @@ test("the commanded Glassport crossing names Ada at tick 2 and is gone at tick 4
 
   runTick(world);
   assert.equal(world.tick, 3);
-  const sable = world.characters["character-24"];
-  assert.equal(sable.name, "Sable Sorn");
+  // Port balance (home starts): the opposite-course ship at tick 3 is Sable Morrow (was Sable Sorn,
+  // who now sails from Verdant Cay), and the tagged arriving ship is Toma Hale (unaffiliated) from
+  // Verdant Cay (was Toma Reef, World Government, from Cinder Key).
+  const sable = world.characters["character-04"];
+  assert.equal(sable.name, "Sable Morrow");
   assert.equal(leg(sable.travel), "glassport 2/4");
   const sableRow = row(world, mara, sable);
   assert.ok(sableRow);
   assert.equal(sableRow.kind, "passing");
-  assert.equal(sableRow.sailors, 14);
-  assert.equal(sableRow.troops, 36);
-  assert.equal(sableRow.partyPower, 100.168);
+  assert.equal(sableRow.sailors, 22);
+  assert.equal(sableRow.troops, 18);
+  assert.equal(sableRow.partyPower, 69.441);
   assert.equal(
     sableRow.summary,
-    "Sable Sorn is passing on the opposite course, Glassport to Crown Harbor. 36 troops, 0 ticks old.",
+    "Sable Morrow is passing on the opposite course, Glassport to Crown Harbor. 18 troops, 0 ticks old.",
   );
   const adaLater = row(world, mara, ada);
   assert.equal(adaLater?.kind, "overtaking");
@@ -312,13 +315,13 @@ test("the commanded Glassport crossing names Ada at tick 2 and is gone at tick 4
     adaLater?.summary,
     "Ada Sorn is overtaking on this route, Crown Harbor to Glassport. Docks at Glassport on this tick. 35 troops, 0 ticks old.",
   );
-  const toma = world.characters["character-07"];
-  assert.equal(toma.name, "Toma Reef");
+  const toma = world.characters["character-27"];
+  assert.equal(toma.name, "Toma Hale");
   const tomaRow = row(world, mara, toma);
   assert.equal(tomaRow?.kind, "arriving");
   assert.equal(
     tomaRow?.summary,
-    "Toma Reef (World Government) is arriving at the same port, Cinder Key to Glassport. Docks at Glassport on this tick. 42 troops, 0 ticks old.",
+    "Toma Hale (unaffiliated) is arriving at the same port, Verdant Cay to Glassport. Docks at Glassport on this tick. 16 troops, 0 ticks old.",
   );
 
   runTick(world);

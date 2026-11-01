@@ -22,6 +22,7 @@ import type { SimEvent } from "../src/sim/types.ts";
 test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick check-in", () => {
   // Re-pinned for the contract haul: hauls on 2718 change the titles and counts in this check-in.
   // Treasury spending moved the titles inside this check-in. The window still starts at tick 0.
+  // Port balance (home starts) re-pinned the titles and counts; the opening refusals stay in the full window.
   const run = runTicks(createPrototypeWorld(2718), 168);
   const before = stateHash(run.state);
   assert.equal(CHECK_IN_TICKS, 180);
@@ -30,21 +31,21 @@ test("seed 2718 tick 168 keeps the opening order warnings inside a 180-tick chec
   const countedView = dashboardState(run.state, counted, fullEventFeed(counted)) as {
     briefing: { attentionCount: number; omittedInfoCount: number; items: Array<{ title: string }> };
   };
-  assert.equal(counted[0]?.tick, 126);
-  assert.deepEqual(countedView.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'Scattered troops came back.' ]);
-  assert.equal(countedView.briefing.attentionCount, 4);
+  assert.equal(counted[0]?.tick, 125);
+  assert.deepEqual(countedView.briefing.items.map((item) => item.title), ["The party is starving", "Intelligence is stale", "Intelligence is stale", "Intelligence is stale", "Intelligence is stale", "Intelligence is stale", "Intelligence is stale", "A captain was taken", "Scattered troops came back, 3 times.", "Scattered troops came back, 2 times."]);
+  assert.equal(countedView.briefing.attentionCount, 8);
   assert.equal(countedView.briefing.omittedInfoCount, 0);
 
   const windowed = checkInEvents(run.events, run.state.tick);
   assert.equal(windowed[0]?.tick, 0);
-  assert.equal(windowed.length, 20195);
+  assert.equal(windowed.length, 19316);
   assert.equal(windowed.length, run.events.length);
   const view = dashboardState(run.state, windowed, fullEventFeed(windowed)) as {
     briefing: { attentionCount: number; omittedInfoCount: number; items: Array<{ title: string }> };
   };
-  assert.deepEqual(view.briefing.items.map((item) => item.title), [ 'The party is starving', 'Intelligence is stale', 'Intelligence is stale', 'A captain was released', 'A battle was decided', 'A captain was taken', 'An order was not followed, 5 times.', 'A battle was decided', 'A battle was decided', 'An order was not followed, 3 times.', 'An order was refused', 'An order was refused', 'An order was refused', 'An order was refused' ]);
-  assert.equal(view.briefing.attentionCount, 14);
-  assert.equal(view.briefing.omittedInfoCount, 8);
+  assert.deepEqual(view.briefing.items.map((item) => item.title), ["The party is starving", "Intelligence is stale", "Intelligence is stale", "Intelligence is stale", "Intelligence is stale", "Intelligence is stale", "Intelligence is stale", "A captain was taken", "A captain was released", "An order was not followed, 11 times.", "A captain was released", "A captain was taken", "A battle was decided", "A battle was decided, 2 times.", "A battle was decided", "A battle was decided", "A captain was taken", "A battle was decided", "A captain was taken", "An order was refused", "An order was refused", "An order was not followed.", "An order was refused", "An order was refused", "An order was refused"]);
+  assert.equal(view.briefing.attentionCount, 25);
+  assert.equal(view.briefing.omittedInfoCount, 13);
   assert.equal(stateHash(run.state), before);
 });
 
@@ -72,57 +73,58 @@ test("the store read is the same tick window, and the cap keeps the newest rows"
 });
 
 test("seed 2718 tick 79 states the captured troops on the captor's feed and not on a rival's", () => {
-  // Re-pinned for the contract haul: the capture event moved to sequence 9199.
-  // The skill step moved Mina Vale's capture to seed 2718, tick 79.
-  const run = runTicks(createPrototypeWorld(2718), 80);
-  const capture = run.events.find((event) => event.sequence === 9199);
+  // Port balance (home starts): Mina's failed-retreat capture is gone. Pax Ash's failed-retreat capture
+  // (seq 14431, tick 126) is the matching event; Zara Gale (character-17), a non-captor, is the rival view.
+  const run = runTicks(createPrototypeWorld(2718), 129);
+  const capture = run.events.find((event) => event.sequence === 14431);
   assert.ok(capture);
   assert.equal(capture.type, "character-captured");
-  assert.equal(capture.tick, 77);
+  assert.equal(capture.tick, 126);
   const [forMara] = projectEventFeed(run.state, "character-01", [capture]);
   assert.equal(forMara?.payloadWithheld, true);
   assert.equal(forMara?.data, null);
   assert.equal(
     forMara?.summary,
-    "World Government took Mina Vale at Crown Harbor after failed retreat. 12 troops were taken, power 62.809.",
+    "World Government took Pax Ash at Crown Harbor after failed retreat. 46 troops were taken, power 155.285.",
   );
-  const [forPax] = projectEventFeed(run.state, "character-14", [capture]);
+  const [forPax] = projectEventFeed(run.state, "character-17", [capture]);
   assert.equal(forPax?.data, null);
-  assert.equal(forPax?.summary, "World Government took Mina Vale at Crown Harbor after failed retreat");
-  assert.equal(String(forPax?.summary).includes("62.809"), false);
-  assert.equal(String(forPax?.summary).includes("12 troops"), false);
+  assert.equal(forPax?.summary, "World Government took Pax Ash at Crown Harbor after failed retreat");
+  assert.equal(String(forPax?.summary).includes("155.285"), false);
+  assert.equal(String(forPax?.summary).includes("46 troops"), false);
 });
 
-test("seed 1847 names both captains and does not say each one took the port", () => {
-  // Batch 2 moved the shared Glassport fight to tick 47. Dax Pike takes the surrender on tick 48.
-  const claimedRun = runTicks(createPrototypeWorld(1847), 49);
-  const battle = claimedRun.events.find((event) => event.sequence === 5543);
-  const other = claimedRun.events.find((event) => event.sequence === 5557);
-  const claim = claimedRun.events.find((event) => event.sequence === 5688);
+test("seed 2718 names both captains and does not say each one took the port", () => {
+  // Port balance (home starts): the 1847 shared fight is gone. On 2718 Pax Ash and Mara Calder share the
+  // Glassport fight on tick 47 and Mara Calder takes the surrender on tick 48.
+  const claimedRun = runTicks(createPrototypeWorld(2718), 49);
+  const battle = claimedRun.events.find((event) => event.sequence === 5390);
+  const other = claimedRun.events.find((event) => event.sequence === 5454);
+  const claim = claimedRun.events.find((event) => event.sequence === 5567);
   assert.ok(battle && other && claim);
   assert.equal(battle.type, "battle-resolved");
   assert.equal(battle.tick, 47);
-  assert.equal(battle.actorId, "character-17");
-  assert.equal(other.actorId, "character-20");
+  assert.equal(battle.actorId, "character-14");
+  assert.equal(other.actorId, "character-21");
   assert.equal(claim.type, "settlement-claimed");
   assert.equal(claim.tick, 48);
-  assert.equal(claim.actorId, "character-20");
+  assert.equal(claim.actorId, "character-21");
   const claimedFeed = projectEventFeed(claimedRun.state, "character-01", [battle, other, claim]);
-  const zara = claimedFeed.find((row) => row.sequence === 5543);
-  const dax = claimedFeed.find((row) => row.sequence === 5557);
-  const claimed = claimedFeed.find((row) => row.sequence === 5688);
-  const sharedLine = "2 captains won a fight here on this tick: Zara Gale, Dax Pike. This fight left the garrison standing.";
+  const zara = claimedFeed.find((row) => row.sequence === 5390);
+  const dax = claimedFeed.find((row) => row.sequence === 5454);
+  const claimed = claimedFeed.find((row) => row.sequence === 5567);
+  const sharedLine = "2 captains won a fight here on this tick: Pax Ash, Mara Calder. This fight left the garrison standing.";
   assert.equal(
     zara?.summary,
-    `Zara Gale won the fight at Glassport on a higher score. ${sharedLine}`,
+    `Pax Ash won the fight at Glassport on a higher score. ${sharedLine}`,
   );
   assert.equal(
     dax?.summary,
-    `Dax Pike won the fight at Glassport on a higher score. ${sharedLine} The surrender was taken on the next tick.`,
+    `Mara Calder won the fight at Glassport on a higher score. ${sharedLine} The surrender was taken on the next tick.`,
   );
   assert.equal(
     claimed?.summary,
-    "Dax Pike claimed Glassport. The surrender was offered and taken on the next tick, so it was not waiting.",
+    "Mara Calder claimed Glassport. The surrender was offered and taken on the next tick, so it was not waiting.",
   );
   for (const row of [zara, dax, claimed]) {
     assert.equal(row?.payloadWithheld, true);
@@ -134,9 +136,10 @@ test("seed 1847 names both captains and does not say each one took the port", ()
 });
 
 test("seed 1847 tick 1 hints that a refusal was a standing order and does not name the directive", () => {
+  // Port balance (home starts): FT captains now start at Cinder Key, so the setup rng shifts the sequences.
   const run = runTicks(createPrototypeWorld(1847), 1);
-  const finn = run.events.find((event) => event.sequence === 113) as SimEvent;
-  const bram = run.events.find((event) => event.sequence === 137) as SimEvent;
+  const finn = run.events.find((event) => event.sequence === 114) as SimEvent;
+  const bram = run.events.find((event) => event.sequence === 141) as SimEvent;
   assert.equal(finn.type, "standing-order-refused");
   assert.equal(bram.type, "standing-order-refused");
   const [finnRow] = projectEventFeed(run.state, "character-01", [finn]);
@@ -145,13 +148,13 @@ test("seed 1847 tick 1 hints that a refusal was a standing order and does not na
   assert.equal(finnRow?.data, null);
   assert.equal(
     finnRow?.summary,
-    "Finn Frost refused a standing order. Finn Frost is sailing from Verdant Cay to Crown Harbor.",
+    "Finn Frost refused a standing order. Finn Frost is sailing from Cinder Key to Verdant Cay.",
   );
   assert.equal(bramRow?.payloadWithheld, true);
   assert.equal(bramRow?.data, null);
   assert.equal(
     bramRow?.summary,
-    "Bram Tern refused a standing order. Bram Tern is sailing from Verdant Cay to Glassport.",
+    "Bram Tern refused a standing order. Bram Tern is sailing from Cinder Key to Glassport.",
   );
   assert.equal(String(finnRow?.summary).includes("explore"), false);
   assert.equal(String(bramRow?.summary).includes("trade"), false);

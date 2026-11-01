@@ -7,11 +7,11 @@ import type { SimEvent, WorldState } from "../src/sim/types.ts";
 import { projectEventFeed } from "../src/dashboard/view-model.ts";
 
 // An empty destination shelf floors the margin, so these offers pay 80 to clear the threshold.
-function offer(world: WorldState, expiresInTicks = 12) {
+function offer(world: WorldState, expiresInTicks = 12, carrierId = "character-17") {
   return submitCommand(world, {
     playerId: "prototype-player",
     type: "offer-contract",
-    characterId: "character-17",
+    characterId: carrierId,
     quantity: 10,
     destinationId: "crown-harbor",
     price: 80,
@@ -19,10 +19,10 @@ function offer(world: WorldState, expiresInTicks = 12) {
   });
 }
 
-function acceptAt(world: WorldState, locationId: string, cargo: number) {
-  assert.equal(offer(world).ok, true);
+function acceptAt(world: WorldState, locationId: string, cargo: number, carrierId = "character-17") {
+  assert.equal(offer(world, 12, carrierId).ok, true);
   runTick(world);
-  const zara = world.characters["character-17"];
+  const zara = world.characters[carrierId];
   zara.locationId = locationId;
   zara.travel = null;
   zara.cargo.provisions = cargo;
@@ -61,7 +61,9 @@ test("a destination shelf that holds the quantity cancels the contract as no lon
 
 test("a carrier whose ordinary choice outscores the haul breaches on that cause", () => {
   const world = createPrototypeWorld(1847);
-  acceptAt(world, "verdant-cay", 0);
+  // Port balance: Zara's opening tie to Mara is weaker now and she refuses at Verdant Cay (0.553 under
+  // 0.561); Niko Wren accepts the same 80 haul there and breaches it on choice.
+  acceptAt(world, "verdant-cay", 0, "character-03");
   const contract = Object.values(world.contracts ?? {})[0];
   assert.equal(contract.status, "accepted");
   let breached: { data: Record<string, unknown> } | undefined;
@@ -113,21 +115,24 @@ test("the walk never offers the job to a carrier docked on the destination witho
 });
 
 test("seed 1847 live names the haul order and a cancellation in the feed", () => {
+  // Port balance: Iris's t137 order (16164) and Lio's t151 cancellation for Iris (17788) no longer
+  // happen; Toma Reef's t130 order for Iris (14899, by tick 134) and Lio's t154 cancellation for
+  // Niko Wren (17655) are the same shapes.
   const world = createPrototypeWorld(1847);
   const events: SimEvent[] = [];
-  while (world.tick < 152) events.push(...runTick(world, { liveSession: true }).events);
-  const order = events.find((event) => event.sequence === 16164);
+  while (world.tick < 155) events.push(...runTick(world, { liveSession: true }).events);
+  const order = events.find((event) => event.sequence === 14899);
   assert.equal(order?.type, "contract-order-issued");
   const [mara] = projectEventFeed(world, "character-01", [order!], events);
   assert.equal(mara?.payloadWithheld, true);
-  assert.equal(mara?.summary, "Iris Stone took the order to carry 10 provisions to Crown Harbor.");
-  const [iris] = projectEventFeed(world, "character-06", [order!], events);
-  assert.equal(iris?.payloadWithheld, false);
-  assert.equal(iris?.summary, "Iris Stone took the order to carry 10 provisions to Crown Harbor by tick 141.");
-  const cancelled = events.find((event) => event.sequence === 17788);
+  assert.equal(mara?.summary, "Toma Reef took the order to carry 10 provisions to Crown Harbor.");
+  const [toma] = projectEventFeed(world, "character-07", [order!], events);
+  assert.equal(toma?.payloadWithheld, false);
+  assert.equal(toma?.summary, "Toma Reef took the order to carry 10 provisions to Crown Harbor by tick 134.");
+  const cancelled = events.find((event) => event.sequence === 17655);
   assert.equal(cancelled?.type, "contract-cancelled");
   const [rival] = projectEventFeed(world, "character-01", [cancelled!], events);
-  assert.equal(rival?.summary, "Lio Crow's contract for Iris Stone was cancelled because the port no longer needs it.");
+  assert.equal(rival?.summary, "Lio Crow's contract for Niko Wren was cancelled because the port no longer needs it.");
   const [lio] = projectEventFeed(world, "character-12", [cancelled!], events);
-  assert.equal(lio?.summary, "Lio Crow's provisions contract for Iris Stone was cancelled: Crown Harbor already holds the quantity. The escrow returned.");
+  assert.equal(lio?.summary, "Lio Crow's provisions contract for Niko Wren was cancelled: Crown Harbor already holds the quantity. The escrow returned.");
 });

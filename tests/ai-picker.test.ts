@@ -53,9 +53,9 @@ test("stubArgmax (all on the top row) equals flag off at 72 ticks on every seed,
   }
 });
 
-test("stubArgmax equals flag off at 1,200 ticks on seed 1847 (5641b4c4)", () => {
+test("stubArgmax equals flag off at 1,200 ticks on seed 1847 (b51aa07a)", () => {
   const on = run({ brainTaxStep: counting, context: stubContextEcho(), cap: 1e9, weighted: true, pickerStub: "stubArgmax" }, 1847, 1200);
-  assert.equal(on.hash.slice(0, 8), "5641b4c4");
+  assert.equal(on.hash.slice(0, 8), "b51aa07a");
 });
 
 test("a stubUniform run replays from its recorded p and u with zero provider calls", () => {

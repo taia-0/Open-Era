@@ -17,6 +17,9 @@ mkdir -p "${evaluation_output}" "${evaluation_databases}"
 echo "Running automated tests"
 npm test 2>&1 | tee "${evaluation_output}/tests.log"
 
+echo "Running the 13-seed FT-portless property"
+node --experimental-strip-types scripts/ft-portless-property.ts 2>&1 | tee "${evaluation_output}/ft-portless-property.log"
+
 for evaluation_seed in 1847 2718 4096; do
   seed_name="seed-${evaluation_seed}"
   echo "Running ${seed_name} for 72 ticks"

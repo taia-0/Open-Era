@@ -310,7 +310,7 @@ test("worker transport, offline: answers, times out at the role's timeout, and r
 
 test("flag off and stubs: hashes byte-identical; the fetch guard was never tripped", () => {
   const golden: Record<number, string> = {
-    1847: "6efa334f66ef885392a88d7112e41984df1793b00ee5c57635946d5121bab9c3",
+    1847: "66e8ccb73bb53b2355a1fbb020433ad9a400b0e6570aaf103f0017cbf8c9314c",
   };
   assert.equal(stateHash(runTicks(createPrototypeWorld(1847), 72).state), golden[1847]);
   // Vendor providers with a transport that always fails reproduce flag off.

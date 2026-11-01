@@ -85,6 +85,12 @@ function personalityFor(archetype: string, rng: DeterministicRng): Personality {
   return base;
 }
 
+const HOME_PORTS: Record<string, string[]> = {
+  "world-government": ["crown-harbor", "glassport"],
+  "free-tide": ["cinder-key"],
+  neutral: ["verdant-cay"],
+};
+
 function makeCharacter(
   index: number,
   rng: DeterministicRng,
@@ -92,8 +98,11 @@ function makeCharacter(
 ): Character {
   const archetypes = ["officer", "merchant", "explorer", "raider", "steward"];
   const archetype = archetypes[index % archetypes.length];
-  const locationId = settlementIds[index % settlementIds.length];
   const factionId = index < 13 ? "world-government" : index < 22 ? "free-tide" : null;
+  // Home starts: a captain starts at one of their own faction's ports (round-robin
+  // by index), a factionless captain at a neutral port. Was round-robin over all four.
+  const home = HOME_PORTS[factionId ?? "neutral"];
+  const locationId = home[index % home.length];
   const veteran = index === 0 || index === 13;
 
   return {
@@ -332,7 +341,8 @@ export function createPrototypeWorld(seed = 1847, options: PrototypeWorldOptions
       production: resources(3.2, 4.8, 1.4, 8.2),
       stocks: resources(96, 128, 42, 260),
       garrison: 115,
-      fortification: 1.16,
+      // Raised from 1.16 (portless fix, 13-seed sweep): Free Tide's only port no longer falls by about t50.
+      fortification: 1.5,
       stability: 73,
     }),
     glassport: makeSettlement({
