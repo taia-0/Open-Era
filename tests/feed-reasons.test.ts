@@ -5,7 +5,7 @@ import { CostLedger } from "../src/sim/ai-vendor/cost.ts";
 import type { SyncTransport } from "../src/sim/ai-vendor/sync-http.ts";
 import { runTick } from "../src/sim/engine.ts";
 import {
-  annotateFeedReasons, FEED_REASON_CALL_CAP, FEED_REASON_CALL_CAP_EXILE, FEED_REASON_CAP_USD, feedReasonCallCap, buildFeedFacts, deepSeekFeedReasonWriter, feedReasonKind, feedReasonReplay, jevFeedReasonChecker,
+  annotateFeedReasons, raidCause, FEED_REASON_CALL_CAP, FEED_REASON_CALL_CAP_EXILE, FEED_REASON_CAP_USD, feedReasonCallCap, buildFeedFacts, deepSeekFeedReasonWriter, feedReasonKind, feedReasonReplay, jevFeedReasonChecker,
   stubFeedReasonWriter, validateFeedReason, withFeedReason, type FeedReasonOptions, type FeedReasonRecord,
 } from "../src/sim/feed-reasons.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
@@ -113,7 +113,7 @@ test("Jev check is advisory: a flag is recorded and the text is kept", () => {
   const ledger = new CostLedger(0.1);
   annotateFeedReasons(world, [e], {
     writer: { model: "m", write: () => ({ raw: reply(`${name} claimed Glassport.`), latencyMs: 1 }) },
-    checker: jevFeedReasonChecker({ transport: () => ({ kind: "response", status: 200, body: JSON.stringify({ answers: { invented: { noul: 0.9 } }, usage: { input_tokens: 400 } }) }), ledger, env: FAKE_ENV }),
+    check: true, checker: jevFeedReasonChecker({ transport: () => ({ kind: "response", status: 200, body: JSON.stringify({ answers: { invented: { noul: 0.9 } }, usage: { input_tokens: 400 } }) }), ledger, env: FAKE_ENV }),
   });
   const r = (e.data.ai as { reason: FeedReasonRecord }).reason;
   assert.equal(r.text, `${name} claimed Glassport.`);
@@ -150,7 +150,7 @@ test("EXILE_RECOVERY raises the brain call cap to 300; the Jev check count stays
     let writes = 0; let checks = 0;
     const options: FeedReasonOptions = {
       writer: { model: "count", write: () => { writes++; return { raw: reply(`${name} claimed Glassport.`), latencyMs: 0 }; } },
-      checker: { check: () => { checks++; return { noul: 0.1, flagged: false, outcome: "model" } as never; } },
+      check: true, checker: { check: () => { checks++; return { noul: 0.1, flagged: false, outcome: "model" } as never; } },
       exileRecovery,
     };
     const events = Array.from({ length: 450 }, (_, i) => ({ sequence: i + 1, tick: i + 1, type: "settlement-claimed", actorId: "character-01", settlementId: "glassport", data: {} }) as unknown as SimEvent);
@@ -160,5 +160,37 @@ test("EXILE_RECOVERY raises the brain call cap to 300; the Jev check count stays
     assert.equal(checks, 200);
     assert.equal(options.checks, 200);
     assert.ok(events.slice(-1)[0].data.ai === undefined || (events.slice(-1)[0].data.ai as { reason?: FeedReasonRecord }).reason?.fallbackReason === "cap");
+  }
+});
+
+test("follow-up (a): the Jev check is opt-in; a checker without check: true is never called", () => {
+  let checks = 0;
+  const world = createPrototypeWorld(1847);
+  const name = world.characters["character-01"].name;
+  const e = { sequence: 1, tick: 5, type: "settlement-claimed", actorId: "character-01", settlementId: "glassport", data: {} } as unknown as SimEvent;
+  const options: FeedReasonOptions = { writer: { model: "m", write: () => ({ raw: reply(`${name} claimed Glassport.`), latencyMs: 0 }) }, checker: { check: () => { checks++; return { noul: 0.1, flagged: false, outcome: "model" } as never; } } };
+  annotateFeedReasons(world, [e], options);
+  assert.equal(checks, 0);
+  assert.equal((e.data.ai as { reason: FeedReasonRecord }).reason.check, undefined);
+});
+
+test("follow-up (b): raids carry the scorer's cause without EXILE_RECOVERY, with no new event bytes and the pins unchanged", () => {
+  const pins: Record<number, string> = { 1847: "b51aa07a", 2718: "091f7628", 4096: "25bdbf15" };
+  for (const seed of [1847, 2718, 4096]) {
+    const off = run(seed, 1200);
+    const on = run(seed, 1200, { writer: stubFeedReasonWriter() });
+    assert.equal(stateHash(off.world).slice(0, 8), pins[seed]);
+    assert.equal(stateHash(on.world), stateHash(off.world));
+    assert.equal(strip(on.events), JSON.stringify(off.events));
+    const raids = on.events.filter((x) => feedReasonKind(x) === "raid");
+    assert.ok(raids.length > 20);
+    const bare = raids.filter((x) => /acted\.$/.test(String((x.data.ai as { reason?: FeedReasonRecord } | undefined)?.reason?.text ?? "")));
+    assert.equal(bare.length, 0, `seed ${seed}: ${bare.length} bare raids`);
+    for (const r of raids) {
+      const tick = on.events.filter((x) => x.tick === r.tick);
+      const cause = raidCause(r, tick);
+      assert.ok(cause && ["order", "plan", "loot"].includes(cause.cause));
+      assert.match(String((r.data.ai as { reason: FeedReasonRecord }).reason.text), new RegExp(cause!.trigger.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    }
   }
 });
