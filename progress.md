@@ -160,7 +160,7 @@ Lead rulings v3, on feature/triage-v2 (from e984ec9).
 - **Scoring call dropped.** The gated kinds go straight to the brain: the sim's checks, the per-kind budgets and the 24-tick cooldown are the triage (v2 flag rate was 100 % on every kind, so the gated set equals the probe's positives; jev-triage.md §7). `jevTriageScorer` stays in the code, unhooked; `--triage gated` is the live mode and `--triage jev` refuses.
 - **The brain does not pick.** It answers `{"proceed": p, "reason"}` for the sim's choice against one alternative; blend `q = 0.7·prior + 0.3·p`, prior **0.95**, weight **0.3**; `u = pickerDraw("triage-brain:<kind>", seed, actor, tick)`; keep the sim's choice when u < q. p, reason, prior, weight, blend, u and alternative are recorded and replay-checked. CLI: `--brain-prior`, `--brain-weight`, `--brain livelike`.
 - **Offline tuning** (argmax picker, `stubBrainLiveLike`, 3 seeds, 1200 ticks): 0.7/0.5 → 46 % overrides; 0.85/0.4 → 36 %, contract breaks 65 %; 0.9/0.3 → 27 %, pass at the edge; 0.95/0.3 → 22 %, contract breaks 117 %, secessions 2 vs 4 (stub counts are single digits).
-- **Live** (Jev picker, DeepSeek brain, `--cache` v2 picker-only). The first pass at 0.9/0.3 gave 24.8 % overrides, but contract breaks were at 47 % of picker-only (20/15/69 vs 43/13/55): live p for break→keep runs low. The one tuning retry at **0.95/0.3** (rt-*) passed: 15.9 % overrides (21/132); medians as a share of picker-only were raids 108 %, desertions 150 %, secessions 300 % and contract breaks 112 % (and 104/150/100/120 % against the second picker-only set). There were 0 brain fallbacks.
+- **Live fail at 0.9/0.3, then one retry.** Live (Jev picker, DeepSeek brain, `--cache` v2 picker-only). The first pass at 0.9/0.3 gave 24.8 % overrides, but contract breaks were at 47 % of picker-only (20/15/69 vs 43/13/55): live p for break→keep runs low. The single allowed tuning retry at **0.95/0.3** (no per-kind priors; Lead accepted at 15.9 %) (rt-*) passed: 15.9 % overrides (21/132); medians as a share of picker-only were raids 108 %, desertions 150 %, secessions 300 % and contract breaks 112 % (and 104/150/100/120 % against the second picker-only set). There were 0 brain fallbacks.
 - **Budget 0** is exact against picker-only on all seeds (e6ba501c/736be7e0/72a75af6, $0). Every live and stub run replays to its hash with 0 calls.
 - **1847 holder entropy.** Picker-only ×3 had mean 2.572, sd 0.081 (2.499–2.660). Triage ×3 at 0.9/0.3 had mean 2.438, sd 0.054 (2.387–2.495), and the retry run gave 2.498. v2's 2.236 is outside both ranges and came from the old picking brain. The v3 gap of about 0.13 bits (5 %) is about 1.7 picker-only sd, and the two sets barely touch. Picker-only alone spans 0.2 bits on 4096. So it is small and within the order of the noise; with n = 3 it is not settled as zero.
 - **Cost:** $0.3034 across 9 live runs, max $0.0492 per run; key scan clean.
@@ -188,6 +188,53 @@ Lead rulings v3, on feature/triage-v2 (from e984ec9).
   - The brain overrides 67–76 % of escalations, mostly toward work, rest, keep and stay. Is that the intent?
   - 1847's holder entropy drop.
 - **Links** — [jev-triage](docs/design/jev-triage.md)
+
+### 2026-10-31 — Exile recovery (slice A, behind EXILE_RECOVERY)
+
+Flag: `runTick(world, { exileRecovery: true })`, CLI `--exile-recovery` or `EXILE_RECOVERY=1`. With the flag off, runs match the pins (72t 66e8ccb7/b4ccedab/b04c5ac4, 1200t b51aa07a/091f7628/25bdbf15).
+- Step 1 (`src/sim/news.ts` `ownLossCouriers`): a faction courier brings news of a lost own port to members `OWN_LOSS_COURIER_TICKS = 6` ticks after the claim (1 day, a courier crossing the longest sea leg). Only claim losses are couriered; secession losses are not.
+- Step 2 (`src/sim/exile.ts`): w = (0.5L + 0.3Ag + 0.2Am - 0.3C) x (1 + grievance) x 0.5^((t - served)/240). Raid +40w, travel +20w, with the reason "to win back P, lost to H". `homeService` is recorded through `decision-made`.
+
+Trace (seeds 1847/2718/4096), off / news-only / on:
+
+| | off | news | on |
+|---|---|---|---|
+| raids chosen | 2/5/3 | 8/16/4 | 9/12/3 (home 8/9/3) |
+| stale-belief blocks | 305/118/180 | 50/67/11 | 79/90/17 |
+| gate open | 0/48/2 | 2/15/0 | 1/13/1 |
+| garrison<8 | 251/283/363 | 2270/749/168 | 516/509/1060 |
+| belief age median | 380/167/703 | 9/12/31 | 31/10/9 |
+
+13-seed sweep totals off / on: claims 437/684, secessions 42/36, port changes 479/720, desertions 58/63, portless raids 245/342 (per-seed rows: `scripts/exile-sweep.ts`).
+
+**Lead rulings (2026-10-31, game-vision.md:39, no forced balance):**
+1. No WG guard. WG ending portless on a minority of seeds is emergent; the earlier "WG keeps a port" balance target is dropped.
+2. Secessions are judged over the 13 seeds: the flag-on median within ±1 of flag off, AND at least one secession on most seeds (≥ 7/13). The per-seed ±1 band is dropped. Encoded in `scripts/exile-sweep.ts` (exit 1 on failure).
+3. The troop-limited case on 4096 (garrison < 8) is exempt from "portless raids above baseline".
+4. Couriers also report ports lost to secession: `secession-loss-recorded` (flag on only) stores `Settlement.secessionLoss`, and `ownLossCouriers` uses the newer of claim and secession.
+
+Sweep after ruling 4 (13 seeds × 1200 ticks, off / on):
+
+| Seed | Claims off/on | Secessions off/on | Port changes off/on | Desertions off/on | Portless raids off/on | WG ports t_end off/on | FT members t_end off/on |
+|---|---|---|---|---|---|---|---|
+| 1847 | 26 / 51 | 4 / 1 | 30 / 52 | 3 / 4 | 12 / 20 | 1 / 0 | 3 / 3 |
+| 2718 | 25 / 64 | 0 / 0 | 25 / 64 | 2 / 2 | 8 / 20 | 1 / 2 | 6 / 6 |
+| 4096 | 39 / 56 | 4 / 3 | 43 / 59 | 4 / 7 | 24 / 36 | 1 / 1 | 1 / 3 |
+| 1000 | 27 / 42 | 0 / 2 | 27 / 44 | 4 / 3 | 14 / 27 | 1 / 1 | 5 / 5 |
+| 2000 | 31 / 50 | 5 / 2 | 36 / 52 | 5 / 5 | 19 / 30 | 1 / 1 | 1 / 2 |
+| 3000 | 34 / 42 | 3 / 2 | 37 / 44 | 6 / 7 | 16 / 26 | 1 / 2 | 1 / 2 |
+| 4000 | 37 / 63 | 4 / 1 | 41 / 64 | 6 / 2 | 23 / 30 | 1 / 1 | 3 / 4 |
+| 5000 | 50 / 55 | 7 / 2 | 57 / 57 | 6 / 8 | 37 / 32 | 1 / 1 | 1 / 3 |
+| 6000 | 33 / 50 | 2 / 5 | 35 / 55 | 5 / 7 | 18 / 23 | 1 / 2 | 3 / 2 |
+| 7000 | 34 / 61 | 3 / 4 | 37 / 65 | 3 / 4 | 15 / 22 | 2 / 1 | 3 / 2 |
+| 8000 | 24 / 62 | 2 / 4 | 26 / 66 | 6 / 8 | 10 / 41 | 2 / 1 | 1 / 2 |
+| 9000 | 35 / 58 | 3 / 2 | 38 / 60 | 4 / 5 | 24 / 34 | 1 / 0 | 3 / 3 |
+| 10000 | 42 / 28 | 5 / 3 | 47 / 31 | 4 / 4 | 25 / 19 | 1 / 1 | 1 / 1 |
+| total | 437 / 682 | 42 / 31 | 479 / 713 | 58 / 66 | 245 / 360 | | |
+
+Result: secession median 3 → 2 (within ±1); 12/13 seeds have ≥ 1 secession with the flag on. EXILE ACCEPTANCE PASSED. WG ends with 0 ports on 1847 and 9000 (accepted per ruling 1).
+
+Earlier (before ruling 4): Acceptance: pins hold; a home raid happens on all 3 seeds; belief age drops; no FT wipeout. Failures: on 1847, secessions go 4 to 1 and WG holds 0 ports at t1200 (7000 also ends with WG at 0); on 4096, FT portless raids stay at 3 because garrisons are below 8. These are open Lead decisions.
 
 ### 2026-10-31 — Slice 5 rework: triage widened, separate scoring request, check 6 structural
 - **Agent:** Grok Bot for the Lead | **Branch:** `feature/triage` off `origin/main` `c9ce9b7` | **Type:** Behavior (flag-gated AI)

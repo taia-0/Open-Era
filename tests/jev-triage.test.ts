@@ -302,7 +302,7 @@ test("gate item 4: an always-flag stub makes exactly min(50, eligible) escalatio
 
 test("v3: gated triage needs no scorer, the brain only nudges, and the gated run replays with zero calls", () => {
   const fetches = fetchAttempts();
-  const ai: TickAiOptions = { picker: null, triage: { brain: stubBrainOther() } };
+  const ai: TickAiOptions = { triage: { brain: stubBrainOther() } };
   const live = run(ai, 1847, 800);
   const esc = live.triage.filter((t) => t.triage.escalated);
   assert.ok(esc.length > 0);
