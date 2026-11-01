@@ -1,6 +1,6 @@
 # Jev triage: reworded Nouls, labelled set, escalation to DeepSeek (slice 5)
 
-Status: **Open / build spec; probe run.** The live probe ran on 2026-10-31 (21:56 PT) after Micah approved the spend: 29 calls, $0.0008005 (results in section 6). The set was rebuilt on main `0cadb85` (#154 pins + #155). Base `origin/main` `56bde48` (#144). Aligned with slice 1 (`feature/ai-tax-weighted` **`7636a40`**), slice 3 (`jev-action-picker.md`) and slice 4 (`jev-social-picker.md`). `engine.ts:N` cites main; `@7636a40 file:N` cites that branch; `jev-capabilities.md` cites branch `docs/jev-capabilities` `6071c7a`; `ai-providers.md` cites branch `docs/ai-providers` (also at `@7636a40 docs/design/ai-providers.md`).
+Status: **Open / build spec; probe run; threshold ruled 0.6.** The live probe ran on 2026-10-31 (21:56 PT) after Micah approved the spend: 29 calls, $0.0008005 (results in section 6). The set was rebuilt on main `0cadb85` (#154 pins + #155). Base `origin/main` `56bde48` (#144). Aligned with slice 1 (`feature/ai-tax-weighted` **`7636a40`**), slice 3 (`jev-action-picker.md`) and slice 4 (`jev-social-picker.md`). `engine.ts:N` cites main; `@7636a40 file:N` cites that branch; `jev-capabilities.md` cites branch `docs/jev-capabilities` `6071c7a`; `ai-providers.md` cites branch `docs/ai-providers` (also at `@7636a40 docs/design/ai-providers.md`).
 
 ## 1. The reworded questions
 
@@ -206,4 +206,24 @@ Running the probe (≤ 30 calls, ≤ $0.01, estimated $0.0012) and any live tria
 - Clear negatives (routine, fulfil, purse and deadline-infeasible breaches) all stay ≤ 0.30 on every test.
 - **Margin warning:** both deserts score exactly 0.70 on allegiance_freedom, so at 0.7 they pass by zero margin. 0.5 catches them with room and adds no false item escalation on this set.
 
-**Decision proposed: threshold 0.7.** It meets §1's pass (every test ≥ 0.75 recall; precision ≥ 0.75 on three tests, faction_number 0.667 from the secessions only) with zero missed and zero false item escalations. 0.8 misses three true escalations. 0.5 is the fallback if the desert margin proves fragile on fresh items. With 29 items this is coarse. The Lead sets the final value.
+**Rulings (Lead, 2026-10-31).**
+
+1. **Threshold 0.6**, a margin argument. Both desertions score exactly 0.70 on allegiance_freedom, so at 0.7 any run-to-run drift flips them at random. The Lead's figure is drift of about ±0.02 on identical requests. Our own recorded repeats agree in size but are not Noul data: in `jev-capabilities.md` §9 (branch `docs/jev-capabilities` `6071c7a`, `docs/playtests/jev-probes-2026-10-31/probes.jsonl` lines 1–4), four identical requests returned the loyaltyRead Choice probability for "firm" as 0.60, 0.62, 0.58 and 0.59 (range 0.04), while grudge_0 stayed at 0.99. The triage probe sent each item once, so it has no repeat to measure Noul drift.
+2. **A secession decides a faction-wide number** (the new faction's tax rate). triage-02 and triage-18 are relabelled faction_number = true in `docs/playtests/jev-triage-set/set.jsonl`.
+
+**At 0.6 with the new labels** (recomputed from `live-log-2026-10-31.jsonl`, no new calls):
+
+| Test | TP / FP / FN / TN | Precision | Recall | Lowest positive | Highest negative |
+|---|---|---|---|---|---|
+| port_holding | 8/0/0/21 | 1.00 | 1.00 | 0.79 (triage-01) | 0.21 (triage-21) |
+| faction_number | 6/0/0/23 | 1.00 | 1.00 | 0.91 (triage-18) | 0.11 (triage-10) |
+| allegiance_freedom | 8/0/0/21 | 1.00 | 1.00 | 0.70 (triage-04, -21) | 0.39 (triage-19) |
+| broken_promise | 4/2/0/23 | 0.667 | 1.00 | 0.96 (triage-06 and others) | **0.68 (triage-02)**, 0.62 (triage-18) |
+
+- **Items:** 22 escalations, all 22 true, no misses, no false escalations.
+- **Margins at 0.6:** the nearest positive is 0.70 (the desertions), **+0.10**. The highest-scoring item that should not escalate is triage-25 (breach-infeasible, broken_promise 0.30), **−0.30**.
+- **Note:** the two secessions also clear 0.6 on broken_promise (0.68 and 0.62), which they are not labelled for. They are per-test false positives, and 0.62 is only 0.02 above the line. They cost nothing extra, since both items escalate on three other tests, but the recorded `flagged` list will include broken_promise for them.
+
+Superseded: the earlier proposal of 0.7 below.
+
+**Earlier proposal (superseded): threshold 0.7.** It meets §1's pass (every test ≥ 0.75 recall; precision ≥ 0.75 on three tests, faction_number 0.667 from the secessions only) with zero missed and zero false item escalations. 0.8 misses three true escalations. 0.5 is the fallback if the desert margin proves fragile on fresh items. With 29 items this is coarse. The Lead sets the final value.
