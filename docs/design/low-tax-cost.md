@@ -76,7 +76,7 @@ Patch: `/workspace/low-tax-cost-harness.patch` on the box (env `RAISE_SHOCK`), a
 | 4096 | always-up | 0 | `a9f3998e` / 162114 | 0.27 / 0 | 0.08 / 166 | 19 | 4 | 44 |
 | 4096 | always-up | 1.0 | `6b58f9f6` / 162939 | 0.26 / 0 | 0.07 / 551 | 18 | 5 | **442** |
 
-"FT port-ticks ≤ 55" counts the ticks × ports where Free Tide held a port at or below the revolt line. There is no revolt event in the tree, so this and secessions are the unrest measures. S = 0.5 was also run; its rows are in the harness log and are mixed.
+"FT port-ticks ≤ 55" counts the ticks × ports where Free Tide held a port at or below the revolt line. There is no revolt event in the tree, so this and secessions are the unrest measures. S = 0.5 was also run. Its Free Tide port-ticks at the line were 26 / 93 / 50 flag off and 96 / 222 / 51 always-up: mixed, and too small by the section 4 arithmetic.
 
 What the numbers support:
 
