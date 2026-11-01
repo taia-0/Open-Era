@@ -281,6 +281,8 @@ export interface TaxStepAiRecord {
   /** ai-tax-weighted only: the reason line and who wrote it. */
   reason?: string;
   reasonSource?: "model" | "template";
+  /** Slice 1 picker record (ai-brain.md line 208 shape plus options and u). Weighted mode only. */
+  picker?: import("./ai-picker.ts").PickerRecord;
 }
 
 /**

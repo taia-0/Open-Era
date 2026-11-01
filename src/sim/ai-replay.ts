@@ -82,7 +82,10 @@ export function replayFromTrace(recorded: TaxStepTraceEntry[]): Replay {
       for (let index = 0; index < Math.min(trace.length, recorded.length) && firstTraceDifference === null; index += 1) {
         const now = trace[index].ai;
         const was = recorded[index].ai;
-        const hashSame = now.fallbackReason === "cap" ? was.fallbackReason === "cap" : matchedHashes[called++] === was.inputHash;
+        // Slice 1 picker stubs make no provider call: compare the request hash directly.
+        const stubbed = now.picker?.outcome === "stub" || (now.picker?.outcome === "replay" && now.picker.model.startsWith("stub"));
+        const hashSame = stubbed ? now.inputHash === was.inputHash
+          : now.fallbackReason === "cap" ? was.fallbackReason === "cap" : matchedHashes[called++] === was.inputHash;
         const same = hashSame && trace[index].tick === recorded[index].tick && now.finalChoice === was.finalChoice
           && now.outcome === was.outcome && (now.context?.inputHash ?? null) === (was.context?.inputHash ?? null);
         if (!same) firstTraceDifference = index;

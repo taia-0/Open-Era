@@ -31,7 +31,8 @@ import { autonomousTaxStep, PASSAGE_PER_TICK, raiseShockData, taxChoiceCents, ta
 import type { CostLedger } from "./ai-vendor/cost.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
 import { checkTaxStepReason, CONTEXT_PROMPT_VERSION, parseReason, TAX_STEP_PROMPT_VERSION_REASON, railedOptions, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
-import { sampleChoice, taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
+import { pick, PickerReplay, stubArgmax, stubUniform, type PickerRecord } from "./ai-picker.ts";
+import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths } from "./news.ts";
 import {
@@ -3450,6 +3451,14 @@ export interface TickAiOptions {
    * the provider writes only the reason. Unset keeps the brain's choice path.
    */
   weighted?: boolean;
+  /**
+   * Slice 1 picker stubs (next-slices.md): replace the trait distribution with
+   * `stubArgmax` (probability 1 on the scorer's pick) or `stubUniform`. No
+   * provider call; the reason comes from the template. Needs `weighted`.
+   */
+  pickerStub?: "stubArgmax" | "stubUniform";
+  /** Slice 1 replay: use the recorded p and u per decision; throws on a missing record or a mismatch. Needs `weighted`. */
+  pickerReplay?: PickerReplay;
   /** Per-run call cap (section 5, check 6). Default 50. */
   cap?: number;
   /**
@@ -3680,14 +3689,24 @@ function consultWeighted(
   const persona = request.persona ?? { ambition: 0.5, aggression: 0.5, caution: 0.5, commerce: 0.5, loyalty: 0.5 };
   const answers = context?.answers;
   const weighted = taxStepDistribution(step.scorerChoice, step.options, step.pressed, step.short, persona, answers);
-  const draw = weightedDraw(world.seed, factionId, world.tick);
-  const sampled = sampleChoice(weighted.distribution, weighted.legal, draw);
+  if (ai.pickerStub) {
+    const weights = ai.pickerStub === "stubArgmax" ? stubArgmax(weighted.legal, step.scorerChoice) : stubUniform(weighted.legal);
+    const total = Object.values(weights).reduce((a, b) => a + b, 0);
+    weighted.distribution = Object.fromEntries(weighted.legal.map((id) => [id, weights[id] / total]));
+  }
+  // Replay reuses the recorded p and u (never recomputed); take() throws on a missing record or a mismatch.
+  const recorded = ai.pickerReplay ? ai.pickerReplay.take(world.tick, factionId, weighted.legal) : null;
+  if (recorded) weighted.distribution = Object.fromEntries(recorded.options.map((id, i) => [id, recorded.p[i]]));
+  const draw = recorded ? recorded.u : weightedDraw(world.seed, factionId, world.tick);
+  const picked = pick(weighted.distribution as Record<string, number>, weighted.legal, draw);
+  const sampled = picked.options[picked.index] as TaxStepRequest["scorerChoice"];
   const escalation = triage(answers);
   request.chosen = sampled;
   request.escalation = escalation.why;
   request.promptVersion = TAX_STEP_PROMPT_VERSION_REASON;
   let answer: TaxStepAnswer = { raw: null, latencyMs: 0 };
-  if (!capped) {
+  const stub = ai.pickerStub ?? null;
+  if (!capped && !stub) {
     ai.calls = (ai.calls ?? 0) + 1;
     try {
       answer = provider.decide(request);
@@ -3695,17 +3714,25 @@ function consultWeighted(
       answer = { raw: null, latencyMs: 0, error: "error" };
     }
   }
-  const failed: TaxStepFallbackReason | null = capped ? "cap" : answer.error ?? (answer.latencyMs > TAX_STEP_TIMEOUT_MS ? "timeout" : null);
-  const raw = failed ? null : answer.raw;
-  const modelReason = failed ? null : parseReason(raw);
-  const fallbackReason = failed ?? (modelReason ? null : "illegal");
+  const failed: TaxStepFallbackReason | null = stub ? null : capped ? "cap" : answer.error ?? (answer.latencyMs > TAX_STEP_TIMEOUT_MS ? "timeout" : null);
+  const raw = failed || stub ? null : answer.raw;
+  const modelReason = failed || stub ? null : parseReason(raw);
+  const fallbackReason = stub ? null : failed ?? (modelReason ? null : "illegal");
+  const inputHash = taxStepInputHash(request);
+  const picker: PickerRecord = {
+    model: stub ?? "tax-weighted",
+    promptVersion: WEIGHTED_PARAMS_VERSION,
+    inputHash,
+    outcome: recorded ? "replay" : stub ? "stub" : "model",
+    options: picked.options, p: picked.p, index: picked.index, u: draw,
+  };
   const reason = modelReason ?? templateReason(sampled, persona, step.pressed, step.short);
   return {
     role: "brain.taxStep" as const,
-    provider: provider.name,
-    model: provider.model,
+    provider: stub ?? provider.name,
+    model: stub ?? provider.model,
     promptVersion: request.promptVersion,
-    inputHash: taxStepInputHash(request),
+    inputHash,
     options: step.options,
     scorerChoice: step.scorerChoice,
     rawAnswer: raw === null ? null : raw.slice(0, RAW_ANSWER_MAX),
@@ -3730,6 +3757,7 @@ function consultWeighted(
     },
     reason,
     reasonSource: modelReason ? "model" : "template",
+    picker,
   };
 }
 

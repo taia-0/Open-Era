@@ -123,7 +123,7 @@ test("the reason-only DeepSeek prompt states the drawn choice and asks for a rea
   const request: TaxStepRequest = {
     tick: 96, factionId: "f", holderId: "h", rateCents: 12, pressed: true, short: false, lowestStabilityThousandths: 300,
     treasuryCents: 500, freeMates: 2, options: ALL, scorerChoice: "down", promptVersion: "v", persona: HAWK, payDaysCovered: 3,
-    briefing: "b", chosen: "hold", escalation: "loyalty read breaking",
+    briefing: "b" as unknown as TaxStepRequest["briefing"], chosen: "hold", escalation: "loyalty read breaking",
   };
   const body = JSON.parse(deepSeekRequestBody(request));
   const user: string = body.messages[1].content;

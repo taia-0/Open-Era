@@ -7,6 +7,7 @@ import { CostLedger, DEFAULT_SPEND_CAP_USD } from "../sim/ai-vendor/cost.ts";
 import { deepSeekBrain } from "../sim/ai-vendor/deepseek.ts";
 import { jevContextReader } from "../sim/ai-vendor/jev.ts";
 import { replayFromTrace, type Replay } from "../sim/ai-replay.ts";
+import { PickerReplay } from "../sim/ai-picker.ts";
 import { workerTransport } from "../sim/ai-vendor/sync-http.ts";
 import { runTick, type TickAiOptions } from "../sim/engine.ts";
 import type { TaxStepTraceEntry } from "../sim/ai-provider.ts";
@@ -28,6 +29,7 @@ const { values } = parseArgs({
     output: { type: "string" },
     replay: { type: "string" },
     // ai-tax-weighted: "weighted" (default) draws the choice from the trait-weighted distribution; "brain" lets the vendor choose.
+    // Slice 1 stubs: "argmax" (stubArgmax, probability 1 on the scorer's pick) and "uniform" (stubUniform); no vendor calls.
     "choice-mode": { type: "string", default: "weighted" },
   },
 });
@@ -47,7 +49,9 @@ if (replayDir) {
   values["choice-mode"] = recordedSummary!.choiceMode ?? "brain";
 }
 const choiceMode = values["choice-mode"];
-if (choiceMode !== "weighted" && choiceMode !== "brain") throw new Error("--choice-mode must be weighted or brain");
+const CHOICE_MODES = ["weighted", "brain", "argmax", "uniform"];
+if (!CHOICE_MODES.includes(choiceMode!)) throw new Error(`--choice-mode must be one of ${CHOICE_MODES.join(", ")}`);
+const picked = choiceMode !== "brain";
 const seed = Number.parseInt(values.seed!, 10);
 const ticks = Number.parseInt(values.ticks!, 10);
 const capUsd = Number(values["cap-usd"]);
@@ -80,7 +84,12 @@ if (replayDir) {
   brain = stubAgree();
   context = stubContextEcho();
 }
-const ai: TickAiOptions = { brainTaxStep: brain, context, cap: maxCalls, ledger, weighted: choiceMode === "weighted" };
+const ai: TickAiOptions = {
+  brainTaxStep: brain, context, cap: maxCalls, ledger, weighted: picked,
+  ...(choiceMode === "argmax" ? { pickerStub: "stubArgmax" as const } : choiceMode === "uniform" ? { pickerStub: "stubUniform" as const } : {}),
+  // Slice 1: a replay of a picked run reuses the recorded p and u, and throws on any mismatch.
+  ...(replayDir && picked ? { pickerReplay: pickerReplayFromTrace(recordedTrace) } : {}),
+};
 
 const world = createPrototypeWorld(seed);
 const trace: TaxStepTraceEntry[] = [];
@@ -101,6 +110,8 @@ if (replay && recordedSummary) {
   };
   writeFileSync(join(output, "replay.json"), `${JSON.stringify(result, null, 2)}\n`);
   console.log(JSON.stringify(result));
+  const pickerUsed = ai.pickerReplay ? ai.pickerReplay.used : null;
+  if (ai.pickerReplay && pickerUsed !== ai.pickerReplay.size) throw new Error(`picker replay: used ${pickerUsed} of ${ai.pickerReplay.size} recorded draws`);
   const ok = result.hashMatches && report.traceMatches && report.missingBrain === 0 && report.missingContext === 0;
   process.exit(ok ? 0 : 1);
 }
@@ -119,3 +130,16 @@ const summary = {
 };
 writeFileSync(join(output, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
 console.log(JSON.stringify(summary));
+
+/** Picker records from a trace; traces from before the picker record fall back to `data.ai.weighted` (legal, distribution, draw). */
+function pickerReplayFromTrace(trace: TaxStepTraceEntry[]): PickerReplay {
+  return new PickerReplay(trace.filter((entry) => entry.ai.picker || entry.ai.weighted).map((entry) => {
+    const w = entry.ai.weighted!;
+    const picker = entry.ai.picker ?? {
+      model: "tax-weighted", promptVersion: w.paramsVersion, inputHash: entry.ai.inputHash, outcome: "model" as const,
+      options: [...w.legal].sort(), p: [...w.legal].sort().map((id) => w.distribution[id] ?? 0),
+      index: [...w.legal].sort().indexOf(w.sampled), u: w.draw,
+    };
+    return { tick: entry.tick, actorId: entry.factionId, picker };
+  }));
+}

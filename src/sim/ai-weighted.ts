@@ -1,6 +1,7 @@
 import type { ChoiceAnswerRecord } from "./ai-context.ts";
 import { railedOptions, sha256, type TaxChoice, type TaxStepPersona } from "./ai-provider.ts";
 import { canonicalJson } from "./state.ts";
+import { pickerDraw } from "./ai-picker.ts";
 
 /**
  * Variant b: the ruler's traits weight the tax step (ai-tax-weighted).
@@ -132,12 +133,13 @@ export function sampleChoice(distribution: Distribution, legal: TaxChoice[], dra
 }
 
 /**
- * The draw: a dedicated stream per decision, from the world seed, faction and tick.
- * It never touches `world.rngState`, so flag off (and every other draw) is unaffected.
+ * The draw: the slice-1 picker side stream (ai-picker.ts `pickerDraw`), keyed by
+ * seed, faction (the actor) and tick. Stateless: it never touches `world.rngState`
+ * or any world field, so flag off (and every other draw) is unaffected.
  */
+export const TAX_PICKER_STREAM = "ai-tax-weighted";
 export function weightedDraw(seed: number, factionId: string, tick: number): number {
-  const hex = sha256(`ai-tax-weighted:${seed}:${factionId}:${tick}`).replace(/^sha256:/, "").slice(0, 8);
-  return Number.parseInt(hex, 16) / 0x1_0000_0000;
+  return pickerDraw(TAX_PICKER_STREAM, seed, factionId, tick);
 }
 
 /**
