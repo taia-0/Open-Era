@@ -20,7 +20,7 @@ export const HOLD_BASELINE: Record<number, number> = { 1847: 38, 2718: 38, 4096:
 
 const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
-interface Occ { port: string; tick: number; from: string | null; hs: number[]; stab0: number; stab60: number | null; end: number; flipBack120: boolean; ended: boolean; attempts: number; defectors: number }
+interface Occ { port: string; tick: number; from: string | null; hs: number[]; stab0: number; stab60: number | null; upkeepLoss60: number; upkeeps60: number; end: number; flipBack120: boolean; ended: boolean; attempts: number; defectors: number }
 
 function run(seed: number, occupation: boolean) {
   const world = createPrototypeWorld(seed);
@@ -30,20 +30,26 @@ function run(seed: number, occupation: boolean) {
   // Holds: from a claim to the next claim or secession at the port; censored at the run's end.
   const occs: Occ[] = [];
   const open = new Map<string, Occ>();
+  // Measurement only (diagnosis 2026-11-01): the port's last known stability, so upkeep drift can be separated from battle losses.
+  const lastStability = new Map<string, number>();
   const close = (port: string, tick: number, newFaction: string | null) => {
     const o = open.get(port); if (!o) return;
     o.end = tick; o.ended = true; o.flipBack120 = newFaction !== null && newFaction === o.from && tick - o.tick <= 120; open.delete(port);
   };
   for (const e of events) {
     const port = e.settlementId!;
+    const stabilityAfter = e.type === "battle-phase-resolved" ? Number(e.data.settlementStability) : e.type === "settlement-claimed" || e.type === "settlement-upkeep" || e.type === "settlement-shortage" || e.type === "secession-declared" ? Number(e.data.stability) : NaN;
+    try {
     if (e.type === "settlement-claimed") {
       close(port, e.tick, (e.data.factionId as string | null) ?? null);
-      const o: Occ = { port, tick: e.tick, from: (e.data.previousFactionId as string | null) ?? null, hs: [], stab0: Number(e.data.stability), stab60: null, end: ticks, flipBack120: false, ended: false, attempts: 0, defectors: 0 };
+      const o: Occ = { port, tick: e.tick, from: (e.data.previousFactionId as string | null) ?? null, hs: [], stab0: Number(e.data.stability), stab60: null, upkeepLoss60: 0, upkeeps60: 0, end: ticks, flipBack120: false, ended: false, attempts: 0, defectors: 0 };
       occs.push(o); open.set(port, o);
     } else if (e.type === "secession-declared") close(port, e.tick, String((e.data.faction as { id: string }).id));
     else if ((e.type === "settlement-upkeep" || e.type === "settlement-shortage") && open.has(port)) {
       const o = open.get(port)!;
       if (e.tick - o.tick <= 60) {
+        const before = lastStability.get(port);
+        if (before !== undefined) { o.upkeepLoss60 += before - Number(e.data.stability); o.upkeeps60++; }
         const h = (e.data.occupation as { harshness?: number } | undefined)?.harshness;
         if (typeof h === "number") o.hs.push(h);
         o.stab60 = Number(e.data.stability);
@@ -54,6 +60,7 @@ function run(seed: number, occupation: boolean) {
       const attackerFaction = (e.data.attackerFactionId as string | null | undefined) ?? null;
       if (o.from && attackerFaction === o.from) { o.attempts++; o.defectors += Number(e.data.occupationDefectors ?? 0); }
     }
+    } finally { if (port && Number.isFinite(stabilityAfter)) lastStability.set(port, stabilityAfter); }
   }
   const holds = occs.map((o) => o.end - o.tick);
   const ended = occs.filter((o) => o.ended);
@@ -63,7 +70,7 @@ function run(seed: number, occupation: boolean) {
   const meanH = (o: Occ) => o.hs.length ? o.hs.reduce((a, b) => a + b, 0) / o.hs.length : 0;
   const bucket = (name: "harsh" | "benign") => {
     const list = occs.filter((o) => (name === "harsh" ? meanH(o) >= 0.5 : meanH(o) < 0.25));
-    return { n: list.length, stabLoss60: list.filter((o) => o.stab60 !== null).map((o) => o.stab0 - o.stab60!), attempts: list.reduce((a, o) => a + o.attempts, 0), defectors: list.reduce((a, o) => a + o.defectors, 0), flipBack120: list.filter((o) => o.flipBack120).length, ended: list.filter((o) => o.ended).length };
+    return { n: list.length, stabLoss60: list.filter((o) => o.stab60 !== null).map((o) => o.stab0 - o.stab60!), upkeepLoss60: list.filter((o) => o.upkeeps60 > 0).map((o) => o.upkeepLoss60), attempts: list.reduce((a, o) => a + o.attempts, 0), defectors: list.reduce((a, o) => a + o.defectors, 0), flipBack120: list.filter((o) => o.flipBack120).length, ended: list.filter((o) => o.ended).length };
   };
   return {
     seed, mode: occupation ? "on" : "off", hash: stateHash(world).slice(0, 8),
@@ -77,10 +84,10 @@ function run(seed: number, occupation: boolean) {
 }
 
 const rows = seeds.flatMap((seed) => [run(seed, false), run(seed, true)]);
-for (const row of rows) console.log(JSON.stringify({ ...row, harsh: { ...row.harsh, stabLoss60: median(row.harsh.stabLoss60) }, benign: { ...row.benign, stabLoss60: median(row.benign.stabLoss60) } }));
+for (const row of rows) console.log(JSON.stringify({ ...row, harsh: { ...row.harsh, stabLoss60: median(row.harsh.stabLoss60), upkeepLoss60: median(row.harsh.upkeepLoss60) }, benign: { ...row.benign, stabLoss60: median(row.benign.stabLoss60), upkeepLoss60: median(row.benign.upkeepLoss60) } }));
 const off = rows.filter((r) => r.mode === "off"); const on = rows.filter((r) => r.mode === "on");
 const sum = (rs: typeof rows, k: "portChanges" | "claims" | "defectors" | "integrations" | "secessions") => rs.reduce((a, r) => a + r[k], 0);
-const pool = (k: "harsh" | "benign") => ({ n: on.reduce((a, r) => a + r[k].n, 0), stabLoss60: median(on.flatMap((r) => r[k].stabLoss60)), attempts: on.reduce((a, r) => a + r[k].attempts, 0), defectors: on.reduce((a, r) => a + r[k].defectors, 0), flipBack120: on.reduce((a, r) => a + r[k].flipBack120, 0), ended: on.reduce((a, r) => a + r[k].ended, 0) });
+const pool = (k: "harsh" | "benign") => ({ n: on.reduce((a, r) => a + r[k].n, 0), stabLoss60: median(on.flatMap((r) => r[k].stabLoss60)), upkeepLoss60: median(on.flatMap((r) => r[k].upkeepLoss60)), attempts: on.reduce((a, r) => a + r[k].attempts, 0), defectors: on.reduce((a, r) => a + r[k].defectors, 0), flipBack120: on.reduce((a, r) => a + r[k].flipBack120, 0), ended: on.reduce((a, r) => a + r[k].ended, 0) });
 const harsh = pool("harsh"); const benign = pool("benign");
 const perAttempt = (b: ReturnType<typeof pool>) => (b.attempts ? b.defectors / b.attempts : 0);
 const flipRate = (b: ReturnType<typeof pool>) => (b.ended ? b.flipBack120 / b.ended : 0);
@@ -103,7 +110,10 @@ console.log(`| total | ${sum(off, "claims")} / ${sum(on, "claims")} | ${sum(off,
 console.log(`buckets: harsh n=${harsh.n} stabLoss60 median ${harsh.stabLoss60} defectors/attempt ${perAttempt(harsh).toFixed(3)} (${harsh.defectors}/${harsh.attempts}) flip-back≤120 ${harsh.flipBack120}/${harsh.ended}; benign n=${benign.n} stabLoss60 median ${benign.stabLoss60} defectors/attempt ${perAttempt(benign).toFixed(3)} (${benign.defectors}/${benign.attempts}) flip-back≤120 ${benign.flipBack120}/${benign.ended}`);
 const hist = on.reduce((h, r) => ({ zero: h.zero + r.hHistogram.zero, low: h.low + r.hHistogram.low, mid: h.mid + r.hHistogram.mid, harsh: h.harsh + r.hHistogram.harsh, maxMeanH: Math.max(h.maxMeanH, r.hHistogram.maxMeanH) }), { zero: 0, low: 0, mid: 0, harsh: 0, maxMeanH: 0 });
 console.log(`mean H over the first 60 ticks (flag on, all claims): 0: ${hist.zero}, (0, 0.25): ${hist.low}, [0.25, 0.5): ${hist.mid}, ≥ 0.5: ${hist.harsh}; max ${hist.maxMeanH}`);
+// Measurement only (diagnosis, not a gate item yet): 2a with battle losses at the port excluded, i.e. the stability change from upkeeps alone over the first 60 ticks.
+const measurement = { "2a_upkeepOnly_harshLosesMore": (harsh.upkeepLoss60 ?? -Infinity) > (benign.upkeepLoss60 ?? Infinity), harshUpkeepLoss60: harsh.upkeepLoss60, benignUpkeepLoss60: benign.upkeepLoss60 };
+console.log(`measurement (not gated): 2a upkeep-only stability loss over 60 ticks, median harsh ${harsh.upkeepLoss60} vs benign ${benign.upkeepLoss60}`);
 console.log(JSON.stringify(checks));
 const pass = Object.values(checks).every(Boolean);
-if (values.json) writeFileSync(values.json, JSON.stringify({ rows, harsh, benign, checks, churnLimit: CHURN_LIMIT, holdBaseline: HOLD_BASELINE, pass }, null, 2));
+if (values.json) writeFileSync(values.json, JSON.stringify({ rows, harsh, benign, checks, measurement, churnLimit: CHURN_LIMIT, holdBaseline: HOLD_BASELINE, pass }, null, 2));
 if (!pass) { console.log("OCCUPATION ACCEPTANCE FAILED"); process.exitCode = 1; } else console.log("OCCUPATION ACCEPTANCE PASSED");
