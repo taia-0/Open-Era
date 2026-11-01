@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-flag.ts";
 import { parseArgs } from "node:util";
 import { stubContextEcho, type ContextReader } from "../sim/ai-context.ts";
 import { stubAgree, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION_BRIEFED, type TaxStepProvider } from "../sim/ai-provider.ts";
@@ -31,8 +32,10 @@ const { values } = parseArgs({
     // ai-tax-weighted: "weighted" (default) draws the choice from the trait-weighted distribution; "brain" lets the vendor choose.
     // Slice 1 stubs: "argmax" (stubArgmax, probability 1 on the scorer's pick) and "uniform" (stubUniform); no vendor calls.
     "choice-mode": { type: "string", default: "weighted" },
+    ...EXILE_FLAG_OPTIONS,
   },
 });
+maybeHelp(values, "npm run ai-pilot -- [--seed N] [--ticks N] [--ai-vendor] [--choice-mode weighted|brain|argmax|uniform] [--replay <dir>]");
 const replayDir = values.replay === undefined ? null : resolve(values.replay);
 let recordedSummary: { seed: number; ticks: number; stateHash: string; maxCalls?: number; choiceMode?: string } | null = null;
 let recordedTrace: TaxStepTraceEntry[] = [];
@@ -91,11 +94,13 @@ const ai: TickAiOptions = {
   ...(replayDir && picked ? { pickerReplay: pickerReplayFromTrace(recordedTrace) } : {}),
 };
 
+if ((recordedSummary as { exileRecovery?: boolean } | null)?.exileRecovery === false) values["no-exile-recovery"] = true;
+const exileRecovery = resolveExileRecovery(values);
 const world = createPrototypeWorld(seed);
 const trace: TaxStepTraceEntry[] = [];
 let events = 0;
 for (let index = 0; index < ticks; index += 1) {
-  const result = runTick(world, { ai });
+  const result = runTick(world, { exileRecovery, ai });
   events += result.events.length;
   trace.push(...(result.aiTrace ?? []));
 }
@@ -116,6 +121,7 @@ if (replay && recordedSummary) {
   process.exit(ok ? 0 : 1);
 }
 const summary = {
+  exileRecovery,
   mode: vendor ? "vendor" : "stub",
   choiceMode, seed, ticks, stateHash: finalHash, events,
   calls: ai.calls ?? 0, maxCalls, capUsd, spendUsd: ledger.spendUsd, costLines: ledger.lines.length,

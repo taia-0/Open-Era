@@ -252,6 +252,15 @@ Diagnosis mode on `feature/occupation`. `src/` is unchanged. The diagnostic harn
   - 4096: 63/59/56/3 → 47/39/38/1
 - **Verified:** `npm test` passes offline with the keys unset, and so does `./scripts/evaluate-milestone.sh occupation`.
 
+### 2026-11-01 — Exile CLI polish (Cursor)
+
+- **(a) Plan trigger:** the feed-reasons plan cause now reads "as part of the plan to <plan in its own words>" (for example "…to build a capable and respected party"), replacing "to further the plan: X", which the live model shortened to "to further the plan.".
+- **(b) Opt-out:** `--no-exile-recovery` (or `EXILE_RECOVERY=0`) now works on `run-action-picker` and `run-ai-pilot` too. Both record `exileRecovery` in summary.json, and a replay of an opt-out run keeps the opt-out.
+- **(c) Old flag:** `--exile-recovery` is still accepted on all four run CLIs as a no-op. `--help` on each prints the opt-out and marks it "deprecated no-op". The shared flags are in `src/cli/exile-flag.ts`.
+- **Hash-neutral:** the default and opt-out pins are unchanged (default 7f76e474/976c40bd/08943ea5 at 72 ticks and 94de9c02/7a3741c9/af6eeaea at 1,200; opt-out 66e8ccb7/b4ccedab/b04c5ac4 and b51aa07a/091f7628/25bdbf15).
+- **Tests:** tests/exile-cli.test.ts checks the CLI hashes with and without each flag, the help text, and the plan trigger.
+- **Verified:** `npm test` passes offline with the keys unset, and so does `./scripts/evaluate-milestone.sh exile-cli-polish`.
+
 ### 2026-11-01 — EXILE_RECOVERY on by default (after-triage.md (b)) (Cursor)
 
 - **Change:** `EXILE_RECOVERY_DEFAULT = true` in `engine.ts`. A `runTick` without `exileRecovery` now runs exile recovery, and feed reasons inherit it. The opt-out is `exileRecovery: false`, or `--no-exile-recovery` / `EXILE_RECOVERY=0` on `run-simulation` and `run-feed-reasons` (`--exile-recovery` is still accepted, as a no-op). `scripts/exile-sweep.ts` compares the opt-out with the default and now runs in `evaluate-milestone.sh` as the property gate. feedReasons is unchanged (opt-in). The "WG keeps a port" target is dropped.

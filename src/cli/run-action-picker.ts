@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-flag.ts";
 import { parseArgs } from "node:util";
 import { ActionPickerReplay, PICKER_DEFAULT_CAP, stubArgmaxPicker, stubFittedPicker, stubUniformPicker, type ActionPicker, type ActionPickerRecord } from "../sim/ai-action-picker.ts";
 import { CostLedger } from "../sim/ai-vendor/cost.ts";
@@ -55,8 +56,10 @@ const { values } = parseArgs({
     "brain-prior": { type: "string" },
     "brain-weight": { type: "string" },
     "brain-default-kinds": { type: "string" },
+    ...EXILE_FLAG_OPTIONS,
   },
 });
+maybeHelp(values, "npm run action-picker -- [--picker uniform|argmax|jev|fitted] [--seed N] [--ticks N] [--triage ...] [--replay <dir>]");
 let fetchAttempts = 0;
 const replayDir = values.replay === undefined ? null : resolve(values.replay);
 let recorded: { summary: any; records: Array<{ tick: number; actorId: string; picker: ActionPickerRecord; read?: SocialReadRecord }>; triage: TriageEntry[] } | null = null;
@@ -73,7 +76,9 @@ if (replayDir) {
   if (summary.actors) values.actors = summary.actors;
   if (summary.social) values.social = summary.social;
   if (summary.triage) values.triage = summary.triage;
+  if (summary.exileRecovery === false) values["no-exile-recovery"] = true;
 }
+const exileRecovery = resolveExileRecovery(values);
 const seed = Number.parseInt(values.seed!, 10);
 const ticks = Number.parseInt(values.ticks!, 10);
 const socialOn = values.social !== "off";
@@ -185,7 +190,7 @@ writeFileSync(triagePath, "");
 const triages: TriageEntry[] = [];
 let events = 0;
 for (let index = 0; index < ticks; index += 1) {
-  const result = runTick(world, picker || triageOn ? { ai } : {});
+  const result = runTick(world, picker || triageOn ? { exileRecovery, ai } : { exileRecovery });
   if (ai.triageLog?.length) { const drained = ai.triageLog.splice(0); triages.push(...drained); appendFileSync(triagePath, drained.map((t) => JSON.stringify(t)).join("\n") + "\n"); }
   const lines: string[] = [];
   const pickLines: string[] = [];
@@ -245,6 +250,7 @@ function triageSummary() {
 }
 const count = (fn: (r: ActionPickerRecord) => boolean) => records.filter(fn).length;
 const summary = {
+  exileRecovery,
   mode: recorded ? "replay" : values.picker, social: socialOn ? values.social : null, seed, ticks, maxCalls, capUsd, actors: values.actors ?? null, stateHash: finalHash, events,
   consults: records.length, calls: ai.pickerCalls ?? 0, offScorer: count((r) => r.sampled !== r.scorerPick),
   fallbacks: count((r) => r.outcome === "fallback"),

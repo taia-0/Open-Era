@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-flag.ts";
 import { parseArgs } from "node:util";
 import { publicFeedSentence } from "../dashboard/wording.ts";
 import { CostLedger } from "../sim/ai-vendor/cost.ts";
@@ -16,7 +17,7 @@ import type { SimEvent } from "../sim/types.ts";
 /**
  * Slice B runner (feed-reasons.md). Stub writer by default, offline. `--ai-vendor`
  * uses DeepSeek (plus the advisory Jev check with `--check`, off by default) (Micah's standing approval; caps
- * $0.10, and 200 brain calls or 300 with --exile-recovery; the Jev check stays at 200). `--replay <dir>` reuses the recorded text with the
+ * $0.10, and 200 brain calls or 300 with EXILE_RECOVERY on (the default); the Jev check stays at 200). `--replay <dir>` reuses the recorded text with the
  * network disabled and checks the feed text and hash are byte-identical.
  * Keys come from the environment only and are never printed.
  */
@@ -28,12 +29,12 @@ const { values } = parseArgs({
     check: { type: "boolean", default: false },
     "cap-usd": { type: "string", default: String(FEED_REASON_CAP_USD) },
     "max-calls": { type: "string" },
-    "exile-recovery": { type: "boolean", default: false },
-    "no-exile-recovery": { type: "boolean", default: false },
+    ...EXILE_FLAG_OPTIONS,
     output: { type: "string" },
     replay: { type: "string" },
   },
 });
+maybeHelp(values, "npm run feed-reasons -- [--seed N] [--ticks N] [--ai-vendor] [--check] [--max-calls N] [--output dir] [--replay <dir>]");
 const replayDir = values.replay === undefined ? null : resolve(values.replay);
 let recorded: { seed: number; ticks: number; stateHash: string; exileRecovery: boolean } | null = null;
 let replayMap: Map<number, FeedReasonRecord> | undefined;
@@ -49,7 +50,7 @@ const seed = Number.parseInt(values.seed!, 10);
 const ticks = Number.parseInt(values.ticks!, 10);
 const vendor = values["ai-vendor"] === true;
 // after-triage.md (b): on by default; --no-exile-recovery or EXILE_RECOVERY=0 opts out.
-const exileRecovery = !(values["no-exile-recovery"] === true || process.env.EXILE_RECOVERY === "0");
+const exileRecovery = resolveExileRecovery(values);
 const output = resolve(values.output ?? (replayDir ? join(replayDir, "replay") : join("simulation-output", "feed-reasons", `${vendor ? "vendor" : "stub"}-${seed}-${ticks}`)));
 mkdirSync(output, { recursive: true });
 const costPath = join(output, "cost.jsonl");
