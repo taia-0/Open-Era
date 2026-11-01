@@ -97,6 +97,10 @@ Claim counts equal the exile-on sweep rows for these seeds (`progress.md` exile 
    - at least 7 / 13 seeds have at least one secession.
 5. **Integration happens:** at least one `occupation-integrated` on at least half the seeds. Permanent churn on the rest is allowed.
 6. **No resistance without a cause:** no defector and no unrest drift at any occupation with H = 0. A test asserts it.
+7. **Churn guard** (Lead, after #168; flag on vs the exile-on baseline). Resistance should make holds differ by harshness, not make ports change hands faster.
+   - **Port changes:** the 13-seed total stays at or below 1.5 × the exile-on total. The baseline total is 713 (13-seed sweep on `5e06c4c`, `after-triage.md`), so the limit is 1,069 (1.5 × 713 = 1,069.5, rounded down).
+   - **Hold length:** on each of 1847, 2718 and 4096, the median hold after a claim is not below the exile-on baseline from §1: 38 / 38 / 37 ticks.
+   - The sweep (§6) reports both and exits 1 on failure.
 
 ## 6. Measurement plan
 
@@ -122,3 +126,15 @@ Claim counts equal the exile-on sweep rows for these seeds (`progress.md` exile 
 4. **Does a harsh occupation lose population, or do people flee?** **Defer.** Population never changes today, and migration is a separate system.
 5. **Is harshness news?** **Defer.** The port's stability is already posted with news items (`types.ts` `news`); a "harsh occupation" item can come later.
 6. **Does a successful retake of a harsh occupation earn the retaker grievance relief or loyalty?** **Defer**, to keep the slice to one event type.
+
+## 8. Lead rulings (after #168)
+
+The Lead accepted all six §7 defaults:
+1. Keep the 55 claim floor.
+2. Unaffiliated residents do not count in v1.
+3. Defection helps only the previous faction.
+4. Population loss and flight are deferred.
+5. Harshness news is deferred.
+6. Retake rewards are deferred.
+
+The Lead added the churn guard, now acceptance item 7 in §5.
