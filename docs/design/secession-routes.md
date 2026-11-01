@@ -134,3 +134,243 @@ Every seed has a secession that is not tax-triggered; none exceeds baseline + 1;
 **Build notes.** One predicate `secessionRoutes(world, settlement, governor)` returning the true routes in fixed order `tax, promise, hated`, used by the walker (`engine.ts:3510`) and the readout (`secession.ts:429`); constants `PROMISE_BREACH_COUNT = 10`, `PROMISE_WINDOW_TICKS = 240`, `HATED_GRIEVANCE = 0.12`; `data.routes` on the event; no draw. Tests: each route alone on a fixture world; once per spell; holder and breakaway exempt; flag-off fixture and pins; a recorded set run replays to its hash through `applyEvent`.
 
 **Gate.** Fixture `6efa334f` / `e8f9cfab` / `8ac8529b` unchanged; 1,200-tick pins re-recorded as `71d95ec7/164573`, `a828316d/159042`, `d1b586e2/162144`; `npm run dynamism` against flag-off shows ≥ 1 non-tax secession per seed and secessions ≤ baseline + 1 per seed; `npm test` passes.
+
+## 5. Ten more seeds (after #148)
+
+Offline, at `origin/main` `0bc5c76` (#148 is docs only, so the sim is the same as §3). The harness is the same one (`/workspace/secession-routes-harness/`), with `routes-harness.patch` applied in a scratch worktree. `run2.ts` adds port counts and zero-port ticks, `seeds.sh` runs each seed, and `seeds-tab.py` builds the tables. Each seed ran 1,200 ticks twice: flag off, then B + C at the §4 defaults (promises ≥ 10 breached contracts to the port in 240 ticks, any cause; governor grievance ≥ 0.12). Readouts are `npm run dynamism -- --events <B+C> --baseline <off> --json`.
+
+**Seeds.** 1000 × k for k = 1…10, so 1000, 2000, … 10000. This is a fixed rule, not a search. Results for the original three seeds are shown again for the 13-seed summary; their hashes match §3 (`71d95ec7`, `a828316d`, `d1b586e2`).
+
+**Runaway was defined before the runs** and is coded in `seeds-tab.py`. A seed is a runaway if either:
+- (a) B + C secessions > flag-off secessions + 2; or
+- (b) World Government or Free Tide holds **no port at tick 1200** under B + C while it held at least one at tick 1200 with the flag off.
+
+"Zero-port ticks" counts ticks on which the faction held no port. It is reported for context and is not part of the rule.
+
+| Seed | Secessions off → B+C | Non-tax (route: port, tick) | WG / FT (B+C) | Port changes off → B+C | Desertions off → B+C | First route tick | Ports at 1200 off → B+C (WG, FT) | Zero-port ticks B+C (WG, FT) | Runaway | Hash off / B+C |
+| ---: | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- |
+| 1847 | 4 → 4 | 2: hated: crown-harbor t324; promise: glassport t439 | 2 / 2 | 37 → 43 | 4 → 5 | 324 | (1, 0) → (0, 0) | 769, 656 | lost every port: WG | `f80c529f` / `71d95ec7` |
+| 2718 | 0 → 1 | 1: hated: glassport t192 | 1 / 0 | 24 → 26 | 0 → 3 | 192 | (2, 1) → (2, 1) | 9, 190 | no | `2b5060c0` / `a828316d` |
+| 4096 | 4 → 4 | 3: promise+hated: crown-harbor t185; promise: crown-harbor t189; hated: glassport t232 | 3 / 1 | 44 → 47 | 5 → 9 | 185 | (2, 0) → (1, 0) | 256, 480 | no | `e8ae4443` / `d1b586e2` |
+| 1000 | 4 → 1 | 1: hated: cinder-key t29 | 0 / 1 | 34 → 28 | 4 → 4 | 29 | (1, 0) → (2, 1) | 5, 393 | no | `41999e3f` / `48c20c12` |
+| 2000 | 3 → 3 | 3: hated: glassport t37; promise: glassport t135; hated: cinder-key t219 | 0 / 3 | 40 → 23 | 3 → 2 | 37 | (2, 0) → (2, 1) | 0, 1088 | no | `57a04899` / `9529a670` |
+| 3000 | 3 → 5 | 3: hated: cinder-key t30; hated: cinder-key t34; hated: crown-harbor t618 | 1 / 4 | 45 → 43 | 3 → 4 | 30 | (2, 0) → (0, 0) | 91, 628 | lost every port: WG | `245041c6` / `a3d6ed37` |
+| 4000 | 3 → 5 | 1: hated: cinder-key t469 | 1 / 4 | 28 → 33 | 3 → 4 | 469 | (1, 0) → (1, 0) | 82, 770 | no | `c0861f7d` / `e4613321` |
+| 5000 | 2 → 5 | 5: hated: cinder-key t39; hated: cinder-key t240; promise: crown-harbor t320; promise: crown-harbor t332; promise: crown-harbor t387 | 4 / 1 | 33 → 54 | 6 → 6 | 39 | (1, 0) → (0, 1) | 293, 521 | secessions > off+2; lost every port: WG | `7b3744b1` / `466e338a` |
+| 6000 | 4 → 3 | 3: hated: cinder-key t114; promise: crown-harbor t277; promise: crown-harbor t278 | 1 / 2 | 39 → 45 | 5 → 4 | 114 | (1, 0) → (1, 0) | 52, 874 | no | `865f6820` / `863ebc79` |
+| 7000 | 0 → 8 | 4: hated: cinder-key t135; hated: crown-harbor t141; hated: glassport t169; hated: cinder-key t250 | 1 / 7 | 34 → 49 | 3 → 5 | 135 | (2, 1) → (1, 0) | 291, 560 | secessions > off+2; lost every port: FT | `b9510dcc` / `976e8c61` |
+| 8000 | 3 → 3 | 3: hated: glassport t62; hated: glassport t86; hated: cinder-key t480 | 1 / 2 | 47 → 37 | 2 → 4 | 62 | (1, 0) → (1, 0) | 20, 613 | no | `a1f5148e` / `6f0726d1` |
+| 9000 | 0 → 4 | 4: hated: cinder-key t110; hated: glassport t154; hated: glassport t783; hated: cinder-key t1031 | 3 / 1 | 28 → 48 | 3 → 5 | 110 | (0, 3) → (1, 0) | 99, 670 | secessions > off+2; lost every port: FT | `0a38f570` / `8652061c` |
+| 10000 | 3 → 4 | 4: promise: glassport t307; promise+hated: glassport t308; promise: glassport t439; hated: cinder-key t717 | 1 / 3 | 21 → 33 | 5 → 6 | 307 | (1, 0) → (2, 0) | 19, 491 | no | `4ae1d1d6` / `ede501b9` |
+
+| Metric (13 seeds) | Min | Median | Max |
+| --- | ---: | ---: | ---: |
+| Secessions, flag off | 0 | 3 | 4 |
+| Secessions, B + C | 1 | 4 | 8 |
+| Non-tax secessions | 1 | 3 | 5 |
+| World Government secessions (B + C) | 0 | 1 | 4 |
+| Free Tide secessions (B + C) | 0 | 2 | 7 |
+| Port changes, flag off | 21 | 34 | 47 |
+| Port changes, B + C | 23 | 43 | 54 |
+| Desertions, flag off | 0 | 3 | 6 |
+| Desertions, B + C | 2 | 4 | 9 |
+| First route tick (seeds where one fired) | 29 | 114 | 469 |
+
+Seeds with ≥ 1 non-tax secession: **13 of 13**. Seeds with a secession at all: flag off 10, B + C 13. Runaway seeds: **5**.
+
+**Reading.**
+- **Coverage.** Every one of the 13 seeds has at least one non-tax secession. With the flag off, 3 of the 13 seeds have none at all (2718, 7000, 9000).
+- **The hated-commander route does most of the work.** It is one of the routes in 27 of the 37 non-tax declarations; the promises route alone accounts for the other 10. On 1000, 2000, 3000 and 8000 the first route declaration comes early (t29–t62). Why those seeds fire so early was not investigated.
+- **Runaway seeds: 5 of 13.**
+  - Rule (a), too many secessions: 5000 (2 → 5), 7000 (0 → 8) and 9000 (0 → 4). On 7000 only 4 of the 8 are non-tax; the others are tax declarations made after the timeline moved.
+  - Rule (b), a faction losing every port: World Government on 1847, 3000 and 5000; Free Tide on 7000 and 9000.
+- **Losing every port is common with the flag off as well.** With the flag off, Free Tide ends at 0 ports on 10 of 13 seeds and World Government on 1 (9000). Rule (b) counts only the cases B + C newly causes.
+- **No conclusions about cause.** Each rule change moves the whole timeline, so these are distributions, not causal claims.
+
+**What this means for the defaults** (for the Lead). B + C reaches the coverage goal on every seed, but trips the predeclared runaway rule on 5 of 13 seeds. Three of those are World Government being stripped to 0 ports, which the Lead accepted in principle (#148). Two are Free Tide's count rising by 3–8. If that is too much:
+- The measured lever is C's threshold. §3 has 0.14 cutting non-tax declarations on 4096 to 1.
+- A once-per-faction cooldown on route declarations is an option, but it is **not measured here**.
+
+### 5.1 Why some route secessions fire early (t29–t62)
+
+The trace script is `trace-early.ts` in the harness. It reads the first non-tax declaration on each of the four seeds:
+
+| Seed | Tick | Port | Governor | Route | Grievance at the holder (`character-14`) at t0 → at the declaration | Relationship changes in between |
+| ---: | ---: | --- | --- | --- | --- | ---: |
+| 1000 | 29 | Cinder Key | character-15 | hated | 0.152 → 0.146 | 1 |
+| 2000 | 37 | Glassport | character-22 | hated | 0.145 → 0.139 | 1 |
+| 3000 | 30 | Cinder Key | character-19 | hated | 0.122 → 0.122 | 0 |
+| 8000 | 62 | Glassport | character-16 | hated | 0.106 → 0.170 | 3 |
+
+**Cause: grievance carried over from setup.** On 1000, 2000 and 3000 it is a setup artifact.
+- Each Free Tide member's relationship to the issuer of their standing order (Pax, `character-14`) is created at setup by `relationshipTo` (`src/sim/scenario.ts:372–379`). Its grievance is drawn uniformly from `rng.between(0, 0.16)` (`scenario.ts:205`). The loyalty bias moves only trust and respect (`:201`, `:203`).
+- So about (0.16 − 0.12) / 0.16 = 25% of these starting relationships are already over C's 0.12 line before anything happens.
+- On 1000 and 2000 the grievance only *fell* before the declaration (the −0.003 / −0.006 decays at `engine.ts:1705` and `:2932`). On 3000 it never changed. Those governors were "hated" from tick 0.
+- The early ticks themselves are the stability gate opening. The governor's news figure reaches 55 or below early on these seeds (41.72 and 38.75 at the declaration on 1000 and 3000).
+- **8000 is earned, not an artifact.** Grievance rose from 0.106 to 0.170 through three changes. That matches lost battles under Pax's order at +0.035 each (`engine.ts:1094`).
+- No contract or initial governor seat is involved. All four are the hated route, with no promise or tax term true.
+
+**The early-fire fix that was tested:** C ≥ 0.17. The seeded maximum is 0.16 (exclusive), so any grievance at 0.17 must have been earned. The other option, storing each relationship's seeded grievance and testing the rise above it, adds state and was not measured.
+
+### 5.2 Target, and a correction
+
+**Ruled (Lead): the route-caused reading is the accepted wipeout reading.** It was clarified after the first pass of the sweep, as recorded below; the end-state proxy is kept in the tables for reference only.
+
+The Lead's target was written down here before the sweep:
+- at least one non-tax secession on **10 or more** of 13 seeds;
+- a wipeout of World Government or Free Tide **newly caused by the routes** on **at most 1** of 13 seeds;
+- median B + C secessions **≤ flag-off median + 1**. The flag-off median is 3 (per seed: 1847 4, 2718 0, 4096 4, 1000 4, 2000 3, 3000 3, 4000 3, 5000 2, 6000 4, 7000 0, 8000 3, 9000 0, 10000 3), so the limit is 4.
+
+**Correction, made after the first pass of the sweep.** "Newly caused by the routes" was first scored with §5's end-state proxy: the faction holds no port at tick 1200 under B + C but held one with the flag off. That proxy counts wipeouts the routes did not cause.
+- On 7000 and 9000, under the last-port exemption below, Free Tide's last port goes to a **tax** secession at t1179 (7000) and to a **surrender claim** (9000). No route was involved.
+- Flag off already ends Free Tide with no port on 10 of 13 seeds, so the end state mostly reflects a different timeline.
+- The table therefore reports both readings:
+  - **end-state:** §5's rule, unchanged;
+  - **route-caused:** a non-tax declaration took a port that was its faction's last one (`heldBefore ≤ 1` at the declaration). This counts every time a route took a last port, including when the faction later won a port back.
+
+The last-port exemption and the grace-60 variants were added after the first pass, because the first pass met neither reading.
+
+### 5.3 Sweep: 13 seeds, 1,200 ticks, offline
+
+The engine patch is `routes-harness-v2.patch`, applied in a scratch worktree at `0bc5c76`. It adds three options, each applying only to declarations where the tax term is false:
+- **cooldown:** no route declaration within 240 ticks of the last one by the same faction;
+- **grace:** no route declaration within N ticks of the port's last `settlement-claimed` or `secession-declared` (tick 0 counts as the start);
+- **last-port exemption:** no route declaration on a port that is its faction's only held port.
+
+Promises stay at ≥ 10 breached contracts in 240 ticks (any cause). Runs use `sweep3.sh` and `run3.ts`, and the tables come from `sweep3-tab.py`. Readouts are `npm run dynamism -- --events <variant> --baseline <flag off> --json`. The accepted B + C row reproduces §5's hashes (for example 1847 `71d95ec7`, 1000 `48c20c12`, 7000 `976e8c61`).
+
+| Variant | Secessions min / median / max | Non-tax min / median / max | Seeds with ≥ 1 non-tax | End-state wipeouts vs flag off (seeds) | Route took a faction's last port (seeds) | Seeds > off + 2 | Port changes median | Desertions median | First route tick min / median | Target, end-state reading | Target, route-caused reading |
+| --- | --- | --- | ---: | --- | --- | --- | ---: | ---: | --- | --- | --- |
+| B + C as accepted (C ≥ 0.12) | 1 / 4 / 8 | 1 / 3 / 5 | 13 of 13 | 5: 1847 WG, 3000 WG, 5000 WG, 7000 FT, 9000 FT | 9: 1847 WG, 1000 FT, 2000 FT, 3000 FT, 5000 WG, 7000 WG, 8000 FT, 9000 FT+WG, 10000 FT | 3: 5000, 7000, 9000 | 43 | 4 | 29 / 114 | no | no |
+| C ≥ 0.14 | 1 / 4 / 7 | 1 / 3 / 5 | 13 of 13 | 5: 1847 WG, 2000 WG, 5000 WG, 7000 FT, 9000 FT | 6: 1847 WG, 1000 FT, 2000 WG, 5000 WG, 7000 FT, 9000 WG | 4: 2000, 5000, 7000, 9000 | 39 | 4 | 29 / 185 | no | no |
+| C ≥ 0.17 (early-fire fix: above the 0.16 seed ceiling) | 0 / 3 / 6 | 0 / 3 / 4 | 11 of 13 | 4: 1847 WG, 2000 WG, 7000 FT, 9000 FT | 6: 1847 FT, 4096 WG, 2000 FT, 3000 WG, 5000 WG, 9000 WG | 2: 7000, 9000 | 41 | 4 | 62 / 213 | no | no |
+| Cooldown 240 per faction | 1 / 3 / 5 | 1 / 2 / 4 | 13 of 13 | 3: 3000 WG, 7000 FT, 9000 FT | 7: 1847 FT, 4096 FT, 1000 FT, 3000 FT, 5000 WG, 6000 FT, 9000 FT+WG | 2: 7000, 9000 | 40 | 4 | 29 / 114 | no | no |
+| Grace 120 after ownership begins | 1 / 2 / 5 | 0 / 1 / 2 | 10 of 13 | 2: 2718 FT, 9000 FT | 2: 7000 FT, 10000 FT | 1: 2718 | 34 | 4 | 185 / 377.0 | no | no |
+| C 0.14 + cooldown | 1 / 3 / 6 | 1 / 2 / 4 | 13 of 13 | 2: 7000 FT, 9000 FT | 5: 4096 FT, 1000 FT, 2000 WG, 5000 WG, 6000 FT | 3: 2000, 7000, 9000 | 36 | 4 | 29 / 185 | no | no |
+| C 0.14 + grace | 0 / 2 / 5 | 0 / 1 / 2 | 8 of 13 | 1: 2718 FT | 2: 7000 FT, 10000 FT | 1: 2718 | 34 | 3 | 185 / 344.0 | no | no |
+| Cooldown + grace | 1 / 2 / 5 | 0 / 1 / 2 | 10 of 13 | 2: 2718 FT, 9000 FT | 2: 7000 FT, 10000 FT | 1: 2718 | 34 | 4 | 185 / 377.0 | no | no |
+| C 0.14 + cooldown + grace | 0 / 2 / 5 | 0 / 1 / 2 | 8 of 13 | 1: 2718 FT | 2: 7000 FT, 10000 FT | 1: 2718 | 34 | 3 | 185 / 344.0 | no | no |
+| C 0.17 + cooldown | 0 / 3 / 6 | 0 / 2 / 3 | 11 of 13 | 3: 1847 WG, 7000 FT, 9000 FT | 4: 4096 FT, 3000 WG, 5000 WG, 6000 FT | 3: 3000, 7000, 9000 | 38 | 5 | 62 / 213 | no | no |
+| C 0.17 + grace | 0 / 2 / 5 | 0 / 0 / 2 | 6 of 13 | 0 | 0 | 0 | 34 | 3 | 185 / 294.0 | no | no |
+| C 0.17 + cooldown + grace | 0 / 2 / 5 | 0 / 0 / 2 | 6 of 13 | 0 | 0 | 0 | 34 | 3 | 185 / 294.0 | no | no |
+| Grace 60 | 1 / 3 / 6 | 0 / 2 / 3 | 12 of 13 | 6: 1847 WG, 2718 FT, 2000 WG, 4000 WG, 7000 FT, 9000 FT | 3: 2000 WG, 8000 WG, 10000 FT | 3: 2718, 7000, 9000 | 36 | 4 | 185 / 368.5 | no | no |
+| Cooldown + grace 60 | 1 / 2 / 6 | 0 / 2 / 2 | 12 of 13 | 5: 1847 WG, 2718 FT, 2000 WG, 4000 WG, 7000 FT | 3: 2000 WG, 8000 WG, 10000 FT | 2: 2718, 7000 | 36 | 4 | 185 / 368.5 | no | no |
+| Last-port exemption | 1 / 4 / 8 | 1 / 3 / 5 | 13 of 13 | 2: 7000 FT, 9000 FT | 0 | 2: 7000, 9000 | 42 | 4 | 34 / 135 | no | **yes** |
+| Last-port exemption + cooldown | 1 / 3 / 5 | 1 / 2 / 3 | 13 of 13 | 3: 6000 WG, 7000 FT, 9000 FT | 0 | 2: 7000, 9000 | 40 | 4 | 34 / 135 | no | **yes** |
+| Last-port exemption + grace 60 | 1 / 3 / 6 | 0 / 2 / 3 | 12 of 13 | 5: 1847 WG, 2718 FT, 4000 WG, 7000 FT, 9000 FT | 0 | 3: 2718, 7000, 9000 | 36 | 4 | 185 / 368.5 | no | **yes** |
+| Last-port exemption + C 0.14 | 1 / 3 / 7 | 1 / 2 / 3 | 13 of 13 | 2: 7000 WG+FT, 9000 FT | 0 | 2: 7000, 9000 | 36 | 4 | 34 / 185 | no | **yes** |
+
+Per-seed secessions (non-tax in brackets):
+
+| Variant | 1847 | 2718 | 4096 | 1000 | 2000 | 3000 | 4000 | 5000 | 6000 | 7000 | 8000 | 9000 | 10000 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Flag off | 4 | 0 | 4 | 4 | 3 | 3 | 3 | 2 | 4 | 0 | 3 | 0 | 3 |
+| B + C as accepted (C ≥ 0.12) | 4 (2) | 1 (1) | 4 (3) | 1 (1) | 3 (3) | 5 (3) | 5 (1) | 5 (5) | 3 (3) | 8 (4) | 3 (3) | 4 (4) | 4 (4) |
+| C ≥ 0.14 | 4 (2) | 1 (1) | 4 (3) | 1 (1) | 6 (4) | 2 (2) | 5 (1) | 5 (5) | 3 (3) | 7 (3) | 1 (1) | 6 (3) | 3 (3) |
+| C ≥ 0.17 (early-fire fix: above the 0.16 seed ceiling) | 4 (3) | 0 (0) | 5 (4) | 1 (1) | 5 (3) | 5 (3) | 3 (0) | 3 (3) | 3 (3) | 4 (1) | 1 (1) | 6 (3) | 3 (3) |
+| Cooldown 240 per faction | 4 (2) | 1 (1) | 3 (2) | 1 (1) | 1 (1) | 5 (3) | 5 (1) | 3 (3) | 3 (3) | 4 (2) | 1 (1) | 4 (4) | 3 (3) |
+| Grace 120 after ownership begins | 5 (1) | 5 (1) | 2 (2) | 1 (1) | 3 (1) | 3 (0) | 3 (0) | 2 (0) | 2 (2) | 1 (1) | 2 (2) | 1 (1) | 2 (2) |
+| C 0.14 + cooldown | 4 (1) | 1 (1) | 2 (2) | 1 (1) | 6 (4) | 2 (2) | 5 (1) | 3 (3) | 3 (3) | 4 (1) | 1 (1) | 5 (2) | 3 (3) |
+| C 0.14 + grace | 5 (1) | 5 (1) | 3 (1) | 1 (1) | 3 (0) | 3 (0) | 3 (0) | 2 (0) | 2 (2) | 1 (1) | 2 (2) | 0 (0) | 2 (2) |
+| Cooldown + grace | 5 (1) | 5 (1) | 2 (2) | 1 (1) | 3 (1) | 3 (0) | 3 (0) | 2 (0) | 2 (2) | 1 (1) | 2 (2) | 1 (1) | 2 (2) |
+| C 0.14 + cooldown + grace | 5 (1) | 5 (1) | 3 (1) | 1 (1) | 3 (0) | 3 (0) | 3 (0) | 2 (0) | 2 (2) | 1 (1) | 2 (2) | 0 (0) | 2 (2) |
+| C 0.17 + cooldown | 5 (2) | 0 (0) | 2 (2) | 1 (1) | 5 (2) | 6 (2) | 3 (0) | 2 (2) | 3 (3) | 4 (1) | 1 (1) | 5 (2) | 2 (2) |
+| C 0.17 + grace | 5 (1) | 0 (0) | 3 (1) | 1 (1) | 3 (0) | 3 (0) | 3 (0) | 2 (0) | 2 (2) | 0 (0) | 2 (2) | 0 (0) | 1 (1) |
+| C 0.17 + cooldown + grace | 5 (1) | 0 (0) | 3 (1) | 1 (1) | 3 (0) | 3 (0) | 3 (0) | 2 (0) | 2 (2) | 0 (0) | 2 (2) | 0 (0) | 1 (1) |
+| Grace 60 | 6 (2) | 5 (1) | 2 (2) | 1 (1) | 4 (2) | 3 (0) | 5 (1) | 1 (1) | 2 (2) | 3 (2) | 2 (2) | 5 (3) | 2 (2) |
+| Cooldown + grace 60 | 6 (2) | 5 (1) | 2 (2) | 1 (1) | 4 (2) | 3 (0) | 5 (1) | 1 (1) | 2 (2) | 4 (1) | 2 (2) | 2 (2) | 2 (2) |
+| Last-port exemption | 4 (2) | 1 (1) | 4 (3) | 4 (3) | 1 (1) | 4 (3) | 5 (1) | 3 (2) | 3 (3) | 8 (4) | 5 (5) | 3 (3) | 3 (3) |
+| Last-port exemption + cooldown | 4 (2) | 1 (1) | 3 (3) | 4 (3) | 1 (1) | 4 (3) | 5 (1) | 3 (2) | 5 (3) | 4 (2) | 1 (1) | 3 (3) | 3 (3) |
+| Last-port exemption + grace 60 | 6 (2) | 5 (1) | 2 (2) | 1 (1) | 4 (2) | 3 (0) | 5 (1) | 1 (1) | 2 (2) | 3 (2) | 2 (2) | 5 (3) | 1 (1) |
+| Last-port exemption + C 0.14 | 4 (1) | 1 (1) | 4 (3) | 2 (2) | 5 (3) | 2 (2) | 5 (1) | 3 (2) | 3 (3) | 7 (3) | 1 (1) | 5 (2) | 3 (3) |
+
+**Reading.**
+- **No variant meets the end-state reading.** Every variant that keeps at least 10 seeds with a non-tax secession still ends Free Tide or World Government with no port, compared with the flag off, on 2 or more seeds. The variants that get this down to 0 or 1 (C 0.17 + grace, C 0.14 + grace) cut the coverage to 6–8 seeds.
+- **C 0.14, C 0.17, the cooldown and the grace periods do not stop routes taking a last port.** It still happens on 2–9 seeds. Grace 120 also leaves 3 seeds with no non-tax secession.
+- **The last-port exemption is the only option that makes route-caused wipeouts 0 by construction.** On its own it keeps 13 of 13 seeds with a non-tax secession and a median of 4 secessions.
+- **The exemption's two end-state wipeouts are not route-caused** (§5.2): on 7000 the last port went to a tax secession at t1179, and on 9000 to a surrender claim.
+- **Seeds above flag off + 2 remain on 7000 and 9000** (8 and 3 secessions under the exemption). Both have 0 secessions with the flag off.
+
+### 5.4 Recommendation
+
+**Default: B + C as accepted, plus the last-port exemption.** A route (promise or hated) never declares on a port that is its faction's only held port. Under the route-caused reading this is the simplest variant that meets the target: 13 of 13 seeds have a non-tax secession, route-caused wipeouts are 0, and the median is 4 against a limit of 4.
+- **Collapse stays possible but rare.** The tax route, raids and surrender claims can still take a last port. The routes alone cannot.
+- **Hash:** it reads only existing state. On the fixture seeds the first route declaration is at t185 or later, so the fixture is unchanged.
+- **The early fires stay.** The exemption does not remove the seeded-grievance early fires on 1000, 2000 and 3000 (first route tick median 135, min 34). Removing them would need C ≥ 0.17 (which costs coverage: 11 of 13, and on its own still leaves 6 route-caused wipeouts) or a stored seed grievance (not measured). This is the Lead's call.
+- **If the Lead keeps the end-state reading, nothing measured meets the target.** The nearest variants are C 0.14 + grace (8 of 13 seeds covered, 1 wipeout) and grace 120 or cooldown + grace (10 of 13 covered, 2 wipeouts).
+
+### 5.5 C on earned grievance (Lead's ruling)
+
+**Change.** C now tests the grievance **earned since the start**: the governor's current grievance at the holder or acting commander, minus that relationship's starting grievance, must be ≥ 0.12. A relationship created after setup has a starting value of 0; new relationships start at grievance 0 (`engine.ts:1695`). The run also has B (≥ 10 breached contracts to the port in 240 ticks, any cause) and the last-port exemption. Harness files: `routes-harness-v3.patch`, `run4.ts`, `sweep4.sh`, `tab4.py`, `fx4.ts`.
+
+**Where the starting value lives, and the 72-tick fixture.**
+- **Stored on the relationship:** a `grievanceStart` field written by `relationshipTo` (`scenario.ts:194–209`). This is added state. Flag off it **moves the fixture** to `774220c8/8496`, `93c944b1/8566` and `75f552e3/8486`, against `6efa334f` / `e8f9cfab` / `8ac8529b`. The event counts stay the same; only the hashed world changes.
+- **Derived, as measured:** rebuild the setup world from the seed and read the grievance from it. This is the pattern `desertion.ts:15–23` already uses for its fork seed (`createPrototypeWorld(seed)`, cached per seed). It adds no world state. With the route set on, the 72-tick fixture is `6efa334f/8496`, `e8f9cfab/8566` and `8ac8529b/8486`, **unchanged**.
+- **Recommended:** derive the value. The build should cache the setup grievances per seed, as `forkSeed` does.
+
+**Measurement fault, fixed.** The first pass of this sweep wrote the flag-off logs from two parallel jobs into the same file, which doubled the flag-off totals (1847 showed 8 secessions). The flag-off runs were regenerated one per seed and every comparison was rerun. The flag-off hashes now match §3 and §5 (`f80c529f`, `2b5060c0`, `e8ae4443`, `41999e3f`, `b9510dcc`). Only the corrected figures are shown.
+
+
+**B + C (earned ≥ 0.12) + last-port exemption**
+
+| Seed | Secessions off → run | Non-tax: route, port, tick | Route-caused last-port losses | First route tick | Port changes off → run | Desertions off → run | > off + 2 | End hash |
+| ---: | --- | --- | ---: | ---: | --- | --- | --- | --- |
+| 1847 | 4 → 5 | 2: promise crown-harbor t455; promise glassport t489 | 0 | 455 | 37 → 44 | 4 → 7 | no | `5641b4c4` |
+| 2718 | 0 → 1 | 1: hated crown-harbor t1012 | 0 | 1012 | 24 → 28 | 0 → 0 | no | `a6ff3924` |
+| 4096 | 4 → 4 | 2: promise crown-harbor t185; promise crown-harbor t189 | 0 | 185 | 44 → 46 | 5 → 6 | no | `b19aa02e` |
+| 1000 | 4 → 4 | 0: — | 0 | — | 34 → 34 | 4 → 4 | no | `41999e3f` |
+| 2000 | 3 → 5 | 2: promise glassport t327; promise crown-harbor t458 | 0 | 327 | 40 → 39 | 3 → 6 | no | `fe753dff` |
+| 3000 | 3 → 4 | 1: promise crown-harbor t356 | 0 | 356 | 45 → 32 | 3 → 4 | no | `691ff249` |
+| 4000 | 3 → 3 | 0: — | 0 | — | 28 → 28 | 3 → 3 | no | `c0861f7d` |
+| 5000 | 2 → 1 | 1: promise crown-harbor t213 | 0 | 213 | 33 → 43 | 6 → 4 | no | `f149a585` |
+| 6000 | 4 → 4 | 2: promise crown-harbor t283; promise crown-harbor t284 | 0 | 283 | 39 → 43 | 5 → 4 | no | `8e8e0142` |
+| 7000 | 0 → 0 | 0: — | 0 | — | 34 → 34 | 3 → 3 | no | `b9510dcc` |
+| 8000 | 3 → 4 | 2: promise crown-harbor t173; promise crown-harbor t210 | 0 | 173 | 47 → 44 | 2 → 6 | no | `277af91f` |
+| 9000 | 0 → 5 | 2: promise glassport t371; promise glassport t421 | 0 | 371 | 28 → 36 | 3 → 5 | **yes** | `308cbefb` |
+| 10000 | 3 → 3 | 3: promise glassport t307; promise glassport t308; promise glassport t439 | 0 | 307 | 21 → 26 | 5 → 5 | no | `0062501e` |
+
+| Across 13 seeds | Min | Median | Max |
+| --- | ---: | ---: | ---: |
+| Secessions, flag off | 0 | 3 | 4 |
+| Secessions, run | 0 | 4 | 5 |
+| Non-tax secessions | 0 | 2 | 3 |
+| Route-caused last-port losses | 0 | 0 | 0 |
+| Port changes | 26 | 36 | 46 |
+| Desertions | 0 | 4 | 7 |
+| First route tick | 173 | 317 | 1012 |
+
+Seeds with ≥ 1 non-tax secession: **10 of 13**; route-caused last-port losses: **0**; median 4 vs limit 4; seeds above off + 2: 1. Pass: **yes**.
+
+
+**Sensitivity check.**
+
+| Earned threshold | Seeds with ≥ 1 non-tax secession | Route-caused last-port losses | Secessions min / median / max | Seeds > off + 2 | Hated-route declarations (seeds) | First route tick min / median |
+| --- | ---: | ---: | --- | --- | --- | --- |
+| 0.10 | 11 of 13 | 0 | 0 / 4 / 5 | 1 (9000) | 2 (2718 t1012; 1000 t644), plus 10000 t308 together with promise | 173 / 327 |
+| **0.12** | **10 of 13** | **0** | **0 / 4 / 5** | **1 (9000)** | **1 (2718 t1012)** | **173 / 317** |
+| 0.14 | 10 of 13 | 0 | 0 / 4 / 5 | 1 (9000) | 1 (2718 t1012) | 173 / 317 |
+
+0.12 and 0.14 give identical end hashes on all 13 seeds. 0.10 differs only on 1000 (`463e83ef`). Full per-seed tables for 0.10 and 0.14 are in the harness output (`tab4.py`).
+
+**Early fires gone.** The earliest route declaration is now t173 (8000, promise). The t29–t62 hated fires on 1000, 2000, 3000 and 8000 no longer happen. Once earned grievance is the test, the hated route almost never fires: at 0.12 it declares once in 13 seeds. Most of the coverage now comes from broken promises.
+
+**Seeds 7000 and 9000.**
+- **7000** has 0 secessions, the same as flag off. It is not above flag off + 2, and it has no non-tax secession.
+- **9000** goes from 0 to 5, so it **is** above flag off + 2. By cause:
+
+| Cause | Count | Declarations (tick, port, faction, ports the faction held before) |
+| --- | ---: | --- |
+| Tax (rate > 0.15) | 3 | t629 Crown Harbor, FT, 2; t747 Cinder Key, FT, 1; t808 Cinder Key, FT, 1 |
+| Route B (promises) | 2 | t371 Glassport, FT, 2; t421 Glassport, WG, 2 |
+| Route C (hated) | 0 | — |
+| Other (player command) | 0 | — |
+
+Neither route declaration took a last port. The two declarations that took Free Tide's last port (t747 and t808) were tax declarations, on a timeline that changed after t371. Flag off reaches no secession on this seed at all.
+
+**Verdict: PASS.**
+- Coverage: 10 of 13 seeds have a non-tax secession ("most seeds").
+- Route-caused last-port losses: 0.
+- Median secessions: 4, against a limit of flag-off median 3 + 1 = 4.
+- One seed is above flag off + 2 (9000). Its extra secessions are mostly tax declarations; the two route declarations there did not take a last port.
+
+**Default for the build:** B (≥ 10 breached contracts to the port in 240 ticks) + C (earned grievance ≥ 0.12, with starting values derived from the setup world) + the last-port exemption. The 72-tick fixture is unchanged and the 1,200-tick pins move (1847 `5641b4c4`, 2718 `a6ff3924`, 4096 `b19aa02e`).
