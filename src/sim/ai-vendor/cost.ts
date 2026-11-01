@@ -44,7 +44,7 @@ export function jevCostUsd(tokensIn: number): number {
 
 export interface CostLine {
   tick: number;
-  role: "brain.taxStep" | "context.taxStep" | "picker.action" | "picker.social" | "brain.escalation" | "triage.score";
+  role: "brain.taxStep" | "context.taxStep" | "picker.action" | "picker.social" | "brain.escalation" | "triage.score" | "brain.feedReason" | "check.feedReason";
   provider: "deepseek" | "jev";
   model: string;
   responseModel: string | null;
@@ -60,7 +60,7 @@ export interface CostLine {
   runSpendUsd: number;
   outcome: "model" | "fallback";
   /** Why the call fell back: cap, timeout, error, illegal; null on model. Never a header or key. */
-  fallbackReason: "cap" | "timeout" | "error" | "illegal" | null;
+  fallbackReason: "cap" | "timeout" | "error" | "illegal" | "missing-key" | null;
   /** HTTP status, or null when the vendor was never reached. */
   status: number | null;
   priceSource: string;

@@ -1,4 +1,5 @@
 import { beginGovernorLevy, endGovernorLevy, governorId, governorLevyRate } from "./governor.ts";
+import { annotateFeedReasons, type FeedReasonOptions } from "./feed-reasons.ts";
 import { applySilentTickStart } from "./tick-start.ts";
 import { DeterministicRng } from "./rng.ts";
 import {
@@ -3570,6 +3571,11 @@ export interface TickAiOptions {
    * only reports the lines each tick added, as `TickResult.aiCost`.
    */
   ledger?: CostLedger;
+  /**
+   * Slice B (feed-reasons.md): `ai.reasons`. Annotates headline events with
+   * the feed reason after the tick. Unset: nothing runs, events unchanged.
+   */
+  feedReasons?: FeedReasonOptions;
 }
 
 /** Slice A3: only Free Tide's tax step is put to the provider. */
@@ -4553,6 +4559,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     type: "tick-advanced",
     data: { nextTick: world.tick + 1, rngState: rng.state },
   });
+  if (options.ai?.feedReasons) annotateFeedReasons(world, events, options.ai.feedReasons);
   if (!aiTrace) return { state: world, events };
   const ledger = options.ai?.ledger;
   return ledger ? { state: world, events, aiTrace, aiCost: ledger.lines.slice(costBefore) } : { state: world, events, aiTrace };
