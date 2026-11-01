@@ -2,13 +2,26 @@ import { sha256 } from "./ai-provider.ts";
 import { canonicalJson } from "./state.ts";
 
 /**
- * Slice 5, triage (docs/design/jev-triage.md). Four Nouls ride on the picker's
- * own Jev request (§4.1); any `noul ≥ 0.6` flags (§1, §6 ruling 1). A flag
- * escalates the decision to the brain while the run's budget (50) lasts and the
- * actor is off its 24-tick cooldown (§4.2). The brain answers one legal option
- * id (§4.3); anything else falls back to the picker's sample (§4.4). Flag off
- * (no `TickAiOptions.triage`) never reaches this module.
+ * Slice 5, triage (docs/design/jev-triage.md). Lead rulings (2026-10-31, rework):
+ * triage is its OWN scoring request (role `triage.score`), never part of the
+ * picker's Choice request, which stays byte-for-byte the picker-only request.
+ * It scores the decision kinds the probe set covered, for every actor whose
+ * decision reaches them: tax steps, desertion, secession, surrender/claim
+ * (a raid or claim-settlement is legal) and contract break (a carrier about
+ * to divert from an accepted haul). Routine moves are not scored.
+ * Any `noul ≥ 0.6` flags (§6 ruling 1). A flag escalates to the brain while
+ * the run's budget (50) lasts and the actor is off its 24-tick cooldown (§4.2).
+ * The brain answers one legal option id (§4.3); anything else falls back to
+ * the default (what the sim would have done) (§4.4). Without escalation the
+ * default is applied unchanged, so picks equal the run without triage.
+ * Flag off (no `TickAiOptions.triage`) never reaches this module.
  */
+
+export const TRIAGE_KINDS = ["tax", "desertion", "secession", "claim", "contract-break"] as const;
+export type TriageKind = typeof TRIAGE_KINDS[number];
+export const TRIAGE_ROLE = "triage.score";
+/** Per-run scoring call cap (run memory). */
+export const TRIAGE_DEFAULT_SCORE_CAP = 4000;
 
 export const TRIAGE_TESTS = ["port_holding", "faction_number", "allegiance_freedom", "broken_promise"] as const;
 export type TriageTest = typeof TRIAGE_TESTS[number];
@@ -38,6 +51,7 @@ export const BRAIN_TEMPLATE = [
   "You are {name} ({actorId}), deciding what to do next. Your temperament (0 to 1): {persona}. Your purse: {purse} coins.",
   "What you know: {briefing}",
   "Your social read: {social}",
+  "The decision ({kind}): {situation}",
   "This decision was flagged as weighty for: {flagged}.",
   "Legal options: {legal}",
   "Reply with one option id from the list as JSON.",
@@ -62,16 +76,41 @@ export function sanitizeNoul(raw: unknown): Record<TriageTest, number> | null {
   return Object.keys(out).length ? out as Record<TriageTest, number> : null;
 }
 
-/** §4.1: the decision situation the Nouls read. */
-export function decisionSituation(tick: number, actorId: string, settlementId: string | null, legal: string[]) {
-  return { tick, kind: "decision", actorId, settlementId, facts: { legalOptions: [...legal] } };
+/** §1(b): the situation the Nouls read: explicit kind, actor, facts and options; no briefing. */
+export interface TriageSituation { tick: number; kind: string; actorId: string; targetId: string | null; settlementId: string | null; facts: Record<string, unknown> }
+
+export interface TriageScoreRequest { tick: number; actorId: string; kind: TriageKind; situation: TriageSituation; questions: typeof TRIAGE_QUESTIONS; promptVersion: string }
+export interface TriageScoreAnswer { noul: unknown; latencyMs: number; error?: "timeout" | "error" | "cap" }
+/** The separate scoring seam: one request per triaged decision. */
+export interface TriageScorer { readonly name: string; readonly model: string; score(request: TriageScoreRequest): TriageScoreAnswer }
+
+/** Offline stub scorers (§4.7). */
+export function stubScorer(fn: (request: TriageScoreRequest) => Partial<Record<TriageTest, number>>, name = "stubScorer"): TriageScorer & { calls: number } {
+  const scorer = { name, model: "stub", calls: 0, score(request: TriageScoreRequest): TriageScoreAnswer { scorer.calls += 1; return { noul: fn(request), latencyMs: 0 }; } };
+  return scorer;
 }
+export const neverScorer = () => stubScorer(() => NEVER_FLAG(), "stubNever");
+export const alwaysScorer = () => stubScorer(() => ALWAYS_FLAG(), "stubAlways");
+/** Flags the test each kind is about (the probe labels), at 0.9. */
+export const KIND_TESTS: Record<TriageKind, TriageTest[]> = {
+  tax: ["faction_number"], desertion: ["allegiance_freedom"], secession: ["port_holding", "faction_number", "allegiance_freedom"],
+  claim: ["port_holding"], "contract-break": ["broken_promise"],
+};
+export const kindScorer = () => stubScorer((r) => ({ ...NEVER_FLAG(), ...Object.fromEntries(KIND_TESTS[r.kind].map((t) => [t, 0.9])) }), "stubKind");
 
 /** Run memory (§4.2). Not on the world; recomputed in event order on replay. */
 export interface TriageState { budgetLeft: number; cooldownUntil: Record<string, number> }
 
 export interface TriageRecord {
+  kind: TriageKind;
+  /** The actor's role at the decision: faction holder, governor, carrier, member or factionless. */
+  actorRole: string;
   promptVersion: string;
+  inputHash: string;
+  /** Scoring outcome: model, or why no scores came back. */
+  scoreOutcome: "model" | "timeout" | "error" | "cap";
+  legal: string[];
+  defaultChoice: string;
   noul: Record<TriageTest, number> | null;
   threshold: number;
   flagged: TriageTest[];
@@ -83,7 +122,7 @@ export interface TriageRecord {
 }
 
 /** §4.2: deterministic given the scores; spends budget and starts the cooldown. */
-export function triageStep(state: TriageState, actorId: string, tick: number, noul: Record<TriageTest, number> | null, threshold: number = TRIAGE_THRESHOLD, cooldownTicks: number = TRIAGE_COOLDOWN_TICKS): TriageRecord {
+export function triageStep(state: TriageState, actorId: string, tick: number, noul: Record<TriageTest, number> | null, threshold: number = TRIAGE_THRESHOLD, cooldownTicks: number = TRIAGE_COOLDOWN_TICKS): Omit<TriageRecord, "kind" | "actorRole" | "inputHash" | "scoreOutcome" | "legal" | "defaultChoice"> {
   const flagged = flaggedTests(noul, threshold);
   const until = state.cooldownUntil[actorId];
   let escalated = false;
@@ -99,6 +138,8 @@ export function triageStep(state: TriageState, actorId: string, tick: number, no
 export interface EscalationRequest {
   tick: number;
   actorId: string;
+  kind: TriageKind;
+  situation: TriageSituation;
   name: string;
   persona: Record<string, number>;
   purse: number;
@@ -106,6 +147,8 @@ export interface EscalationRequest {
   social: unknown;
   flagged: TriageTest[];
   legal: string[];
+  /** What the sim does without the brain (not sent in the prompt). */
+  defaultChoice: string;
   promptVersion: string;
 }
 
@@ -135,7 +178,7 @@ export interface BrainRecord {
   choice: string;
   outcome: "model" | "fallback";
   fallbackReason: BrainFallbackReason | null;
-  /** The picker's sampled row, the first fallback (§4.4). */
+  /** The default (the sim's own choice, the picker's sample on a picked row), the fallback (§4.4). */
   pickerSampled: string;
   latencyMs: number;
 }
@@ -147,6 +190,8 @@ export function brainUserPrompt(request: EscalationRequest): string {
     purse: String(request.purse),
     briefing: request.briefing ? canonicalJson(request.briefing) : "none",
     social: request.social ? canonicalJson(request.social) : "none",
+    kind: request.kind,
+    situation: canonicalJson(request.situation),
     flagged: request.flagged.join(", "),
     legal: request.legal.join(", "),
   };
@@ -165,6 +210,7 @@ export function parseBrainChoice(raw: string | null, legal: string[]): string | 
 
 /** §4.4: legal id, else the picker's sample, else `candidates[0]`. */
 export function finishBrain(request: EscalationRequest, answer: EscalationAnswer, provider: string, model: string, inputHash: string, pickerSampled: string, scorerPick: string, live: boolean): BrainRecord {
+  // §4.4 fallback order: the default, then the first legal id.
   let fallbackReason: BrainFallbackReason | null = answer.error ?? (live && answer.latencyMs > BRAIN_TIMEOUT_MS ? "timeout" : null);
   const raw = answer.finishReason === "length" ? null : answer.raw;
   const parsed = fallbackReason ? null : parseBrainChoice(raw, request.legal);
@@ -174,21 +220,27 @@ export function finishBrain(request: EscalationRequest, answer: EscalationAnswer
 }
 
 /** §4.5 replay: the recorded triage and brain per (tick, actor); no vendor is called. */
-export class TriageReplay implements EscalationBrain {
+export interface TriageEntry { tick: number; actorId: string; triage: TriageRecord; brain?: BrainRecord; applied: string }
+
+export class TriageReplay implements EscalationBrain, TriageScorer {
   readonly name = "replay";
   readonly model = "replay";
   calls = 0;
   used = 0;
   private readonly records = new Map<string, { triage: TriageRecord; brain?: BrainRecord }>();
   constructor(entries: Iterable<{ tick: number; actorId: string; triage?: TriageRecord; brain?: BrainRecord }>) {
-    for (const entry of entries) if (entry.triage) this.records.set(`${entry.tick}:${entry.actorId}`, { triage: entry.triage, brain: entry.brain });
+    for (const entry of entries) if (entry.triage) this.records.set(`${entry.tick}:${entry.actorId}:${entry.triage.kind}`, { triage: entry.triage, brain: entry.brain });
   }
   get size(): number { return this.records.size; }
-  recorded(tick: number, actorId: string): { triage: TriageRecord; brain?: BrainRecord } {
-    const found = this.records.get(`${tick}:${actorId}`);
-    if (!found) throw new Error(`triage replay: no record for ${actorId} at tick ${tick}`);
+  recorded(tick: number, actorId: string, kind: TriageKind): { triage: TriageRecord; brain?: BrainRecord } {
+    const found = this.records.get(`${tick}:${actorId}:${kind}`);
+    if (!found) throw new Error(`triage replay: no record for ${actorId} ${kind} at tick ${tick}`);
     this.used += 1;
     return found;
+  }
+  score(): TriageScoreAnswer {
+    this.calls += 1;
+    throw new Error("triage replay: the scorer must not be called");
   }
   escalate(): EscalationAnswer {
     this.calls += 1;
@@ -196,10 +248,6 @@ export class TriageReplay implements EscalationBrain {
   }
 }
 
-/** Stubs (§4.7). Offline and synchronous. */
-export function stubNoul(fn: (legal: string[], tick: number, actorId: string) => Record<TriageTest, number>) {
-  return fn;
-}
 export const NEVER_FLAG = () => ({ port_holding: 0, faction_number: 0, allegiance_freedom: 0, broken_promise: 0 });
 export const ALWAYS_FLAG = () => ({ port_holding: 1, faction_number: 0, allegiance_freedom: 0, broken_promise: 0 });
 
@@ -213,6 +261,10 @@ export function stubBrain(pick: (request: EscalationRequest) => string | null, n
   return brain;
 }
 /** The last legal id: a deterministic answer that often differs from the picker. */
+/** The first legal id other than the default: always overrides. */
+export function stubBrainOther(): EscalationBrain & { calls: number } {
+  return stubBrain((request) => request.legal.find((id) => id !== request.defaultChoice) ?? request.legal[0], "stubBrainOther");
+}
 export function stubBrainLast(): EscalationBrain & { calls: number } {
   return stubBrain((request) => request.legal[request.legal.length - 1], "stubBrainLast");
 }
