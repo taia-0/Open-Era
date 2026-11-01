@@ -8,17 +8,8 @@ import {
   PRICE_FRESHNESS_TICKS,
 } from "../src/sim/agency.ts";
 import { submitCommand } from "../src/sim/commands.ts";
-import {
-  marketDepth,
-  passageCost,
-  PASSAGE_COST_PER_TICK,
-  priceDriftPerTick,
-  provisionResupplyTarget,
-  runTick,
-  runTicks,
-  tradeAmounts,
-  tradeQuote,
-} from "../src/sim/engine.ts";
+import { marketDepth, passageCost, PASSAGE_COST_PER_TICK, priceDriftPerTick, provisionResupplyTarget, tradeAmounts, tradeQuote } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { marketPrice, round } from "../src/sim/state.ts";
 import { RESOURCE_KEYS, type ResourceKey, type WorldState } from "../src/sim/types.ts";

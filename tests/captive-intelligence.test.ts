@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { dashboardState, fullEventFeed } from "../src/dashboard/view-model.ts";
 import { captiveIntelFor, projectCharacter, type CaptiveIntel } from "../src/dashboard/visibility.ts";
-import { runTick, runTicks } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "./helpers/exile-off.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { partyPower, partyPowerFromTroops, stateHash } from "../src/sim/state.ts";

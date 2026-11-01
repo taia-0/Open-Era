@@ -12,7 +12,8 @@ import {
 import { CostLedger } from "../src/sim/ai-vendor/cost.ts";
 import { deepSeekEscalationBody, deepSeekEscalationBrain } from "../src/sim/ai-vendor/deepseek.ts";
 import { jevActionPicker, jevPickerRequestBody, jevTriageScorer } from "../src/sim/ai-vendor/jev.ts";
-import { runTick, type TickAiOptions } from "../src/sim/engine.ts";
+import { type TickAiOptions } from "../src/sim/engine.ts";
+import { runTick } from "./helpers/exile-off.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";

@@ -10,7 +10,8 @@ import { CostLedger, DEEPSEEK_PRICES, deepSeekCostUsd, deepSeekPricePeriod, JEV_
 import { DEEPSEEK_MAX_TOKENS, DEEPSEEK_MODEL, DEEPSEEK_URL, deepSeekBrain, deepSeekRequestBody, deepSeekWorstCaseUsd } from "../src/sim/ai-vendor/deepseek.ts";
 import { JEV_MODEL, JEV_URL, jevContextReader, jevRequestBody } from "../src/sim/ai-vendor/jev.ts";
 import { workerTransport, type SyncRequest, type SyncResponse, type SyncTransport } from "../src/sim/ai-vendor/sync-http.ts";
-import { runTick, runTicks, type TickAiOptions } from "../src/sim/engine.ts";
+import { type TickAiOptions } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "./helpers/exile-off.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { canonicalJson, stateHash } from "../src/sim/state.ts";

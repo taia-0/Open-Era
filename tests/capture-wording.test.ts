@@ -8,7 +8,7 @@ import {
   characterCapturedSentence,
   higherScoreClause,
 } from "../src/dashboard/wording.ts";
-import { runTicks } from "../src/sim/engine.ts";
+import { runTicks } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { round, stateHash } from "../src/sim/state.ts";
 import type { Character, SimEvent, WorldState } from "../src/sim/types.ts";

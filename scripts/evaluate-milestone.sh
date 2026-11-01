@@ -20,10 +20,15 @@ npm test 2>&1 | tee "${evaluation_output}/tests.log"
 echo "Running the 13-seed FT-portless property"
 node --experimental-strip-types scripts/ft-portless-property.ts 2>&1 | tee "${evaluation_output}/ft-portless-property.log"
 
+# after-triage.md (b): EXILE_RECOVERY is on by default; the 13-seed sweep (off = opt-out, on = default) is the property gate.
+echo "Running the 13-seed exile sweep"
+node --experimental-strip-types scripts/exile-sweep.ts 2>&1 | tee "${evaluation_output}/exile-sweep.log"
+grep -q "EXILE ACCEPTANCE PASSED" "${evaluation_output}/exile-sweep.log"
+
 # Slice B feed reasons (feed-reasons.md section 10): stub brain on, 1,200 ticks,
-# stateHash equal to the flag-off pins; then an offline replay with zero writer
+# stateHash equal to the default pins (EXILE_RECOVERY on); then an offline replay with zero writer
 # calls and byte-identical feed text.
-declare -A feed_reason_pins=([1847]=b51aa07a [2718]=091f7628 [4096]=25bdbf15)
+declare -A feed_reason_pins=([1847]=94de9c02 [2718]=7a3741c9 [4096]=af6eeaea)
 for evaluation_seed in 1847 2718 4096; do
   feed_dir="${evaluation_output}/feed-reasons-${evaluation_seed}"
   echo "Running feed reasons (stub) for seed ${evaluation_seed}"

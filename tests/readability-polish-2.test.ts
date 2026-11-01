@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { checkInEvents, dashboardState, fullEventFeed, projectEventFeed } from "../src/dashboard/view-model.ts";
 import { projectCharacter } from "../src/dashboard/visibility.ts";
-import { runTicks } from "../src/sim/engine.ts";
+import { runTicks } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { round, stateHash } from "../src/sim/state.ts";
 import type { SimEvent, WorldState } from "../src/sim/types.ts";

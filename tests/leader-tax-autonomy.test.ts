@@ -6,7 +6,7 @@ import test from "node:test";
 import { projectEventFeed } from "../src/dashboard/view-model.ts";
 import { projectFactions } from "../src/dashboard/visibility.ts";
 import { submitCommand } from "../src/sim/commands.ts";
-import { runTick, runTicks } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "./helpers/exile-off.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { applyEvent, stateHash } from "../src/sim/state.ts";

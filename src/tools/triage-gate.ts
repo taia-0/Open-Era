@@ -28,8 +28,14 @@ export const PROBE_ACCEPTED: Partial<Record<string, { precision: number; reason:
 };
 export const BRAIN_CALL_CAP = TRIAGE_BUDGET;
 export const BRAIN_SPEND_CAP_USD = 0.25;
-/** The current pins (the spec's §4.7 item 2 lists the older #144 pins; port balance #154 moved them). */
+/** The current pins with triage off, at the default (EXILE_RECOVERY on; after-triage.md (b) re-pin). */
 export const FLAG_OFF_PINS: Record<number, { t72: string; t1200: string }> = {
+  1847: { t72: "7f76e474", t1200: "94de9c02" },
+  2718: { t72: "976c40bd", t1200: "7a3741c9" },
+  4096: { t72: "08943ea5", t1200: "af6eeaea" },
+};
+/** The pre-default pins, reproduced by the opt-out `exileRecovery: false` (port balance #154). */
+export const OPT_OUT_PINS: Record<number, { t72: string; t1200: string }> = {
   1847: { t72: "66e8ccb7", t1200: "b51aa07a" },
   2718: { t72: "b4ccedab", t1200: "091f7628" },
   4096: { t72: "b04c5ac4", t1200: "25bdbf15" },
@@ -62,13 +68,13 @@ export function probeCheck(dir: string, threshold = TRIAGE_THRESHOLD) {
 
 /** Check 2: flag-off runs against the pins. */
 export function flagOffCheck(seeds = [1847, 2718, 4096]) {
-  const rows = seeds.map((seed) => {
+  const rows = seeds.flatMap((seed) => ([["default", FLAG_OFF_PINS], ["opt-out", OPT_OUT_PINS]] as const).map(([mode, pins]) => {
     const world = createPrototypeWorld(seed);
     let t72 = "";
-    for (let i = 0; i < 1200; i++) { runTick(world); if (world.tick === 72) t72 = stateHash(world).slice(0, 8); }
+    for (let i = 0; i < 1200; i++) { runTick(world, mode === "opt-out" ? { exileRecovery: false } : {}); if (world.tick === 72) t72 = stateHash(world).slice(0, 8); }
     const t1200 = stateHash(world).slice(0, 8);
-    return { seed, t72, t1200, ok: t72 === FLAG_OFF_PINS[seed]?.t72 && t1200 === FLAG_OFF_PINS[seed]?.t1200 };
-  });
+    return { seed, mode, t72, t1200, ok: t72 === pins[seed]?.t72 && t1200 === pins[seed]?.t1200 };
+  }));
   return { rows, pass: rows.every((r) => r.ok) };
 }
 

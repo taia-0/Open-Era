@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { CostLedger } from "../src/sim/ai-vendor/cost.ts";
 import type { SyncTransport } from "../src/sim/ai-vendor/sync-http.ts";
-import { runTick } from "../src/sim/engine.ts";
+import { runTick } from "./helpers/exile-off.ts";
 import {
   annotateFeedReasons, raidCause, FEED_REASON_CALL_CAP, FEED_REASON_CALL_CAP_EXILE, FEED_REASON_CAP_USD, feedReasonCallCap, buildFeedFacts, deepSeekFeedReasonWriter, feedReasonKind, feedReasonReplay, jevFeedReasonChecker,
   stubFeedReasonWriter, validateFeedReason, withFeedReason, type FeedReasonOptions, type FeedReasonRecord,

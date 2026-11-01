@@ -13,7 +13,8 @@ import {
 import { stubAgree } from "../src/sim/ai-provider.ts";
 import { CostLedger } from "../src/sim/ai-vendor/cost.ts";
 import { jevActionPicker } from "../src/sim/ai-vendor/jev.ts";
-import { runTick, type TickAiOptions, type TickOptions } from "../src/sim/engine.ts";
+import { type TickAiOptions, type TickOptions } from "../src/sim/engine.ts";
+import { runTick } from "./helpers/exile-off.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { canonicalJson, stateHash } from "../src/sim/state.ts";

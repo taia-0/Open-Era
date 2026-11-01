@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { projectEventFeed } from "../src/dashboard/view-model.ts";
 import { captivityReleasedChronicle, captivityReleasedSentence, ransomIncomeNote } from "../src/dashboard/wording.ts";
-import { runTick, runTicks } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "./helpers/exile-off.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { applyEvent, captorPartyLeader, round, splitRansom, stateHash } from "../src/sim/state.ts";

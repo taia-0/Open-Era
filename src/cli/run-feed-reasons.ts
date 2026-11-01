@@ -29,6 +29,7 @@ const { values } = parseArgs({
     "cap-usd": { type: "string", default: String(FEED_REASON_CAP_USD) },
     "max-calls": { type: "string" },
     "exile-recovery": { type: "boolean", default: false },
+    "no-exile-recovery": { type: "boolean", default: false },
     output: { type: "string" },
     replay: { type: "string" },
   },
@@ -40,14 +41,15 @@ if (replayDir) {
   if (values["ai-vendor"]) throw new Error("--replay runs offline");
   globalThis.fetch = (() => { throw new Error("network is disabled during --replay"); }) as typeof fetch;
   recorded = JSON.parse(readFileSync(join(replayDir, "summary.json"), "utf8"));
-  values.seed = String(recorded!.seed); values.ticks = String(recorded!.ticks); values["exile-recovery"] = recorded!.exileRecovery;
+  values.seed = String(recorded!.seed); values.ticks = String(recorded!.ticks); values["no-exile-recovery"] = recorded!.exileRecovery === false;
   replayMap = new Map(readFileSync(join(replayDir, "reasons.jsonl"), "utf8").trim().split("\n").filter(Boolean)
     .map((line) => JSON.parse(line) as { sequence: number; reason: FeedReasonRecord }).map((row) => [row.sequence, row.reason]));
 }
 const seed = Number.parseInt(values.seed!, 10);
 const ticks = Number.parseInt(values.ticks!, 10);
 const vendor = values["ai-vendor"] === true;
-const exileRecovery = values["exile-recovery"] === true;
+// after-triage.md (b): on by default; --no-exile-recovery or EXILE_RECOVERY=0 opts out.
+const exileRecovery = !(values["no-exile-recovery"] === true || process.env.EXILE_RECOVERY === "0");
 const output = resolve(values.output ?? (replayDir ? join(replayDir, "replay") : join("simulation-output", "feed-reasons", `${vendor ? "vendor" : "stub"}-${seed}-${ticks}`)));
 mkdirSync(output, { recursive: true });
 const costPath = join(output, "cost.jsonl");
@@ -68,7 +70,7 @@ const feedReasons: FeedReasonOptions = {
 const world = createPrototypeWorld(seed);
 const headline: SimEvent[] = [];
 for (let index = 0; index < ticks; index += 1) {
-  const result = runTick(world, { ...(exileRecovery ? { exileRecovery: true } : {}), ai: { feedReasons } });
+  const result = runTick(world, { exileRecovery, ai: { feedReasons } });
   for (const event of result.events) if (feedReasonKind(event)) headline.push(event);
 }
 const finalHash = stateHash(world);

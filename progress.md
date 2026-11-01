@@ -31,7 +31,9 @@ Git remains the complete history. This file exists for three things git does not
 ## Current state
 
 - **Baseline:** `origin/main` `7515445`; `feature/port-balance` adds home starts and Cinder Key fortification 1.5 (unmerged).
-- **Pins (port-balance):** 72 ticks `66e8ccb7` / `b4ccedab` / `b04c5ac4` (8239 / 8177 / 8404). 1,200 ticks `b51aa07a` / `091f7628` / `25bdbf15` (156382 / 157208 / 160697).
+- **Pins (default, EXILE_RECOVERY on — `feature/exile-default`):** 72 ticks `7f76e474` / `976c40bd` / `08943ea5` (8247 / 8155 / 8457). 1,200 ticks `94de9c02` / `7a3741c9` / `af6eeaea` (160337 / 157701 / 162679).
+- **Pins (opt-out `exileRecovery: false` / `--no-exile-recovery` / `EXILE_RECOVERY=0`, = the port-balance pins):** 72 ticks `66e8ccb7` / `b4ccedab` / `b04c5ac4` (8239 / 8177 / 8404). 1,200 ticks `b51aa07a` / `091f7628` / `25bdbf15` (156382 / 157208 / 160697).
+- **Feed-reasons stub baseline (default):** 188 / 169 / 194 events on 1847 / 2718 / 4096.
 - **Last verified:** `npm test` (600) and `./scripts/evaluate-milestone.sh port-balance` with the 13-seed FT-portless property (see the port-balance entry).
 - **Runtime:** Node 24.21.0, pinned by `.node-version`.
 
@@ -152,6 +154,23 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-11-01 — EXILE_RECOVERY on by default (after-triage.md (b)) (Cursor)
+
+- **Change:** `EXILE_RECOVERY_DEFAULT = true` in `engine.ts`. A `runTick` without `exileRecovery` now runs exile recovery, and feed reasons inherit it. The opt-out is `exileRecovery: false`, or `--no-exile-recovery` / `EXILE_RECOVERY=0` on `run-simulation` and `run-feed-reasons` (`--exile-recovery` is still accepted, as a no-op). `scripts/exile-sweep.ts` compares the opt-out with the default and now runs in `evaluate-milestone.sh` as the property gate. feedReasons is unchanged (opt-in). The "WG keeps a port" target is dropped.
+- **Pins:** the opt-out reproduces the old pins exactly (66e8ccb7/b4ccedab/b04c5ac4 at 72 ticks; b51aa07a/091f7628/25bdbf15 at 1,200; tested in exile-recovery.test.ts and triage-gate `flagOffCheck`). New default pins: 72 ticks 7f76e474/976c40bd/08943ea5 (8247/8155/8457); 1,200 ticks 94de9c02/7a3741c9/af6eeaea (160337/157701/162679).
+- **Re-pinned** (assertions now on the default):
+  - `tests/fixtures/golden-hashes.json` via `npm run golden:update` (golden.test.ts, including the recovery split);
+  - `ai-pilot-b.test.ts` "1. off is off" (runs the default against the fixture);
+  - `src/tools/triage-gate.ts` `FLAG_OFF_PINS` (default; the old pins kept as `OPT_OUT_PINS` and checked too);
+  - `scripts/evaluate-milestone.sh` `feed_reason_pins` (94de9c02/7a3741c9/af6eeaea).
+- **Moved to the opt-out, no assertion changed or loosened:** these files import `runTick`/`runTicks` from `tests/helpers/exile-off.ts` (engine with `exileRecovery: false` unless given), the way `old-starts.ts` handled port balance. They assert the pre-default timeline (named ticks, captains, offers, flag-off pins): `ai-picker.test.ts`, `ai-pilot-a.test.ts`, `ai-providers.test.ts`, `batch2-polish.test.ts`, `breakaway-polish-feed.test.ts`, `captive-intelligence.test.ts`, `capture-wording.test.ts`, `contract-feed-polish.test.ts`, `contract-haul.test.ts`, `desertion-recovery.test.ts`, `economy.test.ts`, `feed-reasons.test.ts`, `jev-action-picker.test.ts`, `jev-full-choice.test.ts`, `jev-social-picker.test.ts`, `jev-triage.test.ts`, `leader-tax-autonomy.test.ts`, `raise-shock.test.ts`, `ransom-split.test.ts`, `readability-polish-2.test.ts`, `readability-polish-3.test.ts`, `secession-routes.test.ts`, `survey.test.ts`; `ai-pilot-b.test.ts` (other tests); `exile-recovery.test.ts` (the flag-off pin test, renamed "opt-out", passes `exileRecovery: false`).
+- **Acceptance** (no paid calls):
+  - The 13-seed sweep passes. The secession median is 3 with the opt-out and 2 by default, within ±1; 12 of 13 seeds have at least one secession, against 7 needed.
+  - Totals match after-triage.md: claims 437 → 682, port changes 479 → 713, portless raids 245 → 360, desertions 58 → 66, secessions 42 → 31.
+  - The dynamism readouts (`npm run dynamism`, default against the opt-out baseline) match the sweep rows. Claims 26→51 / 25→64 / 39→56 and port changes 30→52 / 25→64 / 43→59; secessions 4→1 / 0→0 / 4→3; desertions 3→4 / 2→2 / 4→7.
+  - The feed stub gate on the default gives 188/169/194 events, the new baseline, with replay exact.
+- **Verified:** `npm test` 636/636 offline with the keys unset; `./scripts/evaluate-milestone.sh exile-default` passes, including the sweep, the FT-portless property and the recovery split at 7f76e474.
 
 ### 2026-11-01 — Feed reasons follow-up: Jev check opt-in, raid causes (Cursor)
 

@@ -12,7 +12,7 @@ import {
   fullEventFeed,
   projectEventFeed,
 } from "../src/dashboard/view-model.ts";
-import { runTick, runTicks } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "./helpers/exile-off.ts";
 import { WorldStore } from "../src/sim/persistence.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";

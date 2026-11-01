@@ -3,7 +3,8 @@ import test from "node:test";
 import { stubContextEcho } from "../src/sim/ai-context.ts";
 import { indexAt, pick, pickerDraw, PickerReplay, stubArgmax, stubScripted, stubUniform, type PickerRecord } from "../src/sim/ai-picker.ts";
 import type { TaxStepProvider, TaxStepTraceEntry } from "../src/sim/ai-provider.ts";
-import { runTick, type TickAiOptions } from "../src/sim/engine.ts";
+import { type TickAiOptions } from "../src/sim/engine.ts";
+import { runTick } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { stateHash } from "../src/sim/state.ts";
 

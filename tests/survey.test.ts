@@ -5,7 +5,8 @@ import { dashboardState, fullEventFeed, projectEventFeed } from "../src/dashboar
 import { directObservation } from "../src/sim/agency.ts";
 import { combatForecast } from "../src/sim/combat.ts";
 import { ACTION_CAPABILITIES, COMMAND_LIMITS, submitCommand } from "../src/sim/commands.ts";
-import { passageCost, quotedPassage, runTick, runTicks, travelDuration } from "../src/sim/engine.ts";
+import { passageCost, quotedPassage, travelDuration } from "../src/sim/engine.ts";
+import { runTick, runTicks } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { governorId } from "../src/sim/governor.ts";
 import { applyEvent } from "../src/sim/state.ts";

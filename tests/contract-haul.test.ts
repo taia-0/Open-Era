@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { submitCommand } from "../src/sim/commands.ts";
-import { runTick } from "../src/sim/engine.ts";
+import { runTick } from "./helpers/exile-off.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import type { SimEvent, WorldState } from "../src/sim/types.ts";
 import { projectEventFeed } from "../src/dashboard/view-model.ts";
