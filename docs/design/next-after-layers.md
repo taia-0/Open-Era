@@ -62,12 +62,12 @@ All counts are totals over the 13 seeds, per 200-tick bin.
 ### 2. Ownership by negotiated transfer or purchase, starting with the neutral port
 
 **Cites**
-- `world-simulation.md` ownership routes: founding, colonizing, purchasing, negotiated transfer, faction grant.
+- `roadmap.md:26` lists the routes from `world-simulation.md:57`: founding, colonizing, purchasing, negotiated transfer, faction grant. That line reference is now stale; on main, line 57 is "Player trade".
 - `roadmap.md:26`: only conquest plus claim exists (Untracked).
 - `roadmap.md:28`: negotiated transfer is Tracked deferred.
 
 **Evidence it addresses**
-- Verdant Cay has 0 battles and 0 claims on 13 / 13 seeds. Its garrison of 70 sits above every raid, so a quarter of the map never enters play.
+- Verdant Cay has 0 battles and 0 claims on 13 / 13 seeds. It starts with garrison 70 (`createPrototypeWorld`). Why no raid is ever tried there is not measured here. A quarter of the map never enters play.
 - 25 portless factions have no route to a port except raids.
 
 **Scope**
