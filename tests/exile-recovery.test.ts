@@ -42,8 +42,9 @@ test("step 1: a loss reaches the losing faction's members by courier exactly one
     assert.equal(e.tick - knowledge.observedTick, OWN_LOSS_COURIER_TICKS);
     assert.equal(knowledge.source, "faction-report");
     const claim = claims.find((c) => c.tick === knowledge.observedTick && c.settlementId === e.settlementId);
-    assert.ok(claim);
-    assert.equal(knowledge.factionId, claim.data.factionId);
+    const seceded = events.find((c) => c.type === "secession-declared" && c.tick === knowledge.observedTick && c.settlementId === e.settlementId);
+    assert.ok(claim || seceded);
+    assert.equal(knowledge.factionId, claim ? claim.data.factionId : (seceded!.data.faction as { id: string }).id);
     const key = `${e.actorId}>${e.settlementId}>${knowledge.observedTick}`;
     assert.ok(!seen.has(key)); seen.add(key);
   }
@@ -71,6 +72,27 @@ test("step 1: no courier before the delay, none to a captive, none when the beli
   assert.equal(mine(world).length, 0);
   member.knowledge["cinder-key"] = { ...member.knowledge["cinder-key"], factionId: "world-government", observedTick: 0 };
   assert.equal(mine(world).length, 0);
+});
+
+test("ruling 4: a port lost to secession is couriered to the old faction one day later, with the new faction as holder", () => {
+  let found = 0;
+  for (const seed of [1847, 4096]) {
+    const { events } = run(seed, 1200, { exileRecovery: "news-only" });
+    for (const s of events.filter((e) => e.type === "secession-declared")) {
+      const newFaction = (s.data.faction as { id: string }).id;
+      const recorded = events.find((e) => e.type === "secession-loss-recorded" && e.tick === s.tick && e.settlementId === s.settlementId);
+      assert.ok(recorded, "each secession is recorded on the port");
+      assert.equal(recorded.data.factionId, newFaction);
+      for (const c of courierEvents(events).filter((e) => e.settlementId === s.settlementId && (e.data.knowledge as { observedTick: number }).observedTick === s.tick)) {
+        const k = c.data.knowledge as { factionId: string };
+        // Never before the delay. A member who joins, is freed, or turns stale later is reached later.
+        assert.ok(c.tick - s.tick >= OWN_LOSS_COURIER_TICKS);
+        assert.equal(k.factionId, newFaction);
+        if (c.tick - s.tick === OWN_LOSS_COURIER_TICKS) found++;
+      }
+    }
+  }
+  assert.ok(found > 0, "at least one secession courier on 1847/4096");
 });
 
 test("step 2: the home-port claim needs service, a lost port and positive traits; grievance scales it; it halves every 240 ticks", () => {

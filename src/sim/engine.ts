@@ -1129,6 +1129,18 @@ function recordBattleConsequences(
  * the claim's tick and the source `faction-report`.
  */
 function sendOwnLossCouriers(world: WorldState, events: SimEvent[]): void {
+  // Lead ruling (4): a port lost to secession is couriered too. Record this
+  // tick's secessions on the port so the stateless rule can read them later.
+  for (const event of [...events]) {
+    if (event.type !== "secession-declared" || !event.settlementId) continue;
+    const faction = event.data.faction as { id: string };
+    emit(world, events, {
+      type: "secession-loss-recorded",
+      actorId: event.actorId,
+      settlementId: event.settlementId,
+      data: { tick: event.tick, previousFactionId: String(event.data.previousFactionId ?? event.targetId ?? ""), factionId: faction.id },
+    });
+  }
   for (const courier of ownLossCouriers(world)) {
     const character = world.characters[courier.characterId];
     const belief = character.knowledge[courier.settlementId];

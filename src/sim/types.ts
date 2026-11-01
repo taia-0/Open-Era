@@ -85,6 +85,11 @@ export interface Settlement {
    */
   secessionDeclaredBy?: string;
   /**
+   * Exile recovery (flag on only): the latest secession that took this port,
+   * from `secession-loss-recorded`. The courier rule reads it next to claim news.
+   */
+  secessionLoss?: { tick: number; previousFactionId: string; factionId: string };
+  /**
    * Public items posted at this port. Absent until the first post.
    * Stability and the scarred-follower list sit beside the item.
    */

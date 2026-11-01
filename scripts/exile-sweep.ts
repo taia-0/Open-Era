@@ -46,3 +46,15 @@ for (const seed of seeds) {
   console.log(`| ${seed} | ${a.claims} / ${b.claims} | ${a.secessions} / ${b.secessions} | ${a.portChanges} / ${b.portChanges} | ${a.desertions} / ${b.desertions} | ${a.portlessRaids} / ${b.portlessRaids} | ${a.wgPortsEnd} / ${b.wgPortsEnd} | ${a.ftMembersEnd} / ${b.ftMembersEnd} |`);
 }
 console.log(`| total | ${sum("off", "claims")} / ${sum("on", "claims")} | ${sum("off", "secessions")} / ${sum("on", "secessions")} | ${sum("off", "portChanges")} / ${sum("on", "portChanges")} | ${sum("off", "desertions")} / ${sum("on", "desertions")} | ${sum("off", "portlessRaids")} / ${sum("on", "portlessRaids")} | | |`);
+
+// Lead acceptance (game-vision.md:39, no forced balance), judged over the sweep, not per seed:
+// the median of flag-on secessions is within ±1 of flag-off, AND flag on has at least
+// one secession on most seeds (at least ceil(n/2), 7 of 13). WG-keeps-a-port is not a target.
+const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const med = (mode: string, key: keyof ReturnType<typeof run>) => median(rows.filter((r) => r.mode === mode).map((r) => r[key] as number));
+console.log(`| median | ${med("off", "claims")} / ${med("on", "claims")} | ${med("off", "secessions")} / ${med("on", "secessions")} | ${med("off", "portChanges")} / ${med("on", "portChanges")} | ${med("off", "desertions")} / ${med("on", "desertions")} | ${med("off", "portlessRaids")} / ${med("on", "portlessRaids")} | ${med("off", "wgPortsEnd")} / ${med("on", "wgPortsEnd")} | ${med("off", "ftMembersEnd")} / ${med("on", "ftMembersEnd")} |`);
+const medianOk = Math.abs(med("on", "secessions") - med("off", "secessions")) <= 1;
+const seedsWith = rows.filter((r) => r.mode === "on" && r.secessions >= 1).length;
+const mostOk = seedsWith >= Math.ceil(seeds.length / 2);
+console.log(`acceptance: secession median off ${med("off", "secessions")} on ${med("on", "secessions")} (within ±1: ${medianOk}); seeds with ≥1 secession on ${seedsWith}/${seeds.length} (need ${Math.ceil(seeds.length / 2)}: ${mostOk})`);
+if (!medianOk || !mostOk) { console.log("EXILE ACCEPTANCE FAILED"); process.exitCode = 1; } else console.log("EXILE ACCEPTANCE PASSED");

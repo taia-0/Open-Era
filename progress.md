@@ -171,7 +171,34 @@ Trace (seeds 1847/2718/4096), off / news-only / on:
 
 13-seed sweep totals off / on: claims 437/684, secessions 42/36, port changes 479/720, desertions 58/63, portless raids 245/342 (per-seed rows: `scripts/exile-sweep.ts`).
 
-Acceptance: pins hold; a home raid happens on all 3 seeds; belief age drops; no FT wipeout. Failures: on 1847, secessions go 4 to 1 and WG holds 0 ports at t1200 (7000 also ends with WG at 0); on 4096, FT portless raids stay at 3 because garrisons are below 8. These are open Lead decisions.
+**Lead rulings (2026-10-31, game-vision.md:39, no forced balance):**
+1. No WG guard. WG ending portless on a minority of seeds is emergent; the earlier "WG keeps a port" balance target is dropped.
+2. Secessions are judged over the 13 seeds: the flag-on median within ±1 of flag off, AND at least one secession on most seeds (≥ 7/13). The per-seed ±1 band is dropped. Encoded in `scripts/exile-sweep.ts` (exit 1 on failure).
+3. The troop-limited case on 4096 (garrison < 8) is exempt from "portless raids above baseline".
+4. Couriers also report ports lost to secession: `secession-loss-recorded` (flag on only) stores `Settlement.secessionLoss`, and `ownLossCouriers` uses the newer of claim and secession.
+
+Sweep after ruling 4 (13 seeds × 1200 ticks, off / on):
+
+| Seed | Claims off/on | Secessions off/on | Port changes off/on | Desertions off/on | Portless raids off/on | WG ports t_end off/on | FT members t_end off/on |
+|---|---|---|---|---|---|---|---|
+| 1847 | 26 / 51 | 4 / 1 | 30 / 52 | 3 / 4 | 12 / 20 | 1 / 0 | 3 / 3 |
+| 2718 | 25 / 64 | 0 / 0 | 25 / 64 | 2 / 2 | 8 / 20 | 1 / 2 | 6 / 6 |
+| 4096 | 39 / 56 | 4 / 3 | 43 / 59 | 4 / 7 | 24 / 36 | 1 / 1 | 1 / 3 |
+| 1000 | 27 / 42 | 0 / 2 | 27 / 44 | 4 / 3 | 14 / 27 | 1 / 1 | 5 / 5 |
+| 2000 | 31 / 50 | 5 / 2 | 36 / 52 | 5 / 5 | 19 / 30 | 1 / 1 | 1 / 2 |
+| 3000 | 34 / 42 | 3 / 2 | 37 / 44 | 6 / 7 | 16 / 26 | 1 / 2 | 1 / 2 |
+| 4000 | 37 / 63 | 4 / 1 | 41 / 64 | 6 / 2 | 23 / 30 | 1 / 1 | 3 / 4 |
+| 5000 | 50 / 55 | 7 / 2 | 57 / 57 | 6 / 8 | 37 / 32 | 1 / 1 | 1 / 3 |
+| 6000 | 33 / 50 | 2 / 5 | 35 / 55 | 5 / 7 | 18 / 23 | 1 / 2 | 3 / 2 |
+| 7000 | 34 / 61 | 3 / 4 | 37 / 65 | 3 / 4 | 15 / 22 | 2 / 1 | 3 / 2 |
+| 8000 | 24 / 62 | 2 / 4 | 26 / 66 | 6 / 8 | 10 / 41 | 2 / 1 | 1 / 2 |
+| 9000 | 35 / 58 | 3 / 2 | 38 / 60 | 4 / 5 | 24 / 34 | 1 / 0 | 3 / 3 |
+| 10000 | 42 / 28 | 5 / 3 | 47 / 31 | 4 / 4 | 25 / 19 | 1 / 1 | 1 / 1 |
+| total | 437 / 682 | 42 / 31 | 479 / 713 | 58 / 66 | 245 / 360 | | |
+
+Result: secession median 3 → 2 (within ±1); 12/13 seeds have ≥ 1 secession with the flag on. EXILE ACCEPTANCE PASSED. WG ends with 0 ports on 1847 and 9000 (accepted per ruling 1).
+
+Earlier (before ruling 4): Acceptance: pins hold; a home raid happens on all 3 seeds; belief age drops; no FT wipeout. Failures: on 1847, secessions go 4 to 1 and WG holds 0 ports at t1200 (7000 also ends with WG at 0); on 4096, FT portless raids stay at 3 because garrisons are below 8. These are open Lead decisions.
 
 ### 2026-10-31 — Feed name fixture: restore the untagged Toma Reef merge
 - **Agent:** Grok Bot for the Lead | **Branch:** `feature/feed-name-fixture` off `origin/main` `2c90621` | **Type:** Tests

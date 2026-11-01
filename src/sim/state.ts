@@ -1050,6 +1050,11 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       settlement.surrender = null;
       delete settlement.secessionDeclaredBy;
       break;
+    case "secession-loss-recorded": {
+      if (!settlement) throw new Error("Secession loss record is missing a port");
+      settlement.secessionLoss = { tick: Number(event.data.tick), previousFactionId: String(event.data.previousFactionId), factionId: String(event.data.factionId) };
+      break;
+    }
     case "secession-declared": {
       if (!settlement) throw new Error("Secession event is missing a settlement");
       const faction = event.data.faction as Faction | undefined;

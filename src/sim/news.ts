@@ -181,12 +181,20 @@ export function ownLossCouriers(world: WorldState): OwnLossCourier[] {
       if (record.item.type !== "settlement-claimed" || record.aboutSettlementId !== settlement.id) continue;
       if (!latest || record.item.observedTick > latest.item.observedTick || (record.item.observedTick === latest.item.observedTick && record.sequence > latest.sequence)) latest = record;
     }
-    if (!latest || world.tick - latest.item.observedTick < OWN_LOSS_COURIER_TICKS) continue;
+    // Lead ruling (4): a secession loss counts too; the newer loss wins.
+    let lossTick = latest ? latest.item.observedTick : -1;
+    let holderId: string | null = latest ? latest.item.factionId : null;
+    const seceded = settlement.secessionLoss;
+    if (seceded && seceded.tick >= lossTick) {
+      lossTick = seceded.tick;
+      holderId = seceded.factionId;
+    }
+    if (lossTick < 0 || world.tick - lossTick < OWN_LOSS_COURIER_TICKS) continue;
     for (const character of Object.values(world.characters).sort((a, b) => a.id.localeCompare(b.id))) {
-      if (character.dead || character.captivity || !character.factionId || character.factionId === latest.item.factionId) continue;
+      if (character.dead || character.captivity || !character.factionId || character.factionId === holderId) continue;
       const belief = character.knowledge[settlement.id];
-      if (!belief || belief.factionId !== character.factionId || belief.observedTick >= latest.item.observedTick) continue;
-      out.push({ characterId: character.id, settlementId: settlement.id, observedTick: latest.item.observedTick, factionId: latest.item.factionId });
+      if (!belief || belief.factionId !== character.factionId || belief.observedTick >= lossTick) continue;
+      out.push({ characterId: character.id, settlementId: settlement.id, observedTick: lossTick, factionId: holderId });
     }
   }
   return out;
