@@ -90,6 +90,11 @@ test("a shortage upkeep still subtracts the band, and does not add the fed 0.03"
 });
 
 test("the set lands after upkeep, and the next peaceful upkeep carries the band", () => {
+  // Raise shock (low-tax-cost.md): raising World Government from 14% costs its ports 1.0 per point, once, at the set.
+  const r2 = (value: number): number => Math.round(value * 100) / 100;
+  const points = (rate: number): number => Math.max(0, Math.round(rate * 100) - 14);
+  const shocked = (rate: number, table: { crown: number; glass: number; cinder: number; verdant: number }) =>
+    ({ ...table, crown: r2(table.crown - points(rate)), glass: r2(table.glass - points(rate)) });
   const atTick3 = (rate: number): { crown: number; glass: number; cinder: number; verdant: number } => {
     const world = createPrototypeWorld(1847);
     const queued = submitCommand(world, { playerId: PLAYER, type: "set-tax-rate", taxRate: rate });
@@ -97,11 +102,11 @@ test("the set lands after upkeep, and the next peaceful upkeep carries the band"
     const first = runTick(world);
     assert.equal(world.factions["world-government"].taxRate, rate);
     assert.equal(first.events.find((event) => event.settlementId === "crown-harbor" && event.type === "settlement-upkeep")?.data.stability, 91.03);
-    assert.equal(world.settlements["crown-harbor"].stability, 90.03);
-    assert.equal(world.settlements["glassport"].stability, 86.03);
+    assert.equal(world.settlements["crown-harbor"].stability, r2(90.03 - points(rate)));
+    assert.equal(world.settlements["glassport"].stability, r2(86.03 - points(rate)));
     const second = runTick(world);
     assert.equal(second.events.some((event) => event.settlementId === "crown-harbor" && (event.type === "settlement-upkeep" || event.type === "settlement-shortage")), false);
-    assert.equal(world.settlements["crown-harbor"].stability, 90.03);
+    assert.equal(world.settlements["crown-harbor"].stability, r2(90.03 - points(rate)));
     runTick(world);
     assert.equal(world.tick, 3);
     return {
@@ -113,13 +118,13 @@ test("the set lands after upkeep, and the next peaceful upkeep carries the band"
   };
 
   const threshold = atTick3(0.15);
-  assert.deepEqual(threshold, { crown: 90.06, glass: 86.09, cinder: 73.09, verdant: 78.09 });
-  assert.deepEqual(atTick3(0.16), { crown: 90.03, glass: 86.03, cinder: 73.09, verdant: 78.09 });
-  assert.deepEqual(atTick3(0.2), { crown: 90.03, glass: 86.03, cinder: 73.09, verdant: 78.09 });
-  assert.deepEqual(atTick3(0.21), { crown: 90, glass: 85.97, cinder: 73.09, verdant: 78.09 });
-  assert.deepEqual(atTick3(0.25), { crown: 90, glass: 85.97, cinder: 73.09, verdant: 78.09 });
-  assert.deepEqual(atTick3(0.26), { crown: 89.97, glass: 85.91, cinder: 73.09, verdant: 78.09 });
-  assert.deepEqual(atTick3(0.3), { crown: 89.97, glass: 85.91, cinder: 73.09, verdant: 78.09 });
+  assert.deepEqual(threshold, shocked(0.15, { crown: 90.06, glass: 86.09, cinder: 73.09, verdant: 78.09 }));
+  assert.deepEqual(atTick3(0.16), shocked(0.16, { crown: 90.03, glass: 86.03, cinder: 73.09, verdant: 78.09 }));
+  assert.deepEqual(atTick3(0.2), shocked(0.2, { crown: 90.03, glass: 86.03, cinder: 73.09, verdant: 78.09 }));
+  assert.deepEqual(atTick3(0.21), shocked(0.21, { crown: 90, glass: 85.97, cinder: 73.09, verdant: 78.09 }));
+  assert.deepEqual(atTick3(0.25), shocked(0.25, { crown: 90, glass: 85.97, cinder: 73.09, verdant: 78.09 }));
+  assert.deepEqual(atTick3(0.26), shocked(0.26, { crown: 89.97, glass: 85.91, cinder: 73.09, verdant: 78.09 }));
+  assert.deepEqual(atTick3(0.3), shocked(0.3, { crown: 89.97, glass: 85.91, cinder: 73.09, verdant: 78.09 }));
 });
 
 test("a headless run still emits no tax-rate-set", () => {

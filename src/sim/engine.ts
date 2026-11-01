@@ -27,7 +27,7 @@ import {
 import { assessSupplyContract, contractRelationship, contractTravelTicks, openSupplyContract } from "./contracts.ts";
 import { agingDeathData, diesOfOldAge } from "./aging.ts";
 import { resolvePassageCharge, resolveQuotedSpend, shortPayMember, spendableAmount, spendData, type SpendSource } from "./allowance.ts";
-import { autonomousTaxStep, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
+import { autonomousTaxStep, raiseShockData, taxChoiceCents, taxDrift, taxRateCommandRefusal, taxStepOptions, TAX_RATE_COOLDOWN_TICKS, type TaxStepOptions } from "./tax-rate.ts";
 import { buildTaxStepBriefing, CONTEXT_TIMEOUT_MS, validateBriefing, type ContextAnswer, type ContextFallbackReason, type ContextReader, type ContextRecord, type ContextRequest } from "./ai-context.ts";
 import { CONTEXT_PROMPT_VERSION, sha256, parseTaxChoice, TAX_STEP_PROMPT_VERSION_BRIEFED, RAW_ANSWER_MAX, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION, TAX_STEP_TIMEOUT_MS, taxStepInputHash, type TaxStepAiRecord, type TaxStepAnswer, type TaxStepFallbackReason, type TaxStepProvider, type TaxStepRequest, type TaxStepTraceEntry } from "./ai-provider.ts";
 import { buildGovernorSecession, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
@@ -2507,6 +2507,7 @@ function processPlayerCommands(
           taxRate: command.taxRate,
           previousTaxRate: faction.taxRate,
           taxRateSetTick: world.tick,
+          ...raiseShockData(world, command.factionId, faction.taxRate, command.taxRate),
         },
       });
       emit(world, events, {
@@ -3527,6 +3528,7 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
           taxRate: step.taxRate,
           previousTaxRate: step.previousTaxRate,
           taxRateSetTick: world.tick,
+          ...raiseShockData(world, factionId, step.previousTaxRate, step.taxRate),
         },
       });
       continue;
@@ -3551,6 +3553,7 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
           taxRate: taxChoiceCents(step.rateCents, step.scorerChoice) / 100,
           previousTaxRate: world.factions[factionId].taxRate,
           taxRateSetTick: world.tick,
+          ...raiseShockData(world, factionId, world.factions[factionId].taxRate, taxChoiceCents(step.rateCents, step.scorerChoice) / 100),
         },
       });
       continue;
@@ -3567,6 +3570,7 @@ function chooseAutonomousTaxRates(world: WorldState, events: SimEvent[], liveSes
         taxRate: taxChoiceCents(step.rateCents, decided.finalChoice) / 100,
         previousTaxRate: faction.taxRate,
         taxRateSetTick: world.tick,
+        ...raiseShockData(world, factionId, faction.taxRate, taxChoiceCents(step.rateCents, decided.finalChoice) / 100),
         ai: decided,
       },
     });

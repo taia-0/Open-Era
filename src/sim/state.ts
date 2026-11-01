@@ -631,6 +631,14 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
       if (!faction) throw new Error(`Tax-rate event has no faction: ${factionId}`);
       if (typeof event.data.taxRate !== "number") throw new Error("Tax-rate event has no rate");
       faction.taxRate = event.data.taxRate;
+      // Raise shock (low-tax-cost.md): the raising event carries each held port's new stability.
+      if (Array.isArray(event.data.raiseShock)) {
+        for (const entry of event.data.raiseShock as { settlementId: string; stability: number }[]) {
+          const settlement = world.settlements[entry.settlementId];
+          if (!settlement) throw new Error(`Raise shock names no port: ${entry.settlementId}`);
+          settlement.stability = entry.stability;
+        }
+      }
       faction.taxRateSetTick = typeof event.data.taxRateSetTick === "number"
         ? event.data.taxRateSetTick
         : event.tick;

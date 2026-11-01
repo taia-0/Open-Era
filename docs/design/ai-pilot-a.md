@@ -32,8 +32,6 @@ Two corrections to `ai-brain.md`:
 1. Its 22 / 25 / 26 tax calls were **both factions**. Free Tide alone stepped 15 / 22 / 25 times.
 2. A model can choose a step where the scorer holds, so the pilot is asked at every **clock point**, not only where the scorer steps: 45 / 45 / 42 clock points per run. **Built: 33 / 27 / 30 calls** (see the correction below).
 
-The landless freeze (no autonomous step while the faction holds no port) is a batch 2 ruling and is not in the tree. On 2718 the tree stepped Free Tide up 14 times with no port, which is how it reaches 0.30.
-
 ## Correction, 2026-10-26: built call counts
 
 Pilot A as built on `feature/ai-pilot-a` at `7531ffc` makes **33 / 27 / 30** provider calls per 1,200-tick run on seeds 1847 / 2718 / 4096 (agree stub, re-measured for `ai-pilot-b.md`), not the 45 / 45 / 42 planned. The main cause is the **landless freeze**, which already existed: at a clock point where Free Tide holds no port, `taxStepOptions` (`src/sim/tax-rate.ts`) returns the one option `hold`, and `chooseAutonomousTaxRates` does not send a one-option set (section 7, default 4). Counted per clock point at `7531ffc` with an uncommitted counter, restored afterwards:

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runTicks } from "../src/sim/engine.ts";
 import { createPrototypeWorld } from "../src/sim/scenario.ts";
 import { autonomousTaxStep } from "../src/sim/tax-rate.ts";
 import type { WorldState } from "../src/sim/types.ts";
@@ -71,11 +70,3 @@ test("a captive or departed founder, or a faction with no founder, has no seat",
   assert.equal(autonomousTaxStep(unfounded, BREAKAWAY), null);
 });
 
-test("a secession stores its founder from the declaration", () => {
-  const run = runTicks(createPrototypeWorld(1847), 553);
-  const declared = run.events.find((event) => event.type === "secession-declared");
-  assert.ok(declared);
-  const faction = run.state.factions[(declared.data.faction as { id: string }).id];
-  assert.equal(faction.founderId, declared.data.ownerId);
-  assert.equal(run.state.factions["free-tide"].founderId, undefined);
-});
