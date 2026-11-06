@@ -13,12 +13,12 @@ import type {
   WorldState,
 } from "./types.ts";
 
-const firstNames = [
+export const firstNames = [
   "Mara", "Bram", "Niko", "Sable", "Jun", "Iris", "Toma", "Vale", "Orin", "Kessa",
   "Rook", "Lio", "Ada", "Pax", "Mina", "Corin", "Zara", "Finn", "Esme", "Dax",
 ];
 
-const lastNames = [
+export const lastNames = [
   "Vane", "Morrow", "Reef", "Calder", "Sorn", "Hale", "Dusk", "Quill", "Marrow", "Drake",
   "Tern", "Ash", "Gale", "Pike", "Wren", "Stone", "Rill", "Crow", "Vale", "Frost",
 ];

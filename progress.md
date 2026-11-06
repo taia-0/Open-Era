@@ -155,6 +155,52 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-06 — LIFECYCLE behind a flag (lifecycle.md rev 2 + Lead rulings: seed-offset names, returning governor competes) (Cursor)
+- **Agent / Branch / Commits / Type:** Cursor / feature/lifecycle off origin/main ae34cdb (#182, #183) / see the branch / feature behind a flag.
+- **Changed:**
+  - **Module:** `src/sim/lifecycle.ts` — watch / retirement (troops < 25 for 215 ticks while docked), crisis-only return, promotion on attacker victory with ≥ 424 troops (240-tick cooldown). Half the captain's troops go to a new named character.
+  - **Lead rulings (tested):**
+    1. Promotion names use the scenario roster **offset by seed** (`rosterOffset(seed)`), so different worlds get different newcomers. Still deterministic and replay-exact.
+    2. A returning governor **competes** for the seat like anyone else: retirement vacates via `syncSeats`; return does not write the seat; `appointGovernor` skips only while retired.
+  - **Hooks:** engine (skip retired in the planning loop; `lifecycleStep` after alliance breaks); state (`applyLifecycleEvent` + `nextEventSequence`); governor (`isRetired` vacates and blocks appointment); scenario exports `firstNames` / `lastNames`.
+  - **CLI:** `--lifecycle` / `LIFECYCLE=1` on simulate and action-picker.
+  - **Gate:** `scripts/lifecycle-sweep.ts` in evaluate-milestone.
+- **Why:** lifecycle.md (#183), option 3 of next-after-layers.
+- **Verified:** all gated items pass. No tuning. $0; no AI.
+  | Gated item | Result | Pass |
+  |---|---|---|
+  | Flag-off pins (72 / 1,200) | 7f76e474 / 976c40bd / 08943ea5 and 94de9c02 / 7a3741c9 / af6eeaea | ✓ |
+  | Opt-out pins (72 / 1,200) | 66e8ccb7 / b4ccedab / b04c5ac4 and b51aa07a / 091f7628 / 25bdbf15 | ✓ |
+  | Property violations, 13 seeds | **0** (causes, crisis-only returns, roster names, seat vacated, cooldown, troops split, no missed retirement, replay exact 13/13) | ✓ |
+  | Claims and port changes > 0 every seed | min 19 / 19 (1847) | ✓ |
+  | No new wipeouts | none | ✓ |
+  | Secessions on ≥ 6/13 | 8/13 | ✓ |
+  - **npm test** (keys unset): 670/670. New `tests/lifecycle.test.ts` (5): default off + pins; CLI; seed-offset names (1847 ≠ 2718 first promotion); returning governor does not auto-reclaim; causes + recovery.
+  - **evaluate-milestone:** EXILE, OCCUPATION, WG PICKER, ALLIANCES, PORT TRANSFER and LIFECYCLE ACCEPTANCE PASSED; recovery check passed.
+- **Report only** (13 × 1,200 ticks; counts match the rev 2 prototype; names differ because of the seed offset):
+  | Seed | Promotions | Retirements | Returns (crisis) | Retired at t1200 | Active cast t0/300/600/900/end (off) | Claims off→on | Port changes off→on | Secessions off→on | Names (promoted) |
+  |---|---|---|---|---|---|---|---|---|---|
+  | 1847 | 1 | 12 | 9 | 3 | 30/28/28/29/27 (30/30/30/30/29) | 51→19 | 52→19 | 1→0 | Finn Vale |
+  | 2718 | 1 | 7 | 3 | 4 | 30/26/26/24/25 (30/29/29/28/28) | 64→35 | 64→35 | 0→0 | Orin Quill |
+  | 4096 | 2 | 3 | 3 | 0 | 30/30/29/30/31 (30/30/29/29/29) | 56→66 | 59→73 | 3→7 | Toma Vane, Vale Quill |
+  | 1000 | 4 | 7 | 5 | 2 | 30/28/26/27/29 (30/30/29/29/27) | 42→28 | 44→28 | 2→0 | Rook Calder, Lio Tern, Ada Crow, Pax Sorn |
+  | 2000 | 5 | 8 | 6 | 2 | 30/25/28/29/31 (30/29/29/28/28) | 50→46 | 52→46 | 2→0 | Rook Pike, Lio Vane, Ada Quill, Pax Wren, Mina Morrow |
+  | 3000 | 0 | 6 | 1 | 5 | 30/26/25/24/24 (30/30/30/29/29) | 42→41 | 44→42 | 2→1 | — |
+  | 4000 | 3 | 7 | 5 | 2 | 30/29/28/27/29 (30/30/29/29/28) | 63→65 | 64→69 | 1→4 | Rook Pike, Lio Vane, Ada Quill |
+  | 5000 | 4 | 5 | 3 | 2 | 30/28/28/30/29 (30/30/29/29/27) | 55→50 | 57→50 | 2→0 | Rook Calder, Lio Tern, Ada Crow, Pax Sorn |
+  | 6000 | 2 | 12 | 8 | 3 | 30/23/26/25/27 (30/30/29/28/28) | 50→58 | 55→60 | 5→2 | Rook Pike, Lio Vane |
+  | 7000 | 2 | 1 | 1 | 0 | 30/30/29/29/30 (30/30/29/28/28) | 61→45 | 65→50 | 4→5 | Rook Calder, Lio Tern |
+  | 8000 | 1 | 6 | 2 | 4 | 30/28/24/25/25 (30/30/28/28/28) | 62→25 | 66→26 | 4→1 | Rook Pike |
+  | 9000 | 5 | 5 | 5 | 0 | 30/30/30/33/35 (30/30/30/30/30) | 58→57 | 60→63 | 2→6 | Rook Calder, Lio Tern, Ada Crow, Pax Sorn, Mina Ash |
+  | 10000 | 2 | 10 | 7 | 3 | 30/27/27/26/28 (30/30/30/29/29) | 28→24 | 31→28 | 3→4 | Rook Pike, Lio Vane |
+  | **Total** | **32** | **89** | **58** | 30 | | **682→559** | **713→589** | **31→30** | first-promoted-name variety: **5** distinct across 12 seeds |
+  - One office vacated (seed 6000), left empty. All returns are `crisis:`.
+  - Claims drop 18 % (682→559) as in the prototype; seeds 1847 and 8000 lose most.
+- **Left open / decisions for the Lead:**
+  - Spec §6 deferred: recovered return (needs a recruit path for retired captains), relationship/town-event promotion, persuasion/goal returns.
+  - Seed offset uses `seed % (20×20)` on the roster index; other offsets would also be fine.
+- **Links:** docs/design/lifecycle.md, docs/design/lifecycle-proto/.
+
 ### 2026-11-06 — PORT_TRANSFER: neutral-port purchase behind a flag (port-transfer.md v1 + Lead buyer rulings) (Cursor)
 - **Agent / Branch / Commits / Type:** Cursor / feature/port-transfer off origin/main 7834206 (#181) / see the branch / feature behind a flag.
 - **Changed:**

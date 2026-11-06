@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-flag.ts";
 import { ALLIANCES_FLAG_HELP, ALLIANCES_FLAG_OPTIONS, resolveAlliances } from "./alliances-flag.ts";
 import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS, resolvePortTransfer } from "./port-transfer-flag.ts";
+import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS, resolveLifecycle } from "./lifecycle-flag.ts";
 import { parseArgs } from "node:util";
 import { runTick } from "../sim/engine.ts";
 import { DeterministicDialogueProvider, resolveDueReplies } from "../sim/conversations.ts";
@@ -22,12 +23,14 @@ const { values } = parseArgs({
     ...EXILE_FLAG_OPTIONS,
     ...ALLIANCES_FLAG_OPTIONS,
     ...PORT_TRANSFER_FLAG_OPTIONS,
+    ...LIFECYCLE_FLAG_OPTIONS,
   },
 });
-maybeHelp(values, "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset] [--alliances] [--port-transfer]", [ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP]);
+maybeHelp(values, "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset] [--alliances] [--port-transfer] [--lifecycle]", [ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP]);
 const exileRecovery = resolveExileRecovery(values);
 const alliances = resolveAlliances(values);
 const portTransfer = resolvePortTransfer(values);
+const lifecycle = resolveLifecycle(values);
 
 const ticks = Number.parseInt(values.ticks!, 10);
 const seed = Number.parseInt(values.seed!, 10);
@@ -58,7 +61,7 @@ try {
 
   const dialogueProvider = new DeterministicDialogueProvider();
   for (let index = 0; index < ticks; index += 1) {
-    const result = runTick(world, { exileRecovery, ...(alliances ? { alliances } : {}), ...(portTransfer ? { portTransfer } : {}) });
+    const result = runTick(world, { exileRecovery, ...(alliances ? { alliances } : {}), ...(portTransfer ? { portTransfer } : {}), ...(lifecycle ? { lifecycle } : {}) });
     const conversationEvents = await resolveDueReplies(world, dialogueProvider);
     store.appendTick([...result.events, ...conversationEvents], world);
   }

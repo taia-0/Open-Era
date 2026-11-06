@@ -1,3 +1,4 @@
+import { applyLifecycleEvent } from "./lifecycle.ts";
 import { applyPurchase } from "./port-transfer.ts";
 import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
 import { createHash } from "node:crypto";
@@ -559,6 +560,10 @@ function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrd
 }
 
 export function applyEvent(world: WorldState, event: SimEvent): void {
+  if ((event.type === "lifecycle-watch" || event.type === "lifecycle-watch-cleared" || event.type === "character-retired" || event.type === "character-returned" || event.type === "character-promoted") && applyLifecycleEvent(world, event)) {
+    world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+    return;
+  }
   if (event.type === "settlement-purchased" && applyPurchase(world, event)) {
     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
     return;
