@@ -1,0 +1,34 @@
+{
+  "mode": "replay",
+  "seed": 4096,
+  "ticks": 1200,
+  "exileRecovery": true,
+  "stateHash": "af6eeaeab0abea62d00762a20b7cbfcf0589b0c8f9129f2fe83fc83d3dde0450",
+  "events": 194,
+  "byKind": {
+    "raid": 62,
+    "claim": 56,
+    "tax": 35,
+    "breach": 31,
+    "desertion": 7,
+    "secession": 3
+  },
+  "model": 193,
+  "cached": 0,
+  "fallback": 1,
+  "byFallback": {
+    "illegal": 1
+  },
+  "feedReasons": true,
+  "writerCalls": 0,
+  "checks": 0,
+  "checkFlagged": 0,
+  "checkMaxNoul": 0,
+  "spendUsd": 0,
+  "costLines": 0,
+  "homeRaidTriggers": 26,
+  "recordedStateHash": "af6eeaeab0abea62d00762a20b7cbfcf0589b0c8f9129f2fe83fc83d3dde0450",
+  "hashMatches": true,
+  "feedMatches": true,
+  "vendorCalls": 0
+}

@@ -4,6 +4,10 @@ import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-fla
 import { ALLIANCES_FLAG_HELP, ALLIANCES_FLAG_OPTIONS, resolveAlliances } from "./alliances-flag.ts";
 import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS, resolvePortTransfer } from "./port-transfer-flag.ts";
 import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS, resolveLifecycle } from "./lifecycle-flag.ts";
+import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS, resolveFeedReasons } from "./feed-reasons-flag.ts";
+import {
+  feedReasonCallCap, stubFeedReasonWriter, type FeedReasonOptions,
+} from "../sim/feed-reasons.ts";
 import { parseArgs } from "node:util";
 import { ActionPickerReplay, PICKER_DEFAULT_CAP, stubArgmaxPicker, stubFittedPicker, stubUniformPicker, type ActionPicker, type ActionPickerRecord } from "../sim/ai-action-picker.ts";
 import { CostLedger } from "../sim/ai-vendor/cost.ts";
@@ -69,9 +73,10 @@ const { values } = parseArgs({
     ...ALLIANCES_FLAG_OPTIONS,
     ...PORT_TRANSFER_FLAG_OPTIONS,
     ...LIFECYCLE_FLAG_OPTIONS,
+    ...FEED_REASONS_FLAG_OPTIONS,
   },
 });
-maybeHelp(values, "npm run action-picker -- [--picker uniform|argmax|jev|fitted] [--seed N] [--ticks N] [--triage ...] [--replay <dir>] [--alliances] [--port-transfer] [--lifecycle]", [ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP]);
+maybeHelp(values, "npm run action-picker -- [--picker uniform|argmax|jev|fitted] [--seed N] [--ticks N] [--triage ...] [--replay <dir>] [--alliances] [--port-transfer] [--lifecycle]", [ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, FEED_REASONS_FLAG_HELP]);
 let fetchAttempts = 0;
 const replayDir = values.replay === undefined ? null : resolve(values.replay);
 let recorded: { summary: any; records: Array<{ tick: number; actorId: string; picker: ActionPickerRecord; read?: SocialReadRecord }>; triage: TriageEntry[] } | null = null;
@@ -94,11 +99,13 @@ if (replayDir) {
   if (summary.portTransfer === true) values["port-transfer"] = true;
   if (summary.lifecycle === true) values.lifecycle = true;
   if (summary.exileRecovery === false) values["no-exile-recovery"] = true;
+  if (summary.feedReasons === false) values["no-feed-reasons"] = true;
 }
 const exileRecovery = resolveExileRecovery(values);
 const alliances = resolveAlliances(values);
 const portTransfer = resolvePortTransfer(values);
 const lifecycle = resolveLifecycle(values);
+const feedReasonsOn = resolveFeedReasons(values);
 const seed = Number.parseInt(values.seed!, 10);
 const ticks = Number.parseInt(values.ticks!, 10);
 const socialOn = values.social !== "off";
@@ -197,9 +204,18 @@ if (defaultKinds.size && brain && !triageReplay) {
   const inner = brain;
   brain = { name: inner.name, model: inner.model, escalate(q) { return defaultKinds.has(q.kind) ? { raw: JSON.stringify({ choice: q.defaultChoice }), latencyMs: 0 } : inner.escalate(q); } };
 }
+const feedReasons: FeedReasonOptions | false = feedReasonsOn
+  ? {
+      // Stub: live feed-reason spend is run-simulation / run-feed-reasons --ai-vendor.
+      writer: stubFeedReasonWriter(),
+      callCap: feedReasonCallCap(exileRecovery),
+      exileRecovery,
+    }
+  : false;
 const ai: TickAiOptions = {
   ...(picker ? { picker } : {}), ...(social ? { social } : {}), pickerCap: maxCalls, ...(pickerFactions ? { pickerFactions, wgPickerCap: wgMaxCalls } : {}), ...(values.actors === "all" ? { pickerActors: "all" as const } : {}),
   ...(triageOn && brain ? { triage: { brain, ...(scorer ? { scorer } : {}), ...(values["brain-prior"] ? { prior: Number(values["brain-prior"]) } : {}), ...(values["brain-weight"] ? { weight: Number(values["brain-weight"]) } : {}), scoreCap: triageMaxCalls, ...(triageBudget !== undefined ? { budget: triageBudget } : {}) } } : {}),
+  feedReasons,
 };
 
 const world = createPrototypeWorld(seed);
@@ -215,7 +231,7 @@ writeFileSync(triagePath, "");
 const triages: TriageEntry[] = [];
 let events = 0;
 for (let index = 0; index < ticks; index += 1) {
-  const result = runTick(world, { ...(picker || triageOn ? { exileRecovery, ai } : { exileRecovery }), ...(alliances ? { alliances } : {}), ...(portTransfer ? { portTransfer } : {}), ...(lifecycle ? { lifecycle } : {}) });
+  const result = runTick(world, { exileRecovery, ai, ...(alliances ? { alliances } : {}), ...(portTransfer ? { portTransfer } : {}), ...(lifecycle ? { lifecycle } : {}) });
   if (ai.triageLog?.length) { const drained = ai.triageLog.splice(0); triages.push(...drained); appendFileSync(triagePath, drained.map((t) => JSON.stringify(t)).join("\n") + "\n"); }
   const lines: string[] = [];
   const pickLines: string[] = [];
@@ -276,6 +292,7 @@ function triageSummary() {
 const count = (fn: (r: ActionPickerRecord) => boolean) => records.filter(fn).length;
 const summary = {
   exileRecovery,
+  feedReasons: feedReasonsOn,
   ...(alliances ? { alliances } : {}),
   ...(portTransfer ? { portTransfer } : {}),
   ...(lifecycle ? { lifecycle } : {}),

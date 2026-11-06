@@ -33,9 +33,9 @@ Git remains the complete history. This file exists for three things git does not
 - **Baseline:** `origin/main` `7515445`; `feature/port-balance` adds home starts and Cinder Key fortification 1.5 (unmerged).
 - **Pins (default, EXILE_RECOVERY on — `feature/exile-default`):** 72 ticks `7f76e474` / `976c40bd` / `08943ea5` (8247 / 8155 / 8457). 1,200 ticks `94de9c02` / `7a3741c9` / `af6eeaea` (160337 / 157701 / 162679).
 - **Pins (opt-out `exileRecovery: false` / `--no-exile-recovery` / `EXILE_RECOVERY=0`, = the port-balance pins):** 72 ticks `66e8ccb7` / `b4ccedab` / `b04c5ac4` (8239 / 8177 / 8404). 1,200 ticks `b51aa07a` / `091f7628` / `25bdbf15` (156382 / 157208 / 160697).
-- **Feed-reasons stub baseline (default):** 188 / 169 / 194 events on 1847 / 2718 / 4096.
-- **Last verified:** `npm test` (600) and `./scripts/evaluate-milestone.sh port-balance` with the 13-seed FT-portless property (see the port-balance entry).
-- **Runtime:** Node 24.21.0, pinned by `.node-version`.
+- **Feed-reasons stub baseline (default-on):** 188 / 169 / 194 events on 1847 / 2718 / 4096. Caps $0.10 / 200 calls (300 with exile on). Opt-out: `--no-feed-reasons` / `FEED_REASONS=0` / `feedReasons: false`.
+- **Last verified:** `feature/feed-reasons-default` on `origin/main` `3b6178d` (#182): `npm test` 669/669 keys unset; evaluate-milestone feed-reasons-default passed; live 3-seed spend $0.1129 (see entry).
+- **Runtime:** Node 24.22.1, pinned by `.node-version`.
 
 ## Open items
 
@@ -200,6 +200,30 @@ Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits 
   - Spec §6 deferred: recovered return (needs a recruit path for retired captains), relationship/town-event promotion, persuasion/goal returns.
   - Seed offset uses `seed % (20×20)` on the roster index; other offsets would also be fine.
 - **Links:** docs/design/lifecycle.md, docs/design/lifecycle-proto/.
+
+### 2026-11-06 — feedReasons on by default (Micah's go-ahead; hash-neutral; opt-out keeps the old pins) (Cursor)
+
+- **Agent / Branch / Commits / Type:** Cursor / `feature/feed-reasons-default` off origin/main `3b6178d` (#182) / see the branch / default flip.
+- **Changed:**
+  - `FEED_REASONS_DEFAULT = true` in `src/sim/feed-reasons.ts`. CLIs honour it: `run-simulation` (DeepSeek writer + $0.10 ledger when on), `run-feed-reasons`, `run-action-picker`, `run-ai-pilot` (stub writer on the picker/pilot runners so their gates stay offline).
+  - Opt-out: `--no-feed-reasons` / `FEED_REASONS=0` / `ai.feedReasons: false` (`src/cli/feed-reasons-flag.ts`). TickAiOptions accepts `FeedReasonOptions | false`.
+  - Caps unchanged: $0.10 and 200 brain calls, **300 when exile recovery is on** (the default). Jev checker stays opt-in and separate at 200.
+  - `evaluate-milestone.sh`: recovery/sim runs use `--no-feed-reasons` so the gate does not spend when a key is present; the dedicated stub feed-reasons gate still runs with reasons on. Port-transfer sweep from #182 kept.
+- **Why:** Micah (not the Lead) approved default-on: "Sure lets allow that for now, we can always come back and change that decision if it becomes too costly." Hash-neutral by design, so no re-pin.
+- **Pins (unchanged; default-on matches; no re-pin):**
+  - Default (exile on): 72 `7f76e474` / `976c40bd` / `08943ea5`; 1,200 `94de9c02` / `7a3741c9` / `af6eeaea`.
+  - Exile opt-out: 72 `66e8ccb7` / `b4ccedab` / `b04c5ac4`; 1,200 `b51aa07a` / `091f7628` / `25bdbf15`.
+- **Live** (DeepSeek, exile on → 300 call cap, no Jev check; seeds 1847 / 2718 / 4096 × 1,200):
+  | Seed | Calls | Spend | Fallbacks | stateHash |
+  |---|---|---|---|---|
+  | 1847 | 188 | $0.047615 | 0 | 94de9c02 |
+  | 2718 | 169 | $0.016847 | 0 | 7a3741c9 |
+  | 4096 | 194 | $0.048412 | 1 illegal | af6eeaea |
+  | **Total** | **551** | **$0.112874** | | |
+  Each run stayed under the $0.10 / 300 caps. Replay of each run: hash and feed exact, 0 writer calls. Key scan of the playtest dir and the branch diff: clean. Artifacts: `docs/playtests/feed-reasons-default-live-2026-11-06/`.
+- **Verified:** `npm test` 669/669 offline with `DEEPSEEK_API_KEY` and `JEV_API_KEY` unset; `./scripts/evaluate-milestone.sh feed-reasons-default` passed (EXILE, OCCUPATION, WG PICKER, ALLIANCES, PORT TRANSFER, feed-reasons stub+replay, recovery at 7f76e474). New `tests/feed-reasons-default.test.ts` (4): default constant + resolve; hash-neutral on/off at 72 ticks; CLI help + opt-out pin; default-on stub pin.
+- **Left open:** None observed for this flip. Cost can be revisited if live spend becomes too high (Micah).
+- **Links:** Micah quote in the Lead's chat; [feed-reasons.md](docs/design/feed-reasons.md); [after-triage.md](docs/design/after-triage.md) (b).
 
 ### 2026-11-06 — PORT_TRANSFER: neutral-port purchase behind a flag (port-transfer.md v1 + Lead buyer rulings) (Cursor)
 - **Agent / Branch / Commits / Type:** Cursor / feature/port-transfer off origin/main 7834206 (#181) / see the branch / feature behind a flag.

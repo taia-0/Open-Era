@@ -1,6 +1,10 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-flag.ts";
+import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS, resolveFeedReasons } from "./feed-reasons-flag.ts";
+import {
+  feedReasonCallCap, stubFeedReasonWriter, type FeedReasonOptions,
+} from "../sim/feed-reasons.ts";
 import { parseArgs } from "node:util";
 import { stubContextEcho, type ContextReader } from "../sim/ai-context.ts";
 import { stubAgree, TAX_STEP_DEFAULT_CAP, TAX_STEP_PROMPT_VERSION_BRIEFED, type TaxStepProvider } from "../sim/ai-provider.ts";
@@ -33,9 +37,10 @@ const { values } = parseArgs({
     // Slice 1 stubs: "argmax" (stubArgmax, probability 1 on the scorer's pick) and "uniform" (stubUniform); no vendor calls.
     "choice-mode": { type: "string", default: "weighted" },
     ...EXILE_FLAG_OPTIONS,
+    ...FEED_REASONS_FLAG_OPTIONS,
   },
 });
-maybeHelp(values, "npm run ai-pilot -- [--seed N] [--ticks N] [--ai-vendor] [--choice-mode weighted|brain|argmax|uniform] [--replay <dir>]");
+maybeHelp(values, "npm run ai-pilot -- [--seed N] [--ticks N] [--ai-vendor] [--choice-mode weighted|brain|argmax|uniform] [--replay <dir>]", [FEED_REASONS_FLAG_HELP]);
 const replayDir = values.replay === undefined ? null : resolve(values.replay);
 let recordedSummary: { seed: number; ticks: number; stateHash: string; maxCalls?: number; choiceMode?: string } | null = null;
 let recordedTrace: TaxStepTraceEntry[] = [];
@@ -87,15 +92,26 @@ if (replayDir) {
   brain = stubAgree();
   context = stubContextEcho();
 }
+if ((recordedSummary as { exileRecovery?: boolean } | null)?.exileRecovery === false) values["no-exile-recovery"] = true;
+if ((recordedSummary as { feedReasons?: boolean } | null)?.feedReasons === false) values["no-feed-reasons"] = true;
+const exileRecovery = resolveExileRecovery(values);
+const feedReasonsOn = resolveFeedReasons(values);
+const feedReasons: FeedReasonOptions | false = feedReasonsOn
+  ? {
+      // Stub: live feed-reason spend is run-simulation / run-feed-reasons --ai-vendor.
+      writer: stubFeedReasonWriter(),
+      callCap: feedReasonCallCap(exileRecovery),
+      exileRecovery,
+    }
+  : false;
 const ai: TickAiOptions = {
   brainTaxStep: brain, context, cap: maxCalls, ledger, weighted: picked,
   ...(choiceMode === "argmax" ? { pickerStub: "stubArgmax" as const } : choiceMode === "uniform" ? { pickerStub: "stubUniform" as const } : {}),
   // Slice 1: a replay of a picked run reuses the recorded p and u, and throws on any mismatch.
   ...(replayDir && picked ? { pickerReplay: pickerReplayFromTrace(recordedTrace) } : {}),
+  feedReasons,
 };
 
-if ((recordedSummary as { exileRecovery?: boolean } | null)?.exileRecovery === false) values["no-exile-recovery"] = true;
-const exileRecovery = resolveExileRecovery(values);
 const world = createPrototypeWorld(seed);
 const trace: TaxStepTraceEntry[] = [];
 let events = 0;
@@ -122,6 +138,7 @@ if (replay && recordedSummary) {
 }
 const summary = {
   exileRecovery,
+  feedReasons: feedReasonsOn,
   mode: vendor ? "vendor" : "stub",
   choiceMode, seed, ticks, stateHash: finalHash, events,
   calls: ai.calls ?? 0, maxCalls, capUsd, spendUsd: ledger.spendUsd, costLines: ledger.lines.length,

@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-flag.ts";
+import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS, resolveFeedReasons } from "./feed-reasons-flag.ts";
 import { parseArgs } from "node:util";
 import { publicFeedSentence } from "../dashboard/wording.ts";
 import { CostLedger } from "../sim/ai-vendor/cost.ts";
@@ -15,7 +16,7 @@ import { stateHash } from "../sim/state.ts";
 import type { SimEvent } from "../sim/types.ts";
 
 /**
- * Slice B runner (feed-reasons.md). Stub writer by default, offline. `--ai-vendor`
+ * Slice B runner (feed-reasons.md). Feed reasons are on by default (Micah 2026-11-06); `--no-feed-reasons` / `FEED_REASONS=0` opts out. Stub writer by default, offline. `--ai-vendor`
  * uses DeepSeek (plus the advisory Jev check with `--check`, off by default) (Micah's standing approval; caps
  * $0.10, and 200 brain calls or 300 with EXILE_RECOVERY on (the default); the Jev check stays at 200). `--replay <dir>` reuses the recorded text with the
  * network disabled and checks the feed text and hash are byte-identical.
@@ -30,11 +31,12 @@ const { values } = parseArgs({
     "cap-usd": { type: "string", default: String(FEED_REASON_CAP_USD) },
     "max-calls": { type: "string" },
     ...EXILE_FLAG_OPTIONS,
+    ...FEED_REASONS_FLAG_OPTIONS,
     output: { type: "string" },
     replay: { type: "string" },
   },
 });
-maybeHelp(values, "npm run feed-reasons -- [--seed N] [--ticks N] [--ai-vendor] [--check] [--max-calls N] [--output dir] [--replay <dir>]");
+maybeHelp(values, "npm run feed-reasons -- [--seed N] [--ticks N] [--ai-vendor] [--check] [--max-calls N] [--output dir] [--replay <dir>]", [FEED_REASONS_FLAG_HELP]);
 const replayDir = values.replay === undefined ? null : resolve(values.replay);
 let recorded: { seed: number; ticks: number; stateHash: string; exileRecovery: boolean } | null = null;
 let replayMap: Map<number, FeedReasonRecord> | undefined;
@@ -51,6 +53,8 @@ const ticks = Number.parseInt(values.ticks!, 10);
 const vendor = values["ai-vendor"] === true;
 // after-triage.md (b): on by default; --no-exile-recovery or EXILE_RECOVERY=0 opts out.
 const exileRecovery = resolveExileRecovery(values);
+// feedReasons on by default; --no-feed-reasons or FEED_REASONS=0 opts out (hash-neutral either way).
+const feedReasonsOn = resolveFeedReasons(values);
 const output = resolve(values.output ?? (replayDir ? join(replayDir, "replay") : join("simulation-output", "feed-reasons", `${vendor ? "vendor" : "stub"}-${seed}-${ticks}`)));
 mkdirSync(output, { recursive: true });
 const costPath = join(output, "cost.jsonl");
@@ -60,13 +64,14 @@ const ledger = new CostLedger(Number(values["cap-usd"]), (line) => appendFileSyn
 let vendorCalls = 0;
 const blocked: FeedReasonWriter = { model: "replay", write() { vendorCalls += 1; throw new Error("replay must not call a writer"); } };
 const transport = vendor ? workerTransport() : null;
-const feedReasons: FeedReasonOptions = {
+const feedReasons: FeedReasonOptions | false = feedReasonsOn ? {
   writer: replayDir ? blocked : vendor ? deepSeekFeedReasonWriter({ transport: transport!, ledger }) : stubFeedReasonWriter(),
   ...(vendor && values.check ? { check: true, checker: jevFeedReasonChecker({ transport: transport!, ledger }) } : {}),
   callCap: values["max-calls"] ? Number.parseInt(values["max-calls"], 10) : feedReasonCallCap(exileRecovery),
   exileRecovery,
   ...(replayMap ? { replay: replayMap } : {}),
-};
+} : false;
+if (replayDir && !feedReasonsOn) throw new Error("--replay needs feed reasons on");
 
 const world = createPrototypeWorld(seed);
 const headline: SimEvent[] = [];
@@ -75,26 +80,26 @@ for (let index = 0; index < ticks; index += 1) {
   for (const event of result.events) if (feedReasonKind(event)) headline.push(event);
 }
 const finalHash = stateHash(world);
-const reasons = headline.map((event) => ({ sequence: event.sequence, tick: event.tick, type: event.type, reason: (event.data.ai as { reason: FeedReasonRecord }).reason }));
+const reasons = headline.map((event) => ({ sequence: event.sequence, tick: event.tick, type: event.type, reason: (event.data.ai as { reason?: FeedReasonRecord } | undefined)?.reason ?? null }));
 writeFileSync(join(output, "reasons.jsonl"), reasons.map((row) => JSON.stringify(row)).join("\n") + "\n");
 const feed = headline.map((event) => `t${event.tick} ${withFeedReason(publicFeedSentence(world, event), event)}`).join("\n") + "\n";
 writeFileSync(join(output, "feed.txt"), feed);
 
-const count = (pred: (r: FeedReasonRecord) => boolean) => reasons.filter((row) => pred(row.reason)).length;
+const count = (pred: (r: FeedReasonRecord) => boolean) => reasons.filter((row) => row.reason && pred(row.reason)).length;
 const byFallback: Record<string, number> = {};
-for (const row of reasons) if (row.reason.fallbackReason) byFallback[row.reason.fallbackReason] = (byFallback[row.reason.fallbackReason] ?? 0) + 1;
+for (const row of reasons) if (row.reason?.fallbackReason) byFallback[row.reason.fallbackReason] = (byFallback[row.reason.fallbackReason] ?? 0) + 1;
 const byKind: Record<string, number> = {};
 for (const event of headline) { const k = feedReasonKind(event)!; byKind[k] = (byKind[k] ?? 0) + 1; }
-const checked = reasons.filter((row) => row.reason.check?.outcome === "model");
+const checked = reasons.filter((row) => row.reason?.check?.outcome === "model");
 const summary = {
   mode: replayDir ? "replay" : vendor ? "vendor" : "stub", seed, ticks, exileRecovery, stateHash: finalHash,
   events: headline.length, byKind, model: count((r) => r.outcome === "model"), cached: count((r) => r.outcome === "cached"),
   fallback: count((r) => r.outcome === "fallback"), byFallback,
-  writerCalls: replayDir ? vendorCalls : feedReasons.calls ?? 0, checks: feedReasons.checks ?? 0,
-  checkFlagged: checked.filter((row) => row.reason.check!.flagged).length,
-  checkMaxNoul: checked.reduce((m, row) => Math.max(m, row.reason.check!.noul ?? 0), 0),
+  feedReasons: feedReasonsOn, writerCalls: replayDir ? vendorCalls : (feedReasons ? feedReasons.calls ?? 0 : 0), checks: feedReasons ? feedReasons.checks ?? 0 : 0,
+  checkFlagged: checked.filter((row) => row.reason!.check!.flagged).length,
+  checkMaxNoul: checked.reduce((m, row) => Math.max(m, row.reason!.check!.noul ?? 0), 0),
   spendUsd: Number(ledger.spendUsd.toFixed(6)), costLines: ledger.lines.length,
-  homeRaidTriggers: headline.filter((event) => feedReasonKind(event) === "raid" && reasons.find((r) => r.sequence === event.sequence)?.reason.text?.includes("win back")).length,
+  homeRaidTriggers: headline.filter((event) => feedReasonKind(event) === "raid" && reasons.find((r) => r.sequence === event.sequence)?.reason?.text?.includes("win back")).length,
 };
 if (replayDir && recorded) {
   const recordedFeed = readFileSync(join(replayDir, "feed.txt"), "utf8");
