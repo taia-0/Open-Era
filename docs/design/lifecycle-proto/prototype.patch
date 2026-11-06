@@ -28,11 +28,12 @@ index 0000000..89f7b29
 +console.log(JSON.stringify({ spells: spells.length, spellP50: q(spells, .5), spellP75: q(spells, .75), spellP90: q(spells, .9), spellMax: Math.max(...spells), openAtEnd: open.length, openP50: q(open, .5), wins: winTroops.length, winP50: q(winTroops, .5), winP75: q(winTroops, .75), winP90: q(winTroops, .9), winMax: Math.max(...winTroops), castMax }));
 diff --git a/scripts/diag/lifecycle-sweep.ts b/scripts/diag/lifecycle-sweep.ts
 new file mode 100644
-index 0000000..b95b7a2
+index 0000000..8236a8a
 --- /dev/null
 +++ b/scripts/diag/lifecycle-sweep.ts
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,50 @@
 +// LIFECYCLE prototype sweep: 13 seeds × 1,200 ticks, main defaults, lifecycle off vs on. Offline, no AI.
++import { governorId } from "../../src/sim/governor.ts";
 +import { runTick } from "../../src/sim/engine.ts";
 +import { createPrototypeWorld } from "../../src/sim/scenario.ts";
 +import { stateHash } from "../../src/sim/state.ts";
@@ -43,13 +44,16 @@ index 0000000..b95b7a2
 +const seeds = [1847, 2718, 4096, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
 +const PINS: Record<number, string> = { 1847: "94de9c02", 2718: "7a3741c9", 4096: "af6eeaea" };
 +function run(seed: number, on: boolean) {
++  const offices: { id: string; port: string; tick: number; next?: string | null }[] = [];
 +  const w = createPrototypeWorld(seed); const events: SimEvent[] = []; const viol: string[] = []; const cast: number[] = [];
 +  for (let i = 0; i < 1200; i++) {
 +    const before = structuredClone(Object.fromEntries(Object.entries(w.characters).map(([k, c]) => [k, { troops: c.troops.count, lc: (c as any).lifecycle, faction: c.factionId }])));
++    const pending = offices.filter((o) => o.next === undefined);
 +    const evs = runTick(w, { lifecycle: on } as never).events; events.push(...evs);
 +    for (const e of evs) {
 +      const d = e.data as any; const b = before[e.actorId!];
 +      if (e.type === "character-promoted") {
++        if (/lieutenant|character-\d/.test(d.character.name) || !/^[A-Z][a-z]+ [A-Z][a-z]+$/.test(d.character.name) || Object.values(w.characters).filter((c) => c.name === d.character.name).length !== 1) viol.push(`promo name ${d.character.name} t${e.tick}`);
 +        if (!d.cause) viol.push(`promo no cause t${e.tick}`);
 +        if (before[d.character.id]) viol.push(`promo id reused t${e.tick}`);
 +        if (d.split !== Math.floor((d.split + d.captainTroopsAfter) / 2) || d.split + d.captainTroopsAfter < 424) viol.push(`promo troops t${e.tick}`);
@@ -57,8 +61,10 @@ index 0000000..b95b7a2
 +        if (w.characters[d.character.id]?.factionId !== b?.faction) viol.push(`promo faction t${e.tick}`);
 +      }
 +      if (e.type === "character-retired") { if (!d.cause || b?.lc?.retired || d.troops >= 25 || e.tick - d.watchSince < RA) viol.push(`retire invalid t${e.tick}`); }
-+      if (e.type === "character-returned") { if (!d.cause || !b?.lc?.retired) viol.push(`return invalid t${e.tick}`); const k = String(d.cause).split(":")[0]; if (k === "recovered" && d.troops < 25) viol.push(`return recovered invalid t${e.tick}`); }
++      if (e.type === "character-returned") { if (!d.cause || !b?.lc?.retired) viol.push(`return invalid t${e.tick}`); if (!String(d.cause).startsWith("crisis:")) viol.push(`return non-crisis t${e.tick}`); }
 +    }
++    for (const o of pending) { const g = governorId(w, o.port); o.next = g; if (g === o.id) viol.push(`governor kept seat ${o.id} t${w.tick}`); }
++    for (const e of evs) if (e.type === "character-retired" && (e.data as any).office) offices.push({ id: e.actorId!, port: (e.data as any).office, tick: e.tick });
 +    if (on) for (const c of Object.values(w.characters)) { const l = (c as any).lifecycle; if (!c.dead && c.controller.kind !== "human" && l?.watchSince !== undefined && !l.retired && w.tick - l.watchSince > RA + 1 && !c.captivity && !c.travel && c.locationId && c.troops.count < 25) viol.push(`missed retirement ${c.id} t${w.tick}`); }
 +    if (i % 300 === 0 || i === 1199) cast.push(Object.values(w.characters).filter((c) => !c.dead && !(c as any).lifecycle?.retired).length);
 +  }
@@ -69,38 +75,41 @@ index 0000000..b95b7a2
 +  const members = (f: string) => Object.values(w.characters).filter((c) => !c.dead && c.factionId === f).length;
 +  const n = (ty: string) => events.filter((e) => e.type === ty).length;
 +  const rc: Record<string, number> = {}; for (const e of events) if (e.type === "character-returned") { const k = String(e.data.cause).split(":")[0]; rc[k] = (rc[k] ?? 0) + 1; }
-+  return { seed, on, hash: stateHash(w).slice(0, 8), claims: n("settlement-claimed"), portChanges: t.portOwnershipChanges, secessions: t.secessions, promotions: n("character-promoted"), retirements: n("character-retired"), returns: n("character-returned"), returnCauses: rc, cast, retiredAtEnd: Object.values(w.characters).filter((c) => !c.dead && (c as any).lifecycle?.retired).length, wipeouts: ["world-government", "free-tide"].filter((f) => ports(f) === 0 && members(f) === 0), viol, replayOk };
++  return { seed, on, hash: stateHash(w).slice(0, 8), claims: n("settlement-claimed"), portChanges: t.portOwnershipChanges, secessions: t.secessions, promotions: n("character-promoted"), retirements: n("character-retired"), returns: n("character-returned"), returnCauses: rc, cast, retiredAtEnd: Object.values(w.characters).filter((c) => !c.dead && (c as any).lifecycle?.retired).length, offices: offices.map((o) => (o.next ? "refilled" : "empty")), names: events.filter((e) => e.type === "character-promoted").map((e) => (e.data as any).character.name), wipeouts: ["world-government", "free-tide"].filter((f) => ports(f) === 0 && members(f) === 0), viol, replayOk };
 +}
 +const off = seeds.map((s) => run(s, false)); const on = seeds.map((s) => run(s, true));
-+console.log("| Seed | Off hash | Promotions | Retirements | Returns (causes) | Retired at t1200 | Active cast t0/300/600/900/1199 | Claims off/on | Port changes off/on | Secessions off/on | Violations | Replay |");
-+for (const s of seeds) { const a = off.find((r) => r.seed === s)!, b = on.find((r) => r.seed === s)!; console.log(`| ${s} | ${a.hash}${PINS[s] ? (a.hash === PINS[s] ? " pin" : " MISMATCH") : ""} | ${b.promotions} | ${b.retirements} | ${b.returns} ${JSON.stringify(b.returnCauses)} | ${b.retiredAtEnd} | ${b.cast.join("/")} (off ${a.cast.join("/")}) | ${a.claims} / ${b.claims} | ${a.portChanges} / ${b.portChanges} | ${a.secessions} / ${b.secessions} | ${b.viol.length} | ${b.replayOk ? "exact" : "MISMATCH"} |`); }
++console.log("| Seed | Off hash | Promotions | Retirements | Returns (causes) | Retired at t1200 | Active cast t0/300/600/900/1199 | Claims off/on | Port changes off/on | Secessions off/on | Violations | Replay | Office vacated (seat after) | Names |");
++for (const s of seeds) { const a = off.find((r) => r.seed === s)!, b = on.find((r) => r.seed === s)!; console.log(`| ${s} | ${a.hash}${PINS[s] ? (a.hash === PINS[s] ? " pin" : " MISMATCH") : ""} | ${b.promotions} | ${b.retirements} | ${b.returns} ${JSON.stringify(b.returnCauses)} | ${b.retiredAtEnd} | ${b.cast.join("/")} (off ${a.cast.join("/")}) | ${a.claims} / ${b.claims} | ${a.portChanges} / ${b.portChanges} | ${a.secessions} / ${b.secessions} | ${b.viol.length} | ${b.replayOk ? "exact" : "MISMATCH"} | ${b.offices.length} (${b.offices.filter((x) => x === "refilled").length} refilled, ${b.offices.filter((x) => x === "empty").length} empty) | ${b.names.join(", ")} |`); }
 +const sum = (rs: typeof on, k: "claims" | "portChanges" | "secessions" | "promotions" | "retirements" | "returns") => rs.reduce((x, r) => x + r[k], 0);
 +console.log(JSON.stringify({ claims: [sum(off, "claims"), sum(on, "claims")], portChanges: [sum(off, "portChanges"), sum(on, "portChanges")], secessions: [sum(off, "secessions"), sum(on, "secessions")], promotions: sum(on, "promotions"), retirements: sum(on, "retirements"), returns: sum(on, "returns"), minClaims: Math.min(...on.map((r) => r.claims)), minPortChanges: Math.min(...on.map((r) => r.portChanges)), seedsWithSecession: on.filter((r) => r.secessions > 0).length, newWipeouts: on.filter((r) => r.wipeouts.some((f) => !off.find((o) => o.seed === r.seed)!.wipeouts.includes(f))).map((r) => r.seed), replayAll: on.every((r) => r.replayOk), violations: on.flatMap((r) => r.viol).slice(0, 8), violationCount: on.reduce((x, r) => x + r.viol.length, 0) }));
 diff --git a/src/sim/engine.ts b/src/sim/engine.ts
-index 3f391c3..6803aa0 100644
+index 4decce6..4b761ab 100644
 --- a/src/sim/engine.ts
 +++ b/src/sim/engine.ts
-@@ -39,6 +39,7 @@ import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSIO
- import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
+@@ -40,6 +40,7 @@ import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PAR
  import { foodBaseline } from "./occupation.ts";
  import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge, type WgNudge, type WgRole } from "./ai-wg-picker.ts";
+ import { PORT_TRANSFER_DEFAULT, portPurchases } from "./port-transfer.ts";
 +import { LIFECYCLE_DEFAULT, isRetired, lifecycleStep } from "./lifecycle.ts";
  import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
  import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
  import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
-@@ -4508,9 +4509,11 @@ export const EXILE_RECOVERY_DEFAULT = true;
+@@ -4511,12 +4512,14 @@ export const EXILE_RECOVERY_DEFAULT = true;
  /** Set for the duration of one `runTick` from `options.occupation` (single-threaded, deterministic). */
  let occupationOn = false;
  let alliancesOn = false;
 +let lifecycleOn = false;
+ let portTransferOn = false;
  
  export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
    occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
-+  lifecycleOn = (options as { lifecycle?: boolean }).lifecycle ?? LIFECYCLE_DEFAULT;
+   portTransferOn = options.portTransfer ?? PORT_TRANSFER_DEFAULT;
    alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
++  lifecycleOn = (options as { lifecycle?: boolean }).lifecycle ?? LIFECYCLE_DEFAULT;
    if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
    if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
-@@ -4575,6 +4578,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+   const leading: SimEvent[] = [];
+@@ -4581,6 +4584,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
        if (character.travel) progressTravel(world, character, events);
        continue;
      }
@@ -108,7 +117,7 @@ index 3f391c3..6803aa0 100644
      const planReview = reviewPlan(world, character, rng);
      if (planReview) {
        emit(world, events, {
-@@ -4685,6 +4689,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+@@ -4691,6 +4695,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
    }
  
    if (alliancesOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
@@ -116,13 +125,46 @@ index 3f391c3..6803aa0 100644
    emit(world, events, { type: "metrics-recorded", data: metrics(world) });
    emit(world, events, {
      type: "tick-advanced",
+diff --git a/src/sim/governor.ts b/src/sim/governor.ts
+index fc18d4d..d5e0a1d 100644
+--- a/src/sim/governor.ts
++++ b/src/sim/governor.ts
+@@ -1,6 +1,7 @@
+ import { freeMateCount, spendRole } from "./allowance.ts";
+ import { commandHolderId, round } from "./state.ts";
+ import type { Character, WorldState } from "./types.ts";
++import { isRetired } from "./lifecycle.ts";
+ 
+ /**
+  * Port governor. The seat is the offices rule, kept beside the run and left
+@@ -60,6 +61,7 @@ function appointGovernor(world: WorldState, settlementId: string, factionId: str
+       character.locationId === settlementId &&
+       character.travel === null &&
+       character.captivity === null &&
++      !isRetired(character) &&
+       character.id !== holderId,
+     )
+     .sort((left, right) => coverScore(right) - coverScore(left) || left.id.localeCompare(right.id));
+@@ -75,7 +77,9 @@ function syncSeats(world: WorldState, seats: Map<string, Seat>): void {
+       const factionChanged = settlement.factionId !== seat.factionId;
+       const leftFaction = !governor || governor.factionId !== seat.factionId;
+       const becameHolder = commandHolderId(world, seat.factionId) === seat.characterId;
+-      if (factionChanged || leftFaction || becameHolder) seats.delete(settlement.id);
++      // LIFECYCLE: a retired governor vacates, like leaving the faction.
++      const retired = governor !== undefined && isRetired(governor);
++      if (factionChanged || leftFaction || becameHolder || retired) seats.delete(settlement.id);
+     }
+     if (seats.has(settlement.id) || !settlement.factionId) continue;
+     if (settlement.factionId.startsWith("secession-")) continue;
 diff --git a/src/sim/lifecycle.ts b/src/sim/lifecycle.ts
 new file mode 100644
-index 0000000..737a6c2
+index 0000000..2364c76
 --- /dev/null
 +++ b/src/sim/lifecycle.ts
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,81 @@
 +import type { Character, SimEvent, WorldState } from "./types.ts";
++import { firstNames, lastNames } from "./scenario.ts";
++import { governorId } from "./governor.ts";
 +/**
 + * LIFECYCLE prototype (docs/design/lifecycle.md v1): promotion, retirement, return.
 + * Deterministic: no RNG, no AI. Flag off: nothing runs; `Character.lifecycle` never exists.
@@ -152,7 +194,7 @@ index 0000000..737a6c2
 +      const battle = c.locationId ? Object.values(world.activeBattles).sort((a, b) => a.id.localeCompare(b.id)).find((b) => b.settlementId === c.locationId && world.settlements[b.settlementId].factionId === c.factionId && c.factionId) : undefined;
 +      if (battle) cause = `crisis: battle ${battle.id} at ${c.locationId}, held by ${c.factionId}`;
 +      else if (c.factionId && now < r.portsAtRetire) cause = `crisis: ${c.factionId} ports ${r.portsAtRetire} -> ${now}`;
-+      else if (c.troops.count >= POWER_FLOOR) cause = `recovered: troops ${c.troops.count} >= ${POWER_FLOOR}`;
++      // v1: crisis is the only return. "recovered" needs a recruit or garrison path for retired captains (lifecycle.md §1).
 +      if (cause) emit({ type: "character-returned", actorId: c.id, settlementId: c.locationId ?? undefined, data: { cause, retiredTick: r.tick, troops: c.troops.count, factionPorts: now } });
 +      continue;
 +    }
@@ -160,7 +202,7 @@ index 0000000..737a6c2
 +    if (below && s?.watchSince === undefined) emit({ type: "lifecycle-watch", actorId: c.id, data: { since: world.tick, troops: c.troops.count } });
 +    else if (!below && s?.watchSince !== undefined) emit({ type: "lifecycle-watch-cleared", actorId: c.id, data: { since: s.watchSince, troops: c.troops.count } });
 +    else if (below && s?.watchSince !== undefined && world.tick - s.watchSince >= RETIRE_AFTER && !c.captivity && !c.travel && c.locationId) {
-+      emit({ type: "character-retired", actorId: c.id, settlementId: c.locationId, data: { cause: `power-loss: troops ${c.troops.count} < ${POWER_FLOOR} since t${s.watchSince} (${world.tick - s.watchSince} ticks)`, watchSince: s.watchSince, troops: c.troops.count, portsAtRetire: portsOf(world, c.factionId) } });
++      emit({ type: "character-retired", actorId: c.id, settlementId: c.locationId, data: { cause: `power-loss: troops ${c.troops.count} < ${POWER_FLOOR} since t${s.watchSince} (${world.tick - s.watchSince} ticks)`, watchSince: s.watchSince, troops: c.troops.count, portsAtRetire: portsOf(world, c.factionId), office: governorId(world, c.locationId) === c.id ? c.locationId : null } });
 +    }
 +  }
 +  // Promotion: an attacker victory this tick that leaves the captain with at least PROMOTE_TROOPS.
@@ -172,7 +214,7 @@ index 0000000..737a6c2
 +    const n = Object.keys(world.characters).length + 1; const id = `character-${String(n).padStart(2, "0")}`;
 +    if (world.characters[id]) continue;
 +    const split = Math.floor(cap.troops.count / 2);
-+    const fresh: C = { ...structuredClone(cap), id, name: `${cap.name}'s lieutenant (${id})`, money: 0, victories: 0, defeats: 0, relationships: {}, troops: { ...cap.troops, count: split }, lastBattleTick: world.tick };
++    const fresh: C = { ...structuredClone(cap), id, name: rosterName(world, n - 1), money: 0, victories: 0, defeats: 0, relationships: {}, troops: { ...cap.troops, count: split }, lastBattleTick: world.tick };
 +    delete fresh.lifecycle; fresh.lifecycle = { promotedFrom: cap.id };
 +    emit({ type: "character-promoted", actorId: cap.id, settlementId: cap.locationId ?? undefined, targetId: id, data: { cause: `battle: attacker victory at ${e.settlementId} (seq ${e.sequence}) leaves ${cap.troops.count} troops >= ${PROMOTE_TROOPS}`, character: fresh, split, captainTroopsAfter: cap.troops.count - split } });
 +  }
@@ -191,20 +233,49 @@ index 0000000..737a6c2
 +  }
 +  return false;
 +}
++
++/** The scenario's own naming formula (scenario.ts), continued past the starting cast; first unused name wins. */
++function nameAt(index: number): string {
++  return `${firstNames[index % firstNames.length]} ${lastNames[(index * 7 + Math.floor(index / firstNames.length) * 3) % lastNames.length]}`;
++}
++export function rosterName(world: WorldState, index: number): string {
++  const used = new Set(Object.values(world.characters).map((c) => c.name));
++  for (let k = index; k < index + firstNames.length * lastNames.length; k++) { const nm = nameAt(k); if (!used.has(nm)) return nm; }
++  return nameAt(index);
++}
+diff --git a/src/sim/scenario.ts b/src/sim/scenario.ts
+index 3834a94..1348696 100644
+--- a/src/sim/scenario.ts
++++ b/src/sim/scenario.ts
+@@ -13,12 +13,12 @@ import type {
+   WorldState,
+ } from "./types.ts";
+ 
+-const firstNames = [
++export const firstNames = [
+   "Mara", "Bram", "Niko", "Sable", "Jun", "Iris", "Toma", "Vale", "Orin", "Kessa",
+   "Rook", "Lio", "Ada", "Pax", "Mina", "Corin", "Zara", "Finn", "Esme", "Dax",
+ ];
+ 
+-const lastNames = [
++export const lastNames = [
+   "Vane", "Morrow", "Reef", "Calder", "Sorn", "Hale", "Dusk", "Quill", "Marrow", "Drake",
+   "Tern", "Ash", "Gale", "Pike", "Wren", "Stone", "Rill", "Crow", "Vale", "Frost",
+ ];
 diff --git a/src/sim/state.ts b/src/sim/state.ts
-index c0827fc..9280dc6 100644
+index ddc83cb..c09a6f8 100644
 --- a/src/sim/state.ts
 +++ b/src/sim/state.ts
 @@ -1,3 +1,4 @@
 +import { applyLifecycleEvent } from "./lifecycle.ts";
+ import { applyPurchase } from "./port-transfer.ts";
  import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
  import { createHash } from "node:crypto";
- import type {
-@@ -558,6 +559,7 @@ function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrd
+@@ -559,6 +560,7 @@ function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrd
  }
  
  export function applyEvent(world: WorldState, event: SimEvent): void {
-+  if ((event.type === "lifecycle-watch" || event.type === "lifecycle-watch-cleared" || event.type.startsWith("character-retired") || event.type === "character-returned" || event.type === "character-promoted") && applyLifecycleEvent(world, event)) return;
-   if ((event.type === "alliance-formed" || event.type === "alliance-broken" || event.type === "alliance-ledger-opened") && applyAllianceEvent(world, event)) {
++  if ((event.type === "lifecycle-watch" || event.type === "lifecycle-watch-cleared" || event.type === "character-retired" || event.type === "character-returned" || event.type === "character-promoted") && applyLifecycleEvent(world, event)) return;
+   if (event.type === "settlement-purchased" && applyPurchase(world, event)) {
      world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
      return;
