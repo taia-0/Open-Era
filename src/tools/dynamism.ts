@@ -102,6 +102,11 @@ function count(target: Counts, event: SimEvent, ports: Set<string>): void {
         if (event.settlementId) ports.add(event.settlementId);
       }
       break;
+    case "settlement-purchased":
+      // port-transfer.md §3 follow-up (Lead ruling): a purchase is a port ownership change (neutral → buyer).
+      target.portOwnershipChanges += 1;
+      if (event.settlementId) ports.add(event.settlementId);
+      break;
     case "secession-declared":
       target.secessions += 1;
       target.portOwnershipChanges += 1;

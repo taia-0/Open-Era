@@ -155,6 +155,52 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-06 — PORT_TRANSFER: neutral-port purchase behind a flag (port-transfer.md v1 + Lead buyer rulings) (Cursor)
+- **Agent / Branch / Commits / Type:** Cursor / feature/port-transfer off origin/main 7834206 (#181) / see the branch / feature behind a flag.
+- **Changed:**
+  - **Module:** `src/sim/port-transfer.ts` — purchase of a neutral port on the 24-tick faction clock, after secessions and alliances. Price = 12 × garrison; reserve = 18 × (free mates + ports held); causes `adjacent` (≤ 30) then `landless`. No new world fields; `settlement-purchased` writes existing ones.
+  - **Lead rulings (tested):**
+    1. When several factions qualify, the buyer is the one with the largest treasury surplus over its reserve (`treasury − reserve`); ties break by faction id.
+    2. A faction buys, not a member: the acting agent is that faction's first free docked member by id.
+    3. A purchase counts as a port ownership change in `dynamismReadout` (`settlement-purchased`).
+  - **Hooks:** engine (`portPurchases` after `allianceForms`), state (`applyPurchase` + `nextEventSequence`), CLI `--port-transfer` / `PORT_TRANSFER=1` on simulate and action-picker (replay restores it).
+  - **Gate:** `scripts/port-transfer-sweep.ts` in evaluate-milestone.
+- **Why:** port-transfer.md (#181), option 2 of next-after-layers; opens Verdant Cay (alliances §9) without a neutral-raid rule.
+- **Verified:** all gated items pass. No tuning. $0; no AI.
+  | Gated item | Result | Pass |
+  |---|---|---|
+  | Flag-off pins (72 / 1,200) | 7f76e474 / 976c40bd / 08943ea5 and 94de9c02 / 7a3741c9 / af6eeaea | ✓ |
+  | Opt-out pins (72 / 1,200) | 66e8ccb7 / b4ccedab / b04c5ac4 and b51aa07a / 091f7628 / 25bdbf15 | ✓ |
+  | Purchase properties + rulings, 13 seeds | **0** violations; 13/13 purchases valid and caused (`adjacent`) | ✓ |
+  | Claims and port changes > 0 every seed | min 24 claims, 25 port changes (8000) | ✓ |
+  | No new wipeouts | none | ✓ |
+  | Secessions on ≥ 6/13 | 9/13 | ✓ |
+  - **npm test** (keys unset): 665/665. New `tests/port-transfer.test.ts` (7): default off + pins; CLI flag; surplus ranking both ways; surplus-tie → lower id; non-cover excluded; free agent not captive/other faction; purchase counted as a port change + store recovery.
+  - **evaluate-milestone:** EXILE, OCCUPATION, WG PICKER, ALLIANCES and PORT TRANSFER ACCEPTANCE PASSED; recovery check passed.
+- **Report only** (13 × 1,200 ticks; purchases now count in port changes, so totals are +13 vs the prototype's readout):
+  | Seed | Purchases (tick) | Buyer, price | VC owner t1200 | VC battles / claims off → on | Claims off → on | Port changes off → on | Secessions off → on |
+  |---|---|---|---|---|---|---|---|
+  | 1847 | 1 (t24) | WG, 840 | World Government | 0→3 / 0→7 | 51→55 | 52→57 | 1→1 |
+  | 2718 | 1 (t24) | WG, 840 | Crown Harbor breakaway | 0→0 / 0→6 | 64→34 | 64→39 | 0→4 |
+  | 4096 | 1 (t24) | WG, 840 | Crown Harbor breakaway | 0→4 / 0→6 | 56→63 | 59→68 | 3→4 |
+  | 1000 | 1 (t24) | WG, 840 | World Government | 0→2 / 0→6 | 42→55 | 44→56 | 2→0 |
+  | 2000 | 1 (t24) | WG, 840 | World Government | 0→1 / 0→4 | 50→40 | 52→41 | 2→0 |
+  | 3000 | 1 (t24) | WG, 840 | World Government | 0→2 / 0→2 | 42→26 | 44→30 | 2→3 |
+  | 4000 | 1 (t24) | WG, 840 | World Government | 0→7 / 0→8 | 63→66 | 64→68 | 1→1 |
+  | 5000 | 1 (t24) | WG, 840 | World Government | 0→1 / 0→6 | 55→47 | 57→52 | 2→4 |
+  | 6000 | 1 (t24) | WG, 840 | Crown Harbor breakaway | 0→3 / 0→8 | 50→62 | 55→69 | 5→6 |
+  | 7000 | 1 (t24) | WG, 840 | World Government | 0→2 / 0→4 | 61→58 | 65→59 | 4→0 |
+  | 8000 | 1 (t24) | WG, 840 | World Government | 0→4 / 0→6 | 62→24 | 66→25 | 4→0 |
+  | 9000 | 1 (t48) | WG, 852 | Glassport breakaway | 0→6 / 0→6 | 58→52 | 60→58 | 2→5 |
+  | 10000 | 1 (t24) | WG, 840 | Crown Harbor breakaway | 0→3 / 0→6 | 28→59 | 31→65 | 3→5 |
+  | **Total** | **13** | all WG | WG 8, breakaways 5 | **0→38 / 0→75** | **682→641** | **713→687** | **31→33** |
+  - Every cause is `adjacent` (WG holds Glassport). No multi-candidate purchase fired on the 13 seeds; the surplus/tie rules are covered by the contested fixture tests.
+  - Against the prototype (where purchases were not counted as port changes): claims and Verdant Cay battles/claims match; port changes are 674→687 = +13 purchases.
+- **Left open / decisions for the Lead:**
+  - Spec §6 still open: negotiated transfer, faction grant, stability/population in the price, purchase news, player `buy-settlement`.
+  - Seeds 8000 / 2718 / 3000 lose a lot of claims with the flag on; 10000 / 1000 / 6000 gain. Trajectory switch, not tuned. Secession seeds drop to 9/13 (still above the floor of 6).
+- **Links:** docs/design/port-transfer.md, docs/design/port-transfer-proto/.
+
 ### 2026-11-01 — ALLIANCES behind a flag (alliances.md rev 2, default off; joiners take losses per the Lead's ruling) (Cursor)
 - **Agent / Branch / Commits / Type:** Cursor / feature/alliances off origin/main 41cf2c6 (#177, #179) / see the branch / feature behind a flag.
 - **Changed:**
