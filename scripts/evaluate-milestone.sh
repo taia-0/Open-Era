@@ -41,6 +41,11 @@ echo "Running the 13-seed alliances sweep"
 node --experimental-strip-types scripts/alliances-sweep.ts --json "${evaluation_output}/alliances-sweep.json" 2>&1 | tee "${evaluation_output}/alliances-sweep.log"
 grep -q "ALLIANCES ACCEPTANCE PASSED" "${evaluation_output}/alliances-sweep.log"
 
+# port-transfer.md §4 + the Lead's buyer rulings: flag-off pins, 0 purchase violations over 13 seeds, liveness.
+echo "Running the 13-seed port-transfer sweep"
+node --experimental-strip-types scripts/port-transfer-sweep.ts --json "${evaluation_output}/port-transfer-sweep.json" 2>&1 | tee "${evaluation_output}/port-transfer-sweep.log"
+grep -q "PORT TRANSFER ACCEPTANCE PASSED" "${evaluation_output}/port-transfer-sweep.log"
+
 # Slice B feed reasons (feed-reasons.md section 10): stub brain on, 1,200 ticks,
 # stateHash equal to the default pins (EXILE_RECOVERY on); then an offline replay with zero writer
 # calls and byte-identical feed text.

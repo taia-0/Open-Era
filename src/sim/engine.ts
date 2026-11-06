@@ -39,6 +39,7 @@ import { BRAIN_PRIOR, BRAIN_WEIGHT, KIND_TESTS, SCORE_GATED, BRAIN_PROMPT_VERSIO
 import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PARAMS, WEIGHTED_PARAMS_VERSION } from "./ai-weighted.ts";
 import { foodBaseline } from "./occupation.ts";
 import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge, type WgNudge, type WgRole } from "./ai-wg-picker.ts";
+import { PORT_TRANSFER_DEFAULT, portPurchases } from "./port-transfer.ts";
 import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
 import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
@@ -3529,6 +3530,8 @@ export interface TickOptions {
   occupation?: boolean;
   /** ALLIANCES (alliances.md): pacts against a shared enemy, joint battles. Off by default; off is byte-identical. */
   alliances?: boolean;
+  /** PORT_TRANSFER (port-transfer.md): purchase of a neutral port by a faction treasury. Off by default; off is byte-identical. */
+  portTransfer?: boolean;
   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
   /**
    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
@@ -4508,9 +4511,11 @@ export const EXILE_RECOVERY_DEFAULT = true;
 /** Set for the duration of one `runTick` from `options.occupation` (single-threaded, deterministic). */
 let occupationOn = false;
 let alliancesOn = false;
+let portTransferOn = false;
 
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
+  portTransferOn = options.portTransfer ?? PORT_TRANSFER_DEFAULT;
   alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
@@ -4539,6 +4544,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
   chooseAutonomousTaxRates(world, events, options.liveSession === true, options.ai, aiTrace);
   declareAutonomousSecessions(world, events, options.liveSession === true, options.ai);
   if (alliancesOn) allianceForms(world, (d) => emit(world, events, d as EventDraft));
+  if (portTransferOn) portPurchases(world, (d) => emit(world, events, d as EventDraft));
   resolveOfferedContracts(world, events);
   resolveContractOutcomes(world, events);
   offerAutonomousSupply(world, events);

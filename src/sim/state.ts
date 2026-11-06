@@ -1,3 +1,4 @@
+import { applyPurchase } from "./port-transfer.ts";
 import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
 import { createHash } from "node:crypto";
 import type {
@@ -558,6 +559,10 @@ function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrd
 }
 
 export function applyEvent(world: WorldState, event: SimEvent): void {
+  if (event.type === "settlement-purchased" && applyPurchase(world, event)) {
+    world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+    return;
+  }
   if ((event.type === "alliance-formed" || event.type === "alliance-broken" || event.type === "alliance-ledger-opened") && applyAllianceEvent(world, event)) {
     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
     return;
