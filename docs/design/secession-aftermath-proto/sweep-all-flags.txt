@@ -1,0 +1,19 @@
+| Seed | Off hash | Peace | Peace broken | Protection | Join | Age at outcome | Secessions off/on | Claims off/on | Port changes off/on | Battles off/on | Viol | Replay |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1847 | d1be1c84 MISMATCH | 2 | 0 | 1 | 0 | 67, 67, 330 | 4/5 | 14/15 | 19/21 | 33/33 | 0  | exact |
+| 2718 | aaa37f34 MISMATCH | 0 | 0 | 0 | 0 | — | 0/0 | 37/37 | 38/38 | 59/59 | 0  | exact |
+| 4096 | 76958f97 MISMATCH | 2 | 0 | 1 | 0 | 67, 413, 255 | 6/7 | 35/26 | 42/34 | 80/71 | 0  | exact |
+| 1000 | ae51cdb5 | 0 | 0 | 0 | 0 | — | 0/0 | 40/40 | 41/41 | 72/72 | 0  | exact |
+| 2000 | 0aa84d37 | 0 | 0 | 0 | 0 | — | 0/0 | 20/20 | 21/21 | 44/44 | 0  | exact |
+| 3000 | cbfcdd27 | 0 | 0 | 0 | 0 | — | 0/0 | 29/29 | 30/30 | 49/49 | 0  | exact |
+| 4000 | d2303b90 | 4 | 0 | 0 | 0 | 67, 126, 67, 67 | 5/5 | 46/37 | 52/43 | 72/65 | 0  | exact |
+| 5000 | 3bbacf99 | 1 | 0 | 0 | 0 | 67 | 1/1 | 13/13 | 15/15 | 41/41 | 0  | exact |
+| 6000 | d28dd93d | 4 | 0 | 0 | 1 | 67, 85, 67, 188, 179 | 4/4 | 28/35 | 33/41 | 60/63 | 0  | exact |
+| 7000 | 9b3f0071 | 0 | 0 | 0 | 0 | — | 0/0 | 48/48 | 49/49 | 64/64 | 0  | exact |
+| 8000 | 1e4df186 | 0 | 0 | 0 | 0 | — | 0/0 | 41/41 | 42/42 | 64/64 | 0  | exact |
+| 9000 | 1efbd774 | 3 | 0 | 1 | 0 | 344, 67, 67, 708 | 5/5 | 31/34 | 37/40 | 69/73 | 0  | exact |
+| 10000 | 83a70f17 | 0 | 0 | 0 | 0 | — | 2/2 | 39/39 | 42/42 | 59/59 | 0  | exact |
+{'claims': [421, 414], 'portChanges': [461, 457], 'secessions': [27, 29], 'battles': [766, 757], 'peace': [0, 16], 'peaceBreaks': [0, 0], 'protection': [0, 3], 'joins': [0, 1], 'protectionBroken': [0, 3]}
+{'evaluations': 1367, 'threatened': 1080, 'insolvent': 305, 'insolventThreatened': 145, 'candInRange': 523, 'candAfterHostility': 12, 'candAfterSurplus': 4, 'insolventNoCandInRange': 101, 'insolventKilledByHostility': 42, 'insolventKilledBySurplus': 1}
+sec seeds off/on 7 7 min claims 13 min pc 15 viol 0 replay True
+ages [67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 85, 126, 179, 188, 255, 330, 344, 413, 708]

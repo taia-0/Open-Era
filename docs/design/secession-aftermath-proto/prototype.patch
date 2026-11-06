@@ -1,0 +1,279 @@
+diff --git a/scripts/diag/aftermath-measure.ts b/scripts/diag/aftermath-measure.ts
+new file mode 100644
+index 0000000..fc8ef36
+--- /dev/null
++++ b/scripts/diag/aftermath-measure.ts
+@@ -0,0 +1,18 @@
++// Flag-off: hold times of seceded ports, raids by old faction, nearby third factions. 13 seeds x 1,200, main defaults.
++import { runTick } from "../../src/sim/engine.ts";
++import { createPrototypeWorld } from "../../src/sim/scenario.ts";
++const seeds = [1847, 2718, 4096, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
++const out: any[] = [];
++for (const seed of (process.argv[2] ? [Number(process.argv[2])] : seeds)) {
++  const w = createPrototypeWorld(seed); const open: Record<string, any> = {};
++  for (let i = 0; i < 1200; i++) {
++    const evs = runTick(w).events;
++    for (const e of evs) {
++      if (e.type === "secession-declared") open[(e.data as any).faction.id] = { seed, port: e.settlementId, fid: (e.data as any).faction.id, old: (e.data as any).previousFactionId, t0: e.tick, raids: [] as number[], treasury0: (e.data as any).faction.treasury };
++      if (e.type === "battle-started" || (e.type === "battle-resolved" && !e.data.battleId)) { const atk = e.actorId ? w.characters[e.actorId]?.factionId : null; for (const r of Object.values(open)) if (r.end === undefined && e.settlementId === r.port && e.targetId === r.fid) { r.raids.push(e.tick - r.t0); if (atk === r.old) r.oldRaids = (r.oldRaids ?? []).concat(e.tick - r.t0); } }
++    }
++    for (const r of Object.values(open)) if (r.end === undefined && w.settlements[r.port].factionId !== r.fid) { r.end = w.tick - r.t0; r.to = w.settlements[r.port].factionId; }
++  }
++  for (const r of Object.values(open)) { if (r.end === undefined) { r.censored = 1200 - r.t0; r.treasuryEnd = w.factions[r.fid].treasury; } out.push(r); }
++}
++console.log(JSON.stringify(out));
+diff --git a/scripts/diag/aftermath-sweep.ts b/scripts/diag/aftermath-sweep.ts
+new file mode 100644
+index 0000000..a1a52f0
+--- /dev/null
++++ b/scripts/diag/aftermath-sweep.ts
+@@ -0,0 +1,34 @@
++// SECESSION_AFTERMATH prototype sweep: one seed, main defaults, flag off vs on. Offline, no AI.
++import { runTick } from "../../src/sim/engine.ts";
++import { createPrototypeWorld } from "../../src/sim/scenario.ts";
++import { stateHash } from "../../src/sim/state.ts";
++import { replayWithSilentStarts } from "../../src/sim/tick-start.ts";
++import { dynamismReadout } from "../../src/tools/dynamism.ts";
++import { atPeace, AFTERMATH_WINDOW, PEACE_GRIEVANCE, PATRON_NEAR, diag } from "../../src/sim/secession-aftermath.ts";
++import { allied, ALLIANCE_NEAR } from "../../src/sim/alliances.ts";
++import type { SimEvent } from "../../src/sim/types.ts";
++const seed = Number(process.argv[2]); const extra = process.argv[3] === "all" ? { occupation: true, alliances: true, portTransfer: true, lifecycle: true } : {};
++const PINS: Record<number, string> = { 1847: "94de9c02", 2718: "7a3741c9", 4096: "af6eeaea" };
++const dist = (w: any, a: string, b: string) => { const p = w.settlements[a].position, q = w.settlements[b].position; return Math.hypot(p.x - q.x, p.y - q.y); };
++function run(on: boolean) {
++  const w = createPrototypeWorld(seed); const events: SimEvent[] = []; const viol: string[] = []; const holds: number[] = []; const peaceAfter: { pair: string[]; tick: number; broken?: boolean }[] = []; let breaks = 0; for (const k of Object.keys(diag)) (diag as any)[k] = 0;
++  for (let i = 0; i < 1200; i++) {
++    const evs = runTick(w, { ...extra, secessionAftermath: on } as never).events; events.push(...evs);
++    for (const e of evs) {
++      const d = e.data as any;
++      if (e.type === "battle-started" || (e.type === "battle-resolved" && !d.battleId)) { const a = e.actorId ? w.characters[e.actorId]?.factionId : null; for (const p of peaceAfter) if (!p.broken && e.tick > p.tick && p.pair.includes(a!) && p.pair.includes(e.targetId!)) { if (!evs.some((x) => x.type === "faction-peace-broken" && (x.data as any).peaceTick === p.tick && (x.data as any).factionIds.join() === p.pair.join())) viol.push(`raid across peace without break ${p.pair} t${e.tick}`); } }
++      if (e.type === "faction-peace-broken") { const p = peaceAfter.find((q) => !q.broken && q.tick === d.peaceTick && q.pair.join() === d.factionIds.join()); if (!p || !d.cause || !(d.evidence.raidTick > d.peaceTick) || !p.pair.includes(d.evidence.raiderFactionId) || !p.pair.includes(d.evidence.targetFactionId)) viol.push(`peace break invalid t${e.tick}`); else { p.broken = true; breaks++; } }
++      if (e.type === "faction-peace") { const ids = d.peace.factionIds; if (!d.peace.cause || ids.length !== 2 || d.age < AFTERMATH_WINDOW || d.grievance >= PEACE_GRIEVANCE) viol.push(`peace invalid t${e.tick}`); peaceAfter.push({ pair: ids, tick: e.tick }); holds.push(d.age);
++        for (const f of Object.keys(w.factions)) if (!ids.includes(f) && (atPeace(w, ids[0], f) && !peaceAfter.some((p) => p.pair.includes(ids[0]) && p.pair.includes(f)))) viol.push(`peace not bilateral t${e.tick}`); }
++      if (e.type === "alliance-formed" && d.aftermath === "protection") { const [x, y] = d.alliance.factionIds; const r = (w as any).secessionAftermath.records.find((q: any) => q.factionId === x); if (!r || y === r.oldFactionId || d.patron.surplus < 0 || d.patron.distance > PATRON_NEAR || !d.alliance.causes[x] || !d.alliance.causes[y] || e.tick - r.declaredTick < AFTERMATH_WINDOW) viol.push(`protection invalid t${e.tick}`); holds.push(e.tick - r.declaredTick); }
++      if (e.type === "secession-joined") { const to = d.joinedFactionId; const r = (w as any).secessionAftermath.records.find((q: any) => q.factionId === d.factionId);
++        const near = Object.values(w.settlements).some((s) => s.factionId === to && !d.ports.includes(s.id) && dist(w, s.id, e.settlementId!) <= PATRON_NEAR + 1e-9);
++        if (!d.cause || d.patron.surplus < 0 || to === d.oldFactionId || !near || allied(w, to, d.oldFactionId) || atPeace(w, to, d.oldFactionId) || d.memberIds.some((m: string) => w.characters[m].factionId !== to) || w.settlements[e.settlementId!].factionId !== to || e.tick - r.declaredTick < AFTERMATH_WINDOW) viol.push(`join invalid t${e.tick}`); holds.push(e.tick - r.declaredTick); }
++    }
++  }
++  let replayOk = true; if (on) { const r = createPrototypeWorld(seed); replayWithSilentStarts(r, events); replayOk = stateHash(r) === stateHash(w); }
++  const t = dynamismReadout(events).totals; const n = (ty: string) => events.filter((e) => e.type === ty).length;
++  const ports = (f: string) => Object.values(w.settlements).filter((s) => s.factionId === f).length; const members = (f: string) => Object.values(w.characters).filter((c) => !c.dead && c.factionId === f).length;
++  return { seed, on, hash: stateHash(w).slice(0, 8), claims: n("settlement-claimed"), portChanges: t.portOwnershipChanges + n("secession-joined"), joinsPortChanges: n("secession-joined"), secessions: t.secessions, battles: n("battle-resolved"), peace: n("faction-peace"), protection: events.filter((e) => e.type === "alliance-formed" && e.data.aftermath === "protection").length, joins: n("secession-joined"), protectionBroken: events.filter((e) => e.type === "alliance-broken" && String(e.data.allianceId).startsWith("protection-")).length, holds, wipeouts: ["world-government", "free-tide"].filter((f) => ports(f) === 0 && members(f) === 0), viol, replayOk, peaceBreaks: breaks, diag: { ...diag }, pin: PINS[seed] ?? null };
++}
++console.log(JSON.stringify([run(false), run(true)]));
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index e499e99..a794a08 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -40,6 +40,7 @@ import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PAR
+ import { foodBaseline } from "./occupation.ts";
+ import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge, type WgNudge, type WgRole } from "./ai-wg-picker.ts";
+ import { PORT_TRANSFER_DEFAULT, portPurchases } from "./port-transfer.ts";
++import { SECESSION_AFTERMATH_DEFAULT, aftermathStep, atPeace } from "./secession-aftermath.ts";
+ import { LIFECYCLE_DEFAULT, isRetired, lifecycleStep } from "./lifecycle.ts";
+ import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
+ import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
+@@ -923,7 +924,7 @@ function buildCandidates(
+     ...travelCandidates(world, character, exile),
+   ];
+ 
+-  const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null && !(alliancesOn && allied(world, character.factionId, settlement.factionId));
++  const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null && !((alliancesOn || aftermathOn) && allied(world, character.factionId, settlement.factionId)) && !(aftermathOn && atPeace(world, character.factionId, settlement.factionId));
+   if (hostileTerritory && character.troops.count > 0 && settlementClaimAvailableTo(settlement, character.id)) {
+     candidates.push({
+       action: "claim-settlement",
+@@ -1195,7 +1196,7 @@ function resolveImmediateBattle(
+   rng: DeterministicRng,
+ ): void {
+   const settlement = world.settlements[character.locationId!];
+-  const join = alliancesOn ? allyJoiners(world, character, settlement) : null;
++  const join = (alliancesOn || aftermathOn) ? allyJoiners(world, character, settlement) : null;
+   const attackerBase0 = partyPower(character);
+   const defenderBase0 = settlementDefensePower(settlement);
+   const attackerBase = attackerBase0 + (join?.attackerPower ?? 0);
+@@ -1411,7 +1412,7 @@ function resolveBattlePhase(
+   const character = world.characters[battle.attackerId];
+   const settlement = world.settlements[battle.settlementId];
+   const phase = battle.phase + 1;
+-  const join = alliancesOn ? allyJoiners(world, character, settlement) : null;
++  const join = (alliancesOn || aftermathOn) ? allyJoiners(world, character, settlement) : null;
+   const attackerBase0 = partyPower(character);
+   const defenderBase0 = settlementDefensePower(settlement);
+   const attackerBase = attackerBase0 + (join?.attackerPower ?? 0);
+@@ -3535,6 +3536,8 @@ export interface TickOptions {
+   portTransfer?: boolean;
+   /** LIFECYCLE (lifecycle.md): promotion, retirement, crisis-only return. Off by default; off is byte-identical. */
+   lifecycle?: boolean;
++  /** SECESSION_AFTERMATH (secession-aftermath.md): peace, protection, membership for a seceded port. Off by default; off is byte-identical. */
++  secessionAftermath?: boolean;
+   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
+   /**
+    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
+@@ -4519,12 +4522,14 @@ let occupationOn = false;
+ let alliancesOn = false;
+ let lifecycleOn = false;
+ let portTransferOn = false;
++let aftermathOn = false;
+ 
+ export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
+   portTransferOn = options.portTransfer ?? PORT_TRANSFER_DEFAULT;
+   alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
+   lifecycleOn = options.lifecycle ?? LIFECYCLE_DEFAULT;
++  aftermathOn = options.secessionAftermath ?? SECESSION_AFTERMATH_DEFAULT;
+   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
+   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
+   const leading: SimEvent[] = [];
+@@ -4699,8 +4704,9 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+     evolveLocalRelationship(world, character, events, rng);
+   }
+ 
+-  if (alliancesOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
++  if (alliancesOn || aftermathOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
+   if (lifecycleOn) lifecycleStep(world, [...events], (d) => emit(world, events, d as EventDraft));
++  if (aftermathOn) aftermathStep(world, [...events], (d) => emit(world, events, d as EventDraft));
+   emit(world, events, { type: "metrics-recorded", data: metrics(world) });
+   emit(world, events, {
+     type: "tick-advanced",
+diff --git a/src/sim/secession-aftermath.ts b/src/sim/secession-aftermath.ts
+new file mode 100644
+index 0000000..b0b5655
+--- /dev/null
++++ b/src/sim/secession-aftermath.ts
+@@ -0,0 +1,114 @@
++import type { SimEvent, WorldState } from "./types.ts";
++import { allied, ALLIANCE_NEAR, ALLIANCE_RAID_WINDOW } from "./alliances.ts";
++import { RESERVE_PER_HEAD } from "./port-transfer.ts";
++import { freeMateCount } from "./allowance.ts";
++import { commandHolderId } from "./state.ts";
++import { startingGrievance } from "./secession.ts";
++/**
++ * SECESSION_AFTERMATH prototype (docs/design/secession-aftermath.md v1): peace, protection, membership.
++ * Deterministic: no RNG, no AI. Flag off: nothing runs; world.secessionAftermath never exists.
++ */
++export const SECESSION_AFTERMATH_DEFAULT = false;
++/** Survival window: p90 hold of a seceded port, flag off, 13 seeds (31 secessions, all lost; p90 67, max 97). Rev 2 ruling. */
++export const AFTERMATH_WINDOW = Number(process.env.SA_WINDOW ?? 67);
++/** Patron search radius (protection and join): 43.829, the next inter-port distance (Crown Harbor–Glassport). Rev 2 ruling. Threat "near" keeps ALLIANCE_NEAR (30). */
++export const PATRON_NEAR = 43.829;
++/** Diagnostic counters (not state; reset by the sweep). */
++export const diag = { evaluations: 0, threatened: 0, insolvent: 0, insolventThreatened: 0, candInRange: 0, candAfterHostility: 0, candAfterSurplus: 0, insolventNoCandInRange: 0, insolventKilledByHostility: 0, insolventKilledBySurplus: 0 };
++/** Peace is blocked by the secession "hated" gate: earned grievance at the old holder ≥ 0.12 (secession.ts). */
++export const PEACE_GRIEVANCE = 0.12;
++export interface AftermathRecord { factionId: string; settlementId: string; oldFactionId: string; ownerId: string; declaredTick: number; peaceTick?: number; protectionTick?: number; joinedTick?: number }
++export interface Peace { factionIds: [string, string]; tick: number; cause: string }
++interface State { records: AftermathRecord[]; peace: Peace[] }
++type W = WorldState & { secessionAftermath?: State; allianceRaids?: Record<string, number> };
++type Emit = (d: { type: string; actorId?: string; settlementId?: string; targetId?: string; data: Record<string, unknown> }) => void;
++const st = (w: WorldState) => (w as W).secessionAftermath;
++export function atPeace(world: WorldState, a: string | null | undefined, b: string | null | undefined): boolean {
++  if (!a || !b || a === b) return false;
++  return (st(world)?.peace ?? []).some((p) => p.factionIds.includes(a) && p.factionIds.includes(b));
++}
++const friendly = (w: WorldState, a: string, b: string) => a === b || atPeace(w, a, b) || allied(w, a, b);
++const ports = (w: WorldState, f: string) => Object.values(w.settlements).filter((s) => s.factionId === f).sort((a, b) => a.id.localeCompare(b.id));
++const alive = (w: WorldState, f: string) => Object.values(w.characters).some((c) => !c.dead && c.factionId === f);
++const dist = (w: WorldState, a: string, b: string) => { const p = w.settlements[a].position, q = w.settlements[b].position; return Math.hypot(p.x - q.x, p.y - q.y); };
++const r2 = (v: number) => Math.round(v * 100) / 100;
++export const surplus = (w: WorldState, f: string) => r2(w.factions[f].treasury - RESERVE_PER_HEAD * (freeMateCount(w, f) + ports(w, f).length));
++export function earnedGrievance(w: WorldState, ownerId: string, oldFactionId: string): number {
++  const holder = commandHolderId(w, oldFactionId); if (!holder) return 0;
++  const owner = w.characters[ownerId]; return r2(((owner?.relationships[holder]?.grievance ?? 0) - startingGrievance(w.seed, ownerId, holder)) * 1000) / 1000;
++}
++/** The threat to a seceded port: the latest hostile raider within the raid window, else the hostile holder of the nearest port within ALLIANCE_NEAR. */
++export function threatTo(w: WorldState, f: string, port: string): { factionId: string; cause: string } | null {
++  const raids = Object.entries((w as W).allianceRaids ?? {}).filter(([k, t]) => k.endsWith(`>${f}`) && w.tick - t <= ALLIANCE_RAID_WINDOW).map(([k, t]) => ({ by: k.slice(0, k.length - f.length - 1), t })).filter((r) => w.factions[r.by] && !friendly(w, r.by, f)).sort((a, b) => b.t - a.t || a.by.localeCompare(b.by));
++  if (raids.length) return { factionId: raids[0].by, cause: `raided: ${raids[0].by} raided ${f} at t${raids[0].t}, ${w.tick - raids[0].t} ticks ago` };
++  const near = Object.values(w.settlements).filter((s) => s.factionId && s.id !== port && !friendly(w, s.factionId, f) && dist(w, s.id, port) <= ALLIANCE_NEAR).sort((a, b) => dist(w, a.id, port) - dist(w, b.id, port) || a.id.localeCompare(b.id));
++  if (near.length) return { factionId: near[0].factionId!, cause: `near: ${near[0].factionId} holds ${near[0].id} at ${dist(w, near[0].id, port).toFixed(3)} from ${port}` };
++  return null;
++}
++/** Candidates for protection or membership: alive, holding a port within ALLIANCE_NEAR, hostile to the old faction, not the threat. Largest surplus first (#182 rule), then id. */
++export function patronStages(w: WorldState, r: AftermathRecord, threat: string) {
++  const inRange = Object.keys(w.factions).filter((f) => f !== r.factionId && alive(w, f))
++    .map((f) => { const p = ports(w, f).find((s) => s.id !== r.settlementId && dist(w, s.id, r.settlementId) <= PATRON_NEAR + 1e-9); return p ? { factionId: f, port: p.id, distance: Number(dist(w, p.id, r.settlementId).toFixed(3)), surplus: surplus(w, f) } : null; })
++    .filter((x): x is NonNullable<typeof x> => x !== null);
++  const hostile = inRange.filter((c) => c.factionId !== r.oldFactionId && c.factionId !== threat && !friendly(w, c.factionId, r.oldFactionId) && !friendly(w, c.factionId, threat));
++  const solvent = hostile.filter((c) => c.surplus >= 0).sort((a, b) => b.surplus - a.surplus || a.factionId.localeCompare(b.factionId));
++  return { inRange, hostile, solvent };
++}
++export const patrons = (w: WorldState, r: AftermathRecord, threat: string) => patronStages(w, r, threat).solvent;
++export function aftermathStep(world: WorldState, tickEvents: SimEvent[], emit: Emit): void {
++  if (!st(world)) emit({ type: "aftermath-ledger-opened", data: {} });
++  for (const e of tickEvents) if (e.type === "secession-declared") { const d = e.data as any; emit({ type: "aftermath-watch", settlementId: e.settlementId, data: { record: { factionId: d.faction.id, settlementId: e.settlementId, oldFactionId: d.previousFactionId, ownerId: d.ownerId, declaredTick: e.tick } } }); }
++  for (const p of [...(st(world)?.peace ?? [])]) {
++    const [a, b] = p.factionIds; const raids = (world as W).allianceRaids ?? {};
++    const hit = [[a, b], [b, a]].map(([x, y]) => ({ by: x, on: y, t: raids[`${x}>${y}`] })).filter((h) => h.t !== undefined && h.t > p.tick).sort((m, n) => n.t! - m.t! || m.by.localeCompare(n.by))[0];
++    if (hit) emit({ type: "faction-peace-broken", data: { factionIds: p.factionIds, peaceTick: p.tick, reason: "raid", evidence: { raiderFactionId: hit.by, targetFactionId: hit.on, raidTick: hit.t }, cause: `raid: ${hit.by} raided ${hit.on} at t${hit.t}, after peace at t${p.tick}` } });
++  }
++  for (const r of [...(st(world)?.records ?? [])].sort((a, b) => a.declaredTick - b.declaredTick || a.factionId.localeCompare(b.factionId))) {
++    if (r.joinedTick !== undefined) continue;
++    const port = world.settlements[r.settlementId]; const age = world.tick - r.declaredTick;
++    if (port.factionId !== r.factionId || age < AFTERMATH_WINDOW) continue;
++    const held = `${r.factionId} has held ${r.settlementId} ${age} ticks since t${r.declaredTick} (window ${AFTERMATH_WINDOW})`;
++    if (r.peaceTick === undefined && alive(world, r.oldFactionId)) {
++      const g = earnedGrievance(world, r.ownerId, r.oldFactionId); const last = (world as W).allianceRaids?.[`${r.oldFactionId}>${r.factionId}`];
++      const raided = last !== undefined && world.tick - last <= ALLIANCE_RAID_WINDOW;
++      if (g < PEACE_GRIEVANCE && !raided) emit({ type: "faction-peace", settlementId: r.settlementId, data: { peace: { factionIds: [r.factionId, r.oldFactionId], tick: world.tick, cause: `survived: ${held}; earned grievance ${g} < ${PEACE_GRIEVANCE}; no raid by ${r.oldFactionId} within ${ALLIANCE_RAID_WINDOW}` }, grievance: g, lastOldRaid: last ?? null, age } });
++    }
++    if (r.protectionTick !== undefined) continue;
++    if ((world as W).alliances?.some((a) => a.factionIds.includes(r.factionId))) continue;
++    const own = surplus(world, r.factionId); diag.evaluations++; if (own < 0) diag.insolvent++;
++    const threat = threatTo(world, r.factionId, r.settlementId); if (!threat) continue;
++    diag.threatened++; if (own < 0) diag.insolventThreatened++;
++    const st2 = patronStages(world, r, threat.factionId);
++    if (st2.inRange.length) diag.candInRange++; if (st2.hostile.length) diag.candAfterHostility++; if (st2.solvent.length) diag.candAfterSurplus++;
++    if (own < 0) { if (!st2.inRange.length) diag.insolventNoCandInRange++; else if (!st2.hostile.length) diag.insolventKilledByHostility++; else if (!st2.solvent.length) diag.insolventKilledBySurplus++; }
++    const cands = st2.solvent; if (!cands.length) continue;
++    const p = cands[0];
++    if (own >= 0) emit({ type: "alliance-formed", settlementId: r.settlementId, data: { aftermath: "protection", patron: p, ownSurplus: own, alliance: { id: `protection-${world.tick}-${r.factionId}-${p.factionId}`, factionIds: [r.factionId, p.factionId], enemyFactionId: threat.factionId, formedTick: world.tick, causes: { [r.factionId]: `protection: ${held}; threat ${threat.cause}; own surplus ${own} >= 0`, [p.factionId]: `protector: holds ${p.port} at ${p.distance}, hostile to ${r.oldFactionId} and ${threat.factionId}, surplus ${p.surplus}` }, portsAtForm: { [r.factionId]: ports(world, r.factionId).length, [p.factionId]: ports(world, p.factionId).length } } } });
++    else {
++      const members = Object.values(world.characters).filter((c) => !c.dead && c.factionId === r.factionId).map((c) => c.id).sort();
++      emit({ type: "secession-joined", settlementId: r.settlementId, actorId: r.ownerId, targetId: p.factionId, data: { patron: p, ownSurplus: own, factionId: r.factionId, joinedFactionId: p.factionId, oldFactionId: r.oldFactionId, memberIds: members, ports: ports(world, r.factionId).map((s) => s.id), treasury: world.factions[r.factionId].treasury, cause: `membership: ${held}; threat ${threat.cause}; own surplus ${own} < 0; ${p.factionId} holds ${p.port} at ${p.distance}, hostile to ${r.oldFactionId}, surplus ${p.surplus}` } });
++    }
++  }
++}
++export function applyAftermathEvent(world: WorldState, event: SimEvent): boolean {
++  const w = world as W;
++  switch (event.type) {
++    case "aftermath-ledger-opened": w.secessionAftermath = { records: [], peace: [] }; return true;
++    case "aftermath-watch": w.secessionAftermath!.records.push(event.data.record as AftermathRecord); return true;
++    case "faction-peace": { const p = event.data.peace as Peace; w.secessionAftermath!.peace.push(p); const r = w.secessionAftermath!.records.find((x) => x.factionId === p.factionIds[0]); if (r) r.peaceTick = event.tick; return true; }
++    case "faction-peace-broken": { const ids = event.data.factionIds as string[]; w.secessionAftermath!.peace = w.secessionAftermath!.peace.filter((p) => !(p.factionIds[0] === ids[0] && p.factionIds[1] === ids[1] && p.tick === event.data.peaceTick)); return true; }
++    case "secession-joined": {
++      const d = event.data as any; const to = d.joinedFactionId as string;
++      for (const id of d.memberIds as string[]) world.characters[id].factionId = to;
++      for (const s of d.ports as string[]) { world.settlements[s].factionId = to; delete world.settlements[s].occupation; }
++      world.factions[to].treasury = r2(world.factions[to].treasury + world.factions[d.factionId].treasury); world.factions[d.factionId].treasury = 0;
++      const r = w.secessionAftermath!.records.find((x) => x.factionId === d.factionId); if (r) r.joinedTick = event.tick; return true;
++    }
++  }
++  return false;
++}
++/** Protection pacts are alliance records; mark the aftermath record when one forms for a seceded faction. */
++export function noteProtection(world: WorldState, event: SimEvent): void {
++  if (event.type !== "alliance-formed" || event.data.aftermath !== "protection") return;
++  const ids = (event.data.alliance as { factionIds: string[] }).factionIds; const r = st(world)?.records.find((x) => x.factionId === ids[0]); if (r) r.protectionTick = event.tick;
++}
+diff --git a/src/sim/state.ts b/src/sim/state.ts
+index e6e3f1a..a236d7e 100644
+--- a/src/sim/state.ts
++++ b/src/sim/state.ts
+@@ -1,3 +1,4 @@
++import { applyAftermathEvent, noteProtection } from "./secession-aftermath.ts";
+ import { applyLifecycleEvent } from "./lifecycle.ts";
+ import { applyPurchase } from "./port-transfer.ts";
+ import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
+@@ -568,6 +569,11 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+     return;
+   }
++  if ((event.type === "aftermath-ledger-opened" || event.type === "aftermath-watch" || event.type === "faction-peace" || event.type === "faction-peace-broken" || event.type === "secession-joined") && applyAftermathEvent(world, event)) {
++    world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
++    return;
++  }
++  noteProtection(world, event);
+   if ((event.type === "alliance-formed" || event.type === "alliance-broken" || event.type === "alliance-ledger-opened") && applyAllianceEvent(world, event)) {
+     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+     return;

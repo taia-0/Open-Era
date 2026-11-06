@@ -1,0 +1,19 @@
+| Seed | Off hash | Peace | Peace broken | Protection | Join | Age at outcome | Secessions off/on | Claims off/on | Port changes off/on | Battles off/on | Viol | Replay |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1847 | 94de9c02 pin | 1 | 0 | 0 | 0 | 274 | 1/1 | 51/51 | 52/52 | 74/74 | 0  | exact |
+| 2718 | 7a3741c9 pin | 0 | 0 | 0 | 0 | — | 0/0 | 64/64 | 64/64 | 81/81 | 0  | exact |
+| 4096 | af6eeaea pin | 3 | 0 | 0 | 0 | 71, 170, 351 | 3/3 | 56/54 | 59/57 | 81/78 | 0  | exact |
+| 1000 | 5f303e45 | 0 | 0 | 0 | 0 | — | 2/2 | 42/42 | 44/44 | 69/69 | 0  | exact |
+| 2000 | 3dec6c14 | 1 | 0 | 0 | 0 | 340 | 2/2 | 50/50 | 52/52 | 72/72 | 0  | exact |
+| 3000 | 945a5b23 | 1 | 0 | 0 | 0 | 157 | 2/1 | 42/38 | 44/39 | 58/55 | 0  | exact |
+| 4000 | 05583438 | 1 | 0 | 0 | 0 | 189 | 1/1 | 63/61 | 64/62 | 79/77 | 0  | exact |
+| 5000 | ad712dfa | 1 | 0 | 0 | 0 | 67 | 2/2 | 55/57 | 57/59 | 71/73 | 0  | exact |
+| 6000 | 020028d7 | 2 | 0 | 0 | 0 | 295, 345 | 5/4 | 50/47 | 55/51 | 65/63 | 0  | exact |
+| 7000 | 9638fa13 | 2 | 0 | 0 | 0 | 141, 269 | 4/4 | 61/61 | 65/65 | 78/78 | 0  | exact |
+| 8000 | 6e74df8b | 2 | 0 | 0 | 0 | 67, 133 | 4/2 | 62/33 | 66/35 | 76/47 | 0  | exact |
+| 9000 | 450acb6b | 2 | 0 | 0 | 1 | 67, 93, 130 | 2/3 | 58/47 | 60/51 | 78/67 | 0  | exact |
+| 10000 | a1567d5f | 3 | 0 | 1 | 1 | 135, 135, 205, 315, 350 | 3/3 | 28/23 | 31/27 | 45/40 | 0  | exact |
+{'claims': [682, 628], 'portChanges': [713, 658], 'secessions': [31, 28], 'battles': [927, 874], 'peace': [0, 19], 'peaceBreaks': [0, 0], 'protection': [0, 1], 'joins': [0, 2], 'protectionBroken': [0, 1]}
+{'evaluations': 3174, 'threatened': 2139, 'insolvent': 313, 'insolventThreatened': 272, 'candInRange': 901, 'candAfterHostility': 4, 'candAfterSurplus': 3, 'insolventNoCandInRange': 251, 'insolventKilledByHostility': 19, 'insolventKilledBySurplus': 0}
+sec seeds off/on 12 12 min claims 23 min pc 27 viol 0 replay True
+ages [67, 67, 67, 71, 93, 130, 133, 135, 135, 141, 157, 170, 189, 205, 269, 274, 295, 315, 340, 345, 350, 351]
