@@ -716,6 +716,8 @@ export interface Character {
    */
   allowanceRemaining?: number;
   controller: CharacterController;
+  /** LIFECYCLE flag only (lifecycle.md §2); absent otherwise, so flag-off worlds hash as before. */
+  lifecycle?: import("./lifecycle.ts").CharacterLifecycle;
   goals: CharacterGoal[];
   activeGoalId: string | null;
   plan: CharacterPlan | null;

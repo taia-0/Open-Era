@@ -1,6 +1,7 @@
 import { freeMateCount, spendRole } from "./allowance.ts";
 import { commandHolderId, round } from "./state.ts";
 import type { Character, WorldState } from "./types.ts";
+import { isRetired } from "./lifecycle.ts";
 
 /**
  * Port governor. The seat is the offices rule, kept beside the run and left
@@ -60,6 +61,7 @@ function appointGovernor(world: WorldState, settlementId: string, factionId: str
       character.locationId === settlementId &&
       character.travel === null &&
       character.captivity === null &&
+      !isRetired(character) &&
       character.id !== holderId,
     )
     .sort((left, right) => coverScore(right) - coverScore(left) || left.id.localeCompare(right.id));
@@ -75,7 +77,9 @@ function syncSeats(world: WorldState, seats: Map<string, Seat>): void {
       const factionChanged = settlement.factionId !== seat.factionId;
       const leftFaction = !governor || governor.factionId !== seat.factionId;
       const becameHolder = commandHolderId(world, seat.factionId) === seat.characterId;
-      if (factionChanged || leftFaction || becameHolder) seats.delete(settlement.id);
+      // LIFECYCLE: a retired governor vacates, like leaving the faction.
+      const retired = governor !== undefined && isRetired(governor);
+      if (factionChanged || leftFaction || becameHolder || retired) seats.delete(settlement.id);
     }
     if (seats.has(settlement.id) || !settlement.factionId) continue;
     if (settlement.factionId.startsWith("secession-")) continue;

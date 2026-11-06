@@ -46,6 +46,11 @@ echo "Running the 13-seed port-transfer sweep"
 node --experimental-strip-types scripts/port-transfer-sweep.ts --json "${evaluation_output}/port-transfer-sweep.json" 2>&1 | tee "${evaluation_output}/port-transfer-sweep.log"
 grep -q "PORT TRANSFER ACCEPTANCE PASSED" "${evaluation_output}/port-transfer-sweep.log"
 
+# lifecycle.md §4 + Lead rulings (seed-offset names, returning governor competes): flag-off pins, 0 property violations, liveness.
+echo "Running the 13-seed lifecycle sweep"
+node --experimental-strip-types scripts/lifecycle-sweep.ts --json "${evaluation_output}/lifecycle-sweep.json" 2>&1 | tee "${evaluation_output}/lifecycle-sweep.log"
+grep -q "LIFECYCLE ACCEPTANCE PASSED" "${evaluation_output}/lifecycle-sweep.log"
+
 # Slice B feed reasons (feed-reasons.md section 10; default-on as of Micah 2026-11-06): stub brain
 # on, 1,200 ticks, stateHash equal to the default pins (EXILE_RECOVERY on, hash-neutral with reasons);
 # then an offline replay with zero writer calls and byte-identical feed text. Opt-out is
