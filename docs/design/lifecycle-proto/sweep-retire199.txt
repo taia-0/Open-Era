@@ -1,0 +1,15 @@
+| Seed | Off hash | Promotions | Retirements | Returns (causes) | Retired at t1200 | Active cast t0/300/600/900/1199 | Claims off/on | Port changes off/on | Secessions off/on | Violations | Replay |
+| 1847 | 94de9c02 pin | 1 | 9 | 7 {"crisis":7} | 2 | 30/27/27/27/28 (off 30/30/30/30/29) | 51 / 26 | 52 / 26 | 1 / 0 | 0 | exact |
+| 2718 | 7a3741c9 pin | 2 | 7 | 4 {"crisis":4} | 3 | 30/26/26/26/27 (off 30/29/29/28/28) | 64 / 60 | 64 / 60 | 0 / 0 | 0 | exact |
+| 4096 | af6eeaea pin | 1 | 3 | 2 {"crisis":2} | 1 | 30/30/28/29/29 (off 30/30/29/29/29) | 56 / 58 | 59 / 61 | 3 / 3 | 0 | exact |
+| 1000 | 5f303e45 | 1 | 5 | 2 {"crisis":2} | 3 | 30/27/26/26/25 (off 30/30/29/29/27) | 42 / 45 | 44 / 47 | 2 / 2 | 0 | exact |
+| 2000 | 3dec6c14 | 3 | 6 | 4 {"crisis":4} | 2 | 30/25/28/29/29 (off 30/29/29/28/28) | 50 / 38 | 52 / 38 | 2 / 0 | 0 | exact |
+| 3000 | 945a5b23 | 1 | 9 | 5 {"crisis":5} | 4 | 30/26/26/25/26 (off 30/30/30/29/29) | 42 / 59 | 44 / 60 | 2 / 1 | 0 | exact |
+| 4000 | 05583438 | 4 | 5 | 4 {"crisis":4} | 1 | 30/29/28/30/31 (off 30/30/29/29/28) | 63 / 58 | 64 / 58 | 1 / 0 | 0 | exact |
+| 5000 | ad712dfa | 2 | 5 | 3 {"crisis":3} | 2 | 30/28/28/28/27 (off 30/30/29/29/27) | 55 / 62 | 57 / 65 | 2 / 3 | 0 | exact |
+| 6000 | 020028d7 | 1 | 13 | 6 {"crisis":6} | 7 | 30/28/22/21/22 (off 30/30/29/28/28) | 50 / 53 | 55 / 59 | 5 / 6 | 0 | exact |
+| 7000 | 9638fa13 | 2 | 3 | 3 {"crisis":3} | 0 | 30/28/29/29/30 (off 30/30/29/28/28) | 61 / 57 | 65 / 57 | 4 / 0 | 0 | exact |
+| 8000 | 6e74df8b | 2 | 5 | 2 {"crisis":2} | 3 | 30/28/25/26/27 (off 30/30/28/28/28) | 62 / 59 | 66 / 61 | 4 / 2 | 0 | exact |
+| 9000 | 450acb6b | 4 | 8 | 8 {"crisis":8} | 0 | 30/30/32/32/34 (off 30/30/30/30/30) | 58 / 52 | 60 / 52 | 2 / 0 | 0 | exact |
+| 10000 | a1567d5f | 1 | 15 | 13 {"crisis":13} | 2 | 30/30/29/29/28 (off 30/30/30/29/29) | 28 / 19 | 31 / 19 | 3 / 0 | 0 | exact |
+{"claims":[682,646],"portChanges":[713,663],"secessions":[31,17],"promotions":25,"retirements":93,"returns":63,"minClaims":19,"minPortChanges":19,"seedsWithSecession":6,"newWipeouts":[],"replayAll":true,"violations":[],"violationCount":0}
