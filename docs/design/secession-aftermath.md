@@ -1,6 +1,6 @@
 # Secession aftermath v1: peace, protection, membership
 
-Status: **Build-ready proposal** (#186 option 1, Lead ruling: peace is bilateral). Source: [world-simulation.md:95](world-simulation.md): "If the settlement survives a time threshold or makes peace, the owner may remain independent, found a new faction, or seek protection or membership elsewhere." Draft: [after-lifecycle.md](after-lifecycle.md) §4.1.
+Status: **Revision 2** (Lead rulings 1–5 applied). **Build-ready proposal** (#186 option 1, Lead ruling: peace is bilateral). Source: [world-simulation.md:95](world-simulation.md): "If the settlement survives a time threshold or makes peace, the owner may remain independent, found a new faction, or seek protection or membership elsewhere." Draft: [after-lifecycle.md](after-lifecycle.md) §4.1.
 
 Flag `SECESSION_AFTERMATH` (run option `secessionAftermath`), default **off**. No AI, no RNG. Flag off, nothing runs and `world.secessionAftermath` never exists; pins 1847 `94de9c02`, 2718 `7a3741c9`, 4096 `af6eeaea` at t1200 reproduce. Base: main `433cbb4` (#186).
 
@@ -10,25 +10,26 @@ Flag `SECESSION_AFTERMATH` (run option `secessionAftermath`), default **off**. N
 
 Port distances (scenario positions): cinder-key–glassport 23.345, glassport–verdant-cay 25.807, then 43.829 and above.
 
-## 2. Rules
+## 2. Rules (revision 2)
 
-**Survival window `AFTERMATH_WINDOW` = 22 ticks**: the median flag-off hold. A seceded port that is still held when half of all seceded ports have already fallen has, by the data, survived. It is not chosen for frequency. p75 (47) and p90 (67) are listed in §6 as alternatives.
+**Survival window `AFTERMATH_WINDOW` = 67 ticks**: the p90 flag-off hold (ruled). "Held long enough" means longer than almost every seceded port that was lost (28 of 31 fell sooner); not chosen for counts. Rev 1's median (22) put 16 of 37 outcomes on the window tick.
 
-**Nearby**: a port within `ALLIANCE_NEAR` = 30 (alliances.md, the gap between 25.807 and 43.829). It still fits: the distances are unchanged. Consequence: only Glassport has neighbours (Cinder Key; Verdant Cay, neutral unless purchased), so a Crown Harbor secession can make peace but cannot find a protector or a faction to join.
+**Two radii, explicitly:**
+- `PATRON_NEAR` = 43.829 (ruled): the next inter-port distance (Crown Harbor–Glassport). Used for **patron search only**, for both protection and join.
+- `ALLIANCE_NEAR` = 30, unchanged, for everything else: the threat's "near" test here, and all alliance uses (causes, joint-battle joiners). The threat stays at 30 because widening it would make every Glassport and Crown Harbor port permanently "threatened", which is a different rule from finding a patron.
 
-**Hostile**: there is no war table in the code; hostility is "different faction" (`engine.ts` `hostileTerritory`), minus alliance pacts when alliances are on. v1 defines *friendly(a, b)* = same faction, or a `faction-peace` record between them, or an alliance pact. Hostile = not friendly. The raid and claim gate in `engine.ts` treats peace exactly like a pact.
+**Hostile**: there is no war table; hostility = different faction (`engine.ts` `hostileTerritory`). v1 *friendly(a, b)* = same faction, a live `faction-peace` record, or an alliance pact; hostile = not friendly. The raid and claim gate treats live peace like a pact.
 
-**Threat** to a seceded faction S at port P: the latest hostile faction to raid S within `ALLIANCE_RAID_WINDOW` = 152 (alliances.md, p90 raid gap), else the hostile holder of the nearest port within 30 of P.
+**Threat** to seceded faction S at port P: the latest hostile raider of S within `ALLIANCE_RAID_WINDOW` = 152, else the hostile holder of the nearest port within 30 of P.
 
-**Patron candidates** for S: alive, holding a port within 30 of P, not S, not the old faction O, not the threat, and hostile to both O and the threat. Ranked by surplus over reserve (#182 rule: treasury − 18 × (free mates + ports)), then id.
+**Patrons** for S: alive, holding a port within 43.829 of P, not S, not the old faction O, not the threat, hostile to both O and the threat, and **surplus over reserve ≥ 0** (ruled: a broke faction cannot protect). Ranked by surplus (#182 rule), then id.
 
-Every tick, for each seceded faction still holding its port with age ≥ 22, in declaration order:
+Every tick, for each seceded faction still holding its port with age ≥ 67, in declaration order:
 
-1. **Peace** (once): O is alive, S's owner's *earned* grievance at O's command holder is < 0.12, and O has not raided S within 152 ticks. 0.12 is the existing secession "hated" gate (`secession.ts`), so a grievance that could justify seceding also blocks peace. Measured at the window (probe, 19 records on 7 seeds): earned grievance −0.030 to 0.090, so the gate did not bind in this sample; the raid test did.
-2. **Protection** (once, S in no pact): a threat and at least one patron exist, and S's own surplus ≥ 0 (it can pay its own reserve). Forms an alliance pact S + top patron against the threat.
-3. **Membership (join)**: same, but S's surplus < 0 (it cannot carry its own reserve). S's members and ports join the top patron. Measured at the window: surplus −36.29 to 227.96; 2 of 19 negative, and neither had a patron.
-
-Peace and protection can both happen to one faction; a join ends it.
+1. **Peace break** (first, for every live peace): if either party raided the other after the peace tick (the raid ledger, `battle-started` or an immediate `battle-resolved`), emit `faction-peace-broken` with the raider, target and raid tick. No choice-break in v1.
+2. **Peace** (once per secession): O alive, earned grievance of S's owner at O's command holder < 0.12 (the reused secession "hated" gate: a guard, ruled kept), and no O raid on S within 152.
+3. **Protection** (once, S in no pact): threat and patron exist, S's own surplus ≥ 0. Pact S + top patron against the threat.
+4. **Join**: same, S's own surplus < 0. Members, ports and treasury move to the top patron.
 
 ## 3. State
 
@@ -39,6 +40,8 @@ WorldState.secessionAftermath?: {
 }
 ```
 
+Protection and join events also carry `patron {factionId, port, distance, surplus}` and `ownSurplus`.
+
 Protection uses the alliances module's `Alliance` record (`world.alliances`), with id `protection-<tick>-<S>-<patron>`. Cleaner than a second record: joint battles, joiner losses and the three break rules (ally-gone, enemy-portless, ally-attack) apply unchanged. With alliances off, `allianceBreaks` and the joint-battle and hostility checks run when either flag is on (`alliancesOn || aftermathOn`); `allianceForms` still runs only under `ALLIANCES`, so with alliances off the only pacts are protection pacts.
 
 ## 4. Events
@@ -47,48 +50,69 @@ Protection uses the alliances module's `Alliance` record (`world.alliances`), wi
 | --- | --- | --- |
 | `aftermath-ledger-opened` | — | creates the empty state (first flag-on tick) |
 | `aftermath-watch` | settlementId; `record` | one per `secession-declared` |
+| `faction-peace-broken` | `factionIds`, `peaceTick`, `reason: "raid"`, `evidence {raiderFactionId, targetFactionId, raidTick}`, `cause` | removes that peace record; the pair is hostile again |
 | `faction-peace` | settlementId; `peace {factionIds [S, O], tick, cause}`, `grievance`, `lastOldRaid`, `age` | adds the peace record. Only S and O become non-hostile; every other war of each continues |
 | `alliance-formed` with `aftermath: "protection"` | the `Alliance`, `causes[S]` (held, threat, own surplus) and `causes[patron]` (port, distance, hostility, surplus) | the pact, via `applyAllianceEvent` |
 | `secession-joined` | actorId owner, targetId patron, settlementId; `factionId`, `joinedFactionId`, `oldFactionId`, `memberIds`, `ports`, `treasury`, `cause` | members' and ports' `factionId` → patron, S treasury → patron, occupation cleared. An owner change without a battle; counted as a port change |
 
 ## 5. Acceptance (gated)
 
-1. Every outcome carries a cause and age ≥ 22. Peace: exactly [S, O], grievance < 0.12, and no raid between S and O after it. Peace is bilateral: no other pair becomes friendly. Protection: the pact holds S and a patron ≠ O, with both causes. Join: the patron holds a port within 30, is ≠ O and hostile to O, and every member and port has moved.
-2. Flag-off pins match; replay from the log is exact.
-3. Liveness: claims and port changes > 0 on every seed, and no new wipeouts.
+1. Every outcome is caused and has age ≥ 67. Peace is exactly [S, O], grievance < 0.12, and bilateral: no other pair becomes friendly. Every raid across a live peace emits `faction-peace-broken` in the same tick, with evidence that matches. Protection: a patron ≠ O with surplus ≥ 0 within 43.829, and both causes. Join: the patron holds a port within 43.829, is ≠ O, hostile to O, has surplus ≥ 0, and every member and port moved.
+2. Flag-off pins match; replay is exact.
+3. Liveness: claims and port changes > 0 on every seed, no new wipeouts.
 4. Secessions on ≥ 6 / 13 seeds.
 
-## 6. Prototype results
+## 6. Prototype results, revision 2 (13 seeds × 1,200 ticks, offline)
 
-Patch: `secession-aftermath-proto/prototype.patch`, which adds `src/sim/secession-aftermath.ts` and `scripts/diag/aftermath-{measure,sweep}.ts`, with hooks in `engine.ts` and `state.ts`. Main defaults (exile recovery on, the other flags off); the all-flags table is in `sweep-all-flags.txt`.
+Patch: `secession-aftermath-proto/prototype.patch` on `433cbb4`. Tables: `sweep-defaults.txt`, `sweep-all-flags.txt`. Port changes "on" include joins.
 
-| Seed | Peace | Protection | Join | Age at each outcome | Secessions off/on | Claims off/on | Port changes off/on | Battles off/on |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1847 | 1 | 0 | 0 | 274 | 1/1 | 51/51 | 52/52 | 74/74 |
-| 2718 | 0 | 0 | 0 | — | 0/0 | 64/64 | 64/64 | 81/81 |
-| 4096 | 5 | 1 | 0 | 22, 22, 22, 65, 22, 36 | 3/6 | 56/42 | 59/48 | 81/69 |
-| 1000 | 0 | 0 | 0 | — | 2/2 | 42/42 | 44/44 | 69/69 |
-| 2000 | 2 | 0 | 0 | 43, 43 | 2/2 | 50/53 | 52/55 | 72/74 |
-| 3000 | 1 | 0 | 0 | 157 | 2/1 | 42/38 | 44/39 | 58/55 |
-| 4000 | 1 | 0 | 0 | 189 | 1/1 | 63/61 | 64/62 | 79/77 |
-| 5000 | 1 | 0 | 0 | 22 | 2/2 | 55/57 | 57/59 | 71/73 |
-| 6000 | 1 | 0 | 0 | 22 | 5/2 | 50/36 | 55/38 | 65/52 |
-| 7000 | 3 | 1 | 0 | 22, 262, 269, 124 | 4/4 | 61/57 | 65/61 | 78/76 |
-| 8000 | 3 | 2 | 0 | 22, 22, 500, 95, 355 | 4/4 | 62/33 | 66/37 | 76/47 |
-| 9000 | 6 | 1 | 0 | 22, 22, 22, 44, 158, 22, 348 | 2/6 | 58/65 | 60/71 | 78/84 |
-| 10000 | 4 | 4 | 0 | 22, 22, 33, 22, 29, 427, 546, 552 | 3/4 | 28/26 | 31/30 | 45/45 |
-| **Total** | **28** | **9** | **0** | | **31/35** | **682/625** | **713/660** | **927/876** |
+**Main defaults** (exile recovery on, others off):
 
-Secession seed spread: 12/13 off, 12/13 on. 8 of the 9 protection pacts later broke under the alliance rules. Ages at an outcome: 16 at exactly 22; the longest was 552, because flag-on ports now survive far past the flag-off maximum of 97.
+| Seed | Peace | Peace broken | Protection | Join | Age at outcome | Secessions off/on | Claims off/on | Port changes off/on | Battles off/on |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1847 | 1 | 0 | 0 | 0 | 274 | 1/1 | 51/51 | 52/52 | 74/74 |
+| 2718 | 0 | 0 | 0 | 0 | — | 0/0 | 64/64 | 64/64 | 81/81 |
+| 4096 | 3 | 0 | 0 | 0 | 71, 170, 351 | 3/3 | 56/54 | 59/57 | 81/78 |
+| 1000 | 0 | 0 | 0 | 0 | — | 2/2 | 42/42 | 44/44 | 69/69 |
+| 2000 | 1 | 0 | 0 | 0 | 340 | 2/2 | 50/50 | 52/52 | 72/72 |
+| 3000 | 1 | 0 | 0 | 0 | 157 | 2/1 | 42/38 | 44/39 | 58/55 |
+| 4000 | 1 | 0 | 0 | 0 | 189 | 1/1 | 63/61 | 64/62 | 79/77 |
+| 5000 | 1 | 0 | 0 | 0 | 67 | 2/2 | 55/57 | 57/59 | 71/73 |
+| 6000 | 2 | 0 | 0 | 0 | 295, 345 | 5/4 | 50/47 | 55/51 | 65/63 |
+| 7000 | 2 | 0 | 0 | 0 | 141, 269 | 4/4 | 61/61 | 65/65 | 78/78 |
+| 8000 | 2 | 0 | 0 | 0 | 67, 133 | 4/2 | 62/33 | 66/35 | 76/47 |
+| 9000 | 2 | 0 | 0 | 1 | 67, 93, 130 | 2/3 | 58/47 | 60/51 | 78/67 |
+| 10000 | 3 | 0 | 1 | 1 | 135, 135, 205, 315, 350 | 3/3 | 28/23 | 31/27 | 45/40 |
+| **Total** | **19** | **0** | **1** | **2** | | **31/28** | **682/628** | **713/658** | **927/874** |
 
-All four slice flags plus this one (`sweep-all-flags.txt`): claims 421 → 396, port changes 461 → 431, secessions 27 → 22 on 7/13 seeds (7/13 off), 18 peace, 4 protection, 0 joins; all gates pass.
+Seed spread: secessions on 12/13 off, 12/13 on. The one protection pact later broke (alliance rules).
 
-Gates, both runs: 0 violations, replay exact 13/13, pins match, min claims 26 (13 with all flags), min port changes 30 (15), no new wipeouts, secessions on 12/13 (7/13) — **pass**.
+**Combined** (occupation + alliances + portTransfer + lifecycle, off vs plus `secessionAftermath`): claims 421 → 414, port changes 461 → 457, secessions 27 → 29 on 7/13 seeds (7/13 off), battles 766 → 757; 16 peace, 0 broken, 3 protection (all 3 later broke), 1 join.
+
+Ages at outcome (defaults): 67 ×3, 71, 93, 130, 133, 135, 135, 141, 157, 170, 189, 205, 269, 274, 295, 315, 340, 345, 350, 351. Combined: 67 ×11, then 85–708.
+
+**Gates, both runs:** 0 violations, replay exact 13/13, pins 1847 `94de9c02`, 2718 `7a3741c9`, 4096 `af6eeaea` match, min claims 23 (13 combined), min port changes 27 (15), no new wipeouts, secessions on 12/13 (7/13) — **pass**.
+
+### Joins: they fire (2 on defaults, 1 combined)
+
+Joins fired on seeds 9000 and 10000 (defaults). Where they didn't, the per-evaluation counters (one count per eligible faction per tick, defaults run) show why:
+
+| Stage | Defaults | Combined |
+| --- | --- | --- |
+| Evaluations (S holds its port, age ≥ 67, no pact) | 3,174 | 1,367 |
+| Threatened | 2,139 | 1,080 |
+| With an in-range (≤ 43.829) faction | 901 | 523 |
+| … left after the hostility rule (≠ O, ≠ threat, hostile to both) | 4 | 12 |
+| … left after surplus ≥ 0 | 3 | 4 |
+| S insolvent (surplus < 0) and threatened | 272 | 145 |
+| … no faction in range | 251 | 101 |
+| … killed by the hostility rule | 19 | 42 |
+| … killed by the patron-surplus rule | 0 | 1 |
+
+So the binding filter is mostly **no insolvent neighbour in range** (an insolvent S at Crown Harbor or Cinder Key whose only neighbour within 43.829 is Glassport, held by O or the threat), then **the hostility rule**. The 43.829 radius did unlock the joins that fired.
 
 ## 7. Open decisions for the Lead
 
-1. **Join never fires.** A seceded faction that cannot meet its reserve has never had a hostile-to-old neighbour within 30: the only neighbour pairs involve Glassport, and the Cinder Key holder is usually the old faction or the threat itself. Options: accept (a property of the map); widen "nearby" for joins only (the next distance is 43.829); or trigger a join on another cause (for example, the threat raided S and S's garrison is below the raid floor).
-2. **Window percentile:** median 22 (v1), or p75 47 / p90 67. Choose by meaning, not by count.
-3. **Grievance gate** 0.12 never bound at the window in the probe (max 0.090). Keep it as the reuse of the secession gate, or measure grievance later in the hold.
-4. **Protector with a negative surplus** (seen: Cinder Key secession factions at −36 and −28.81 protecting Glassport). Should a patron need surplus ≥ 0?
-5. Peace is permanent in v1, with no break rule. Should a later raid by either side, or a choice, break it?
+1. **Peace never broke (0 / 19 and 0 / 16).** Live peace removes the pair from the autonomous raid gate (`hostileTerritory`), so only a path that skips that gate can raid across it; player-command attacks (`engine.ts` player raid at ~2860 checks only "different faction") are the only one. Either accept this (the break is a guard for players and future AI), or let peace not block raids, so that a break is possible and observable autonomously.
+2. **The hostility rule** removes 897 of 901 in-range candidate evaluations, because the in-range port is usually held by O or the threat. That is the rule as written; flag it only if the Lead wants third parties to be the rare case.
+3. Peace and protection: only one each per secession in v1 (no re-peace after a break).

@@ -24,41 +24,42 @@ index 0000000..fc8ef36
 +console.log(JSON.stringify(out));
 diff --git a/scripts/diag/aftermath-sweep.ts b/scripts/diag/aftermath-sweep.ts
 new file mode 100644
-index 0000000..ac4852b
+index 0000000..a1a52f0
 --- /dev/null
 +++ b/scripts/diag/aftermath-sweep.ts
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,34 @@
 +// SECESSION_AFTERMATH prototype sweep: one seed, main defaults, flag off vs on. Offline, no AI.
 +import { runTick } from "../../src/sim/engine.ts";
 +import { createPrototypeWorld } from "../../src/sim/scenario.ts";
 +import { stateHash } from "../../src/sim/state.ts";
 +import { replayWithSilentStarts } from "../../src/sim/tick-start.ts";
 +import { dynamismReadout } from "../../src/tools/dynamism.ts";
-+import { atPeace, AFTERMATH_WINDOW, PEACE_GRIEVANCE } from "../../src/sim/secession-aftermath.ts";
++import { atPeace, AFTERMATH_WINDOW, PEACE_GRIEVANCE, PATRON_NEAR, diag } from "../../src/sim/secession-aftermath.ts";
 +import { allied, ALLIANCE_NEAR } from "../../src/sim/alliances.ts";
 +import type { SimEvent } from "../../src/sim/types.ts";
 +const seed = Number(process.argv[2]); const extra = process.argv[3] === "all" ? { occupation: true, alliances: true, portTransfer: true, lifecycle: true } : {};
 +const PINS: Record<number, string> = { 1847: "94de9c02", 2718: "7a3741c9", 4096: "af6eeaea" };
 +const dist = (w: any, a: string, b: string) => { const p = w.settlements[a].position, q = w.settlements[b].position; return Math.hypot(p.x - q.x, p.y - q.y); };
 +function run(on: boolean) {
-+  const w = createPrototypeWorld(seed); const events: SimEvent[] = []; const viol: string[] = []; const holds: number[] = []; const peaceAfter: { pair: string[]; tick: number }[] = [];
++  const w = createPrototypeWorld(seed); const events: SimEvent[] = []; const viol: string[] = []; const holds: number[] = []; const peaceAfter: { pair: string[]; tick: number; broken?: boolean }[] = []; let breaks = 0; for (const k of Object.keys(diag)) (diag as any)[k] = 0;
 +  for (let i = 0; i < 1200; i++) {
 +    const evs = runTick(w, { ...extra, secessionAftermath: on } as never).events; events.push(...evs);
 +    for (const e of evs) {
 +      const d = e.data as any;
-+      if (e.type === "battle-started" || (e.type === "battle-resolved" && !d.battleId)) { const a = e.actorId ? w.characters[e.actorId]?.factionId : null; for (const p of peaceAfter) if (e.tick > p.tick && p.pair.includes(a!) && p.pair.includes(e.targetId!)) viol.push(`raid across peace ${p.pair} t${e.tick}`); }
++      if (e.type === "battle-started" || (e.type === "battle-resolved" && !d.battleId)) { const a = e.actorId ? w.characters[e.actorId]?.factionId : null; for (const p of peaceAfter) if (!p.broken && e.tick > p.tick && p.pair.includes(a!) && p.pair.includes(e.targetId!)) { if (!evs.some((x) => x.type === "faction-peace-broken" && (x.data as any).peaceTick === p.tick && (x.data as any).factionIds.join() === p.pair.join())) viol.push(`raid across peace without break ${p.pair} t${e.tick}`); } }
++      if (e.type === "faction-peace-broken") { const p = peaceAfter.find((q) => !q.broken && q.tick === d.peaceTick && q.pair.join() === d.factionIds.join()); if (!p || !d.cause || !(d.evidence.raidTick > d.peaceTick) || !p.pair.includes(d.evidence.raiderFactionId) || !p.pair.includes(d.evidence.targetFactionId)) viol.push(`peace break invalid t${e.tick}`); else { p.broken = true; breaks++; } }
 +      if (e.type === "faction-peace") { const ids = d.peace.factionIds; if (!d.peace.cause || ids.length !== 2 || d.age < AFTERMATH_WINDOW || d.grievance >= PEACE_GRIEVANCE) viol.push(`peace invalid t${e.tick}`); peaceAfter.push({ pair: ids, tick: e.tick }); holds.push(d.age);
 +        for (const f of Object.keys(w.factions)) if (!ids.includes(f) && (atPeace(w, ids[0], f) && !peaceAfter.some((p) => p.pair.includes(ids[0]) && p.pair.includes(f)))) viol.push(`peace not bilateral t${e.tick}`); }
-+      if (e.type === "alliance-formed" && d.aftermath === "protection") { const [x, y] = d.alliance.factionIds; const r = (w as any).secessionAftermath.records.find((q: any) => q.factionId === x); if (!r || y === r.oldFactionId || !d.alliance.causes[x] || !d.alliance.causes[y] || e.tick - r.declaredTick < AFTERMATH_WINDOW) viol.push(`protection invalid t${e.tick}`); holds.push(e.tick - r.declaredTick); }
++      if (e.type === "alliance-formed" && d.aftermath === "protection") { const [x, y] = d.alliance.factionIds; const r = (w as any).secessionAftermath.records.find((q: any) => q.factionId === x); if (!r || y === r.oldFactionId || d.patron.surplus < 0 || d.patron.distance > PATRON_NEAR || !d.alliance.causes[x] || !d.alliance.causes[y] || e.tick - r.declaredTick < AFTERMATH_WINDOW) viol.push(`protection invalid t${e.tick}`); holds.push(e.tick - r.declaredTick); }
 +      if (e.type === "secession-joined") { const to = d.joinedFactionId; const r = (w as any).secessionAftermath.records.find((q: any) => q.factionId === d.factionId);
-+        const near = Object.values(w.settlements).some((s) => s.factionId === to && !d.ports.includes(s.id) && dist(w, s.id, e.settlementId!) <= ALLIANCE_NEAR);
-+        if (!d.cause || to === d.oldFactionId || !near || allied(w, to, d.oldFactionId) || atPeace(w, to, d.oldFactionId) || d.memberIds.some((m: string) => w.characters[m].factionId !== to) || w.settlements[e.settlementId!].factionId !== to || e.tick - r.declaredTick < AFTERMATH_WINDOW) viol.push(`join invalid t${e.tick}`); holds.push(e.tick - r.declaredTick); }
++        const near = Object.values(w.settlements).some((s) => s.factionId === to && !d.ports.includes(s.id) && dist(w, s.id, e.settlementId!) <= PATRON_NEAR + 1e-9);
++        if (!d.cause || d.patron.surplus < 0 || to === d.oldFactionId || !near || allied(w, to, d.oldFactionId) || atPeace(w, to, d.oldFactionId) || d.memberIds.some((m: string) => w.characters[m].factionId !== to) || w.settlements[e.settlementId!].factionId !== to || e.tick - r.declaredTick < AFTERMATH_WINDOW) viol.push(`join invalid t${e.tick}`); holds.push(e.tick - r.declaredTick); }
 +    }
 +  }
 +  let replayOk = true; if (on) { const r = createPrototypeWorld(seed); replayWithSilentStarts(r, events); replayOk = stateHash(r) === stateHash(w); }
 +  const t = dynamismReadout(events).totals; const n = (ty: string) => events.filter((e) => e.type === ty).length;
 +  const ports = (f: string) => Object.values(w.settlements).filter((s) => s.factionId === f).length; const members = (f: string) => Object.values(w.characters).filter((c) => !c.dead && c.factionId === f).length;
-+  return { seed, on, hash: stateHash(w).slice(0, 8), claims: n("settlement-claimed"), portChanges: t.portOwnershipChanges + n("secession-joined"), joinsPortChanges: n("secession-joined"), secessions: t.secessions, battles: n("battle-resolved"), peace: n("faction-peace"), protection: events.filter((e) => e.type === "alliance-formed" && e.data.aftermath === "protection").length, joins: n("secession-joined"), protectionBroken: events.filter((e) => e.type === "alliance-broken" && String(e.data.allianceId).startsWith("protection-")).length, holds, wipeouts: ["world-government", "free-tide"].filter((f) => ports(f) === 0 && members(f) === 0), viol, replayOk, pin: PINS[seed] ?? null };
++  return { seed, on, hash: stateHash(w).slice(0, 8), claims: n("settlement-claimed"), portChanges: t.portOwnershipChanges + n("secession-joined"), joinsPortChanges: n("secession-joined"), secessions: t.secessions, battles: n("battle-resolved"), peace: n("faction-peace"), protection: events.filter((e) => e.type === "alliance-formed" && e.data.aftermath === "protection").length, joins: n("secession-joined"), protectionBroken: events.filter((e) => e.type === "alliance-broken" && String(e.data.allianceId).startsWith("protection-")).length, holds, wipeouts: ["world-government", "free-tide"].filter((f) => ports(f) === 0 && members(f) === 0), viol, replayOk, peaceBreaks: breaks, diag: { ...diag }, pin: PINS[seed] ?? null };
 +}
 +console.log(JSON.stringify([run(false), run(true)]));
 diff --git a/src/sim/engine.ts b/src/sim/engine.ts
@@ -137,10 +138,10 @@ index e499e99..a794a08 100644
      type: "tick-advanced",
 diff --git a/src/sim/secession-aftermath.ts b/src/sim/secession-aftermath.ts
 new file mode 100644
-index 0000000..c8eab9a
+index 0000000..b0b5655
 --- /dev/null
 +++ b/src/sim/secession-aftermath.ts
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,114 @@
 +import type { SimEvent, WorldState } from "./types.ts";
 +import { allied, ALLIANCE_NEAR, ALLIANCE_RAID_WINDOW } from "./alliances.ts";
 +import { RESERVE_PER_HEAD } from "./port-transfer.ts";
@@ -152,8 +153,12 @@ index 0000000..c8eab9a
 + * Deterministic: no RNG, no AI. Flag off: nothing runs; world.secessionAftermath never exists.
 + */
 +export const SECESSION_AFTERMATH_DEFAULT = false;
-+/** Survival window: median hold of a seceded port, flag off, 13 seeds (31 secessions, all lost; p50 22). */
-+export const AFTERMATH_WINDOW = Number(process.env.SA_WINDOW ?? 22);
++/** Survival window: p90 hold of a seceded port, flag off, 13 seeds (31 secessions, all lost; p90 67, max 97). Rev 2 ruling. */
++export const AFTERMATH_WINDOW = Number(process.env.SA_WINDOW ?? 67);
++/** Patron search radius (protection and join): 43.829, the next inter-port distance (Crown Harbor–Glassport). Rev 2 ruling. Threat "near" keeps ALLIANCE_NEAR (30). */
++export const PATRON_NEAR = 43.829;
++/** Diagnostic counters (not state; reset by the sweep). */
++export const diag = { evaluations: 0, threatened: 0, insolvent: 0, insolventThreatened: 0, candInRange: 0, candAfterHostility: 0, candAfterSurplus: 0, insolventNoCandInRange: 0, insolventKilledByHostility: 0, insolventKilledBySurplus: 0 };
 +/** Peace is blocked by the secession "hated" gate: earned grievance at the old holder ≥ 0.12 (secession.ts). */
 +export const PEACE_GRIEVANCE = 0.12;
 +export interface AftermathRecord { factionId: string; settlementId: string; oldFactionId: string; ownerId: string; declaredTick: number; peaceTick?: number; protectionTick?: number; joinedTick?: number }
@@ -185,14 +190,23 @@ index 0000000..c8eab9a
 +  return null;
 +}
 +/** Candidates for protection or membership: alive, holding a port within ALLIANCE_NEAR, hostile to the old faction, not the threat. Largest surplus first (#182 rule), then id. */
-+export function patrons(w: WorldState, r: AftermathRecord, threat: string) {
-+  return Object.keys(w.factions).filter((f) => f !== r.factionId && f !== r.oldFactionId && f !== threat && alive(w, f) && !friendly(w, f, r.oldFactionId) && !friendly(w, f, threat))
-+    .map((f) => { const p = ports(w, f).find((s) => dist(w, s.id, r.settlementId) <= ALLIANCE_NEAR); return p ? { factionId: f, port: p.id, distance: Number(dist(w, p.id, r.settlementId).toFixed(3)), surplus: surplus(w, f) } : null; })
-+    .filter((x): x is NonNullable<typeof x> => x !== null).sort((a, b) => b.surplus - a.surplus || a.factionId.localeCompare(b.factionId));
++export function patronStages(w: WorldState, r: AftermathRecord, threat: string) {
++  const inRange = Object.keys(w.factions).filter((f) => f !== r.factionId && alive(w, f))
++    .map((f) => { const p = ports(w, f).find((s) => s.id !== r.settlementId && dist(w, s.id, r.settlementId) <= PATRON_NEAR + 1e-9); return p ? { factionId: f, port: p.id, distance: Number(dist(w, p.id, r.settlementId).toFixed(3)), surplus: surplus(w, f) } : null; })
++    .filter((x): x is NonNullable<typeof x> => x !== null);
++  const hostile = inRange.filter((c) => c.factionId !== r.oldFactionId && c.factionId !== threat && !friendly(w, c.factionId, r.oldFactionId) && !friendly(w, c.factionId, threat));
++  const solvent = hostile.filter((c) => c.surplus >= 0).sort((a, b) => b.surplus - a.surplus || a.factionId.localeCompare(b.factionId));
++  return { inRange, hostile, solvent };
 +}
++export const patrons = (w: WorldState, r: AftermathRecord, threat: string) => patronStages(w, r, threat).solvent;
 +export function aftermathStep(world: WorldState, tickEvents: SimEvent[], emit: Emit): void {
 +  if (!st(world)) emit({ type: "aftermath-ledger-opened", data: {} });
 +  for (const e of tickEvents) if (e.type === "secession-declared") { const d = e.data as any; emit({ type: "aftermath-watch", settlementId: e.settlementId, data: { record: { factionId: d.faction.id, settlementId: e.settlementId, oldFactionId: d.previousFactionId, ownerId: d.ownerId, declaredTick: e.tick } } }); }
++  for (const p of [...(st(world)?.peace ?? [])]) {
++    const [a, b] = p.factionIds; const raids = (world as W).allianceRaids ?? {};
++    const hit = [[a, b], [b, a]].map(([x, y]) => ({ by: x, on: y, t: raids[`${x}>${y}`] })).filter((h) => h.t !== undefined && h.t > p.tick).sort((m, n) => n.t! - m.t! || m.by.localeCompare(n.by))[0];
++    if (hit) emit({ type: "faction-peace-broken", data: { factionIds: p.factionIds, peaceTick: p.tick, reason: "raid", evidence: { raiderFactionId: hit.by, targetFactionId: hit.on, raidTick: hit.t }, cause: `raid: ${hit.by} raided ${hit.on} at t${hit.t}, after peace at t${p.tick}` } });
++  }
 +  for (const r of [...(st(world)?.records ?? [])].sort((a, b) => a.declaredTick - b.declaredTick || a.factionId.localeCompare(b.factionId))) {
 +    if (r.joinedTick !== undefined) continue;
 +    const port = world.settlements[r.settlementId]; const age = world.tick - r.declaredTick;
@@ -205,13 +219,18 @@ index 0000000..c8eab9a
 +    }
 +    if (r.protectionTick !== undefined) continue;
 +    if ((world as W).alliances?.some((a) => a.factionIds.includes(r.factionId))) continue;
++    const own = surplus(world, r.factionId); diag.evaluations++; if (own < 0) diag.insolvent++;
 +    const threat = threatTo(world, r.factionId, r.settlementId); if (!threat) continue;
-+    const cands = patrons(world, r, threat.factionId); if (!cands.length) continue;
-+    const p = cands[0]; const own = surplus(world, r.factionId);
-+    if (own >= 0) emit({ type: "alliance-formed", settlementId: r.settlementId, data: { aftermath: "protection", alliance: { id: `protection-${world.tick}-${r.factionId}-${p.factionId}`, factionIds: [r.factionId, p.factionId], enemyFactionId: threat.factionId, formedTick: world.tick, causes: { [r.factionId]: `protection: ${held}; threat ${threat.cause}; own surplus ${own} >= 0`, [p.factionId]: `protector: holds ${p.port} at ${p.distance}, hostile to ${r.oldFactionId} and ${threat.factionId}, surplus ${p.surplus}` }, portsAtForm: { [r.factionId]: ports(world, r.factionId).length, [p.factionId]: ports(world, p.factionId).length } } } });
++    diag.threatened++; if (own < 0) diag.insolventThreatened++;
++    const st2 = patronStages(world, r, threat.factionId);
++    if (st2.inRange.length) diag.candInRange++; if (st2.hostile.length) diag.candAfterHostility++; if (st2.solvent.length) diag.candAfterSurplus++;
++    if (own < 0) { if (!st2.inRange.length) diag.insolventNoCandInRange++; else if (!st2.hostile.length) diag.insolventKilledByHostility++; else if (!st2.solvent.length) diag.insolventKilledBySurplus++; }
++    const cands = st2.solvent; if (!cands.length) continue;
++    const p = cands[0];
++    if (own >= 0) emit({ type: "alliance-formed", settlementId: r.settlementId, data: { aftermath: "protection", patron: p, ownSurplus: own, alliance: { id: `protection-${world.tick}-${r.factionId}-${p.factionId}`, factionIds: [r.factionId, p.factionId], enemyFactionId: threat.factionId, formedTick: world.tick, causes: { [r.factionId]: `protection: ${held}; threat ${threat.cause}; own surplus ${own} >= 0`, [p.factionId]: `protector: holds ${p.port} at ${p.distance}, hostile to ${r.oldFactionId} and ${threat.factionId}, surplus ${p.surplus}` }, portsAtForm: { [r.factionId]: ports(world, r.factionId).length, [p.factionId]: ports(world, p.factionId).length } } } });
 +    else {
 +      const members = Object.values(world.characters).filter((c) => !c.dead && c.factionId === r.factionId).map((c) => c.id).sort();
-+      emit({ type: "secession-joined", settlementId: r.settlementId, actorId: r.ownerId, targetId: p.factionId, data: { factionId: r.factionId, joinedFactionId: p.factionId, oldFactionId: r.oldFactionId, memberIds: members, ports: ports(world, r.factionId).map((s) => s.id), treasury: world.factions[r.factionId].treasury, cause: `membership: ${held}; threat ${threat.cause}; own surplus ${own} < 0; ${p.factionId} holds ${p.port} at ${p.distance}, hostile to ${r.oldFactionId}, surplus ${p.surplus}` } });
++      emit({ type: "secession-joined", settlementId: r.settlementId, actorId: r.ownerId, targetId: p.factionId, data: { patron: p, ownSurplus: own, factionId: r.factionId, joinedFactionId: p.factionId, oldFactionId: r.oldFactionId, memberIds: members, ports: ports(world, r.factionId).map((s) => s.id), treasury: world.factions[r.factionId].treasury, cause: `membership: ${held}; threat ${threat.cause}; own surplus ${own} < 0; ${p.factionId} holds ${p.port} at ${p.distance}, hostile to ${r.oldFactionId}, surplus ${p.surplus}` } });
 +    }
 +  }
 +}
@@ -221,6 +240,7 @@ index 0000000..c8eab9a
 +    case "aftermath-ledger-opened": w.secessionAftermath = { records: [], peace: [] }; return true;
 +    case "aftermath-watch": w.secessionAftermath!.records.push(event.data.record as AftermathRecord); return true;
 +    case "faction-peace": { const p = event.data.peace as Peace; w.secessionAftermath!.peace.push(p); const r = w.secessionAftermath!.records.find((x) => x.factionId === p.factionIds[0]); if (r) r.peaceTick = event.tick; return true; }
++    case "faction-peace-broken": { const ids = event.data.factionIds as string[]; w.secessionAftermath!.peace = w.secessionAftermath!.peace.filter((p) => !(p.factionIds[0] === ids[0] && p.factionIds[1] === ids[1] && p.tick === event.data.peaceTick)); return true; }
 +    case "secession-joined": {
 +      const d = event.data as any; const to = d.joinedFactionId as string;
 +      for (const id of d.memberIds as string[]) world.characters[id].factionId = to;
@@ -237,7 +257,7 @@ index 0000000..c8eab9a
 +  const ids = (event.data.alliance as { factionIds: string[] }).factionIds; const r = st(world)?.records.find((x) => x.factionId === ids[0]); if (r) r.protectionTick = event.tick;
 +}
 diff --git a/src/sim/state.ts b/src/sim/state.ts
-index e6e3f1a..40cef03 100644
+index e6e3f1a..a236d7e 100644
 --- a/src/sim/state.ts
 +++ b/src/sim/state.ts
 @@ -1,3 +1,4 @@
@@ -249,7 +269,7 @@ index e6e3f1a..40cef03 100644
      world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
      return;
    }
-+  if ((event.type === "aftermath-ledger-opened" || event.type === "aftermath-watch" || event.type === "faction-peace" || event.type === "secession-joined") && applyAftermathEvent(world, event)) {
++  if ((event.type === "aftermath-ledger-opened" || event.type === "aftermath-watch" || event.type === "faction-peace" || event.type === "faction-peace-broken" || event.type === "secession-joined") && applyAftermathEvent(world, event)) {
 +    world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
 +    return;
 +  }
