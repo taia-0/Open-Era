@@ -1,0 +1,15 @@
+| Seed | Off hash | Promotions | Retirements | Returns (causes) | Retired at t1200 | Active cast t0/300/600/900/1199 | Claims off/on | Port changes off/on | Secessions off/on | Violations | Replay | Office vacated (seat after) | Names |
+| 1847 | 94de9c02 pin | 1 | 12 | 9 {"crisis":9} | 3 | 30/28/28/29/27 (off 30/30/30/30/29) | 51 / 19 | 52 / 19 | 1 / 0 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike |
+| 2718 | 7a3741c9 pin | 1 | 7 | 3 {"crisis":3} | 4 | 30/26/26/24/25 (off 30/29/29/28/28) | 64 / 35 | 64 / 35 | 0 / 0 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike |
+| 4096 | af6eeaea pin | 2 | 3 | 3 {"crisis":3} | 0 | 30/30/29/30/31 (off 30/30/29/29/29) | 56 / 66 | 59 / 73 | 3 / 7 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane |
+| 1000 | 5f303e45 | 4 | 7 | 5 {"crisis":5} | 2 | 30/28/26/27/29 (off 30/30/29/29/27) | 42 / 28 | 44 / 28 | 2 / 0 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane, Ada Quill, Pax Wren |
+| 2000 | 3dec6c14 | 5 | 8 | 6 {"crisis":6} | 2 | 30/25/28/29/31 (off 30/29/29/28/28) | 50 / 46 | 52 / 46 | 2 / 0 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane, Ada Quill, Pax Wren, Mina Morrow |
+| 3000 | 945a5b23 | 0 | 6 | 1 {"crisis":1} | 5 | 30/26/25/24/24 (off 30/30/30/29/29) | 42 / 41 | 44 / 42 | 2 / 1 | 0 | exact | 0 (0 refilled, 0 empty) |  |
+| 4000 | 05583438 | 3 | 7 | 5 {"crisis":5} | 2 | 30/29/28/27/29 (off 30/30/29/29/28) | 63 / 65 | 64 / 69 | 1 / 4 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane, Ada Quill |
+| 5000 | ad712dfa | 4 | 5 | 3 {"crisis":3} | 2 | 30/28/28/30/29 (off 30/30/29/29/27) | 55 / 50 | 57 / 50 | 2 / 0 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane, Ada Quill, Pax Wren |
+| 6000 | 020028d7 | 2 | 12 | 8 {"crisis":8} | 3 | 30/23/26/25/27 (off 30/30/29/28/28) | 50 / 58 | 55 / 60 | 5 / 2 | 0 | exact | 1 (0 refilled, 1 empty) | Rook Pike, Lio Vane |
+| 7000 | 9638fa13 | 2 | 1 | 1 {"crisis":1} | 0 | 30/30/29/29/30 (off 30/30/29/28/28) | 61 / 45 | 65 / 50 | 4 / 5 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane |
+| 8000 | 6e74df8b | 1 | 6 | 2 {"crisis":2} | 4 | 30/28/24/25/25 (off 30/30/28/28/28) | 62 / 25 | 66 / 26 | 4 / 1 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike |
+| 9000 | 450acb6b | 5 | 5 | 5 {"crisis":5} | 0 | 30/30/30/33/35 (off 30/30/30/30/30) | 58 / 57 | 60 / 63 | 2 / 6 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane, Ada Quill, Pax Wren, Mina Morrow |
+| 10000 | a1567d5f | 2 | 10 | 7 {"crisis":7} | 3 | 30/27/27/26/28 (off 30/30/30/29/29) | 28 / 24 | 31 / 28 | 3 / 4 | 0 | exact | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane |
+{"claims":[682,559],"portChanges":[713,589],"secessions":[31,30],"promotions":32,"retirements":89,"returns":58,"minClaims":19,"minPortChanges":19,"seedsWithSecession":8,"newWipeouts":[],"replayAll":true,"violations":[],"violationCount":0}
