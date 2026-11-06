@@ -3624,9 +3624,12 @@ export interface TickAiOptions {
   ledger?: CostLedger;
   /**
    * Slice B (feed-reasons.md): `ai.reasons`. Annotates headline events with
-   * the feed reason after the tick. Unset: nothing runs, events unchanged.
+   * the feed reason after the tick. Pass a `FeedReasonOptions` object to run;
+   * pass `false` to opt out when a caller would otherwise enable the default.
+   * Unset: nothing runs (CLIs that honour `FEED_REASONS_DEFAULT` pass options
+   * explicitly when the feature is on).
    */
-  feedReasons?: FeedReasonOptions;
+  feedReasons?: FeedReasonOptions | false;
 }
 
 /** Slice A3: only Free Tide's tax step is put to the provider. */

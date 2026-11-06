@@ -46,9 +46,10 @@ echo "Running the 13-seed port-transfer sweep"
 node --experimental-strip-types scripts/port-transfer-sweep.ts --json "${evaluation_output}/port-transfer-sweep.json" 2>&1 | tee "${evaluation_output}/port-transfer-sweep.log"
 grep -q "PORT TRANSFER ACCEPTANCE PASSED" "${evaluation_output}/port-transfer-sweep.log"
 
-# Slice B feed reasons (feed-reasons.md section 10): stub brain on, 1,200 ticks,
-# stateHash equal to the default pins (EXILE_RECOVERY on); then an offline replay with zero writer
-# calls and byte-identical feed text.
+# Slice B feed reasons (feed-reasons.md section 10; default-on as of Micah 2026-11-06): stub brain
+# on, 1,200 ticks, stateHash equal to the default pins (EXILE_RECOVERY on, hash-neutral with reasons);
+# then an offline replay with zero writer calls and byte-identical feed text. Opt-out is
+# --no-feed-reasons / FEED_REASONS=0.
 declare -A feed_reason_pins=([1847]=94de9c02 [2718]=7a3741c9 [4096]=af6eeaea)
 for evaluation_seed in 1847 2718 4096; do
   feed_dir="${evaluation_output}/feed-reasons-${evaluation_seed}"
@@ -72,6 +73,7 @@ for evaluation_seed in 1847 2718 4096; do
     --database "${evaluation_databases}/${seed_name}.sqlite" \
     --output "${evaluation_output}/${seed_name}" \
     --reset \
+    --no-feed-reasons \
     2>&1 | tee "${evaluation_output}/${seed_name}.log"
 done
 
@@ -85,6 +87,7 @@ node --experimental-strip-types src/cli/run-simulation.ts \
   --database "${continuous_database}" \
   --output "${evaluation_output}/recovery-continuous" \
   --reset \
+    --no-feed-reasons \
   2>&1 | tee "${evaluation_output}/recovery-continuous.log"
 
 echo "Running first half of split recovery check"
@@ -97,6 +100,7 @@ node --experimental-strip-types src/cli/run-simulation.ts \
   --database "${split_database}" \
   --output "${evaluation_output}/recovery-split" \
   --reset \
+    --no-feed-reasons \
   2>&1 | tee "${evaluation_output}/recovery-split-first.log"
 
 echo "Resuming split recovery check"
@@ -105,6 +109,7 @@ node --experimental-strip-types src/cli/run-simulation.ts \
   --seed 1847 \
   --database "${split_database}" \
   --output "${evaluation_output}/recovery-split" \
+  --no-feed-reasons \
   2>&1 | tee "${evaluation_output}/recovery-split-resume.log"
 
 continuous_hash="$(sed -n 's/^State hash: //p' "${evaluation_output}/recovery-continuous.log" | tail -n 1)"

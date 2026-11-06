@@ -1,0 +1,194 @@
+t5 Rook Tern started a battle at Cinder Key. — Rook Tern raided Cinder Key following a standing raid order from the commander.
+t13 Dax Pike started a battle at Crown Harbor. — Dax Pike raided Crown Harbor as part of the plan to build a capable and respected party.
+t16 Niko Wren started a battle at Cinder Key. — Niko Wren raided Cinder Key to seize supplies from a garrison believed to be about 99.
+t16 Mina Vale started a battle at Glassport. — Mina Vale raided Glassport as part of the plan to build a capable and respected party.
+t18 Esme Dusk started a battle at Glassport. — Esme Dusk raided Glassport as part of the plan to win recognition through daring victories.
+t19 Jun Marrow started a battle at Cinder Key. — Jun Marrow raided Cinder Key as part of the plan to build a capable and respected party.
+t23 Pax Ash started a battle at Glassport. — Pax Ash raided Glassport as part of the plan to win recognition through daring victories.
+t42 Mara Calder claimed Glassport. — Mara Calder claimed Glassport after the port surrendered.
+t44 Iris Stone started a battle at Cinder Key. — Iris Stone raided Cinder Key as part of the plan to strengthen and protect the faction.
+t47 Orin Rill claimed Cinder Key. — Orin Rill claimed Cinder Key after the port surrendered.
+t51 Corin Hale started a battle at Crown Harbor. — Corin Hale raided Crown Harbor as part of the plan to strengthen and protect the faction.
+t52 Esme Dusk claimed Cinder Key. — Esme Dusk claimed Cinder Key after the port surrendered and the claim was accepted.
+t56 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor as part of the plan to win recognition through daring victories.
+t72 Pax Ash lowered the Free Tide Compact tax from 8% to 7% (unrest at Crown Harbor). — Pax Ash lowered the tax rate from 8% to 7% due to unrest in a port the faction held.
+t73 Mina Vale started a battle at Crown Harbor. — Mina Vale raided Crown Harbor to seize supplies from a garrison believed to be about 193.
+t83 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor as part of the plan to win recognition through daring victories.
+t86 Bram Tern missed a contract: the carrier chose other work. — Bram Tern dropped the accepted contract for a better-paying option.
+t97 Dax Pike started a battle at Crown Harbor. — Dax Pike raided Crown Harbor to seize supplies from a garrison believed to be about 166.
+t99 Zara Gale missed a contract: the carrier chose other work. — Zara Gale dropped the accepted contract for a better-paying option.
+t102 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor as part of the plan to win recognition through daring victories.
+t104 Bram Quill missed a contract: the carrier chose other work. — Bram Quill dropped the accepted contract for a better-paying option.
+t104 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t106 Zara Gale missed a contract: the carrier chose other work. — Zara Gale dropped the accepted contract for a better-paying option.
+t113 Zara Gale missed a contract: the carrier chose other work. — Zara Gale dropped the accepted contract for a better-paying option.
+t117 Dax Pike started a battle at Crown Harbor. — Dax Pike raided Crown Harbor to seize supplies.
+t118 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t119 Zara Gale missed a contract: the carrier chose other work. — Zara Gale dropped the accepted contract for a better-paying option.
+t121 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor as part of the plan to win recognition through daring victories.
+t133 Zara Gale missed a contract: the carrier chose other work. — Zara Gale dropped the accepted contract for a better-paying option.
+t134 Jun Marrow claimed Glassport. — Jun Marrow claimed Glassport after the port surrendered.
+t141 Zara Gale missed a contract: the carrier chose other work. — Zara Gale dropped the accepted contract for a better-paying option.
+t141 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor to seize supplies from a garrison believed to be about 69.
+t142 Bram Quill missed a contract: the carrier chose other work. — Bram Quill dropped the accepted contract for a better-paying option.
+t144 Mara Vane lowered the World Government tax from 14% to 13% (unrest at Cinder Key). — Mara Vane lowered the tax rate from 14% to 13% due to unrest in a port the faction held.
+t153 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t161 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t168 Pax Ash raised the Free Tide Compact tax from 7% to 8% (treasury short). The raise cost stability at Cinder Key 58.48 to 57.48. — Pax Ash raised taxes because the treasury was short.
+t168 Mara Vane lowered the World Government tax from 13% to 12% (unrest at Cinder Key). — Mara Vane lowered the tax rate because of unrest in a port the faction held.
+t176 Zara Gale missed a contract: the carrier chose other work. — Zara Gale dropped the accepted contract for a better-paying option.
+t186 Bram Quill missed a contract: the carrier chose other work. — Bram Quill dropped the accepted contract for a better-paying option.
+t190 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t192 Pax Ash raised the Free Tide Compact tax from 8% to 9% (treasury short). The raise cost stability at Cinder Key 58.20 to 57.20. — Pax Ash raised the tax rate because the treasury was short.
+t192 Mara Vane lowered the World Government tax from 12% to 11% (unrest at Cinder Key). — Mara Vane lowered the tax rate from 12% to 11% due to unrest in a port the faction held.
+t216 Pax Ash raised the Free Tide Compact tax from 9% to 10% (treasury short). The raise cost stability at Cinder Key 57.92 to 56.92. — Pax Ash raised taxes because the treasury was short.
+t216 Mara Vane lowered the World Government tax from 11% to 10% (unrest at Cinder Key). — Mara Vane lowered the tax rate from 11% to 10% due to unrest in a port the faction held.
+t226 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t234 Mina Vale left Free Tide Compact. — Mina Vale deserted the Free Tide Compact after twelve mornings without money for a day of passage.
+t234 Dax Pike left Free Tide Compact. — Dax Pike deserted the Free Tide Compact after twelve mornings without pay.
+t234 Bram Tern left Free Tide Compact. — Bram Tern deserted the Free Tide Compact after twelve mornings without money.
+t240 Mara Vane lowered the World Government tax from 10% to 9% (unrest at Cinder Key). — Mara Vane lowered the tax rate from 10% to 9% due to unrest in a port the faction held.
+t247 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t248 Lio Crow missed a contract: the carrier chose other work. — Lio Crow dropped the accepted contract for a better-paying option.
+t252 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor as part of the plan to win recognition through daring victories.
+t264 Mara Vane lowered the World Government tax from 9% to 8% (unrest at Cinder Key). — Mara Vane lowered the tax rate from 9% to 8% due to unrest in a port the faction held.
+t267 Bram Quill missed a contract: the carrier chose other work. — Bram Quill dropped the accepted contract for a better-paying option.
+t270 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor as part of the plan to win recognition through daring victories.
+t286 Sable Morrow missed a contract: the carrier chose other work. — Sable Morrow dropped the accepted contract for a better-paying option.
+t287 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t288 Pax Ash raised the Free Tide Compact tax from 10% to 11% (treasury short). The raise cost stability at Cinder Key 59.08 to 58.08. — Pax Ash raised taxes because the treasury was short.
+t288 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor as part of the plan to win recognition through daring victories.
+t295 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t304 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t304 Pax Ash started a battle at Glassport. — Pax Ash raided Glassport to win back the port lost to World Government.
+t305 Pax Ash claimed Glassport. — Pax Ash claimed Glassport after the port surrendered.
+t306 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor as part of the plan to win recognition through daring victories.
+t312 Pax Ash raised the Free Tide Compact tax from 11% to 12% (treasury short). The raise cost stability at Cinder Key 58.80 to 57.80, Glassport 56.34 to 55.34. — Pax Ash raised the tax rate from 11% to 12% because the treasury was short.
+t318 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t324 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor as part of the plan to win recognition through daring victories.
+t325 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered and the claim was accepted.
+t326 Zara Gale declared Crown Harbor separate from Free Tide Compact. Free Crown Harbor starts with an empty treasury, founded by Zara Gale, who sets its tax until a leader gives orders. — Zara Gale seceded from Free Tide Compact after broken promises.
+t330 Bram Quill claimed Crown Harbor. — Bram Quill claimed Crown Harbor after the port surrendered and the claim was accepted.
+t336 Pax Ash raised the Free Tide Compact tax from 12% to 13% (treasury short). The raise cost stability at Cinder Key 58.52 to 57.52, Glassport 56.06 to 55.06. — Pax Ash raised the tax rate because the treasury was short.
+t342 Rook Tern started a battle at Cinder Key. — Rook Tern raided Cinder Key to win back Cinder Key, lost to Free Tide Compact.
+t342 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor to win it back from World Government.
+t343 Rook Tern claimed Cinder Key. — Rook Tern claimed Cinder Key after the port surrendered.
+t343 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered.
+t349 Orin Rill started a battle at Glassport. — Orin Rill raided Glassport to win back Glassport, lost to Free Tide Compact.
+t350 Lio Crow claimed Glassport. — Lio Crow claimed Glassport after the port surrendered and the claim was accepted.
+t351 Bram Quill missed a contract: the carrier chose other work. — Bram Quill dropped the accepted contract for a better-paying option.
+t353 Toma Reef (World Government) claimed Crown Harbor. — Toma Reef claimed Crown Harbor after the port surrendered.
+t354 Finn Frost left Free Tide Compact. — Finn Frost deserted the Free Tide Compact after twelve mornings without money for a day of passage.
+t355 Orin Rill declared Glassport separate from World Government. Free Glassport starts with an empty treasury, founded by Orin Rill, who sets its tax until a leader gives orders. — Orin Rill seceded Glassport from the World Government after broken promises.
+t360 Mara Vane lowered the World Government tax from 8% to 7% (unrest at Cinder Key). — Mara Vane lowered the tax rate from 8% to 7% due to unrest in a port the faction held.
+t396 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor to win it back from World Government.
+t397 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered and the claim was accepted.
+t408 Zara Gale lowered the Free Crown Harbor tax from 8% to 7% (unrest at Glassport). — Zara Gale lowered the tax rate due to unrest in a port the faction held.
+t418 Iris Stone started a battle at Glassport. — Iris Stone raided Glassport to win back Glassport, lost to Free Glassport.
+t419 Vale Drake claimed Crown Harbor. — Vale Drake claimed Crown Harbor after the port surrendered.
+t420 Lio Crow declared Crown Harbor separate from World Government. Free Crown Harbor II starts with an empty treasury, founded by Lio Crow, who sets its tax until a leader gives orders.
+t421 Iris Stone claimed Glassport. — Iris Stone claimed Glassport after the port surrendered.
+t429 Lio Crow claimed Cinder Key. — Lio Crow claimed Cinder Key after the port surrendered and the claim was accepted.
+t432 Lio Crow lowered the Free Crown Harbor II tax from 8% to 7% (unrest). — Lio Crow lowered the tax rate from 8% to 7% due to unrest in a port the faction held.
+t434 Jun Marrow started a battle at Cinder Key. — Jun Marrow raided Cinder Key to win back Cinder Key, lost to Free Crown Harbor II.
+t437 Jun Marrow claimed Cinder Key. — Jun Marrow claimed Cinder Key after the port surrendered.
+t456 Lio Crow raised the Free Crown Harbor II tax from 7% to 8% (treasury short). The raise cost stability at Crown Harbor 56.11 to 55.11. — Lio Crow raised the tax rate from 7% to 8% because the treasury was short.
+t456 Mara Vane lowered the World Government tax from 7% to 6% (unrest at Cinder Key). — Mara Vane lowered the tax rate from 7% to 6% due to unrest in a port the faction held.
+t473 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor to win it back from Free Crown Harbor II.
+t474 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered and the claim was accepted.
+t492 Lio Crow left Free Crown Harbor II. — Lio Crow deserted Free Crown Harbor II after twelve mornings without money for a day of passage.
+t492 Ada Sorn left Free Crown Harbor II. — Ada Sorn deserted Free Crown Harbor II after twelve mornings without money for a day of passage.
+t494 Sable Morrow missed a contract: the carrier chose other work. — Sable Morrow dropped the accepted contract for a better-paying option.
+t513 Orin Rill started a battle at Glassport. — Orin Rill raided Glassport to win back Glassport, lost to World Government.
+t514 Orin Rill claimed Glassport. — Orin Rill claimed Glassport after the port surrendered.
+t527 Bram Quill claimed Crown Harbor. — Bram Quill claimed Crown Harbor after the port surrendered.
+t550 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor to win it back from World Government.
+t551 Iris Stone started a battle at Glassport. — Iris Stone raided Glassport to win back Glassport, lost to Free Glassport.
+t551 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered and the claim was accepted.
+t552 Iris Stone claimed Glassport. — Iris Stone claimed Glassport after the port surrendered and the claim was accepted.
+t579 Mara Calder claimed Crown Harbor. — Mara Calder claimed Crown Harbor after the port surrendered and the claim was accepted.
+t589 Sable Morrow started a battle at Cinder Key. — Sable Morrow raided Cinder Key to win back Cinder Key, lost to World Government.
+t589 Pax Ash started a battle at Glassport. — Pax Ash raided Glassport to win back Glassport, lost to World Government.
+t590 Sable Morrow claimed Cinder Key. — Sable Morrow claimed Cinder Key after the port surrendered and the claim was accepted.
+t591 Pax Ash claimed Glassport. — Pax Ash claimed Glassport after the port surrendered and the claim was accepted.
+t600 Pax Ash lowered the Free Tide Compact tax from 13% to 12% (unrest at Crown Harbor). — Pax Ash lowered the tax rate from 13% to 12% due to unrest in a port the faction held.
+t624 Vale Drake left Free Crown Harbor II. — Vale Drake deserted Free Crown Harbor II after twelve mornings without money for a day of passage.
+t627 Jun Marrow started a battle at Glassport. — Jun Marrow raided Glassport to win it back from Free Tide Compact.
+t627 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor to win it back from Free Tide Compact.
+t628 Jun Marrow claimed Glassport. — Jun Marrow claimed Glassport after the port surrendered and the claim was accepted.
+t628 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered.
+t651 Niko Wren started a battle at Cinder Key. — Niko Wren raided Cinder Key to win it back from Free Crown Harbor II.
+t654 Niko Wren claimed Cinder Key. — Niko Wren claimed Cinder Key after the port surrendered and the claim was accepted.
+t660 Sable Morrow started a battle at Crown Harbor. — Sable Morrow raided Crown Harbor to win it back from Free Crown Harbor.
+t661 Sable Morrow claimed Crown Harbor. — Sable Morrow claimed Crown Harbor after the port surrendered.
+t665 Orin Rill started a battle at Glassport. — Orin Rill raided Glassport to win back Glassport, lost to World Government.
+t668 Orin Rill claimed Glassport. — Orin Rill claimed Glassport after the port surrendered and the claim was accepted.
+t671 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor to win it back from Free Crown Harbor II.
+t672 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered.
+t696 Zara Gale lowered the Free Crown Harbor tax from 7% to 6% (unrest at Glassport). — Zara Gale lowered the tax rate because of unrest in a port the faction held.
+t701 Bram Quill claimed Crown Harbor. — Bram Quill claimed Crown Harbor after the port surrendered.
+t720 Mara Vane lowered the World Government tax from 6% to 5% (unrest at Cinder Key). — Mara Vane lowered the tax rate from 6% to 5% due to unrest in a port the faction held.
+t737 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor to win it back from World Government.
+t738 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered and the claim was accepted.
+t760 Pax Ash started a battle at Glassport. — Pax Ash raided Glassport to win back Glassport, lost to Free Glassport.
+t760 Mara Calder claimed Crown Harbor. — Mara Calder claimed Crown Harbor after the port surrendered.
+t761 Pax Ash claimed Glassport. — Pax Ash claimed Glassport after the port surrendered.
+t768 Pax Ash lowered the Free Tide Compact tax from 12% to 11% (unrest at Crown Harbor). — Pax Ash lowered the tax rate due to unrest in a port the faction held.
+t771 Bram Tern missed a contract: the carrier chose other work. — Bram Tern dropped the accepted contract for a better-paying option.
+t798 Orin Rill started a battle at Glassport. — Orin Rill raided Glassport to win back Glassport, lost to Free Tide Compact.
+t799 Orin Rill claimed Glassport. — Orin Rill claimed Glassport after the port surrendered and the claim was accepted.
+t800 Bram Tern missed a contract: the carrier chose other work. — Bram Tern dropped the accepted contract for a better-paying option.
+t814 Sable Morrow started a battle at Crown Harbor. — Sable Morrow raided Crown Harbor to win back Crown Harbor, lost to Free Tide Compact.
+t815 Sable Morrow claimed Crown Harbor. — Sable Morrow claimed Crown Harbor after the port surrendered.
+t836 Corin Hale started a battle at Glassport. — Corin Hale raided Glassport to win back the port lost to Free Glassport.
+t837 Corin Hale claimed Glassport. — Corin Hale claimed Glassport after the port surrendered and the claim was accepted.
+t837 Zara Gale claimed Crown Harbor. — Zara Gale claimed Crown Harbor after the port surrendered and the claim was accepted.
+t840 Zara Gale lowered the Free Crown Harbor tax from 6% to 5% (unrest at Glassport). — Zara Gale lowered the tax rate due to unrest in a port the faction held.
+t880 Sable Morrow started a battle at Crown Harbor. — Sable Morrow raided Crown Harbor to win back Crown Harbor, lost to Free Crown Harbor.
+t881 Sable Morrow claimed Crown Harbor. — Sable Morrow claimed Crown Harbor after the port surrendered.
+t888 Zara Gale claimed Glassport. — Zara Gale claimed Glassport after the port surrendered.
+t902 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor as part of the plan to win recognition through daring victories.
+t903 Pax Ash claimed Crown Harbor. — Pax Ash claimed Crown Harbor after the port surrendered.
+t912 Pax Ash lowered the Free Tide Compact tax from 11% to 10% (unrest at Crown Harbor). — Pax Ash lowered the tax rate from 11% to 10% due to unrest in a port the faction held.
+t912 Zara Gale lowered the Free Crown Harbor tax from 5% to 4% (unrest at Glassport). — Zara Gale lowered the tax rate due to unrest in a port the faction held.
+t919 Toma Reef (World Government) missed a contract: the carrier chose other work. — Toma Reef dropped the accepted contract for a better-paying option.
+t924 Esme Dusk started a battle at Crown Harbor. — Esme Dusk raided Crown Harbor to win it back from Free Tide Compact.
+t925 Esme Dusk claimed Crown Harbor. — Esme Dusk claimed Crown Harbor after the port surrendered.
+t936 Zara Gale lowered the Free Crown Harbor tax from 4% to 3% (unrest at Glassport). — Zara Gale lowered the tax rate from 4% to 3% due to unrest in a port the faction held.
+t946 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor to win back Crown Harbor, lost to Free Crown Harbor.
+t947 Pax Ash claimed Crown Harbor. — Pax Ash claimed Crown Harbor after the port surrendered and the claim was accepted.
+t960 Pax Ash raised the Free Tide Compact tax from 10% to 11% (treasury short). The raise cost stability at Crown Harbor 55.39 to 54.39. — Pax Ash raised the tax rate because the treasury was short.
+t969 Orin Rill started a battle at Glassport. — Orin Rill raided Glassport to win back Glassport, lost to Free Crown Harbor.
+t970 Orin Rill claimed Glassport. — Orin Rill claimed Glassport after the port surrendered.
+t980 Zara Gale claimed Crown Harbor. — Zara Gale claimed Crown Harbor after the port surrendered and the claim was accepted.
+t984 Zara Gale lowered the Free Crown Harbor tax from 3% to 2% (unrest at Glassport). — Zara Gale lowered the tax rate due to unrest in a port the faction held.
+t1007 Corin Hale started a battle at Glassport. — Corin Hale raided Glassport to win back the port lost to Free Glassport.
+t1008 Corin Hale claimed Glassport. — Corin Hale claimed Glassport after the port surrendered and the claim was accepted.
+t1012 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor to win back the port lost to Free Crown Harbor.
+t1013 Pax Ash claimed Crown Harbor. — Pax Ash claimed Crown Harbor after the port surrendered.
+t1032 Pax Ash lowered the Free Tide Compact tax from 11% to 10% (unrest at Crown Harbor). — Pax Ash lowered the tax rate from 11% to 10% due to unrest in a port the faction held.
+t1037 Sable Morrow started a battle at Cinder Key. — Sable Morrow raided Cinder Key to win back Cinder Key, lost to World Government.
+t1042 Zara Gale claimed Crown Harbor. — Zara Gale claimed Crown Harbor after the port surrendered.
+t1045 Esme Dusk started a battle at Glassport. — Esme Dusk raided Glassport to win it back from Free Tide Compact.
+t1046 Esme Dusk claimed Glassport. — Esme Dusk claimed Glassport after the port surrendered and the claim was accepted.
+t1056 Zara Gale lowered the Free Crown Harbor tax from 2% to 1% (unrest at Glassport). — Zara Gale lowered the tax rate from 2% to 1% due to unrest in a port the faction held.
+t1078 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor to win back the port lost to Free Crown Harbor.
+t1079 Pax Ash claimed Crown Harbor. — Pax Ash claimed Crown Harbor after the port surrendered.
+t1080 Pax Ash raised the Free Tide Compact tax from 10% to 11% (treasury short). The raise cost stability at Crown Harbor 55.03 to 54.03. — Pax Ash raised the tax rate because the treasury was short.
+t1084 Mara Calder claimed Glassport. — Mara Calder claimed Glassport after the port surrendered and the claim was accepted.
+t1104 Pax Ash lowered the Free Tide Compact tax from 11% to 10% (unrest at Crown Harbor). — Pax Ash lowered the tax rate because of unrest in a port the faction held.
+t1104 Orin Rill started a battle at Cinder Key. — Orin Rill raided Cinder Key to win back Cinder Key, lost to World Government.
+t1105 Orin Rill claimed Cinder Key. — Orin Rill claimed Cinder Key after the port surrendered.
+t1106 Iris Stone started a battle at Cinder Key. — Iris Stone raided Cinder Key to win back Cinder Key, lost to Free Glassport.
+t1106 Kessa Calder started a battle at Cinder Key. — Kessa Calder raided Cinder Key to win back Cinder Key, lost to Free Glassport.
+t1107 Kessa Calder claimed Cinder Key. — Kessa Calder claimed Cinder Key after the port surrendered.
+t1107 Zara Gale claimed Crown Harbor. — Zara Gale claimed Crown Harbor after the port surrendered.
+t1118 Bram Quill missed a contract: the carrier chose other work. — Bram Quill breached the contract for a better-paying option.
+t1128 Zara Gale lowered the Free Crown Harbor tax from 1% to 0% (unrest at Glassport). — Zara Gale lowered the tax rate from 1% to 0% due to unrest in a port the faction held.
+t1144 Sable Morrow started a battle at Crown Harbor. — Sable Morrow raided Crown Harbor to win back Crown Harbor, lost to Free Crown Harbor.
+t1152 Pax Ash raised the Free Tide Compact tax from 10% to 11% (treasury short). The raise cost stability at Glassport 57.04 to 56.04. — Pax Ash raised the tax rate because the treasury was short.
+t1166 Pax Ash started a battle at Crown Harbor. — Pax Ash raided Crown Harbor to win back Crown Harbor, lost to Free Crown Harbor.
+t1167 Pax Ash claimed Crown Harbor. — Pax Ash claimed Crown Harbor after the port surrendered and the claim was accepted.
+t1176 Pax Ash raised the Free Tide Compact tax from 11% to 12% (treasury short). The raise cost stability at Crown Harbor 55.27 to 54.27, Glassport 56.76 to 55.76. — Pax Ash raised the tax rate because the treasury was short.
+t1178 Esme Dusk started a battle at Glassport. — Esme Dusk raided Glassport to win it back from Free Tide Compact.
+t1179 Esme Dusk claimed Glassport. — Esme Dusk claimed Glassport after the port surrendered and the claim was accepted.
