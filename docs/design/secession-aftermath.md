@@ -12,7 +12,7 @@ Port distances (scenario positions): cinder-key–glassport 23.345, glassport–
 
 ## 2. Rules (revision 2)
 
-**Survival window `AFTERMATH_WINDOW` = 67 ticks**: the p90 flag-off hold (ruled). "Held long enough" means longer than almost every seceded port that was lost (28 of 31 fell sooner); not chosen for counts. Rev 1's median (22) put 16 of 37 outcomes on the window tick.
+**Survival window `AFTERMATH_WINDOW` = 67 ticks**: the p90 flag-off hold (ruled). "Held long enough" means longer than almost every seceded port that was lost (28 of 31 lost ports held 67 ticks or less); not chosen for counts. Rev 1's median (22) put 16 of 37 outcomes on the window tick.
 
 **Two radii, explicitly:**
 - `PATRON_NEAR` = 43.829 (ruled): the next inter-port distance (Crown Harbor–Glassport). Used for **patron search only**, for both protection and join.
