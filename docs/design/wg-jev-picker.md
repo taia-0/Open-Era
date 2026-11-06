@@ -13,7 +13,7 @@ Status: Lead rulings applied (2026-11-01). The recount is offline on `main` `555
 
 What is left on the list:
 - **(a), the World Government picker.** Its first precondition has since been met. Slice 5 triage is built (`progress.md`, "Slice 5 v3: no scoring call, the brain only nudges", 2026-10-31).
-- **feedReasons default-on.** #167 kept it out of (b) ("feedReasons is not changed"). It says the change "needs Micah's go-ahead before it is turned on by default". No agent can rule on it, so it stays parked.
+- **feedReasons default-on.** Micah approved on 2026-11-06; built on `feature/feed-reasons-default` (opt-out `--no-feed-reasons` / `FEED_REASONS=0` / `feedReasons: false`).
 
 So (a) is next. Its remaining precondition, "new caps are agreed", is decision 1 below.
 
@@ -72,4 +72,4 @@ So (a) is next. Its remaining precondition, "new caps are agreed", is decision 1
 
 The acceptance check "secession median within ±1" is replaced with "secessions on at least 6 of 13 seeds, and liveness holds".
 
-**Still parked:** feedReasons default-on, until Micah himself says go.
+**Done (2026-11-06):** feedReasons default-on (Micah's go-ahead); see `feature/feed-reasons-default` / progress.md.

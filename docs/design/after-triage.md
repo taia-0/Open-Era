@@ -47,7 +47,7 @@ Picker-eligible decisions per 1,200-tick run, flag off:
 - **Cost:** $0 per run.
 - **Still needed:** a re-pin, a fixture plan, and the Lead's sign-off.
 
-**feedReasons.** It is hash-neutral. Live runs measured $0.029–0.044 per run (`progress.md:166–171`). On by default would mean live DeepSeek spend on every run, so **it needs Micah's go-ahead before it is turned on by default**. Until then it stays opt-in.
+**feedReasons.** It is hash-neutral. Live runs measured $0.029–0.044 per run (`progress.md:166–171`). **Micah approved default-on on 2026-11-06** ("Sure lets allow that for now, we can always come back and change that decision if it becomes too costly."). Built on `feature/feed-reasons-default` with opt-out `--no-feed-reasons` / `FEED_REASONS=0` / `feedReasons: false`.
 
 ### (c) Vision gap: occupation and the population's response after conquest
 

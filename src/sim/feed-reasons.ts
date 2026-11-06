@@ -9,7 +9,9 @@ import type { SimEvent, WorldState } from "./types.ts";
  * Slice B, feed reasons (docs/design/feed-reasons.md). A brain-written one-line
  * reason on six headline event kinds, recorded at `data.ai.reason` on the event
  * after the tick has run. Hash-neutral: nothing in `src/sim` reads it back, it
- * is not world state, and with `ai.feedReasons` unset nothing here runs.
+ * is not world state. **On by default** in the run CLIs (`FEED_REASONS_DEFAULT`);
+ * pass `feedReasons: false`, `--no-feed-reasons`, or `FEED_REASONS=0` to opt out.
+ * With `ai.feedReasons` unset or false, nothing here runs.
  */
 export type FeedReasonKind = "secession" | "desertion" | "breach" | "raid" | "claim" | "tax";
 
@@ -23,6 +25,11 @@ export const FEED_REASON_TIMEOUT_MS = 8_000;
 /** Lead ruling: $0.10 and 200 calls per run. */
 export const FEED_REASON_CAP_USD = 0.10;
 export const FEED_REASON_CALL_CAP = 200;
+/**
+ * Micah's go-ahead (2026-11-06): feedReasons is on by default in the run CLIs.
+ * Opt out with `feedReasons: false`, `--no-feed-reasons`, or `FEED_REASONS=0`.
+ */
+export const FEED_REASONS_DEFAULT = true;
 /** Lead ruling: with EXILE_RECOVERY on (more qualifying events), the brain call cap is 300. The Jev check count and the $0.10 cap are unchanged. */
 export const FEED_REASON_CALL_CAP_EXILE = 300;
 export function feedReasonCallCap(exileRecovery: boolean): number {
