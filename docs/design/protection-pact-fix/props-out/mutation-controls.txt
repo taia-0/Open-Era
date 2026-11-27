@@ -1,0 +1,6 @@
+== mutation 1: protection cause prefix changed to 'protect:' (S alone, seeds 4096,10000)
+protection | protection: aftermath cause: 2 hits, 2 pacts
+seeds: 4096,10000
+== mutation 2: second allianceBreaks removed (A+S, seed 4096)
+alliances | break late: enemy portless: 3 hits, 3 pacts, ticks alive past condition per pact: 1,1,1
+seeds: 4096

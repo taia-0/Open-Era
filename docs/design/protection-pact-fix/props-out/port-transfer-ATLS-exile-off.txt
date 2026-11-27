@@ -1,0 +1,20 @@
+| Seed | Purchases | Buyer(s) | Tick(s) | Price(s) | Cause | VC owner t1200 (off → on) | VC battles off → on | VC claims off → on | Claims off → on | Port changes off → on | Secessions off → on | Violations |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 1 | 0 → 2 | 51 → 12 | 52 → 15 | 1 → 2 | 0 |
+| 2718 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 0 | 0 → 4 | 64 → 34 | 64 → 38 | 0 → 3 | 0 |
+| 4096 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-18-crown-harbor-332) | 0 → 1 | 0 → 6 | 56 → 34 | 59 → 40 | 3 → 4 | 0 |
+| 1000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 1 | 0 → 2 | 42 → 13 | 44 → 14 | 2 → 0 | 0 |
+| 2000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 3 | 0 → 6 | 50 → 40 | 52 → 45 | 2 → 4 | 0 |
+| 3000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 1 | 0 → 2 | 42 → 34 | 44 → 38 | 2 → 3 | 0 |
+| 4000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-07-glassport-270) | 0 → 4 | 0 → 6 | 63 → 30 | 64 → 37 | 1 → 6 | 0 |
+| 5000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 1 | 0 → 2 | 55 → 26 | 57 → 29 | 2 → 2 | 0 |
+| 6000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 2 | 0 → 2 | 50 → 35 | 55 → 38 | 5 → 2 | 0 |
+| 7000 | 1 | world-government | 24 | 840 | adjacent | neutral → free-tide | 0 → 0 | 0 → 5 | 61 → 39 | 65 → 40 | 4 → 0 | 0 |
+| 8000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-21-glassport-268) | 0 → 7 | 0 → 3 | 62 → 16 | 66 → 18 | 4 → 1 | 0 |
+| 9000 | 1 | world-government | 48 | 852 | adjacent | neutral → world-government | 0 → 7 | 0 → 4 | 58 → 31 | 60 → 35 | 2 → 3 | 0 |
+| 10000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 6 | 0 → 4 | 28 → 30 | 31 → 34 | 3 → 3 | 0 |
+| total | 13 | | | | | | 0 → 34 | 0 → 48 | 682 → 374 | 713 → 421 | 31 → 33 | 0 |
+pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
+purchases 13 on 13/13 seeds; multi-candidate purchases 0; secession seeds 11/13; min claims 12, min port changes 14
+{"pins_flagOff":true,"purchases_validAndCaused_0violations":true,"rulings_buyerAndAgentRecomputed_0mismatches":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
+PORT TRANSFER ACCEPTANCE PASSED

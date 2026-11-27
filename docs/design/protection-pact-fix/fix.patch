@@ -1,3 +1,18 @@
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 1afc80d..3775789 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -4717,6 +4717,10 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+   if (alliancesOn || aftermathOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
+   if (lifecycleOn) lifecycleStep(world, [...events], (d) => emit(world, events, d as EventDraft));
+   if (aftermathOn) aftermathStep(world, [...events], (d) => emit(world, events, d as EventDraft));
++  // protection-pact-fix.md ruling 3: a pact never outlives its break condition. Lifecycle and the aftermath
++  // (a join moves ports without a battle) run after the first check, so the break rules run once more here.
++  // The first check stays where it is, so the aftermath sees the pacts that are really alive.
++  if (alliancesOn || aftermathOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
+   emit(world, events, { type: "metrics-recorded", data: metrics(world) });
+   emit(world, events, {
+     type: "tick-advanced",
 diff --git a/src/sim/secession-aftermath.ts b/src/sim/secession-aftermath.ts
 index ca21b72..155ee68 100644
 --- a/src/sim/secession-aftermath.ts

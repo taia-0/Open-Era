@@ -11,11 +11,10 @@
 | 6000 | 4 | 2 {"enemy-portless":2} | 3 / 1 / 4 | 4 / 4 | 14 (18) | 3 | 714 / 8013 | 50 → 29 | 55 → 33 | 5 → 3 | 0 |
 | 7000 | 0 | 0 {} | 0 / 0 / 0 | 0 / 0 | 0 (0) | 0 | 0 / 0 | 61 → 54 | 65 → 55 | 4 → 0 | 0 |
 | 8000 | 2 | 1 {"ally-gone":1} | 2 / 1 / 1 | 2 / 2 | 2 (6) | 0 | 71 / 1955 | 62 → 25 | 66 → 29 | 4 → 3 | 0 |
-| 9000 | 8 | 5 {"enemy-portless":5} | 7 / 3 / 4 | 5 / 8 | 35 (41) | 24 | 1935 / 25131 | 58 → 34 | 60 → 41 | 2 → 6 | 3 |
+| 9000 | 8 | 5 {"enemy-portless":5} | 7 / 3 / 4 | 5 / 8 | 35 (41) | 24 | 1935 / 25131 | 58 → 34 | 60 → 41 | 2 → 6 | 0 |
 | 10000 | 9 | 7 {"enemy-portless":7} | 4 / 5 / 9 | 7 / 9 | 37 (44) | 24 | 884 / 10537 | 28 → 41 | 31 → 48 | 3 → 5 | 0 |
-| total | 59 | 39 {"enemy-portless":37,"ally-gone":2} | 55 / 23 / 38 | 49 / 59 | 241 (293) | 156 | 7570 / 112475 | 682 → 488 | 713 → 539 | 31 → 37 | 3 |
+| total | 59 | 39 {"enemy-portless":37,"ally-gone":2} | 55 / 23 / 38 | 49 / 59 | 241 (293) | 156 | 7570 / 112475 | 682 → 488 | 713 → 539 | 31 → 37 | 0 |
 pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
 seeds with forms 11/13, breaks 9/13, secessions 11/13; min claims 25, min port changes 28; joiners attacker/defender 186/489; pacts live at end 20
-violations: ["9000: pact protection-559-secession-character-15-glassport-477-world-government side secession-character-15-glassport-477 without a known cause","9000: pact protection-559-secession-character-15-glassport-477-world-government side world-government without a known cause","9000: pact protection-559-secession-character-15-glassport-477-world-government off the clock t559"]
-{"1_flagOffPins":true,"2-4_propertyViolations0":false,"liveness_formsOn7of13":true,"liveness_breaksOn5of13":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
-ALLIANCES ACCEPTANCE FAILED
+{"1_flagOffPins":true,"2-4_propertyViolations0":true,"liveness_formsOn7of13":true,"liveness_breaksOn5of13":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
+ALLIANCES ACCEPTANCE PASSED
