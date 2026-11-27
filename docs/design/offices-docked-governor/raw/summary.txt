@@ -1,0 +1,116 @@
+## Hash checks
+off: read-only end hash, current tree == docked tree on 13/13: True | docked read-only eligible == eligibleDocked of current tree: True
+ATL: read-only end hash, current tree == docked tree on 13/13: True | docked read-only eligible == eligibleDocked of current tree: True
+ATLS (pre-fix): read-only end hash, current tree == docked tree on 13/13: True | docked read-only eligible == eligibleDocked of current tree: True
+ATL + fix: read-only end hash, current tree == docked tree on 13/13: True | docked read-only eligible == eligibleDocked of current tree: True
+ATLS + fix: read-only end hash, current tree == docked tree on 13/13: True | docked read-only eligible == eligibleDocked of current tree: True
+ATL: fix changes end hash on []
+ATLS: fix changes end hash on [2000, 9000]
+
+## Per-seed consults: current rule read-only / stub → docked rule read-only / stub
+| Seed | off | ATL | ATLS (pre-fix) | ATL + fix | ATLS + fix |
+|---|---|---|---|---|---|
+| 1847 | 1,482 / 1,013 → 909 / 426 | 1,686 / 1,722 → 844 / 452 | 1,839 / 1,722 → 1,034 / 452 | 1,686 / 1,722 → 844 / 452 | 1,839 / 1,722 → 1,034 / 452 |
+| 2718 | 1,329 / 1,235 → 989 / 375 | 1,348 / 1,646 → 895 / 485 | 1,348 / 1,646 → 895 / 485 | 1,348 / 1,646 → 895 / 485 | 1,348 / 1,646 → 895 / 485 |
+| 4096 | 1,152 / 1,319 → 505 / 509 | 1,460 / 1,421 → 801 / 25 | 1,460 / 1,222 → 801 / 30 | 1,460 / 1,421 → 801 / 25 | 1,460 / 1,222 → 801 / 30 |
+| 1000 | 1,400 / 1,274 → 1,266 / 272 | 2,008 / 1,646 → 775 / 89 | 2,008 / 1,653 → 775 / 157 | 2,008 / 1,646 → 775 / 89 | 2,008 / 1,646 → 775 / 151 |
+| 2000 | 1,003 / 1,228 → 682 / 120 | 1,510 / 1,506 → 496 / 196 | 1,576 / 1,910 → 434 / 196 | 1,510 / 1,506 → 496 / 196 | 1,510 / 1,910 → 496 / 196 |
+| 3000 | 1,681 / 945 → 1,193 / 387 | 1,591 / 2,415 → 861 / 697 | 1,242 / 2,415 → 917 / 471 | 1,591 / 2,415 → 861 / 697 | 1,242 / 2,415 → 917 / 471 |
+| 4000 | 1,148 / 1,352 → 898 / 489 | 1,582 / 1,750 → 908 / 262 | 1,582 / 1,750 → 908 / 490 | 1,582 / 1,750 → 908 / 262 | 1,582 / 1,750 → 908 / 490 |
+| 5000 | 1,108 / 1,144 → 864 / 467 | 1,633 / 1,542 → 978 / 427 | 1,633 / 1,604 → 978 / 444 | 1,633 / 1,542 → 978 / 427 | 1,633 / 1,482 → 978 / 444 |
+| 6000 | 1,367 / 1,089 → 950 / 454 | 1,686 / 1,865 → 976 / 300 | 1,376 / 1,865 → 283 / 300 | 1,686 / 1,865 → 976 / 300 | 1,376 / 1,865 → 283 / 300 |
+| 7000 | 1,594 / 1,503 → 1,173 / 793 | 1,945 / 1,839 → 1,058 / 461 | 1,945 / 1,839 → 1,058 / 461 | 1,945 / 1,839 → 1,058 / 461 | 1,945 / 1,839 → 1,058 / 461 |
+| 8000 | 1,090 / 1,052 → 831 / 751 | 1,910 / 1,376 → 850 / 108 | 1,910 / 1,326 → 850 / 133 | 1,910 / 1,376 → 850 / 108 | 1,910 / 1,326 → 850 / 133 |
+| 9000 | 1,276 / 1,078 → 926 / 593 | 1,046 / 983 → 436 / 384 | 1,349 / 1,086 → 721 / 305 | 1,046 / 983 → 436 / 384 | 1,142 / 1,226 → 292 / 305 |
+| 10000 | 1,442 / 1,211 → 1,005 / 338 | 873 / 1,695 → 363 / 507 | 961 / 1,695 → 365 / 518 | 873 / 1,695 → 363 / 507 | 961 / 1,695 → 365 / 518 |
+| total | 17,072 / 15,443 → 12,191 / 5,974 | 20,278 / 21,406 → 10,241 / 4,393 | 20,229 / 21,733 → 10,019 / 4,442 | 20,278 / 21,406 → 10,241 / 4,393 | 19,956 / 21,744 → 9,652 / 4,436 |
+| max 3 std | 1,482 / 1,319 → 989 / 509 | 1,686 / 1,722 → 895 / 485 | 1,839 / 1,722 → 1,034 / 485 | 1,686 / 1,722 → 895 / 485 | 1,839 / 1,722 → 1,034 / 485 |
+| max 13 | 1,681 / 1,503 → 1,266 / 793 | 2,008 / 2,415 → 1,058 / 697 | 2,008 / 2,415 → 1,058 / 518 | 2,008 / 2,415 → 1,058 / 697 | 2,008 / 2,415 → 1,058 / 518 |
+
+## Caps (read-only recount rule: max × 1.25, ceil; $ at 0.0000544/call, ceil to cent)  [stub uncapped max shown for headroom check]
+| Set | Rule | 3-seed max (seed) | 3-seed cap | 3-seed $ | 13-seed max (seed) | 13-seed cap | 13-seed $ | stub max 3 / 13 |
+|---|---|---|---|---|---|---|---|---|
+| off | current | 1,482 (1847) | 1,853 | $0.11 (0.1008) | 1,681 (3000) | 2,102 | $0.12 (0.1143) | 1,319 / 1,503 |
+| off | docked | 989 (2718) | 1,237 | $0.07 (0.0673) | 1,266 (1000) | 1,583 | $0.09 (0.0861) | 509 / 793 |
+| ATL | current | 1,686 (1847) | 2,108 | $0.12 (0.1147) | 2,008 (1000) | 2,510 | $0.14 (0.1365) | 1,722 / 2,415 |
+| ATL | docked | 895 (2718) | 1,119 | $0.07 (0.0609) | 1,058 (7000) | 1,323 | $0.08 (0.0720) | 485 / 697 |
+| ATLS (pre-fix) | current | 1,839 (1847) | 2,299 | $0.13 (0.1251) | 2,008 (1000) | 2,510 | $0.14 (0.1365) | 1,722 / 2,415 |
+| ATLS (pre-fix) | docked | 1,034 (1847) | 1,293 | $0.08 (0.0703) | 1,058 (7000) | 1,323 | $0.08 (0.0720) | 485 / 518 |
+| ATL + fix | current | 1,686 (1847) | 2,108 | $0.12 (0.1147) | 2,008 (1000) | 2,510 | $0.14 (0.1365) | 1,722 / 2,415 |
+| ATL + fix | docked | 895 (2718) | 1,119 | $0.07 (0.0609) | 1,058 (7000) | 1,323 | $0.08 (0.0720) | 485 / 697 |
+| ATLS + fix | current | 1,839 (1847) | 2,299 | $0.13 (0.1251) | 2,008 (1000) | 2,510 | $0.14 (0.1365) | 1,722 / 2,415 |
+| ATLS + fix | docked | 1,034 (1847) | 1,293 | $0.08 (0.0703) | 1,058 (7000) | 1,323 | $0.08 (0.0720) | 485 / 518 |
+
+## Docked consults by port and by 200-tick bin (read-only, 13-seed totals)
+off: by port {'cinder-key': 4148, 'crown-harbor': 4333, 'glassport': 3710}; by bin [809, 1368, 2368, 2450, 2572, 2624]; by origin {'initial': 12191}
+ATL: by port {'cinder-key': 3547, 'crown-harbor': 4198, 'glassport': 2080, 'verdant-cay': 416}; by bin [760, 1075, 1617, 1962, 2514, 2313]; by origin {'initial': 10038, 'promoted': 203}
+ATLS (pre-fix): by port {'cinder-key': 3601, 'crown-harbor': 3880, 'glassport': 2163, 'verdant-cay': 375}; by bin [760, 1059, 1670, 1954, 1969, 2607]; by origin {'initial': 9808, 'promoted': 211}
+ATL + fix: by port {'cinder-key': 3547, 'crown-harbor': 4198, 'glassport': 2080, 'verdant-cay': 416}; by bin [760, 1075, 1617, 1962, 2514, 2313]; by origin {'initial': 10038, 'promoted': 203}
+ATLS + fix: by port {'cinder-key': 3197, 'crown-harbor': 4013, 'glassport': 2072, 'verdant-cay': 370}; by bin [760, 1059, 1544, 1695, 2125, 2469]; by origin {'initial': 9447, 'promoted': 205}
+
+## Docked consults by consulter (read-only), per seed
+off 1847: character-10 Kessa Calder: 286, character-05 Jun Marrow: 251, character-11 Rook Tern: 162, character-06 Iris Stone: 134, character-12 Lio Crow: 26, character-07 Toma Reef: 21, character-03 Niko Wren: 13, character-04 Sable Morrow: 10, character-02 Bram Quill: 6
+off 2718: character-13 Ada Sorn: 386, character-06 Iris Stone: 317, character-08 Vale Drake: 85, character-05 Jun Marrow: 70, character-11 Rook Tern: 62, character-04 Sable Morrow: 46, character-07 Toma Reef: 22, character-02 Bram Quill: 1
+off 4096: character-06 Iris Stone: 237, character-11 Rook Tern: 235, character-07 Toma Reef: 23, character-05 Jun Marrow: 10
+off 1000: character-11 Rook Tern: 784, character-03 Niko Wren: 222, character-12 Lio Crow: 135, character-09 Orin Rill: 64, character-07 Toma Reef: 39, character-04 Sable Morrow: 16, character-02 Bram Quill: 5, character-06 Iris Stone: 1
+off 2000: character-09 Orin Rill: 225, character-06 Iris Stone: 223, character-07 Toma Reef: 89, character-12 Lio Crow: 62, character-10 Kessa Calder: 46, character-11 Rook Tern: 37
+off 3000: character-10 Kessa Calder: 382, character-06 Iris Stone: 332, character-05 Jun Marrow: 158, character-04 Sable Morrow: 153, character-13 Ada Sorn: 116, character-02 Bram Quill: 29, character-03 Niko Wren: 23
+off 4000: character-08 Vale Drake: 303, character-11 Rook Tern: 203, character-07 Toma Reef: 139, character-04 Sable Morrow: 132, character-13 Ada Sorn: 72, character-10 Kessa Calder: 37, character-12 Lio Crow: 10, character-02 Bram Quill: 2
+off 5000: character-11 Rook Tern: 570, character-09 Orin Rill: 62, character-13 Ada Sorn: 62, character-04 Sable Morrow: 61, character-08 Vale Drake: 36, character-12 Lio Crow: 34, character-03 Niko Wren: 22, character-05 Jun Marrow: 12, character-06 Iris Stone: 5
+off 6000: character-09 Orin Rill: 404, character-05 Jun Marrow: 321, character-04 Sable Morrow: 143, character-03 Niko Wren: 48, character-02 Bram Quill: 14, character-10 Kessa Calder: 11, character-13 Ada Sorn: 9
+off 7000: character-09 Orin Rill: 381, character-02 Bram Quill: 294, character-11 Rook Tern: 274, character-10 Kessa Calder: 83, character-05 Jun Marrow: 61, character-06 Iris Stone: 49, character-12 Lio Crow: 20, character-08 Vale Drake: 6, character-03 Niko Wren: 3, character-13 Ada Sorn: 2
+off 8000: character-08 Vale Drake: 409, character-11 Rook Tern: 228, character-12 Lio Crow: 70, character-05 Jun Marrow: 44, character-10 Kessa Calder: 32, character-02 Bram Quill: 25, character-09 Orin Rill: 16, character-07 Toma Reef: 5, character-03 Niko Wren: 2
+off 9000: character-11 Rook Tern: 369, character-03 Niko Wren: 264, character-10 Kessa Calder: 173, character-13 Ada Sorn: 69, character-09 Orin Rill: 24, character-02 Bram Quill: 17, character-07 Toma Reef: 6, character-12 Lio Crow: 4
+off 10000: character-06 Iris Stone: 480, character-11 Rook Tern: 283, character-05 Jun Marrow: 229, character-02 Bram Quill: 13
+ATL 1847: character-05 Jun Marrow: 667, character-06 Iris Stone: 69, character-03 Niko Wren: 26, character-12 Lio Crow: 23, character-11 Rook Tern: 21, character-13 Ada Sorn: 21, character-10 Kessa Calder: 11, character-02 Bram Quill: 5, character-07 Toma Reef: 1
+ATL 2718: character-06 Iris Stone: 448, character-13 Ada Sorn: 261, character-11 Rook Tern: 103, character-09 Orin Rill: 46, character-07 Toma Reef: 20, character-31 Orin Quill: 9, character-08 Vale Drake: 8
+ATL 4096: character-11 Rook Tern: 502, character-06 Iris Stone: 214, character-07 Toma Reef: 57, character-10 Kessa Calder: 25, character-08 Vale Drake: 3
+ATL 1000: character-11 Rook Tern: 311, character-06 Iris Stone: 305, character-02 Bram Quill: 60, character-09 Orin Rill: 60, character-03 Niko Wren: 34, character-08 Vale Drake: 3, character-12 Lio Crow: 2
+ATL 2000: character-09 Orin Rill: 225, character-03 Niko Wren: 115, character-11 Rook Tern: 67, character-06 Iris Stone: 66, character-07 Toma Reef: 15, character-04 Sable Morrow: 8
+ATL 3000: character-10 Kessa Calder: 377, character-09 Orin Rill: 188, character-11 Rook Tern: 91, character-12 Lio Crow: 76, character-02 Bram Quill: 66, character-32 Lio Tern: 31, character-13 Ada Sorn: 20, character-05 Jun Marrow: 12
+ATL 4000: character-08 Vale Drake: 274, character-03 Niko Wren: 151, character-04 Sable Morrow: 129, character-11 Rook Tern: 104, character-13 Ada Sorn: 81, character-07 Toma Reef: 68, character-10 Kessa Calder: 66, character-31 Rook Pike: 20, character-02 Bram Quill: 8, character-12 Lio Crow: 5, character-06 Iris Stone: 2
+ATL 5000: character-11 Rook Tern: 459, character-08 Vale Drake: 163, character-06 Iris Stone: 140, character-04 Sable Morrow: 84, character-31 Rook Calder: 38, character-07 Toma Reef: 31, character-05 Jun Marrow: 30, character-12 Lio Crow: 18, character-03 Niko Wren: 15
+ATL 6000: character-06 Iris Stone: 455, character-04 Sable Morrow: 188, character-03 Niko Wren: 120, character-13 Ada Sorn: 112, character-11 Rook Tern: 55, character-05 Jun Marrow: 32, character-07 Toma Reef: 13, character-08 Vale Drake: 1
+ATL 7000: character-09 Orin Rill: 376, character-11 Rook Tern: 231, character-06 Iris Stone: 205, character-31 Rook Calder: 100, character-10 Kessa Calder: 54, character-02 Bram Quill: 31, character-12 Lio Crow: 21, character-08 Vale Drake: 17, character-03 Niko Wren: 14, character-32 Lio Tern: 5, character-13 Ada Sorn: 4
+ATL 8000: character-08 Vale Drake: 302, character-09 Orin Rill: 296, character-12 Lio Crow: 160, character-05 Jun Marrow: 61, character-11 Rook Tern: 16, character-13 Ada Sorn: 9, character-07 Toma Reef: 5, character-02 Bram Quill: 1
+ATL 9000: character-10 Kessa Calder: 183, character-05 Jun Marrow: 87, character-04 Sable Morrow: 85, character-02 Bram Quill: 49, character-07 Toma Reef: 20, character-03 Niko Wren: 8, character-12 Lio Crow: 4
+ATL 10000: character-06 Iris Stone: 222, character-02 Bram Quill: 70, character-12 Lio Crow: 29, character-07 Toma Reef: 21, character-11 Rook Tern: 17, character-03 Niko Wren: 4
+ATLS (pre-fix) 1847: character-05 Jun Marrow: 556, character-10 Kessa Calder: 279, character-02 Bram Quill: 88, character-06 Iris Stone: 41, character-11 Rook Tern: 35, character-32 Esme Hale: 33, character-08 Vale Drake: 2
+ATLS (pre-fix) 2718: character-06 Iris Stone: 448, character-13 Ada Sorn: 261, character-11 Rook Tern: 103, character-09 Orin Rill: 46, character-07 Toma Reef: 20, character-31 Orin Quill: 9, character-08 Vale Drake: 8
+ATLS (pre-fix) 4096: character-11 Rook Tern: 502, character-06 Iris Stone: 214, character-07 Toma Reef: 57, character-10 Kessa Calder: 25, character-08 Vale Drake: 3
+ATLS (pre-fix) 1000: character-11 Rook Tern: 311, character-06 Iris Stone: 305, character-02 Bram Quill: 60, character-09 Orin Rill: 60, character-03 Niko Wren: 34, character-08 Vale Drake: 3, character-12 Lio Crow: 2
+ATLS (pre-fix) 2000: character-09 Orin Rill: 142, character-03 Niko Wren: 106, character-07 Toma Reef: 96, character-06 Iris Stone: 66, character-11 Rook Tern: 10, character-04 Sable Morrow: 8, character-31 Rook Pike: 6
+ATLS (pre-fix) 3000: character-09 Orin Rill: 430, character-10 Kessa Calder: 406, character-02 Bram Quill: 48, character-13 Ada Sorn: 20, character-05 Jun Marrow: 12, character-11 Rook Tern: 1
+ATLS (pre-fix) 4000: character-08 Vale Drake: 274, character-03 Niko Wren: 151, character-04 Sable Morrow: 129, character-11 Rook Tern: 104, character-13 Ada Sorn: 81, character-07 Toma Reef: 68, character-10 Kessa Calder: 66, character-31 Rook Pike: 20, character-02 Bram Quill: 8, character-12 Lio Crow: 5, character-06 Iris Stone: 2
+ATLS (pre-fix) 5000: character-11 Rook Tern: 459, character-08 Vale Drake: 163, character-06 Iris Stone: 140, character-04 Sable Morrow: 84, character-31 Rook Calder: 38, character-07 Toma Reef: 31, character-05 Jun Marrow: 30, character-12 Lio Crow: 18, character-03 Niko Wren: 15
+ATLS (pre-fix) 6000: character-06 Iris Stone: 130, character-13 Ada Sorn: 67, character-04 Sable Morrow: 47, character-05 Jun Marrow: 32, character-02 Bram Quill: 6, character-08 Vale Drake: 1
+ATLS (pre-fix) 7000: character-09 Orin Rill: 376, character-11 Rook Tern: 231, character-06 Iris Stone: 205, character-31 Rook Calder: 100, character-10 Kessa Calder: 54, character-02 Bram Quill: 31, character-12 Lio Crow: 21, character-08 Vale Drake: 17, character-03 Niko Wren: 14, character-32 Lio Tern: 5, character-13 Ada Sorn: 4
+ATLS (pre-fix) 8000: character-08 Vale Drake: 302, character-09 Orin Rill: 296, character-12 Lio Crow: 160, character-05 Jun Marrow: 61, character-11 Rook Tern: 16, character-13 Ada Sorn: 9, character-07 Toma Reef: 5, character-02 Bram Quill: 1
+ATLS (pre-fix) 9000: character-10 Kessa Calder: 440, character-11 Rook Tern: 117, character-06 Iris Stone: 38, character-02 Bram Quill: 34, character-08 Vale Drake: 34, character-07 Toma Reef: 24, character-03 Niko Wren: 19, character-05 Jun Marrow: 7, character-12 Lio Crow: 4, character-04 Sable Morrow: 4
+ATLS (pre-fix) 10000: character-06 Iris Stone: 216, character-02 Bram Quill: 100, character-12 Lio Crow: 20, character-11 Rook Tern: 17, character-07 Toma Reef: 8, character-03 Niko Wren: 4
+ATL + fix 1847: character-05 Jun Marrow: 667, character-06 Iris Stone: 69, character-03 Niko Wren: 26, character-12 Lio Crow: 23, character-11 Rook Tern: 21, character-13 Ada Sorn: 21, character-10 Kessa Calder: 11, character-02 Bram Quill: 5, character-07 Toma Reef: 1
+ATL + fix 2718: character-06 Iris Stone: 448, character-13 Ada Sorn: 261, character-11 Rook Tern: 103, character-09 Orin Rill: 46, character-07 Toma Reef: 20, character-31 Orin Quill: 9, character-08 Vale Drake: 8
+ATL + fix 4096: character-11 Rook Tern: 502, character-06 Iris Stone: 214, character-07 Toma Reef: 57, character-10 Kessa Calder: 25, character-08 Vale Drake: 3
+ATL + fix 1000: character-11 Rook Tern: 311, character-06 Iris Stone: 305, character-02 Bram Quill: 60, character-09 Orin Rill: 60, character-03 Niko Wren: 34, character-08 Vale Drake: 3, character-12 Lio Crow: 2
+ATL + fix 2000: character-09 Orin Rill: 225, character-03 Niko Wren: 115, character-11 Rook Tern: 67, character-06 Iris Stone: 66, character-07 Toma Reef: 15, character-04 Sable Morrow: 8
+ATL + fix 3000: character-10 Kessa Calder: 377, character-09 Orin Rill: 188, character-11 Rook Tern: 91, character-12 Lio Crow: 76, character-02 Bram Quill: 66, character-32 Lio Tern: 31, character-13 Ada Sorn: 20, character-05 Jun Marrow: 12
+ATL + fix 4000: character-08 Vale Drake: 274, character-03 Niko Wren: 151, character-04 Sable Morrow: 129, character-11 Rook Tern: 104, character-13 Ada Sorn: 81, character-07 Toma Reef: 68, character-10 Kessa Calder: 66, character-31 Rook Pike: 20, character-02 Bram Quill: 8, character-12 Lio Crow: 5, character-06 Iris Stone: 2
+ATL + fix 5000: character-11 Rook Tern: 459, character-08 Vale Drake: 163, character-06 Iris Stone: 140, character-04 Sable Morrow: 84, character-31 Rook Calder: 38, character-07 Toma Reef: 31, character-05 Jun Marrow: 30, character-12 Lio Crow: 18, character-03 Niko Wren: 15
+ATL + fix 6000: character-06 Iris Stone: 455, character-04 Sable Morrow: 188, character-03 Niko Wren: 120, character-13 Ada Sorn: 112, character-11 Rook Tern: 55, character-05 Jun Marrow: 32, character-07 Toma Reef: 13, character-08 Vale Drake: 1
+ATL + fix 7000: character-09 Orin Rill: 376, character-11 Rook Tern: 231, character-06 Iris Stone: 205, character-31 Rook Calder: 100, character-10 Kessa Calder: 54, character-02 Bram Quill: 31, character-12 Lio Crow: 21, character-08 Vale Drake: 17, character-03 Niko Wren: 14, character-32 Lio Tern: 5, character-13 Ada Sorn: 4
+ATL + fix 8000: character-08 Vale Drake: 302, character-09 Orin Rill: 296, character-12 Lio Crow: 160, character-05 Jun Marrow: 61, character-11 Rook Tern: 16, character-13 Ada Sorn: 9, character-07 Toma Reef: 5, character-02 Bram Quill: 1
+ATL + fix 9000: character-10 Kessa Calder: 183, character-05 Jun Marrow: 87, character-04 Sable Morrow: 85, character-02 Bram Quill: 49, character-07 Toma Reef: 20, character-03 Niko Wren: 8, character-12 Lio Crow: 4
+ATL + fix 10000: character-06 Iris Stone: 222, character-02 Bram Quill: 70, character-12 Lio Crow: 29, character-07 Toma Reef: 21, character-11 Rook Tern: 17, character-03 Niko Wren: 4
+ATLS + fix 1847: character-05 Jun Marrow: 556, character-10 Kessa Calder: 279, character-02 Bram Quill: 88, character-06 Iris Stone: 41, character-11 Rook Tern: 35, character-32 Esme Hale: 33, character-08 Vale Drake: 2
+ATLS + fix 2718: character-06 Iris Stone: 448, character-13 Ada Sorn: 261, character-11 Rook Tern: 103, character-09 Orin Rill: 46, character-07 Toma Reef: 20, character-31 Orin Quill: 9, character-08 Vale Drake: 8
+ATLS + fix 4096: character-11 Rook Tern: 502, character-06 Iris Stone: 214, character-07 Toma Reef: 57, character-10 Kessa Calder: 25, character-08 Vale Drake: 3
+ATLS + fix 1000: character-11 Rook Tern: 311, character-06 Iris Stone: 305, character-02 Bram Quill: 60, character-09 Orin Rill: 60, character-03 Niko Wren: 34, character-08 Vale Drake: 3, character-12 Lio Crow: 2
+ATLS + fix 2000: character-09 Orin Rill: 225, character-03 Niko Wren: 115, character-11 Rook Tern: 67, character-06 Iris Stone: 66, character-07 Toma Reef: 15, character-04 Sable Morrow: 8
+ATLS + fix 3000: character-09 Orin Rill: 430, character-10 Kessa Calder: 406, character-02 Bram Quill: 48, character-13 Ada Sorn: 20, character-05 Jun Marrow: 12, character-11 Rook Tern: 1
+ATLS + fix 4000: character-08 Vale Drake: 274, character-03 Niko Wren: 151, character-04 Sable Morrow: 129, character-11 Rook Tern: 104, character-13 Ada Sorn: 81, character-07 Toma Reef: 68, character-10 Kessa Calder: 66, character-31 Rook Pike: 20, character-02 Bram Quill: 8, character-12 Lio Crow: 5, character-06 Iris Stone: 2
+ATLS + fix 5000: character-11 Rook Tern: 459, character-08 Vale Drake: 163, character-06 Iris Stone: 140, character-04 Sable Morrow: 84, character-31 Rook Calder: 38, character-07 Toma Reef: 31, character-05 Jun Marrow: 30, character-12 Lio Crow: 18, character-03 Niko Wren: 15
+ATLS + fix 6000: character-06 Iris Stone: 130, character-13 Ada Sorn: 67, character-04 Sable Morrow: 47, character-05 Jun Marrow: 32, character-02 Bram Quill: 6, character-08 Vale Drake: 1
+ATLS + fix 7000: character-09 Orin Rill: 376, character-11 Rook Tern: 231, character-06 Iris Stone: 205, character-31 Rook Calder: 100, character-10 Kessa Calder: 54, character-02 Bram Quill: 31, character-12 Lio Crow: 21, character-08 Vale Drake: 17, character-03 Niko Wren: 14, character-32 Lio Tern: 5, character-13 Ada Sorn: 4
+ATLS + fix 8000: character-08 Vale Drake: 302, character-09 Orin Rill: 296, character-12 Lio Crow: 160, character-05 Jun Marrow: 61, character-11 Rook Tern: 16, character-13 Ada Sorn: 9, character-07 Toma Reef: 5, character-02 Bram Quill: 1
+ATLS + fix 9000: character-10 Kessa Calder: 98, character-05 Jun Marrow: 86, character-02 Bram Quill: 74, character-07 Toma Reef: 20, character-03 Niko Wren: 5, character-04 Sable Morrow: 5, character-12 Lio Crow: 4
+ATLS + fix 10000: character-06 Iris Stone: 216, character-02 Bram Quill: 100, character-12 Lio Crow: 20, character-11 Rook Tern: 17, character-07 Toma Reef: 8, character-03 Niko Wren: 4

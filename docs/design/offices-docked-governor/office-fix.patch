@@ -1,0 +1,24 @@
+diff --git a/src/sim/lifecycle.ts b/src/sim/lifecycle.ts
+index 0c9d1c4..a8a964a 100644
+--- a/src/sim/lifecycle.ts
++++ b/src/sim/lifecycle.ts
+@@ -7,6 +7,10 @@ import { governorId } from "./governor.ts";
+  * Lead rulings: (1) promoted names are the scenario roster offset by seed; (2) a returning governor
+  * competes for the seat like anyone else (isRetired clears; syncSeats / appointGovernor do the rest).
+  */
++/** office-fix.patch: the seat the retiring captain holds (docked or away), lowest settlement id if several; null if none. */
++function heldSeat(world: WorldState, id: string): string | null {
++  return Object.keys(world.settlements).sort().find((sid) => governorId(world, sid) === id) ?? null;
++}
+ export const LIFECYCLE_DEFAULT = false;
+ /** Raid troop gate (engine.ts buildCandidates: troops ≥ 25). */
+ export const POWER_FLOOR = 25;
+@@ -50,7 +54,7 @@ export function lifecycleStep(world: WorldState, tickEvents: SimEvent[], emit: E
+     if (below && s?.watchSince === undefined) emit({ type: "lifecycle-watch", actorId: c.id, data: { since: world.tick, troops: c.troops.count } });
+     else if (!below && s?.watchSince !== undefined) emit({ type: "lifecycle-watch-cleared", actorId: c.id, data: { since: s.watchSince, troops: c.troops.count } });
+     else if (below && s?.watchSince !== undefined && world.tick - s.watchSince >= RETIRE_AFTER && !c.captivity && !c.travel && c.locationId) {
+-      emit({ type: "character-retired", actorId: c.id, settlementId: c.locationId, data: { cause: `power-loss: troops ${c.troops.count} < ${POWER_FLOOR} since t${s.watchSince} (${world.tick - s.watchSince} ticks)`, watchSince: s.watchSince, troops: c.troops.count, portsAtRetire: portsOf(world, c.factionId), office: governorId(world, c.locationId) === c.id ? c.locationId : null } });
++      emit({ type: "character-retired", actorId: c.id, settlementId: c.locationId, data: { cause: `power-loss: troops ${c.troops.count} < ${POWER_FLOOR} since t${s.watchSince} (${world.tick - s.watchSince} ticks)`, watchSince: s.watchSince, troops: c.troops.count, portsAtRetire: portsOf(world, c.factionId), office: heldSeat(world, c.id) } });
+     }
+   }
+   // Promotion: an attacker victory this tick that leaves the captain with at least PROMOTE_TROOPS.

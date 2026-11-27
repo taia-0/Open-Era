@@ -1,0 +1,9 @@
+{"config":"off","seed":1847,"h72":"7f76e474","h1200":"94de9c02","stub400":"c39d1b1a","stub400Consults":297}
+{"config":"off","seed":2718,"h72":"976c40bd","h1200":"7a3741c9","stub400":"9a61968a","stub400Consults":237}
+{"config":"off","seed":4096,"h72":"08943ea5","h1200":"af6eeaea","stub400":"b2aa7172","stub400Consults":186}
+{"config":"ATL","seed":1847,"h72":"e8963d15","h1200":"77d4697d","stub400":"6da3f993","stub400Consults":88}
+{"config":"ATL","seed":2718,"h72":"a08fbf46","h1200":"2c7809db","stub400":"42186ea8","stub400Consults":266}
+{"config":"ATL","seed":4096,"h72":"21de6a8b","h1200":"c61988f4","stub400":"438d50c3","stub400Consults":25}
+{"config":"ATLS","seed":1847,"h72":"85658e53","h1200":"5367691c","stub400":"ca58a968","stub400Consults":88}
+{"config":"ATLS","seed":2718,"h72":"aa54ada1","h1200":"faf5798a","stub400":"2d942437","stub400Consults":266}
+{"config":"ATLS","seed":4096,"h72":"e4361ee1","h1200":"7e93eab2","stub400":"2331963b","stub400Consults":25}

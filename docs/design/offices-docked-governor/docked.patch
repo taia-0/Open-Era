@@ -1,0 +1,26 @@
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 1afc80d..3b1995e 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -3968,10 +3968,21 @@ export function wgPickerRole(world: WorldState, character: Character): WgRole |
+   return null;
+ }
+ 
++/**
++ * offices-docked-governor.md: a governor keeps the seat (and the title) while sailing, but is consulted only while
++ * docked at a port they govern: locationId is one of their seats, no travel, no captivity (the secession presence
++ * rule). Away from every seat the decision runs on standing behaviour: the sim's own pick, candidates[0], no consult.
++ */
++export function wgGovernorDocked(world: WorldState, character: Character): boolean {
++  const here = character.locationId;
++  return here !== null && character.travel === null && character.captivity === null && governorId(world, here) === character.id;
++}
++
+ function consultActionPicker(world: WorldState, character: Character, candidates: DecisionCandidate[], ai: TickAiOptions): { row: DecisionCandidate; record: ActionPickerRecord; read?: SocialReadRecord } | null {
+   const factions = ai.pickerFactions ?? PICKER_FACTIONS_DEFAULT;
+   if (factions.includes(WG_FACTION_ID) && character.factionId === WG_FACTION_ID) {
+     const role = wgPickerRole(world, character);
++    if (role === "governor" && !wgGovernorDocked(world, character)) return null;
+     return role ? consultWgPicker(world, character, candidates, ai, role) : null;
+   }
+   if (!factions.includes("free-tide")) return null;
