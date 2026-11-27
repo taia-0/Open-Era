@@ -169,3 +169,54 @@ node --experimental-strip-types docs/design/protection-pact-fix/summarize.ts mai
 ```
 Raw rows: `raw/` (`before-*` from defaults-on, `fix1-*` revision 1, unprefixed revision 2). Checker output:
 `props-out/` (revision 1 in `props-out/fix1/`).
+
+## 7. Post-#192 pins (main e7ec840)
+
+#192 (client-readiness) made purchase and join public news, so every pin with port transfer on moved and the ATLS
+values in §4 (pre-#192) are stale. Re-run on `e7ec840` with `fix.patch` applied (it applies cleanly, unchanged).
+ATL, S and the other layer defaults are still `false` in code on e7ec840, so all flags are explicit, as in §4.
+Output: [protection-pact-fix/post-192/](protection-pact-fix/post-192/).
+
+**Sanity check: ATL default pins reproduce** the Lead's and the Engineer's eb44ae1 values exactly: 1847 e8963d15 / 77d4697d,
+2718 a08fbf46 / 2c7809db, 4096 21de6a8b / c61988f4 (72 / 1,200).
+
+| Run (72 / 1,200) | 1847 | 2718 | 4096 | vs pre-#192 |
+|---|---|---|---|---|
+| main, flag off | 7f76e474 / 94de9c02 | 976c40bd / 7a3741c9 | 08943ea5 / af6eeaea | unchanged |
+| main, exile off | 66e8ccb7 / b51aa07a | b4ccedab / 091f7628 | b04c5ac4 / 25bdbf15 | unchanged |
+| ATL default | e8963d15 / 77d4697d | a08fbf46 / 2c7809db | 21de6a8b / c61988f4 | matches eb44ae1 |
+| ATL exile off | 4283d504 / 33dc6c8d | 6103f94b / 270e722d | 4612e9d4 / 4fc72064 | new (was c87dfb89 / f22ca56a, c410abda / b576e4b3, 11b472f5 / 712c8042 on e9ac8b6) |
+| **ATLS default** | **85658e53 / 5367691c** | **aa54ada1 / faf5798a** | **e4361ee1 / 7e93eab2** | moved (was e5efeeaa / 59e9c76e, 325f0fd2 / e06a3022, eb2f30a8 / 1fe6c58e) |
+| **ATLS exile off** | **296b11bc / 4c1555e9** | **9f8b2f2b / c897ea88** | **93e6bfeb / 226bad48** | moved (was 5088e2a7 / b26323e1, af4ec668 / ea9e1f9a, 0e69b0e3 / 1514b138) |
+| S alone default | 427a7650 / 06c00949 | d263dcf7 / b06a3ecc | b83ce14c / **799161cc** | 4096 t1200 moved (was 3c928bfe) |
+| S alone exile off | 2c3f2d2d / af520ae9 | bd1473e7 / eb0db5d9 | 9a8c815c / **4f0da6cd** | 4096 t1200 moved (was ce0e10d2) |
+| A+S default | 427a7650 / 571ae2c0 | d263dcf7 / b06a3ecc | b83ce14c / **7eb8be56** | 4096 t1200 moved (was bf0e7bc8) |
+
+S alone and A+S have no port transfer; their seed-4096 move is the join news (that seed has joins); the other pins of
+those runs are unchanged.
+
+**13 seeds × 1,200 ticks, totals vs pre-#192 rev 2:** identical on every count and on every seed (peaces,
+protections, joins, pacts, purchases, claims, port changes, battles, captures, secessions); the state hash differs on
+13 / 13 seeds, so #192 moved state, not behaviour.
+
+| Set | Peaces | Peace breaks | Protections | Joins | Pacts | Pact breaks | Claims | Port chg | Battles | Captures | Secessions (seeds) | Portless t1200 | Low claims / PC |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ATLS, pre-#192 rev 2 | 24 | 0 | 1 | 1 | 59 | 39 | 488 | 539 | 895 | 221 | 37 (11/13) | 27 | 25 / 28 |
+| **ATLS, e7ec840** | 24 | 0 | 1 | 1 | 59 | 39 | 488 | 539 | 895 | 221 | 37 (11/13) | 27 | 25 / 28 |
+| ATLS exile off, pre-#192 | 24 | 0 | 2 | 1 | 50 | 33 | 374 | 421 | 778 | 157 | 33 (11/13) | 27 | 12 / 14 |
+| **ATLS exile off, e7ec840** | 24 | 0 | 2 | 1 | 50 | 33 | 374 | 421 | 778 | 157 | 33 (11/13) | 27 | 12 / 14 |
+
+Replay exact 13/13 and no wipeouts in both.
+
+| Checker | ATLS | ATLS exile off |
+|---|---|---|
+| `defaults-on/props-secession-aftermath.ts` (flag-off pins default and opt-out, properties, replay, liveness, ≥ 6/13) | pass | pass |
+| `defaults-on/props-lifecycle.ts` | pass | pass |
+| `defaults-on/props-port-transfer.ts` | pass | pass |
+| `protection-pact-fix/props-alliances.ts` (rev 2; ruling 1 scope, protection cause/step/window, break-condition property) — properties | 0 violations | 0 violations |
+| same — raw verdict | **pass** | **pass** |
+| `measure.ts`: replay, claims and port changes > 0 every seed, secessions ≥ 6/13, no new wipeouts | pass (11/13) | pass (11/13) |
+
+`npm test` with the patch: 690 / 690 (main has 690 tests now). Golden fixture unchanged: `npm run golden:update`
+rewrites only the `generatedWith.node` field (v24.21.0 → v24.22.1, the box's Node); every hash, event count and the
+recovery entry are identical, and I did not commit it.

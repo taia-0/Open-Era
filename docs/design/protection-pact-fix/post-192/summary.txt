@@ -1,0 +1,12 @@
+| Set | peaces | peaceBreaks | protectionPacts | joins | pacts | pactBreaks | claims | portChanges | battles | captures | secessions | portless | sec seeds | low claims | low PC | replay | new wipeouts |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| main | 0 | 0 | 0 | 0 | 0 | 0 | 682 | 713 | 927 | 247 | 31 | 25 | 12/13 | 28 (10000) | 31 (10000) | exact | none |
+| pre192-ATLS | 24 | 0 | 1 | 1 | 59 | 39 | 488 | 539 | 895 | 221 | 37 | 27 | 11/13 | 25 (8000) | 28 (1000) | exact | none |
+| ATLS | 24 | 0 | 1 | 1 | 59 | 39 | 488 | 539 | 895 | 221 | 37 | 27 | 11/13 | 25 (8000) | 28 (1000) | exact | none |
+| pre192-ATLS-exile-off | 24 | 0 | 2 | 1 | 50 | 33 | 374 | 421 | 778 | 157 | 33 | 27 | 11/13 | 12 (1847) | 14 (1000) | exact | none |
+| ATLS-exile-off | 24 | 0 | 2 | 1 | 50 | 33 | 374 | 421 | 778 | 157 | 33 | 27 | 11/13 | 12 (1847) | 14 (1000) | exact | none |
+| ATL | 0 | 0 | 0 | 0 | 78 | 58 | 527 | 577 | 939 | 237 | 37 | 26 | 11/13 | 25 (8000) | 28 (1000) | exact | none |
+pre192-ATLS pins: 1847 e5efeeaa/59e9c76e; 2718 325f0fd2/e06a3022; 4096 eb2f30a8/1fe6c58e
+ATLS pins: 1847 85658e53/5367691c; 2718 aa54ada1/faf5798a; 4096 e4361ee1/7e93eab2
+pre192-ATLS-exile-off pins: 1847 5088e2a7/b26323e1; 2718 af4ec668/ea9e1f9a; 4096 0e69b0e3/1514b138
+ATLS-exile-off pins: 1847 296b11bc/4c1555e9; 2718 9f8b2f2b/c897ea88; 4096 93e6bfeb/226bad48
