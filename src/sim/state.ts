@@ -1,3 +1,4 @@
+import { applyAftermathEvent, noteProtection } from "./secession-aftermath.ts";
 import { applyLifecycleEvent } from "./lifecycle.ts";
 import { applyPurchase } from "./port-transfer.ts";
 import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
@@ -568,7 +569,12 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
     return;
   }
+  if ((event.type === "aftermath-ledger-opened" || event.type === "aftermath-watch" || event.type === "faction-peace" || event.type === "faction-peace-broken" || event.type === "secession-joined") && applyAftermathEvent(world, event)) {
+    world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+    return;
+  }
   if ((event.type === "alliance-formed" || event.type === "alliance-broken" || event.type === "alliance-ledger-opened") && applyAllianceEvent(world, event)) {
+    noteProtection(world, event);
     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
     return;
   }

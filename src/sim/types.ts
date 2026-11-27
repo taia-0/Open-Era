@@ -760,6 +760,8 @@ export interface WorldState {
   alliances?: import("./alliances.ts").Alliance[];
   allianceMemory?: Array<{ factionIds: [string, string]; brokenTick: number }>;
   allianceRaids?: Record<string, number>;
+  /** SECESSION_AFTERMATH flag only (secession-aftermath.md §3). Absent when the flag is off, so flag-off worlds hash as before. */
+  secessionAftermath?: import("./secession-aftermath.ts").SecessionAftermathState;
   version: 5;
   scenario: string;
   seed: number;

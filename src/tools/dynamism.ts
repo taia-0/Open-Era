@@ -112,6 +112,12 @@ function count(target: Counts, event: SimEvent, ports: Set<string>): void {
       target.portOwnershipChanges += 1;
       if (event.settlementId) ports.add(event.settlementId);
       break;
+    case "secession-joined":
+      // secession-aftermath.md §4: membership moves the port without a battle, and counts as a port change.
+      target.portOwnershipChanges += 1;
+      if (event.settlementId) ports.add(event.settlementId);
+      if (Array.isArray(event.data.ports)) for (const id of event.data.ports) if (typeof id === "string") ports.add(id);
+      break;
     case "character-deserted": target.desertions += 1; break;
     case "character-captured": target.captures += 1; break;
     case "captivity-released": target.releases += 1; break;

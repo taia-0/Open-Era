@@ -42,6 +42,7 @@ import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge,
 import { PORT_TRANSFER_DEFAULT, portPurchases } from "./port-transfer.ts";
 import { LIFECYCLE_DEFAULT, isRetired, lifecycleStep } from "./lifecycle.ts";
 import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
+import { SECESSION_AFTERMATH_DEFAULT, aftermathStep, atPeace } from "./secession-aftermath.ts";
 import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
 import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
 import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
@@ -923,7 +924,12 @@ function buildCandidates(
     ...travelCandidates(world, character, exile),
   ];
 
-  const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null && !(alliancesOn && allied(world, character.factionId, settlement.factionId));
+  // A pact or a live peace removes the raid and the claim. Peace is read only while
+  // SECESSION_AFTERMATH is on, so a flag-off candidate list is unchanged.
+  // Lead ruling: peace blocks autonomous raids. Do not open this gate to manufacture breaks.
+  const pactFriendly = (alliancesOn || aftermathOn) && allied(world, character.factionId, settlement.factionId);
+  const peaceFriendly = aftermathOn && atPeace(world, character.factionId, settlement.factionId);
+  const hostileTerritory = settlement.factionId !== character.factionId && settlement.factionId !== null && !pactFriendly && !peaceFriendly;
   if (hostileTerritory && character.troops.count > 0 && settlementClaimAvailableTo(settlement, character.id)) {
     candidates.push({
       action: "claim-settlement",
@@ -1195,7 +1201,8 @@ function resolveImmediateBattle(
   rng: DeterministicRng,
 ): void {
   const settlement = world.settlements[character.locationId!];
-  const join = alliancesOn ? allyJoiners(world, character, settlement) : null;
+  // Protection pacts are alliances. Joint battles run when either flag is on; with no joiners the roll is unchanged.
+  const join = alliancesOn || aftermathOn ? allyJoiners(world, character, settlement) : null;
   const attackerBase0 = partyPower(character);
   const defenderBase0 = settlementDefensePower(settlement);
   const attackerBase = attackerBase0 + (join?.attackerPower ?? 0);
@@ -1411,7 +1418,7 @@ function resolveBattlePhase(
   const character = world.characters[battle.attackerId];
   const settlement = world.settlements[battle.settlementId];
   const phase = battle.phase + 1;
-  const join = alliancesOn ? allyJoiners(world, character, settlement) : null;
+  const join = alliancesOn || aftermathOn ? allyJoiners(world, character, settlement) : null;
   const attackerBase0 = partyPower(character);
   const defenderBase0 = settlementDefensePower(settlement);
   const attackerBase = attackerBase0 + (join?.attackerPower ?? 0);
@@ -2855,6 +2862,8 @@ function processPlayerCommands(
       });
       continue;
     }
+    // Lead ruling: a player raid is not peace-gated. Submit checks a different faction only.
+    // faction-peace-broken records the raid. Autonomous raids are blocked in buildCandidates.
     if (command.action === "claim-settlement") {
       const settlement = world.settlements[commander.locationId];
       const hostile = settlement.factionId !== null && settlement.factionId !== commander.factionId;
@@ -3535,6 +3544,8 @@ export interface TickOptions {
   portTransfer?: boolean;
   /** LIFECYCLE (lifecycle.md): promotion, retirement, crisis-only return. Off by default; off is byte-identical. */
   lifecycle?: boolean;
+  /** SECESSION_AFTERMATH (secession-aftermath.md): peace, protection, membership for a seceded port. Off by default; off is byte-identical. */
+  secessionAftermath?: boolean;
   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
   /**
    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
@@ -4519,12 +4530,14 @@ let occupationOn = false;
 let alliancesOn = false;
 let lifecycleOn = false;
 let portTransferOn = false;
+let aftermathOn = false;
 
 export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
   portTransferOn = options.portTransfer ?? PORT_TRANSFER_DEFAULT;
   alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
   lifecycleOn = options.lifecycle ?? LIFECYCLE_DEFAULT;
+  aftermathOn = options.secessionAftermath ?? SECESSION_AFTERMATH_DEFAULT;
   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
   const leading: SimEvent[] = [];
@@ -4699,8 +4712,11 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
     evolveLocalRelationship(world, character, events, rng);
   }
 
-  if (alliancesOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
+  // Breaks (and the raid ledger) run when either flag is on. Forms stay ALLIANCES-only, so a flag-on
+  // aftermath run's only pacts are protection pacts.
+  if (alliancesOn || aftermathOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
   if (lifecycleOn) lifecycleStep(world, [...events], (d) => emit(world, events, d as EventDraft));
+  if (aftermathOn) aftermathStep(world, [...events], (d) => emit(world, events, d as EventDraft));
   emit(world, events, { type: "metrics-recorded", data: metrics(world) });
   emit(world, events, {
     type: "tick-advanced",
