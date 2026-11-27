@@ -3345,6 +3345,17 @@ function resolveDecision(
           fortification: settlement.fortification,
           observedTick: world.tick,
           source: "direct",
+          // Harshness rides the ground record, dated to this survey. Passive
+          // presence does not copy it. Absent when the port is not occupied.
+          ...(settlement.occupation
+            ? {
+                occupation: {
+                  harshness: settlement.occupation.harshness,
+                  sinceTick: settlement.occupation.tick,
+                  fromFactionId: settlement.occupation.fromFactionId,
+                },
+              }
+            : {}),
         },
       };
       emit(world, events, {
@@ -3400,6 +3411,15 @@ function deliverTargetedExploreReport(
       fortification: settlement.fortification,
       observedTick: world.tick,
       source: "faction-report",
+      ...(settlement.occupation
+        ? {
+            occupation: {
+              harshness: settlement.occupation.harshness,
+              sinceTick: settlement.occupation.tick,
+              fromFactionId: settlement.occupation.fromFactionId,
+            },
+          }
+        : {}),
     },
   };
   emit(world, events, {

@@ -16,7 +16,16 @@ export const RETIRE_AFTER = 215;
 export const PROMOTE_TROOPS = 424;
 /** One promotion per captain per promise window. */
 export const PROMOTE_COOLDOWN = 240;
-export type CharacterLifecycle = { watchSince?: number; retired?: { tick: number; cause: string; portsAtRetire: number }; lastPromotionTick?: number; promotedFrom?: string };
+export type CharacterLifecycle = {
+  watchSince?: number;
+  retired?: { tick: number; cause: string; portsAtRetire: number };
+  /** Set when a retired captain comes back. The event already carried the tick. */
+  returned?: { tick: number };
+  lastPromotionTick?: number;
+  /** Troops handed to the new captain. On the parent. The event already carried it. */
+  promotedSplit?: number;
+  promotedFrom?: string;
+};
 type LC = CharacterLifecycle;
 type C = Character & { lifecycle?: LC };
 type Emit = (d: { type: string; actorId?: string; settlementId?: string; targetId?: string; data: Record<string, unknown> }) => void;
@@ -64,10 +73,19 @@ export function applyLifecycleEvent(world: WorldState, event: SimEvent): boolean
     case "lifecycle-watch": (c!.lifecycle ??= {}).watchSince = event.data.since as number; return true;
     case "lifecycle-watch-cleared": delete c!.lifecycle!.watchSince; if (!Object.keys(c!.lifecycle!).length) delete c!.lifecycle; return true;
     case "character-retired": { const l = (c!.lifecycle ??= {}); delete l.watchSince; l.retired = { tick: event.tick, cause: event.data.cause as string, portsAtRetire: event.data.portsAtRetire as number }; return true; }
-    case "character-returned": delete c!.lifecycle!.retired; if (!Object.keys(c!.lifecycle!).length) delete c!.lifecycle; return true;
+    case "character-returned": {
+      const l = c!.lifecycle!;
+      delete l.retired;
+      l.returned = { tick: event.tick };
+      return true;
+    }
     case "character-promoted": {
       const fresh = structuredClone(event.data.character) as C; world.characters[fresh.id] = fresh;
-      c!.troops = { ...c!.troops, count: event.data.captainTroopsAfter as number }; (c!.lifecycle ??= {}).lastPromotionTick = event.tick; return true;
+      c!.troops = { ...c!.troops, count: event.data.captainTroopsAfter as number };
+      const l = (c!.lifecycle ??= {});
+      l.lastPromotionTick = event.tick;
+      if (typeof event.data.split === "number") l.promotedSplit = event.data.split as number;
+      return true;
     }
   }
   return false;

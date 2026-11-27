@@ -42,6 +42,16 @@ export interface NewsItem {
   observedTick: number;
   factionId: string | null;
   taxRate?: number;
+  /**
+   * Harshness learned from this item, when the port was occupied as it was posted.
+   * Absent on every item posted while the port has no occupation record, so a
+   * flag-off ledger hashes as before.
+   */
+  occupation?: {
+    harshness: number;
+    sinceTick: number;
+    fromFactionId: string | null;
+  };
 }
 
 /**
@@ -297,6 +307,15 @@ export interface SettlementGround {
   fortification: number;
   observedTick: number;
   source: "direct" | "faction-report";
+  /**
+   * Harshness surveyed with this ground. Absent unless the port was occupied
+   * when the survey was taken, so an unoccupied survey hashes as before.
+   */
+  occupation?: {
+    harshness: number;
+    sinceTick: number;
+    fromFactionId: string | null;
+  };
 }
 
 export interface SettlementKnowledge {

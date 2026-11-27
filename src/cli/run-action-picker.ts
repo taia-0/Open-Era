@@ -5,7 +5,9 @@ import { ALLIANCES_FLAG_HELP, ALLIANCES_FLAG_OPTIONS, resolveAlliances } from ".
 import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS, resolvePortTransfer } from "./port-transfer-flag.ts";
 import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS, resolveLifecycle } from "./lifecycle-flag.ts";
 import { SECESSION_AFTERMATH_FLAG_HELP, SECESSION_AFTERMATH_FLAG_OPTIONS, resolveSecessionAftermath } from "./secession-aftermath-flag.ts";
+import { OCCUPATION_FLAG_HELP, OCCUPATION_FLAG_OPTIONS, resolveOccupation } from "./occupation-flag.ts";
 import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS, resolveFeedReasons } from "./feed-reasons-flag.ts";
+import { tickOptionsFromFlags } from "./tick-options.ts";
 import {
   feedReasonCallCap, stubFeedReasonWriter, type FeedReasonOptions,
 } from "../sim/feed-reasons.ts";
@@ -75,10 +77,11 @@ const { values } = parseArgs({
     ...PORT_TRANSFER_FLAG_OPTIONS,
     ...LIFECYCLE_FLAG_OPTIONS,
     ...SECESSION_AFTERMATH_FLAG_OPTIONS,
+    ...OCCUPATION_FLAG_OPTIONS,
     ...FEED_REASONS_FLAG_OPTIONS,
   },
 });
-maybeHelp(values, "npm run action-picker -- [--picker uniform|argmax|jev|fitted] [--seed N] [--ticks N] [--triage ...] [--replay <dir>] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]", [ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP]);
+maybeHelp(values, "npm run action-picker -- [--picker uniform|argmax|jev|fitted] [--seed N] [--ticks N] [--triage ...] [--replay <dir>] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]", [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP]);
 let fetchAttempts = 0;
 const replayDir = values.replay === undefined ? null : resolve(values.replay);
 let recorded: { summary: any; records: Array<{ tick: number; actorId: string; picker: ActionPickerRecord; read?: SocialReadRecord }>; triage: TriageEntry[] } | null = null;
@@ -101,6 +104,7 @@ if (replayDir) {
   if (summary.portTransfer === true) values["port-transfer"] = true;
   if (summary.lifecycle === true) values.lifecycle = true;
   if (summary.secessionAftermath === true) values["secession-aftermath"] = true;
+  if (summary.occupation === true) values.occupation = true;
   if (summary.exileRecovery === false) values["no-exile-recovery"] = true;
   if (summary.feedReasons === false) values["no-feed-reasons"] = true;
 }
@@ -109,6 +113,7 @@ const alliances = resolveAlliances(values);
 const portTransfer = resolvePortTransfer(values);
 const lifecycle = resolveLifecycle(values);
 const secessionAftermath = resolveSecessionAftermath(values);
+const occupation = resolveOccupation(values);
 const feedReasonsOn = resolveFeedReasons(values);
 const seed = Number.parseInt(values.seed!, 10);
 const ticks = Number.parseInt(values.ticks!, 10);
@@ -235,7 +240,7 @@ writeFileSync(triagePath, "");
 const triages: TriageEntry[] = [];
 let events = 0;
 for (let index = 0; index < ticks; index += 1) {
-  const result = runTick(world, { exileRecovery, ai, ...(alliances ? { alliances } : {}), ...(portTransfer ? { portTransfer } : {}), ...(lifecycle ? { lifecycle } : {}), ...(secessionAftermath ? { secessionAftermath } : {}) });
+  const result = runTick(world, { ...tickOptionsFromFlags(values, process.env), ai });
   if (ai.triageLog?.length) { const drained = ai.triageLog.splice(0); triages.push(...drained); appendFileSync(triagePath, drained.map((t) => JSON.stringify(t)).join("\n") + "\n"); }
   const lines: string[] = [];
   const pickLines: string[] = [];
@@ -301,6 +306,7 @@ const summary = {
   ...(portTransfer ? { portTransfer } : {}),
   ...(lifecycle ? { lifecycle } : {}),
   ...(secessionAftermath ? { secessionAftermath } : {}),
+  ...(occupation ? { occupation } : {}),
   mode: recorded ? "replay" : values.picker, social: socialOn ? values.social : null, seed, ticks, maxCalls, capUsd, actors: values.actors ?? null, stateHash: finalHash, events,
   consults: records.length, calls: ai.pickerCalls ?? 0, offScorer: count((r) => r.sampled !== r.scorerPick),
   fallbacks: count((r) => r.outcome === "fallback"),

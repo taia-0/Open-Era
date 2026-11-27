@@ -20,6 +20,7 @@ import { secessionReadout, type SecessionReadout } from "../sim/secession.ts";
 import { marketPrice, partyPowerFromTroops, round, settlementClaimAvailableTo } from "../sim/state.ts";
 import { CHECK_IN_READ_CAP } from "../sim/persistence.ts";
 import { RESOURCE_KEYS, type ActiveBattle, type Character, type CombatForecast, type Settlement, type SettlementKnowledge, type SimEvent, type WorldState } from "../sim/types.ts";
+import { governorOnPort, holderOccupation, learnedHolder, learnedOccupation, portNewsFor, presentRaidReason, purchaseParty, raidPeaceWarning, showInPlayerFeed, PLAYER_FEED_BOOKKEEPING } from "./client-readiness.ts";
 import { captiveIntelFor, eventPayloadVisible, projectCharacter, projectEvent, projectFactions, projectSupplyContracts, seaSightingsFor, type FeedingCounts } from "./visibility.ts";
 import {
   attentionLabel,
@@ -95,7 +96,12 @@ export const CHECK_IN_EVENT_CAP = CHECK_IN_READ_CAP;
  * rows repeat it. They keep their sequences in the log and are absent from
  * `events`, `eventPage.count`, and `eventPage.total`.
  */
-export const FEED_OMITTED_TYPES = ["player-action-executed", "player-command-resolved", "news-posted"] as const;
+export const FEED_OMITTED_TYPES = [
+  "player-action-executed",
+  "player-command-resolved",
+  "news-posted",
+  ...PLAYER_FEED_BOOKKEEPING,
+] as const;
 
 /** A submit-time refusal. It is not a stored event and it does not move a hash. */
 export interface DashboardRefusal {
@@ -144,7 +150,7 @@ function capturedTroopsClause(world: WorldState, reader: Character | undefined, 
 
 /** Slice B: today's line, then ` — <reason>` when the brain wrote one (feed-reasons.md section 4). */
 function eventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], reader?: Character): string {
-  return withFeedReason(baseEventSummary(world, event, events, reader), event);
+  return presentRaidReason(world, event, reader, withFeedReason(baseEventSummary(world, event, events, reader), event));
 }
 
 function baseEventSummary(world: WorldState, event: SimEvent, events?: SimEvent[], reader?: Character): string {
@@ -214,6 +220,12 @@ function baseEventSummary(world: WorldState, event: SimEvent, events?: SimEvent[
       return `${event.data.returning} scattered troops returned to ${actor}`;
     case "settlement-claimed":
       return settlementClaimedSentence(world, event, events);
+    case "settlement-purchased": {
+      const base = publicFeedSentence(world, event);
+      const price = event.data.price;
+      if (!reader || !purchaseParty(reader, event) || typeof price !== "number") return base;
+      return `${base} The price was ${price}.`;
+    }
     case "secession-declared": {
       const base = secessionDeclaredSentence(world, event, actor);
       if (!reader || !eventPayloadVisible(world, reader, event)) return base;
@@ -687,6 +699,8 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
     "scattered-troops-returned",
     "settlement-shortage",
     "settlement-claimed",
+    "settlement-purchased",
+    "secession-joined",
   ]);
   const routineTypes = new Set(["standing-order-accepted", "standing-order-resumed", "standing-order-completed"]);
   const routineEvents: SimEvent[] = [];
@@ -908,7 +922,9 @@ export function projectEventFeed(
   // A player action already has its result sentence (the tax set, the trade,
   // the recruit, the voyage). The executed and resolved rows repeat it.
   // Refusals and queued lines are not in this set.
-  const shown = events.filter((event) => !FEED_OMITTED_TYPES.includes(event.type as typeof FEED_OMITTED_TYPES[number]));
+  const shown = events.filter((event) =>
+    !FEED_OMITTED_TYPES.includes(event.type as typeof FEED_OMITTED_TYPES[number]) && showInPlayerFeed(commander, event),
+  );
   const rows = shown.map((event) => projectEvent(world, commander, event, eventSummary(world, event, siblings, commander)));
   return foldContractRows(world, shown, rows);
 }
@@ -1516,7 +1532,10 @@ export function dashboardState(
       // or losing a forecast while `factionId` still named the old owner.
       // Standing there, and a port the commander's faction holds, are present
       // records, so they use the faction that is actually there.
-      const knownFactionId = exact || coLocated ? settlement.factionId : knowledge?.factionId ?? null;
+      // Offshore, the report or a newer ownership item the viewer can already read.
+      // A purchase or a join they have not learned does not change the label.
+      const holder = learnedHolder(world, commander, settlement, exact, coLocated);
+      const knownFactionId = holder.factionId;
       const hostile = knownFactionId !== null && knownFactionId !== commander.factionId;
       // A forecast no longer requires standing on the island. It requires some
       // earned basis for one: either direct observation or a report. The forecast
@@ -1530,6 +1549,8 @@ export function dashboardState(
         (coLocated || knowledge !== undefined);
       const rawForecast = forecastAvailable ? combatForecast(world, commander.id, settlement.id) : null;
       const forecast = rawForecast && coLocated ? presentFortification(rawForecast, settlement.fortification) : rawForecast;
+      const raidTarget = coLocated ? settlement.factionId : knownFactionId;
+      const shownForecast = forecast ? { ...forecast, peaceWarning: raidPeaceWarning(world, commander, raidTarget) } : null;
       const voyage = travelEstimate(world, commander, settlement.id);
       // Standing in a settlement is direct perception of the ground, and it does
       // not last. A survey, or an officer's delivered report, is what remains
@@ -1556,6 +1577,16 @@ export function dashboardState(
           // put. Standing on the island, the faction that is actually there,
           // the same split the garrison already uses.
           factionId: knownFactionId,
+          /** Tick of the report or the news the label was learned from. Live while standing here. */
+          factionLearnedTick: holder.learnedTick,
+          /**
+           * Harshness only when a survey or a news item already dated it.
+           * Standing here does not copy the holder's figure.
+           */
+          occupation: learnedOccupation(world, commander, settlement),
+          /** A rival does not see who governs. News does not name the office. */
+          governor: null,
+          portNews: portNewsFor(world, commander, settlement.id),
           // Standing on a foreign island, the person who holds it is visible.
           // Offshore, a personal owner is not part of the report.
           ownerId: coLocated ? settlement.ownerId : null,
@@ -1583,7 +1614,7 @@ export function dashboardState(
            */
           taxRate: settlementTaxRate(
             world,
-            coLocated || !knowledge ? settlement.factionId : knowledge.factionId,
+            coLocated || holder.learnedTick === null ? settlement.factionId : knownFactionId,
           ),
           priceQuote: projectPriceQuote(world, coLocated, knowledge),
           priceDrift: projectPriceDrift(world, coLocated, settlement.id),
@@ -1594,7 +1625,7 @@ export function dashboardState(
           surrender: null,
           battleInProgress: battleVisible,
           surrenderOffered,
-          combatForecast: forecast,
+          combatForecast: shownForecast,
           travelTicks: voyage.travelTicks,
           travelDays: voyage.travelDays,
           passageCost: voyage.passageCost,
@@ -1616,8 +1647,14 @@ export function dashboardState(
           secession,
         };
       }
+      const { occupation: _occupation, foodRatios: _foodRatios, ...ownedSettlement } = settlement;
       return {
-        ...settlement,
+        ...ownedSettlement,
+        /** Exact harshness for the holder. The food series, the old rate, and the term split stay off. */
+        occupation: holderOccupation(settlement),
+        governor: governorOnPort(world, commander, settlement),
+        portNews: portNewsFor(world, commander, settlement.id),
+        factionLearnedTick: world.tick,
         prices: currentPrices(world, settlement.id),
         taxRate: settlementTaxRate(world, settlement.factionId),
         // Owned records stay the live board, even from another of the faction's
@@ -1630,7 +1667,7 @@ export function dashboardState(
         partyCount: Object.values(world.characters).filter((character) => character.locationId === settlement.id).length,
         battleInProgress: battleVisible,
         surrenderOffered,
-        combatForecast: forecast,
+        combatForecast: shownForecast,
         travelTicks: voyage.travelTicks,
         travelDays: voyage.travelDays,
         passageCost: voyage.passageCost,

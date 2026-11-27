@@ -1,6 +1,13 @@
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { createDashboardApp } from "../dashboard/server.ts";
+import { ALLIANCES_FLAG_HELP, ALLIANCES_FLAG_OPTIONS } from "./alliances-flag.ts";
+import { EXILE_FLAG_OPTIONS, maybeHelp } from "./exile-flag.ts";
+import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS } from "./feed-reasons-flag.ts";
+import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS } from "./lifecycle-flag.ts";
+import { OCCUPATION_FLAG_HELP, OCCUPATION_FLAG_OPTIONS } from "./occupation-flag.ts";
+import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS } from "./port-transfer-flag.ts";
+import { SECESSION_AFTERMATH_FLAG_HELP, SECESSION_AFTERMATH_FLAG_OPTIONS } from "./secession-aftermath-flag.ts";
 
 const { values } = parseArgs({
   options: {
@@ -10,8 +17,20 @@ const { values } = parseArgs({
     seed: { type: "string", short: "s", default: "1847" },
     "player-character": { type: "string" },
     reset: { type: "boolean", default: false },
+    ...EXILE_FLAG_OPTIONS,
+    ...ALLIANCES_FLAG_OPTIONS,
+    ...PORT_TRANSFER_FLAG_OPTIONS,
+    ...LIFECYCLE_FLAG_OPTIONS,
+    ...SECESSION_AFTERMATH_FLAG_OPTIONS,
+    ...OCCUPATION_FLAG_OPTIONS,
+    ...FEED_REASONS_FLAG_OPTIONS,
   },
 });
+maybeHelp(
+  values,
+  "npm run dashboard -- [--port N] [--seed N] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]",
+  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP],
+);
 
 const port = Number.parseInt(values.port!, 10);
 const seed = Number.parseInt(values.seed!, 10);
@@ -23,6 +42,7 @@ const app = createDashboardApp({
   reset: values.reset,
   seed,
   playerCharacterId: values["player-character"],
+  flagValues: values,
 });
 
 app.server.listen(port, values.host!, () => {

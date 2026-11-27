@@ -7,6 +7,8 @@ export const PUBLIC_NEWS_TYPES = new Set([
   "battle-resolved",
   "battle-retreated",
   "settlement-claimed",
+  "settlement-purchased",
+  "secession-joined",
   "character-captured",
   "captivity-released",
   "captivity-escaped",
@@ -14,6 +16,15 @@ export const PUBLIC_NEWS_TYPES = new Set([
   "tax-rate-set",
   "character-died",
 ]);
+
+/**
+ * Items that name a holder without being the port's latest status reading.
+ * Purchase and join are ownership news, the same board as a claim, and they
+ * must not replace the stability or follower item a later decision already read.
+ */
+function countsAsPortStatus(type: string): boolean {
+  return type !== "tax-rate-set" && type !== "settlement-purchased" && type !== "secession-joined";
+}
 
 /** An away port's item counts while the tax tick minus `observedTick` is at most this. */
 export const NEWS_AGE_CAP = 24;
@@ -74,6 +85,17 @@ export function newsRecordFor(world: WorldState, event: SimEvent, aboutSettlemen
     ...(event.type === "tax-rate-set" && typeof event.data.taxRate === "number"
       ? { taxRate: event.data.taxRate }
       : {}),
+    // Dated harshness for whoever later reads this ledger. Omitted when the port
+    // is not occupied, so a flag-off item has the same keys as before.
+    ...(settlement?.occupation
+      ? {
+          occupation: {
+            harshness: settlement.occupation.harshness,
+            sinceTick: settlement.occupation.tick,
+            fromFactionId: settlement.occupation.fromFactionId,
+          },
+        }
+      : {}),
   };
   return {
     item,
@@ -109,7 +131,7 @@ export function newsStabilityThousandths(
   }
   const matches = readableNews(world, reader).filter((record) =>
     record.aboutSettlementId === settlementId &&
-    record.item.type !== "tax-rate-set" &&
+    countsAsPortStatus(record.item.type) &&
     world.tick - record.item.observedTick <= NEWS_AGE_CAP,
   );
   if (matches.length === 0) return null;
@@ -127,7 +149,7 @@ export function newsFollowerIds(
 ): string[] {
   const matches = readableNews(world, reader).filter((record) =>
     record.aboutSettlementId === settlementId &&
-    record.item.type !== "tax-rate-set" &&
+    countsAsPortStatus(record.item.type) &&
     world.tick - record.item.observedTick <= NEWS_AGE_CAP,
   );
   if (matches.length === 0) return [];

@@ -30,11 +30,11 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `origin/main` `c24a752` (#187). `feature/secession-aftermath` adds peace, protection, and membership behind `SECESSION_AFTERMATH`, default off.
+- **Baseline:** `origin/main` `dd8a55b` (#189, the client-readiness audit). `feature/client-readiness` projects the player API for occupation, peace, pacts, purchase, join, lifecycle, and the governor seat. Flag defaults are unchanged.
 - **Pins (default, EXILE_RECOVERY on):** 72 ticks `7f76e474` / `976c40bd` / `08943ea5`. 1,200 ticks `94de9c02` / `7a3741c9` / `af6eeaea`. Flag off matches these.
 - **Pins (exile opt-out):** 72 ticks `66e8ccb7` / `b4ccedab` / `b04c5ac4`. 1,200 ticks `b51aa07a` / `091f7628` / `25bdbf15`. Flag off matches these.
-- **Last verified:** `feature/secession-aftermath`: `npm test` 682/682 with keys unset; `evaluate-milestone.sh secession-aftermath` passed (see entry).
-- **Runtime:** Node 24.21.0, pinned by `.node-version`.
+- **Last verified:** `feature/client-readiness`: `npm test` 690/690 with keys unset; `evaluate-milestone.sh client-readiness` passed (see entry).
+- **Runtime:** Node 24, pinned by `.node-version` (`24.21.0`). This run used Node 24.22.3.
 
 ## Open items
 
@@ -153,6 +153,27 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-11-27 — Player API client-readiness slice
+
+- **Agent / Branch / Commits / Type:** Open Era Engineer / `feature/client-readiness` off `origin/main` `dd8a55b` / one commit / projection, plus flag-on news and survey fields that stay off the pinned runs.
+- **Changed:** What `GET /api/state` and `POST /api/advance` show once occupation, alliances, port purchase, lifecycle, or secession aftermath are actually on. The sim flags still default off.
+  - **Occupation.** The holder gets exact harshness (`sinceTick`, previous faction, occupying faction, `regrowthStopped`). `foodRatios`, `fromRate`, `foodBaseline`, and `occupationTerms` are not on the client. Everyone else sees harshness only from a survey ground record or a news item, with `learnedTick`. Standing on the port does not copy it.
+  - **Peace and pacts.** Both parties see the other faction, the start tick, and for a pact the ally, on `factions[].diplomacy`. Causes, grievance, and surplus stay off. Third parties do not get the feed row. Peace and pacts are not added to port news, because the existing news set does not include them.
+  - **Raid during peace.** Still accepted. `combatForecast.peaceWarning` and the command `notice` say the raid breaks the peace with that faction. The notice is not stored on the event.
+  - **Purchase and join.** Public sentences, the same weight as a claim, and port news (`settlement-purchased`, `secession-joined`). The map label follows the newer of the stored report and ownership news the viewer can already read (`factionLearnedTick`). The price is on the two parties' lines only. `candidates` surplus is removed for everyone. Stability and follower reads ignore the new news types, so they do not replace the item those decisions already used.
+  - **Governor and lifecycle.** Own faction sees `governors` and each owned port's `governor`. A rival does not. News does not name offices. Own roster cards gain `lifecycle` (retired tick, returned tick, `promotedFrom`, `lastPromotionTick`, `promotedSplit`). `lifecycle-watch`, `lifecycle-watch-cleared`, `aftermath-ledger-opened`, and `alliance-ledger-opened` are omitted from the player feed.
+  - **Leaks.** `data.ai` (picker provenance and feed-reason traces) is stripped. A raid reason stays on the attacker's line, and the garrison figure stays only when that attacker has earned that number.
+  - **Flags.** `tickOptionsFromFlags` is the one parser for the dashboard and `run-simulation`. `--occupation` / `OCCUPATION=1` matches the other flags. Defaults are unchanged. Dashboard feed reasons, when on, use the offline stub writer.
+- **Why:** The audit in [client-readiness.md](docs/design/client-readiness.md). A mobile client was about to read layers the view-model did not have, or had only as a raw owned-settlement spread. The Lead's rulings: knowledge is earned and dated, and there is no free global feed.
+- **Verified:** Keys unset (`DEEPSEEK_API_KEY`, `JEV_API_KEY`). No live model. Spend $0. Node 24.22.3.
+  - `npm test` 690/690.
+  - `tsc --noEmit` clean.
+  - Flag-off pins unchanged: 72 ticks `7f76e474` / `976c40bd` / `08943ea5`; exile opt-out 72 `66e8ccb7`. The 1,200-tick feed-reason hashes in the gate stayed `94de9c02` / `7a3741c9` / `af6eeaea`.
+  - `./scripts/evaluate-milestone.sh client-readiness` passed: exile, occupation, WG picker, alliances, port transfer, lifecycle, secession aftermath, feed reasons, and the recovery check (`7f76e474`).
+  - `tests/client-readiness.test.ts`: shared tick options; holder vs surveyed harshness; purchase sentence, price, and carried-news label; peace warning without a refusal; lifecycle feed omission and own-roster card; picker and unearned garrison stripped; three seeds at 72 ticks with the flags on, every living viewer.
+- **Left open:** A rival still does not learn a governor's name, because news does not cover offices. A broken peace leaves the live diplomacy list; the break line is only on the two parties' feeds while that event is in the page. Purchase and join news, occupied-port news harshness, survey-ground harshness, and the returned/promoted fields are written only when those flags are on, so flag-on event bytes move and the pinned flag-off runs do not. The dashboard now annotates feed reasons with the stub when that flag is on (the CLI default). The player JSON still drops `data.ai`.
+- **Links:** [client-readiness.md](docs/design/client-readiness.md). No pull request.
 
 ### 2026-11-27 — Player API client-readiness audit
 
