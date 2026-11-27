@@ -154,6 +154,15 @@ Git remains the complete history. This file exists for three things git does not
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
 
+### 2026-11-27 — Player API client-readiness audit
+
+- **Agent / Branch / Commits / Type:** Open Era Engineer / `docs/client-readiness` off `origin/main` `e9ac8b6` / one docs commit / docs.
+- **Changed:** Design note [client-readiness.md](docs/design/client-readiness.md). What occupation, alliances, port purchase, lifecycle, secession aftermath, the World Government picker, and feed reasons put on the sim, and what `GET /api/state` actually gives the player after visibility. No `src/` change.
+- **Why:** A mobile client is about to read this session. The new layers are on the sim and mostly missing, or only on an owned settlement spread, in the view-model.
+- **Verified:** Local view-model only, keys unset, stub feed reasons, no picker, $0. Seed 1847, 120 ticks and 360 ticks, flags on. `dashboardState` / `projectEventFeed` / `projectEvent`. The HTTP server was not started. Peace, pacts, joins, promotions, and returns did not fire. Those rows are constructed events through `projectEvent`.
+- **Left open:** The seven questions at the end of the note. Ranked gaps are the note's, not a build.
+- **Links:** [client-readiness.md](docs/design/client-readiness.md)
+
 ### 2026-11-27 — SECESSION_AFTERMATH behind a flag (secession-aftermath.md rev 2 + Lead rulings)
 
 - **Agent / Branch / Commits / Type:** Open Era Engineer / `feature/secession-aftermath` off `origin/main` `c24a752` / see the branch / feature behind a flag.
