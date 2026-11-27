@@ -1,0 +1,13 @@
+== ATLS
+protection | scope: 24-tick clock: 1 hits, 1 pacts
+protection | scope: cause format: 2 hits, 1 pacts
+seeds: 9000
+== S-alone
+protection | scope: 24-tick clock: 2 hits, 2 pacts
+protection | scope: cause format: 4 hits, 2 pacts
+seeds: 4096,10000
+== A+S
+alliances | break late: enemy portless: 3 hits, 3 pacts, ticks alive past condition per pact: 1,1,1
+protection | scope: 24-tick clock: 1 hits, 1 pacts
+protection | scope: cause format: 2 hits, 1 pacts
+seeds: 4096,9000

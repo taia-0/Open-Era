@@ -1,0 +1,20 @@
+| Seed | Purchases | Buyer(s) | Tick(s) | Price(s) | Cause | VC owner t1200 (off → on) | VC battles off → on | VC claims off → on | Claims off → on | Port changes off → on | Secessions off → on | Violations |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-18-crown-harbor-784) | 0 → 1 | 0 → 5 | 51 → 32 | 52 → 37 | 1 → 4 | 0 |
+| 2718 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-22-glassport-1144) | 0 → 1 | 0 → 7 | 64 → 42 | 64 → 47 | 0 → 4 | 0 |
+| 4096 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 0 | 0 → 2 | 56 → 31 | 59 → 34 | 3 → 2 | 0 |
+| 1000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 0 | 0 → 4 | 42 → 26 | 44 → 28 | 2 → 1 | 0 |
+| 2000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-08-verdant-cay-1047) | 0 → 5 | 0 → 6 | 50 → 38 | 52 → 44 | 2 → 5 | 0 |
+| 3000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-13-crown-harbor-342) | 0 → 1 | 0 → 4 | 42 → 47 | 44 → 51 | 2 → 3 | 0 |
+| 4000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 3 | 0 → 6 | 63 → 60 | 64 → 61 | 1 → 0 | 0 |
+| 5000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 0 | 0 → 4 | 55 → 29 | 57 → 31 | 2 → 1 | 0 |
+| 6000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 0 | 0 → 2 | 50 → 29 | 55 → 33 | 5 → 3 | 0 |
+| 7000 | 1 | world-government | 24 | 840 | adjacent | neutral → free-tide | 0 → 2 | 0 → 5 | 61 → 54 | 65 → 55 | 4 → 0 | 0 |
+| 8000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 4 | 0 → 7 | 62 → 25 | 66 → 29 | 4 → 3 | 0 |
+| 9000 | 1 | world-government | 48 | 852 | adjacent | neutral → breakaway (secession-character-11-crown-harbor-961) | 0 → 4 | 0 → 5 | 58 → 34 | 60 → 41 | 2 → 6 | 0 |
+| 10000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 4 | 0 → 6 | 28 → 41 | 31 → 48 | 3 → 5 | 0 |
+| total | 13 | | | | | | 0 → 25 | 0 → 63 | 682 → 488 | 713 → 539 | 31 → 37 | 0 |
+pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
+purchases 13 on 13/13 seeds; multi-candidate purchases 0; secession seeds 11/13; min claims 25, min port changes 28
+{"pins_flagOff":true,"purchases_validAndCaused_0violations":true,"rulings_buyerAndAgentRecomputed_0mismatches":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
+PORT TRANSFER ACCEPTANCE PASSED

@@ -1,0 +1,85 @@
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 1afc80d..3775789 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -4717,6 +4717,10 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+   if (alliancesOn || aftermathOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
+   if (lifecycleOn) lifecycleStep(world, [...events], (d) => emit(world, events, d as EventDraft));
+   if (aftermathOn) aftermathStep(world, [...events], (d) => emit(world, events, d as EventDraft));
++  // protection-pact-fix.md ruling 3: a pact never outlives its break condition. Lifecycle and the aftermath
++  // (a join moves ports without a battle) run after the first check, so the break rules run once more here.
++  // The first check stays where it is, so the aftermath sees the pacts that are really alive.
++  if (alliancesOn || aftermathOn) allianceBreaks(world, (d) => emit(world, events, d as EventDraft));
+   emit(world, events, { type: "metrics-recorded", data: metrics(world) });
+   emit(world, events, {
+     type: "tick-advanced",
+diff --git a/src/sim/secession-aftermath.ts b/src/sim/secession-aftermath.ts
+index ca21b72..155ee68 100644
+--- a/src/sim/secession-aftermath.ts
++++ b/src/sim/secession-aftermath.ts
+@@ -1,5 +1,5 @@
+ import { freeMateCount } from "./allowance.ts";
+-import { ALLIANCE_NEAR, ALLIANCE_RAID_WINDOW, alliancesOf, allied } from "./alliances.ts";
++import { ALLIANCE_COOLDOWN, ALLIANCE_NEAR, ALLIANCE_RAID_WINDOW, alliancesOf, allied } from "./alliances.ts";
+ import { RESERVE_PER_HEAD } from "./port-transfer.ts";
+ import { createPrototypeWorld } from "./scenario.ts";
+ import { commandHolderId, distanceBetween, round } from "./state.ts";
+@@ -123,15 +123,30 @@ function grievanceLabel(grievance: number): string {
+   return String(grievance);
+ }
+ 
++/**
++ * protection-pact-fix.md: a protection pact is an ordinary Alliance record, so it may form only where
++ * every alliance rule already holds: both sides alive, neither in a pact, the pair outside ALLIANCE_COOLDOWN
++ * since its last break, and no battle between them (the ally-attack break). Returns the failed rule or null.
++ */
++export function pactBlocked(world: WorldState, a: string, b: string): string | null {
++  if (!factionAlive(world, a) || !factionAlive(world, b)) return "ally-gone";
++  if (alliancesOf(world).some((x) => x.factionIds.includes(a) || x.factionIds.includes(b))) return "in-pact";
++  if ((world.allianceMemory ?? []).some((m) => m.factionIds.includes(a) && m.factionIds.includes(b) && world.tick - m.brokenTick < ALLIANCE_COOLDOWN)) return "cooldown";
++  if (Object.values(world.activeBattles).some((bt) => { const x = world.characters[bt.attackerId]?.factionId; const y = world.settlements[bt.settlementId]?.factionId; return !!x && !!y && x !== y && [a, b].includes(x) && [a, b].includes(y); })) return "ally-attack";
++  return null;
++}
++
+ /**
+  * Threat to seceded faction S at port P: the latest hostile raider within the raid window,
+  * else the hostile holder of the nearest port within ALLIANCE_NEAR (30, not the patron radius).
+  */
+-export function threatTo(world: WorldState, factionId: string, portId: string): { factionId: string; cause: string } | null {
++export function threatTo(world: WorldState, factionId: string, portId: string, options: { portHolding?: boolean } = {}): { factionId: string; cause: string } | null {
++  // protection-pact-fix.md rule 2: a protection threat must hold a port (a pact's enemy must; see allianceForms).
++  const holds = (id: string) => !options.portHolding || portsOf(world, id).length > 0;
+   const raids = Object.entries(world.allianceRaids ?? {})
+     .filter(([key, tick]) => key.endsWith(`>${factionId}`) && world.tick - tick <= ALLIANCE_RAID_WINDOW)
+     .map(([key, tick]) => ({ by: key.slice(0, key.length - factionId.length - 1), tick }))
+-    .filter((raid) => world.factions[raid.by] && !friendly(world, raid.by, factionId))
++    .filter((raid) => world.factions[raid.by] && !friendly(world, raid.by, factionId) && holds(raid.by))
+     .sort((a, b) => b.tick - a.tick || a.by.localeCompare(b.by));
+   if (raids.length > 0) {
+     const raid = raids[0];
+@@ -254,9 +269,14 @@ export function aftermathStep(world: WorldState, tickEvents: readonly SimEvent[]
+     if (record.protectionTick !== undefined) continue;
+     if (alliancesOf(world).some((alliance) => alliance.factionIds.includes(record.factionId))) continue;
+     const own = factionSurplus(world, record.factionId);
+-    const threat = threatTo(world, record.factionId, record.settlementId);
++    // protection-pact-fix.md: protection uses a port-holding threat and only pact-eligible patrons.
++    // Join keeps its own conditions (any threat, unfiltered patrons, own surplus < 0), so a solvent S with
++    // no eligible patron gets nothing; an insolvent S is decided exactly as before.
++    const threat = own >= 0 ? threatTo(world, record.factionId, record.settlementId, { portHolding: true }) : threatTo(world, record.factionId, record.settlementId);
+     if (!threat) continue;
+-    const candidates = patronCandidates(world, record, threat.factionId);
++    const candidates = own >= 0
++      ? patronCandidates(world, record, threat.factionId).filter((candidate) => pactBlocked(world, record.factionId, candidate.factionId) === null)
++      : patronCandidates(world, record, threat.factionId);
+     if (candidates.length === 0) continue;
+     const patron = candidates[0];
+     if (own >= 0) {
+@@ -274,7 +294,7 @@ export function aftermathStep(world: WorldState, tickEvents: readonly SimEvent[]
+             formedTick: world.tick,
+             causes: {
+               [record.factionId]: `protection: ${held}; threat ${threat.cause}; own surplus ${own} >= 0`,
+-              [patron.factionId]: `protector: holds ${patron.port} at ${patron.distance}, hostile to ${record.oldFactionId} and ${threat.factionId}, surplus ${patron.surplus}`,
++              [patron.factionId]: `protector: holds ${patron.port} at ${patron.distance}, hostile to ${record.oldFactionId} and ${threat.factionId}, surplus ${patron.surplus}; in no pact, no break with ${record.factionId} within ${ALLIANCE_COOLDOWN}`,
+             },
+             portsAtForm: {
+               [record.factionId]: portsOf(world, record.factionId).length,
