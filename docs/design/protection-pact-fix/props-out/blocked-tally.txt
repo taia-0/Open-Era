@@ -1,0 +1,9 @@
+== {"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":true}
+pre-fix would form: 13 evaluations on 1 seeds
+no port-holding threat: 13 evaluations on 1 seeds
+== {"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true}
+pre-fix would form: 26 evaluations on 2 seeds
+every patron blocked; one by cooldown: 19 evaluations on 1 seeds
+threat moved to a port holder: 1 evaluations on 1 seeds
+no patron for the port-holding threat: 1 evaluations on 1 seeds
+no port-holding threat: 6 evaluations on 1 seeds
