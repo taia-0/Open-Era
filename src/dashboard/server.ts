@@ -23,6 +23,7 @@ import { round } from "../sim/state.ts";
 import { WorldStore, EVENT_FEED_PAGE_DEFAULT, EVENT_FEED_PAGE_LIMIT } from "../sim/persistence.ts";
 import { createPrototypeWorld } from "../sim/scenario.ts";
 import type { SimEvent, WorldState } from "../sim/types.ts";
+import { dashboardTickOptions, type SimFlagValues } from "../cli/tick-options.ts";
 import { advancePauseNote, CHECK_IN_EVENT_CAP, CHECK_IN_TICKS, dashboardState, FEED_OMITTED_TYPES, projectEventFeed, type DashboardRefusal } from "./view-model.ts";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,9 @@ export interface DashboardOptions {
   seed?: number;
   playerCharacterId?: string;
   dialogueProvider?: DialogueProvider;
+  /** Same flag bag as `run-simulation`. Defaults read the process environment. */
+  flagValues?: SimFlagValues;
+  env?: NodeJS.ProcessEnv;
 }
 
 export interface DashboardApp {
@@ -96,6 +100,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
     store.initialize(world);
   }
 
+  const tickOptions = dashboardTickOptions(options.flagValues ?? {}, options.env ?? process.env);
   let mutation = Promise.resolve();
   const refusals: DashboardRefusal[] = [];
   const server = createServer((request, response) => {
@@ -160,7 +165,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
         let stoppingEvent: SimEvent | undefined;
         const produced: SimEvent[] = [];
         for (let index = 0; index < ticks; index += 1) {
-          const result = runTick(world, { liveSession: true });
+          const result = runTick(world, tickOptions);
           const conversationEvents = await resolveDueReplies(world, dialogueProvider);
           const tickEvents = [...result.events, ...conversationEvents];
           store.appendTick(tickEvents, world);

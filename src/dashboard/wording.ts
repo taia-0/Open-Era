@@ -46,7 +46,7 @@ export function higherScoreClause(data: Record<string, unknown>): string {
  * `data` stays null. A decision, a contract, and an upkeep row are not in this set.
  */
 export function summaryStaysWhenWithheld(type: string): boolean {
-  return type === "character-captured" || type === "captivity-released" || type === "battle-resolved" || type === "settlement-claimed" || type === "secession-declared" || type === "tax-rate-set";
+  return type === "character-captured" || type === "captivity-released" || type === "battle-resolved" || type === "settlement-claimed" || type === "settlement-purchased" || type === "secession-joined" || type === "secession-declared" || type === "tax-rate-set" || type === "character-retired" || type === "character-returned" || type === "character-promoted";
 }
 
 /**
@@ -585,6 +585,47 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
       return `Scattered troops returned to ${actor}.`;
     case "settlement-claimed":
       return settlement ? `${actor} claimed ${settlement}.` : `${actor} claimed a port.`;
+    case "settlement-purchased": {
+      const buyerId = typeof event.data.factionId === "string" ? event.data.factionId : event.targetId;
+      const buyer = buyerId ? world.factions[buyerId]?.name ?? buyerId : "a faction";
+      return settlement ? `${actor} bought ${settlement} for ${buyer}.` : `${actor} bought a port for ${buyer}.`;
+    }
+    case "secession-joined": {
+      const patronId = typeof event.data.joinedFactionId === "string" ? event.data.joinedFactionId : event.targetId;
+      const patron = patronId ? world.factions[patronId]?.name ?? patronId : "another faction";
+      return settlement ? `${actor} joined ${patron}, and ${settlement} went with them.` : `${actor} joined ${patron}.`;
+    }
+    case "character-retired":
+      return `${actor} retired${at}.`;
+    case "character-returned":
+      return `${actor} returned to service${at}.`;
+    case "character-promoted":
+      return `${actor} promoted a new captain${at}.`;
+    case "faction-peace": {
+      const peace = event.data.peace as { factionIds?: string[]; tick?: number } | undefined;
+      const names = (peace?.factionIds ?? []).map((id) => world.factions[id]?.name ?? id).join(" and ");
+      return typeof peace?.tick === "number"
+        ? `Peace between ${names || "the two factions"} began at tick ${peace.tick}.`
+        : `Peace between ${names || "the two factions"} began.`;
+    }
+    case "faction-peace-broken": {
+      const ids = Array.isArray(event.data.factionIds) ? event.data.factionIds as string[] : [];
+      const names = ids.map((id) => world.factions[id]?.name ?? id).join(" and ");
+      const since = typeof event.data.peaceTick === "number" ? `, begun at tick ${event.data.peaceTick}` : "";
+      return `The peace between ${names || "the two factions"}${since} has ended.`;
+    }
+    case "alliance-formed": {
+      const alliance = event.data.alliance as { factionIds?: string[]; enemyFactionId?: string; formedTick?: number } | undefined;
+      const members = (alliance?.factionIds ?? []).map((id) => world.factions[id]?.name ?? id).join(" and ");
+      const ally = alliance?.enemyFactionId ? world.factions[alliance.enemyFactionId]?.name ?? alliance.enemyFactionId : "another faction";
+      const since = typeof alliance?.formedTick === "number" ? ` at tick ${alliance.formedTick}` : "";
+      return `${members || "Two factions"} made a pact against ${ally}${since}.`;
+    }
+    case "alliance-broken": {
+      const ids = Array.isArray(event.data.factionIds) ? event.data.factionIds as string[] : [];
+      const names = ids.map((id) => world.factions[id]?.name ?? id).join(" and ");
+      return `The pact between ${names || "the two factions"} ended.`;
+    }
     case "secession-declared":
       return secessionDeclaredSentence(world, event, actor);
     case "settlement-surrender-declined":
@@ -743,6 +784,10 @@ export function eventBriefingTitle(type: string): string {
       return "A port is short of provisions";
     case "settlement-claimed":
       return "A port was claimed";
+    case "settlement-purchased":
+      return "A port was bought";
+    case "secession-joined":
+      return "A company joined a faction";
     case "secession-declared":
       return "A port was declared separate";
     default:

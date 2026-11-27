@@ -4,6 +4,7 @@ import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder
 import { PASSAGE_COST_PER_TICK } from "../sim/engine.ts";
 import { shortPayMember } from "../sim/allowance.ts";
 import { projectAllowance } from "./allowance.ts";
+import { diplomacyFor, diplomacyParty, governorSeats, isDiplomacyEvent, lifecycleView, stripPlayerEventData } from "./client-readiness.ts";
 import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, SHORT_PAY_CARD_LINE, SHORT_PAY_UPKEEP_LINE, shortPayAudience, shortPayUpkeepVisible, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
 
 /**
@@ -895,6 +896,11 @@ export function projectCharacter(
         defeats: character.defeats,
       },
     },
+    /**
+     * Retired, returned, and promoted for the viewer's own faction.
+     * A rival card is null. Cause, troop counts, and the seat they left stay off.
+     */
+    lifecycle: lifecycleView(commander, character),
     intelligence,
   };
 }
@@ -978,6 +984,14 @@ export function projectFactions(
          * purse is not on it. A rival is null.
          */
         debts: owned ? creditorDebtRows(world, faction.id) : null,
+        /**
+         * Peace and pacts the viewer is a party to. The other faction, the start
+         * tick, and for a pact the ally. Causes, grievance, and surplus stay off.
+         * A faction the viewer has no record with is null.
+         */
+        diplomacy: diplomacyFor(world, commander, faction.id, owned),
+        /** Governor seats. Own faction only. News does not name an office. */
+        governors: governorSeats(world, commander, faction.id),
         intelligence: {
           exact: owned,
           source: owned ? "faction-record" : "reputation",
@@ -1058,6 +1072,10 @@ export function eventPayloadVisible(
     return true;
   }
 
+  // Peace and pacts are the two parties' record. Holding the port does not
+  // open them, and neither does a later owner who was not a party.
+  if (isDiplomacyEvent(event.type)) return diplomacyParty(commander, event);
+
   // Anything else attributed to a character belongs to that character. Motives,
   // beliefs, and logistics stay private even for faction peers, because the
   // character projection withholds the same fields and a feed that revealed them
@@ -1136,7 +1154,7 @@ export function projectEvent(
     settlementId: event.type === "tax-rate-set" ? event.settlementId ?? null : event.settlementId,
     summary,
     details,
-    data: visible ? withoutHiddenTreasury(world, commander, event) : null,
+    data: visible ? stripPlayerEventData(commander, event, withoutHiddenTreasury(world, commander, event)) : null,
     payloadWithheld: !visible,
   };
 }

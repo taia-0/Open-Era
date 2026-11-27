@@ -590,6 +590,19 @@ function validateCharacterAction(
     acceptedUnitPrice = quote.unitPrice;
   }
 
+  // A player raid during peace is allowed. The break is the sim's consequence.
+  // The notice is not written on the event.
+  let peaceNotice: string | undefined;
+  if (request.action === "raid" && character.factionId && settlement.factionId && character.factionId !== settlement.factionId) {
+    const breaks = (world.secessionAftermath?.peace ?? []).some((row) =>
+      row.factionIds.includes(character.factionId!) && row.factionIds.includes(settlement.factionId!),
+    );
+    if (breaks) {
+      const name = world.factions[settlement.factionId]?.name ?? settlement.factionId;
+      peaceNotice = `This raid breaks the peace with ${name}.`;
+    }
+  }
+
   const command: PlayerCommand = {
     id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
     playerId: player.id,
@@ -613,7 +626,7 @@ function validateCharacterAction(
       : {}),
     ...(spend ? { source: spend } : {}),
   };
-  return { ok: true, command, event: acceptedEvent(world, command) };
+  return { ok: true, command, event: acceptedEvent(world, command), ...(peaceNotice ? { notice: peaceNotice } : {}) };
 }
 
 function validateBattleRetreat(

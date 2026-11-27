@@ -1,11 +1,13 @@
 import { appendFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-flag.ts";
-import { ALLIANCES_FLAG_HELP, ALLIANCES_FLAG_OPTIONS, resolveAlliances } from "./alliances-flag.ts";
-import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS, resolvePortTransfer } from "./port-transfer-flag.ts";
-import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS, resolveLifecycle } from "./lifecycle-flag.ts";
-import { SECESSION_AFTERMATH_FLAG_HELP, SECESSION_AFTERMATH_FLAG_OPTIONS, resolveSecessionAftermath } from "./secession-aftermath-flag.ts";
+import { ALLIANCES_FLAG_HELP, ALLIANCES_FLAG_OPTIONS } from "./alliances-flag.ts";
+import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS } from "./port-transfer-flag.ts";
+import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS } from "./lifecycle-flag.ts";
+import { SECESSION_AFTERMATH_FLAG_HELP, SECESSION_AFTERMATH_FLAG_OPTIONS } from "./secession-aftermath-flag.ts";
+import { OCCUPATION_FLAG_HELP, OCCUPATION_FLAG_OPTIONS } from "./occupation-flag.ts";
 import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS, resolveFeedReasons } from "./feed-reasons-flag.ts";
+import { simulationTickOptions } from "./tick-options.ts";
 import { parseArgs } from "node:util";
 import { CostLedger } from "../sim/ai-vendor/cost.ts";
 import { workerTransport } from "../sim/ai-vendor/sync-http.ts";
@@ -32,20 +34,17 @@ const { values } = parseArgs({
     ...PORT_TRANSFER_FLAG_OPTIONS,
     ...LIFECYCLE_FLAG_OPTIONS,
     ...SECESSION_AFTERMATH_FLAG_OPTIONS,
+    ...OCCUPATION_FLAG_OPTIONS,
     // feedReasons: on by default (Micah 2026-11-06); --no-feed-reasons or FEED_REASONS=0 opts out.
     ...FEED_REASONS_FLAG_OPTIONS,
   },
 });
 maybeHelp(
   values,
-  "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]",
-  [ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP],
+  "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]",
+  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP],
 );
 const exileRecovery = resolveExileRecovery(values);
-const alliances = resolveAlliances(values);
-const portTransfer = resolvePortTransfer(values);
-const lifecycle = resolveLifecycle(values);
-const secessionAftermath = resolveSecessionAftermath(values);
 const feedReasonsOn = resolveFeedReasons(values);
 
 const ticks = Number.parseInt(values.ticks!, 10);
@@ -89,15 +88,9 @@ try {
   }
 
   const dialogueProvider = new DeterministicDialogueProvider();
+  const tickOptions = simulationTickOptions(values, process.env, feedReasons);
   for (let index = 0; index < ticks; index += 1) {
-    const result = runTick(world, {
-      exileRecovery,
-      ...(alliances ? { alliances } : {}),
-      ...(portTransfer ? { portTransfer } : {}),
-      ...(lifecycle ? { lifecycle } : {}),
-      ...(secessionAftermath ? { secessionAftermath } : {}),
-      ai: { feedReasons },
-    });
+    const result = runTick(world, tickOptions);
     const conversationEvents = await resolveDueReplies(world, dialogueProvider);
     store.appendTick([...result.events, ...conversationEvents], world);
   }
