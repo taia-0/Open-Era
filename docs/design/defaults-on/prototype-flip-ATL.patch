@@ -1,0 +1,39 @@
+diff --git a/src/sim/alliances.ts b/src/sim/alliances.ts
+index e250cdd..aff2e81 100644
+--- a/src/sim/alliances.ts
++++ b/src/sim/alliances.ts
+@@ -3,7 +3,7 @@ import type { SimEvent, WorldState } from "./types.ts";
+  * ALLIANCES (docs/design/alliances.md rev 2), behind the `alliances` run option / `--alliances`, default off. Deterministic, no RNG draw.
+  * Flag off: nothing here runs; world.alliances / world.allianceMemory never exist.
+  */
+-export const ALLIANCES_DEFAULT = false;
++export const ALLIANCES_DEFAULT = true;
+ export const ALLIANCE_CLOCK = 24;
+ /** Adjacent ports: inter-port distance ≤ 30 (the gap between 25.807 and 43.829 in the measured distances). */
+ export const ALLIANCE_NEAR = 30;
+diff --git a/src/sim/lifecycle.ts b/src/sim/lifecycle.ts
+index 1ad4698..d5866de 100644
+--- a/src/sim/lifecycle.ts
++++ b/src/sim/lifecycle.ts
+@@ -7,7 +7,7 @@ import { governorId } from "./governor.ts";
+  * Lead rulings: (1) promoted names are the scenario roster offset by seed; (2) a returning governor
+  * competes for the seat like anyone else (isRetired clears; syncSeats / appointGovernor do the rest).
+  */
+-export const LIFECYCLE_DEFAULT = false;
++export const LIFECYCLE_DEFAULT = true;
+ /** Raid troop gate (engine.ts buildCandidates: troops ≥ 25). */
+ export const POWER_FLOOR = 25;
+ /** p90 of spells below 25 troops, flag off, 13 seeds (433 spells, incl. spells ended by death). */
+diff --git a/src/sim/port-transfer.ts b/src/sim/port-transfer.ts
+index 8873fb4..87d9f8e 100644
+--- a/src/sim/port-transfer.ts
++++ b/src/sim/port-transfer.ts
+@@ -9,7 +9,7 @@ import type { SimEvent, WorldState } from "./types.ts";
+  *    the one with the largest treasury surplus over its reserve (treasury − reserve), ties by faction id;
+  *  - the faction buys, not a member: the acting agent is the buyer's first free docked member by id.
+  */
+-export const PORT_TRANSFER_DEFAULT = false;
++export const PORT_TRANSFER_DEFAULT = true;
+ export const PURCHASE_CLOCK = 24;
+ /** engine.ts recruit: 12 money per soldier. */
+ export const PRICE_PER_SOLDIER = 12;

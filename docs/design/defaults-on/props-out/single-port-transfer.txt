@@ -1,0 +1,20 @@
+| Seed | Purchases | Buyer(s) | Tick(s) | Price(s) | Cause | VC owner t1200 (off → on) | VC battles off → on | VC claims off → on | Claims off → on | Port changes off → on | Secessions off → on | Violations |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 3 | 0 → 7 | 51 → 55 | 52 → 57 | 1 → 1 | 0 |
+| 2718 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-17-crown-harbor-1095) | 0 → 0 | 0 → 6 | 64 → 34 | 64 → 39 | 0 → 4 | 0 |
+| 4096 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-12-crown-harbor-444) | 0 → 4 | 0 → 6 | 56 → 63 | 59 → 68 | 3 → 4 | 0 |
+| 1000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 2 | 0 → 6 | 42 → 55 | 44 → 56 | 2 → 0 | 0 |
+| 2000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 1 | 0 → 4 | 50 → 40 | 52 → 41 | 2 → 0 | 0 |
+| 3000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 2 | 0 → 2 | 42 → 26 | 44 → 30 | 2 → 3 | 0 |
+| 4000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 7 | 0 → 8 | 63 → 66 | 64 → 68 | 1 → 1 | 0 |
+| 5000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 1 | 0 → 6 | 55 → 47 | 57 → 52 | 2 → 4 | 0 |
+| 6000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-17-crown-harbor-1031) | 0 → 3 | 0 → 8 | 50 → 62 | 55 → 69 | 5 → 6 | 0 |
+| 7000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 2 | 0 → 4 | 61 → 58 | 65 → 59 | 4 → 0 | 0 |
+| 8000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 4 | 0 → 6 | 62 → 24 | 66 → 25 | 4 → 0 | 0 |
+| 9000 | 1 | world-government | 48 | 852 | adjacent | neutral → breakaway (secession-character-21-glassport-91) | 0 → 6 | 0 → 6 | 58 → 52 | 60 → 58 | 2 → 5 | 0 |
+| 10000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-06-crown-harbor-408) | 0 → 3 | 0 → 6 | 28 → 59 | 31 → 65 | 3 → 5 | 0 |
+| total | 13 | | | | | | 0 → 38 | 0 → 75 | 682 → 641 | 713 → 687 | 31 → 33 | 0 |
+pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
+purchases 13 on 13/13 seeds; multi-candidate purchases 0; secession seeds 9/13; min claims 24, min port changes 25
+{"pins_flagOff":true,"purchases_validAndCaused_0violations":true,"rulings_buyerAndAgentRecomputed_0mismatches":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
+PORT TRANSFER ACCEPTANCE PASSED

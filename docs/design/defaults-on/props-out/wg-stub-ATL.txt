@@ -1,0 +1,33 @@
+{"seed":1847,"offHash":"fe90964e","onHash":"0bde190f","claims":[30,46],"portChanges":[32,47],"secessions":[1,0],"wipeouts":[[],[]],"consults":1722,"holderConsults":0,"overrides":503,"nonWgConsults":0}
+{"seed":2718,"offHash":"d7242b8e","onHash":"ceb6a8a2","claims":[42,52],"portChanges":[47,58],"secessions":[4,5],"wipeouts":[[],[]],"consults":1646,"holderConsults":0,"overrides":482,"nonWgConsults":0}
+{"seed":4096,"offHash":"de5930a9","onHash":"a6ac52ef","claims":[31,50],"portChanges":[34,57],"secessions":[2,6],"wipeouts":[[],[]],"consults":1421,"holderConsults":0,"overrides":388,"nonWgConsults":0}
+{"seed":1000,"offHash":"9289ec3d","onHash":"d73c18b9","claims":[26,30],"portChanges":[28,33],"secessions":[1,2],"wipeouts":[[],[]],"consults":1646,"holderConsults":0,"overrides":446,"nonWgConsults":0}
+{"seed":2000,"offHash":"eea5da24","onHash":"fcf3e4a7","claims":[38,36],"portChanges":[44,39],"secessions":[5,2],"wipeouts":[[],[]],"consults":1506,"holderConsults":0,"overrides":450,"nonWgConsults":0}
+{"seed":3000,"offHash":"4325b99b","onHash":"c8d22d50","claims":[48,29],"portChanges":[52,30],"secessions":[3,0],"wipeouts":[[],[]],"consults":2355,"holderConsults":0,"overrides":548,"nonWgConsults":0}
+{"seed":4000,"offHash":"e22a4c18","onHash":"40374251","claims":[60,46],"portChanges":[61,47],"secessions":[0,0],"wipeouts":[[],[]],"consults":1750,"holderConsults":0,"overrides":517,"nonWgConsults":0}
+{"seed":5000,"offHash":"3b238fdb","onHash":"aac962f7","claims":[29,24],"portChanges":[31,28],"secessions":[1,3],"wipeouts":[[],[]],"consults":1542,"holderConsults":0,"overrides":429,"nonWgConsults":0}
+{"seed":6000,"offHash":"123eea99","onHash":"7e8c2657","claims":[57,40],"portChanges":[64,41],"secessions":[6,0],"wipeouts":[[],[]],"consults":1863,"holderConsults":0,"overrides":525,"nonWgConsults":0}
+{"seed":7000,"offHash":"44dba789","onHash":"3aa142bf","claims":[54,54],"portChanges":[55,55],"secessions":[0,0],"wipeouts":[[],[]],"consults":1839,"holderConsults":0,"overrides":543,"nonWgConsults":0}
+{"seed":8000,"offHash":"b1745aff","onHash":"b397b9ab","claims":[25,39],"portChanges":[29,44],"secessions":[3,4],"wipeouts":[[],[]],"consults":1376,"holderConsults":0,"overrides":418,"nonWgConsults":0}
+{"seed":9000,"offHash":"c1aca3b5","onHash":"885fef06","claims":[50,50],"portChanges":[58,55],"secessions":[7,4],"wipeouts":[[],[]],"consults":983,"holderConsults":0,"overrides":263,"nonWgConsults":0}
+{"seed":10000,"offHash":"f3b5174b","onHash":"5f1d63af","claims":[37,37],"portChanges":[42,38],"secessions":[4,0],"wipeouts":[[],[]],"consults":1695,"holderConsults":0,"overrides":460,"nonWgConsults":0}
+pins: {"1847":{"short":"8b099eb5","long":"fe90964e","ok":false},"2718":{"short":"fd4536b6","long":"d7242b8e","ok":false},"4096":{"short":"0c87683c","long":"de5930a9","ok":false}} default factions 63bbaa4c / 63bbaa4c
+replay: {"consults":741,"hash":"e875cc2b","replayHash":"e875cc2b","providerCalls":0,"used":741,"ok":true}
+| Seed | Claims off/on | Port changes off/on | Secessions off/on | WG consults | Overrides | Wipeouts off/on |
+|---|---|---|---|---|---|---|
+| 1847 | 30 / 46 | 32 / 47 | 1 / 0 | 1722 | 503 | [] / [] |
+| 2718 | 42 / 52 | 47 / 58 | 4 / 5 | 1646 | 482 | [] / [] |
+| 4096 | 31 / 50 | 34 / 57 | 2 / 6 | 1421 | 388 | [] / [] |
+| 1000 | 26 / 30 | 28 / 33 | 1 / 2 | 1646 | 446 | [] / [] |
+| 2000 | 38 / 36 | 44 / 39 | 5 / 2 | 1506 | 450 | [] / [] |
+| 3000 | 48 / 29 | 52 / 30 | 3 / 0 | 2355 | 548 | [] / [] |
+| 4000 | 60 / 46 | 61 / 47 | 0 / 0 | 1750 | 517 | [] / [] |
+| 5000 | 29 / 24 | 31 / 28 | 1 / 3 | 1542 | 429 | [] / [] |
+| 6000 | 57 / 40 | 64 / 41 | 6 / 0 | 1863 | 525 | [] / [] |
+| 7000 | 54 / 54 | 55 / 55 | 0 / 0 | 1839 | 543 | [] / [] |
+| 8000 | 25 / 39 | 29 / 44 | 3 / 4 | 1376 | 418 | [] / [] |
+| 9000 | 50 / 50 | 58 / 55 | 7 / 4 | 983 | 263 | [] / [] |
+| 10000 | 37 / 37 | 42 / 38 | 4 / 0 | 1695 | 460 | [] / [] |
+| total | 527 / 533 | 577 / 572 | 37 / 26 (seeds with ≥ 1: 11 / 7) | 21344 | 5972 | |
+{"1_flagOffPins":false,"1_defaultFactionsByteIdentical":true,"2_replayExactZeroCalls":true,"3_secessionSeeds_ge_6":true,"3_livenessEverySeed":true,"3_noNewWipeouts":true,"v1_holderDormant":true,"v1_onlyWgConsulted":true}
+WG PICKER ACCEPTANCE FAILED
