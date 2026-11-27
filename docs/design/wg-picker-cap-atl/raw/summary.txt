@@ -1,0 +1,179 @@
+## Per-seed eligible WG consults (read-only recount method) and stub consult records (uncapped)
+| Seed | off | A | T | L | AL | AT | TL | ATL | ATLS |
+|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 1,482 / 1,013 | 1,543 / 1,017 | 1,891 / 1,574 | 1,295 / 1,196 | 1,295 / 1,286 | 1,974 / 1,574 | 1,807 / 1,722 | 1,686 / 1,722 | 1,839 / 1,722 |
+| 2718 | 1,329 / 1,235 | 1,329 / 1,235 | 1,625 / 2,030 | 1,237 / 1,202 | 1,237 / 1,202 | 1,625 / 2,030 | 1,424 / 1,701 | 1,348 / 1,646 | 1,348 / 1,646 |
+| 4096 | 1,152 / 1,319 | 1,006 / 1,315 | 1,271 / 1,712 | 945 / 1,123 | 1,309 / 1,107 | 1,488 / 1,524 | 1,534 / 1,770 | 1,460 / 1,421 | 1,460 / 1,222 |
+| 1000 | 1,400 / 1,274 | 1,507 / 1,274 | 1,874 / 1,603 | 1,299 / 1,278 | 1,299 / 1,436 | 1,874 / 1,603 | 1,777 / 1,530 | 2,008 / 1,646 | 2,008 / 1,653 |
+| 2000 | 1,003 / 1,228 | 1,070 / 1,170 | 2,151 / 1,184 | 1,464 / 1,025 | 1,464 / 1,003 | 2,151 / 1,472 | 1,496 / 1,547 | 1,510 / 1,506 | 1,576 / 1,910 |
+| 3000 | 1,681 / 945 | 1,232 / 930 | 1,385 / 1,860 | 1,629 / 1,223 | 1,305 / 1,265 | 1,401 / 1,860 | 1,320 / 2,415 | 1,591 / 2,415 | 1,242 / 2,415 |
+| 4000 | 1,148 / 1,352 | 1,001 / 1,352 | 1,358 / 1,420 | 1,218 / 1,218 | 1,378 / 1,218 | 1,358 / 1,489 | 1,582 / 1,750 | 1,582 / 1,750 | 1,582 / 1,750 |
+| 5000 | 1,108 / 1,144 | 1,073 / 1,180 | 1,316 / 2,056 | 1,492 / 1,442 | 1,492 / 1,067 | 1,205 / 1,491 | 1,419 / 1,452 | 1,633 / 1,542 | 1,633 / 1,604 |
+| 6000 | 1,367 / 1,089 | 1,360 / 1,063 | 1,609 / 1,588 | 1,332 / 1,078 | 1,290 / 1,074 | 1,632 / 1,588 | 1,120 / 1,865 | 1,686 / 1,865 | 1,376 / 1,865 |
+| 7000 | 1,594 / 1,503 | 1,398 / 1,503 | 1,930 / 1,641 | 1,835 / 1,202 | 1,762 / 1,134 | 1,930 / 1,641 | 1,945 / 1,839 | 1,945 / 1,839 | 1,945 / 1,839 |
+| 8000 | 1,090 / 1,052 | 1,257 / 1,089 | 1,641 / 1,415 | 1,367 / 1,115 | 1,251 / 1,024 | 1,641 / 1,553 | 1,684 / 1,453 | 1,910 / 1,376 | 1,910 / 1,326 |
+| 9000 | 1,276 / 1,078 | 1,247 / 1,177 | 1,002 / 1,643 | 1,394 / 982 | 1,457 / 659 | 1,374 / 1,544 | 1,485 / 1,107 | 1,046 / 983 | 1,349 / 1,086 |
+| 10000 | 1,442 / 1,211 | 1,441 / 1,186 | 1,118 / 1,837 | 1,099 / 1,078 | 1,101 / 1,233 | 1,185 / 1,586 | 1,478 / 1,695 | 873 / 1,695 | 961 / 1,695 |
+| total | 17,072 / 15,443 | 16,464 / 15,491 | 20,171 / 21,563 | 17,606 / 15,162 | 17,640 / 14,708 | 20,838 / 20,955 | 20,071 / 21,846 | 20,278 / 21,406 | 20,229 / 21,733 |
+| max (13) | 1,681 / 1,503 | 1,543 / 1,503 | 2,151 / 2,056 | 1,835 / 1,442 | 1,762 / 1,436 | 2,151 / 2,030 | 1,945 / 2,415 | 2,008 / 2,415 | 2,008 / 2,415 |
+| max (1847/2718/4096) | 1,482 / 1,319 | 1,543 / 1,315 | 1,891 / 2,030 | 1,295 / 1,202 | 1,309 / 1,286 | 1,974 / 2,030 | 1,807 / 1,770 | 1,686 / 1,722 | 1,839 / 1,722 |
+| seeds > 1,853 | 0 / 0 | 0 / 0 | 4 / 3 | 0 / 0 | 0 / 0 | 4 / 2 | 1 / 2 | 3 / 2 | 3 / 3 |
+
+## Decomposition (read-only, 13-seed totals)
+| Measure | off | A | T | L | AL | AT | TL | ATL | ATLS |
+|---|---|---|---|---|---|---|---|---|---|
+| WG decisions | 117,267 | 116,328 | 121,117 | 125,650 | 125,896 | 121,741 | 116,655 | 116,679 | 118,898 |
+| haul gate open | 116,839 | 115,930 | 120,594 | 125,275 | 125,516 | 121,186 | 116,132 | 116,169 | 118,352 |
+| governor decisions | 17,147 | 16,535 | 20,295 | 17,694 | 17,729 | 20,973 | 20,198 | 20,399 | 20,352 |
+| holder | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| gov: raid/claim legal | 75 | 71 | 124 | 88 | 89 | 135 | 127 | 121 | 123 |
+| gov: <2 legal | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| gov: dup | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| eligible | 17,072 | 16,464 | 20,171 | 17,606 | 17,640 | 20,838 | 20,071 | 20,278 | 20,229 |
+| gov away from seat | 4,956 | 5,326 | 9,017 | 5,722 | 6,021 | 9,542 | 10,303 | 10,158 | 10,333 |
+| eligible away | 4,881 | 5,255 | 8,893 | 5,635 | 5,933 | 9,407 | 10,176 | 10,037 | 10,210 |
+| gov at pact/peace port | 0 | 34 | 0 | 0 | 56 | 182 | 0 | 127 | 1,072 |
+| eligible at pact/peace port | 0 | 34 | 0 | 0 | 56 | 182 | 0 | 127 | 1,072 |
+| WG port-ticks | 22,800 | 22,083 | 31,235 | 22,907 | 23,137 | 31,542 | 30,524 | 30,563 | 30,840 |
+| seated port-ticks | 21,423 | 20,419 | 29,900 | 21,851 | 22,191 | 30,739 | 29,148 | 29,263 | 29,599 |
+| vacant port-ticks | 1,377 | 1,664 | 1,335 | 1,056 | 946 | 803 | 1,376 | 1,300 | 1,241 |
+| seated by promoted | 0 | 0 | 0 | 376 | 237 | 0 | 790 | 689 | 365 |
+| eligible by promoted | 0 | 0 | 0 | 361 | 220 | 0 | 600 | 524 | 332 |
+| WG promotions | 0 | 0 | 0 | 11 | 9 | 0 | 15 | 12 | 14 |
+| WG retirements | 0 | 0 | 0 | 38 | 35 | 0 | 26 | 28 | 26 |
+| WG purchases | 0 | 0 | 13 | 0 | 0 | 13 | 13 | 13 | 13 |
+
+## Eligible per seated port-tick (rate) and eligible by seat (13-seed totals)
+off: eligible/seated-port-tick 0.797; eligible by seat {'cinder-key': 4857, 'cinder-key+crown-harbor': 221, 'cinder-key+glassport': 168, 'crown-harbor': 7094, 'crown-harbor+glassport': 111, 'glassport': 4621}; WG port-ticks {'cinder-key': 6308, 'crown-harbor': 10085, 'glassport': 6407}; seated {'cinder-key': 6016, 'crown-harbor': 9424, 'glassport': 5983}
+A: eligible/seated-port-tick 0.806; eligible by seat {'cinder-key': 4942, 'cinder-key+crown-harbor': 146, 'cinder-key+glassport': 82, 'crown-harbor': 7402, 'crown-harbor+glassport': 82, 'glassport': 3810}; WG port-ticks {'cinder-key': 6106, 'crown-harbor': 10456, 'glassport': 5521}; seated {'cinder-key': 5706, 'crown-harbor': 9646, 'glassport': 5067}
+T: eligible/seated-port-tick 0.675; eligible by seat {'cinder-key': 4288, 'cinder-key+crown-harbor': 178, 'cinder-key+crown-harbor+verdant-cay': 84, 'cinder-key+glassport': 151, 'cinder-key+glassport+verdant-cay': 9, 'cinder-key+verdant-cay': 81, 'crown-harbor': 5984, 'crown-harbor+glassport': 602, 'crown-harbor+glassport+verdant-cay': 196, 'crown-harbor+verdant-cay': 463, 'glassport': 4787, 'glassport+verdant-cay': 194, 'verdant-cay': 3154}; WG port-ticks {'cinder-key': 5486, 'crown-harbor': 11023, 'glassport': 8211, 'verdant-cay': 6515}; seated {'cinder-key': 5290, 'crown-harbor': 10481, 'glassport': 7733, 'verdant-cay': 6396}
+L: eligible/seated-port-tick 0.806; eligible by seat {'cinder-key': 4720, 'cinder-key+crown-harbor': 160, 'cinder-key+glassport': 64, 'crown-harbor': 8120, 'crown-harbor+glassport': 78, 'glassport': 4464}; WG port-ticks {'cinder-key': 5729, 'crown-harbor': 10829, 'glassport': 6349}; seated {'cinder-key': 5512, 'crown-harbor': 10298, 'glassport': 6041}
+AL: eligible/seated-port-tick 0.795; eligible by seat {'cinder-key': 4581, 'cinder-key+crown-harbor': 161, 'cinder-key+glassport': 60, 'crown-harbor': 8330, 'crown-harbor+glassport': 78, 'glassport': 4430}; WG port-ticks {'cinder-key': 5629, 'crown-harbor': 11154, 'glassport': 6354}; seated {'cinder-key': 5416, 'crown-harbor': 10740, 'glassport': 6035}
+AT: eligible/seated-port-tick 0.678; eligible by seat {'cinder-key': 3866, 'cinder-key+crown-harbor': 160, 'cinder-key+crown-harbor+verdant-cay': 84, 'cinder-key+glassport': 149, 'cinder-key+glassport+verdant-cay': 9, 'cinder-key+verdant-cay': 216, 'crown-harbor': 6394, 'crown-harbor+glassport': 506, 'crown-harbor+glassport+verdant-cay': 192, 'crown-harbor+verdant-cay': 503, 'glassport': 4285, 'glassport+verdant-cay': 230, 'verdant-cay': 4244}; WG port-ticks {'cinder-key': 5078, 'crown-harbor': 11033, 'glassport': 7312, 'verdant-cay': 8119}; seated {'cinder-key': 4967, 'crown-harbor': 10735, 'glassport': 7074, 'verdant-cay': 7963}
+TL: eligible/seated-port-tick 0.689; eligible by seat {'cinder-key': 3127, 'cinder-key+crown-harbor': 326, 'cinder-key+glassport': 210, 'cinder-key+glassport+verdant-cay': 9, 'cinder-key+verdant-cay': 150, 'crown-harbor': 6783, 'crown-harbor+glassport': 323, 'crown-harbor+verdant-cay': 202, 'glassport': 3609, 'glassport+verdant-cay': 164, 'verdant-cay': 5168}; WG port-ticks {'cinder-key': 4909, 'crown-harbor': 10474, 'glassport': 6273, 'verdant-cay': 8868}; seated {'cinder-key': 4554, 'crown-harbor': 9935, 'glassport': 6080, 'verdant-cay': 8579}
+ATL: eligible/seated-port-tick 0.693; eligible by seat {'cinder-key': 3522, 'cinder-key+crown-harbor': 171, 'cinder-key+glassport': 178, 'cinder-key+glassport+verdant-cay': 9, 'cinder-key+verdant-cay': 101, 'crown-harbor': 6788, 'crown-harbor+glassport': 354, 'crown-harbor+verdant-cay': 190, 'glassport': 3844, 'glassport+verdant-cay': 76, 'verdant-cay': 5045}; WG port-ticks {'cinder-key': 4781, 'crown-harbor': 10330, 'glassport': 6573, 'verdant-cay': 8879}; seated {'cinder-key': 4581, 'crown-harbor': 9824, 'glassport': 6320, 'verdant-cay': 8538}
+ATLS: eligible/seated-port-tick 0.683; eligible by seat {'cinder-key': 3652, 'cinder-key+crown-harbor': 257, 'cinder-key+glassport': 222, 'cinder-key+glassport+verdant-cay': 9, 'cinder-key+verdant-cay': 535, 'crown-harbor': 6218, 'crown-harbor+glassport': 353, 'crown-harbor+glassport+verdant-cay': 24, 'crown-harbor+verdant-cay': 167, 'glassport': 3796, 'glassport+verdant-cay': 170, 'verdant-cay': 4826}; WG port-ticks {'cinder-key': 5478, 'crown-harbor': 9586, 'glassport': 6746, 'verdant-cay': 9030}; seated {'cinder-key': 5283, 'crown-harbor': 9243, 'glassport': 6371, 'verdant-cay': 8702}
+
+## Eligible by 200-tick bin (13-seed totals)
+| Config | 0–199 | 200–399 | 400–599 | 600–799 | 800–999 | 1000–1199 |
+|---|---|---|---|---|---|---|
+| off | 2,419 | 2,791 | 2,820 | 2,923 | 3,076 | 3,043 |
+| A | 2,419 | 2,724 | 2,687 | 2,979 | 2,783 | 2,872 |
+| T | 2,627 | 3,438 | 2,822 | 4,052 | 3,655 | 3,577 |
+| L | 2,419 | 3,073 | 2,966 | 3,096 | 3,197 | 2,855 |
+| AL | 2,419 | 3,139 | 2,945 | 2,979 | 3,023 | 3,135 |
+| AT | 2,593 | 3,396 | 2,715 | 4,183 | 4,201 | 3,750 |
+| TL | 2,627 | 3,203 | 3,433 | 3,253 | 3,290 | 4,265 |
+| ATL | 2,593 | 3,094 | 3,304 | 3,368 | 3,651 | 4,268 |
+| ATLS | 2,593 | 3,072 | 3,374 | 3,279 | 3,678 | 4,233 |
+| Config (seated port-ticks) | 0–199 | 200–399 | 400–599 | 600–799 | 800–999 | 1000–1199 |
+|---|---|---|---|---|---|---|
+| off | 4,175 | 3,528 | 3,230 | 3,434 | 3,670 | 3,386 |
+| A | 4,175 | 3,399 | 3,219 | 3,268 | 3,135 | 3,223 |
+| T | 5,278 | 5,537 | 4,358 | 5,346 | 4,462 | 4,919 |
+| L | 4,175 | 3,761 | 3,492 | 3,489 | 3,750 | 3,184 |
+| AL | 4,175 | 3,798 | 3,535 | 3,474 | 3,715 | 3,494 |
+| AT | 5,231 | 5,478 | 4,287 | 5,643 | 5,004 | 5,096 |
+| TL | 5,278 | 4,960 | 4,558 | 4,324 | 4,448 | 5,580 |
+| ATL | 5,231 | 4,847 | 4,554 | 4,312 | 4,952 | 5,367 |
+| ATLS | 5,231 | 4,839 | 4,579 | 4,384 | 5,220 | 5,346 |
+
+## By consulter, per seed (read-only): off | ATL | ATLS  (character: eligible)
+1847 off: character-05 Jun Marrow (initial): 678, character-10 Kessa Calder (initial): 286, character-11 Rook Tern (initial): 162, character-06 Iris Stone (initial): 134, character-03 Niko Wren (initial): 68, character-12 Lio Crow (initial): 51, character-02 Bram Quill (initial): 48, character-07 Toma Reef (initial): 45, character-04 Sable Morrow (initial): 10 | seats {'glassport': 269, 'crown-harbor': 724, 'cinder-key+crown-harbor': 8, 'cinder-key': 481}
+1847 ATL: character-05 Jun Marrow (initial): 762, character-06 Iris Stone (initial): 329, character-03 Niko Wren (initial): 319, character-10 Kessa Calder (initial): 173, character-12 Lio Crow (initial): 48, character-11 Rook Tern (initial): 21, character-13 Ada Sorn (initial): 21, character-02 Bram Quill (initial): 12, character-07 Toma Reef (initial): 1 | seats {'glassport': 319, 'crown-harbor': 763, 'verdant-cay': 526, 'cinder-key': 12, 'cinder-key+verdant-cay': 66}
+1847 ATLS: character-05 Jun Marrow (initial): 651, character-10 Kessa Calder (initial): 493, character-06 Iris Stone (initial): 301, character-08 Vale Drake (initial): 211, character-02 Bram Quill (initial): 115, character-11 Rook Tern (initial): 35, character-32 Esme Hale (promoted): 33 | seats {'glassport': 217, 'crown-harbor': 883, 'verdant-cay': 495, 'cinder-key': 158, 'cinder-key+crown-harbor': 86}
+2718 off: character-13 Ada Sorn (initial): 504, character-06 Iris Stone (initial): 467, character-08 Vale Drake (initial): 103, character-05 Jun Marrow (initial): 70, character-11 Rook Tern (initial): 62, character-04 Sable Morrow (initial): 46, character-07 Toma Reef (initial): 45, character-02 Bram Quill (initial): 32 | seats {'glassport': 443, 'crown-harbor': 385, 'cinder-key+glassport': 9, 'cinder-key': 492}
+2718 ATL: character-13 Ada Sorn (initial): 557, character-06 Iris Stone (initial): 472, character-11 Rook Tern (initial): 163, character-07 Toma Reef (initial): 54, character-09 Orin Rill (initial): 46, character-08 Vale Drake (initial): 29, character-31 Orin Quill (promoted): 27 | seats {'glassport': 148, 'crown-harbor': 496, 'verdant-cay': 178, 'cinder-key+glassport': 16, 'crown-harbor+glassport': 87, 'cinder-key': 419, 'glassport+verdant-cay': 4}
+2718 ATLS: character-13 Ada Sorn (initial): 557, character-06 Iris Stone (initial): 472, character-11 Rook Tern (initial): 163, character-07 Toma Reef (initial): 54, character-09 Orin Rill (initial): 46, character-08 Vale Drake (initial): 29, character-31 Orin Quill (promoted): 27 | seats {'glassport': 148, 'crown-harbor': 496, 'verdant-cay': 178, 'cinder-key+glassport': 16, 'crown-harbor+glassport': 87, 'cinder-key': 419, 'glassport+verdant-cay': 4}
+4096 off: character-11 Rook Tern (initial): 526, character-06 Iris Stone (initial): 360, character-07 Toma Reef (initial): 237, character-05 Jun Marrow (initial): 29 | seats {'glassport': 297, 'crown-harbor': 316, 'cinder-key+crown-harbor': 22, 'cinder-key': 517}
+4096 ATL: character-11 Rook Tern (initial): 606, character-07 Toma Reef (initial): 523, character-06 Iris Stone (initial): 263, character-10 Kessa Calder (initial): 48, character-08 Vale Drake (initial): 20 | seats {'glassport': 55, 'crown-harbor': 345, 'verdant-cay': 500, 'cinder-key+crown-harbor': 4, 'crown-harbor+glassport': 33, 'cinder-key+glassport': 98, 'cinder-key': 390, 'crown-harbor+verdant-cay': 35}
+4096 ATLS: character-11 Rook Tern (initial): 606, character-07 Toma Reef (initial): 523, character-06 Iris Stone (initial): 263, character-10 Kessa Calder (initial): 48, character-08 Vale Drake (initial): 20 | seats {'glassport': 55, 'crown-harbor': 345, 'verdant-cay': 500, 'cinder-key+crown-harbor': 4, 'crown-harbor+glassport': 33, 'cinder-key+glassport': 98, 'cinder-key': 390, 'crown-harbor+verdant-cay': 35}
+1000 off: character-11 Rook Tern (initial): 839, character-03 Niko Wren (initial): 249, character-12 Lio Crow (initial): 145, character-07 Toma Reef (initial): 67, character-09 Orin Rill (initial): 64, character-04 Sable Morrow (initial): 16, character-02 Bram Quill (initial): 11, character-06 Iris Stone (initial): 9 | seats {'glassport': 267, 'crown-harbor': 860, 'cinder-key': 273}
+1000 ATL: character-11 Rook Tern (initial): 943, character-02 Bram Quill (initial): 400, character-06 Iris Stone (initial): 386, character-03 Niko Wren (initial): 211, character-09 Orin Rill (initial): 60, character-08 Vale Drake (initial): 6, character-12 Lio Crow (initial): 2 | seats {'glassport': 391, 'crown-harbor': 890, 'verdant-cay': 330, 'cinder-key': 206, 'crown-harbor+glassport': 132, 'cinder-key+crown-harbor': 59}
+1000 ATLS: character-11 Rook Tern (initial): 943, character-02 Bram Quill (initial): 400, character-06 Iris Stone (initial): 386, character-03 Niko Wren (initial): 211, character-09 Orin Rill (initial): 60, character-08 Vale Drake (initial): 6, character-12 Lio Crow (initial): 2 | seats {'glassport': 391, 'crown-harbor': 890, 'verdant-cay': 330, 'cinder-key': 206, 'crown-harbor+glassport': 132, 'cinder-key+crown-harbor': 59}
+2000 off: character-09 Orin Rill (initial): 488, character-06 Iris Stone (initial): 232, character-12 Lio Crow (initial): 104, character-07 Toma Reef (initial): 96, character-10 Kessa Calder (initial): 46, character-11 Rook Tern (initial): 37 | seats {'glassport': 274, 'crown-harbor': 445, 'cinder-key+crown-harbor': 40, 'crown-harbor+glassport': 47, 'cinder-key': 197}
+2000 ATL: character-09 Orin Rill (initial): 678, character-03 Niko Wren (initial): 415, character-04 Sable Morrow (initial): 187, character-11 Rook Tern (initial): 115, character-06 Iris Stone (initial): 87, character-07 Toma Reef (initial): 28 | seats {'glassport': 343, 'crown-harbor': 652, 'verdant-cay': 379, 'cinder-key+crown-harbor': 49, 'cinder-key': 86, 'crown-harbor+glassport': 1}
+2000 ATLS: character-03 Niko Wren (initial): 610, character-09 Orin Rill (initial): 585, character-04 Sable Morrow (initial): 113, character-07 Toma Reef (initial): 109, character-06 Iris Stone (initial): 87, character-11 Rook Tern (initial): 54, character-31 Rook Pike (promoted): 18 | seats {'glassport': 196, 'crown-harbor': 492, 'verdant-cay': 429, 'cinder-key+crown-harbor': 49, 'cinder-key': 159, 'glassport+verdant-cay': 161, 'crown-harbor+glassport+verdant-cay': 24, 'crown-harbor+verdant-cay': 52, 'cinder-key+glassport': 14}
+3000 off: character-13 Ada Sorn (initial): 442, character-10 Kessa Calder (initial): 382, character-06 Iris Stone (initial): 332, character-05 Jun Marrow (initial): 213, character-04 Sable Morrow (initial): 153, character-03 Niko Wren (initial): 89, character-02 Bram Quill (initial): 70 | seats {'glassport': 729, 'crown-harbor': 476, 'cinder-key+crown-harbor': 115, 'cinder-key': 361}
+3000 ATL: character-10 Kessa Calder (initial): 547, character-12 Lio Crow (initial): 245, character-32 Lio Tern (promoted): 243, character-09 Orin Rill (initial): 188, character-02 Bram Quill (initial): 141, character-13 Ada Sorn (initial): 104, character-11 Rook Tern (initial): 96, character-05 Jun Marrow (initial): 27 | seats {'glassport': 385, 'crown-harbor': 434, 'verdant-cay': 231, 'cinder-key+crown-harbor': 2, 'cinder-key': 490, 'glassport+verdant-cay': 49}
+3000 ATLS: character-10 Kessa Calder (initial): 576, character-09 Orin Rill (initial): 430, character-13 Ada Sorn (initial): 104, character-02 Bram Quill (initial): 99, character-05 Jun Marrow (initial): 27, character-11 Rook Tern (initial): 6 | seats {'glassport': 572, 'crown-harbor': 147, 'verdant-cay': 37, 'cinder-key+crown-harbor': 2, 'cinder-key': 484}
+4000 off: character-08 Vale Drake (initial): 323, character-07 Toma Reef (initial): 302, character-11 Rook Tern (initial): 203, character-04 Sable Morrow (initial): 152, character-13 Ada Sorn (initial): 72, character-02 Bram Quill (initial): 37, character-10 Kessa Calder (initial): 37, character-12 Lio Crow (initial): 22 | seats {'glassport': 219, 'crown-harbor': 449, 'cinder-key': 438, 'crown-harbor+glassport': 42}
+4000 ATL: character-03 Niko Wren (initial): 359, character-08 Vale Drake (initial): 331, character-07 Toma Reef (initial): 225, character-12 Lio Crow (initial): 144, character-04 Sable Morrow (initial): 129, character-13 Ada Sorn (initial): 129, character-11 Rook Tern (initial): 107, character-10 Kessa Calder (initial): 71, character-02 Bram Quill (initial): 53, character-31 Rook Pike (promoted): 20, character-06 Iris Stone (initial): 14 | seats {'glassport': 391, 'crown-harbor': 323, 'crown-harbor+verdant-cay': 47, 'cinder-key': 398, 'verdant-cay': 369, 'cinder-key+glassport': 31, 'crown-harbor+glassport': 23}
+4000 ATLS: character-03 Niko Wren (initial): 359, character-08 Vale Drake (initial): 331, character-07 Toma Reef (initial): 225, character-12 Lio Crow (initial): 144, character-04 Sable Morrow (initial): 129, character-13 Ada Sorn (initial): 129, character-11 Rook Tern (initial): 107, character-10 Kessa Calder (initial): 71, character-02 Bram Quill (initial): 53, character-31 Rook Pike (promoted): 20, character-06 Iris Stone (initial): 14 | seats {'glassport': 391, 'crown-harbor': 323, 'crown-harbor+verdant-cay': 47, 'cinder-key': 398, 'verdant-cay': 369, 'cinder-key+glassport': 31, 'crown-harbor+glassport': 23}
+5000 off: character-11 Rook Tern (initial): 614, character-13 Ada Sorn (initial): 145, character-04 Sable Morrow (initial): 87, character-08 Vale Drake (initial): 71, character-12 Lio Crow (initial): 67, character-09 Orin Rill (initial): 62, character-03 Niko Wren (initial): 33, character-06 Iris Stone (initial): 17, character-05 Jun Marrow (initial): 12 | seats {'glassport': 589, 'crown-harbor': 190, 'cinder-key': 329}
+5000 ATL: character-11 Rook Tern (initial): 507, character-12 Lio Crow (initial): 278, character-07 Toma Reef (initial): 196, character-06 Iris Stone (initial): 193, character-08 Vale Drake (initial): 174, character-03 Niko Wren (initial): 128, character-04 Sable Morrow (initial): 84, character-31 Rook Calder (promoted): 38, character-05 Jun Marrow (initial): 35 | seats {'glassport': 274, 'crown-harbor': 578, 'verdant-cay': 493, 'cinder-key+glassport': 15, 'crown-harbor+verdant-cay': 18, 'cinder-key': 255}
+5000 ATLS: character-11 Rook Tern (initial): 507, character-12 Lio Crow (initial): 278, character-07 Toma Reef (initial): 196, character-06 Iris Stone (initial): 193, character-08 Vale Drake (initial): 174, character-03 Niko Wren (initial): 128, character-04 Sable Morrow (initial): 84, character-31 Rook Calder (promoted): 38, character-05 Jun Marrow (initial): 35 | seats {'glassport': 274, 'crown-harbor': 578, 'verdant-cay': 493, 'cinder-key+glassport': 15, 'crown-harbor+verdant-cay': 18, 'cinder-key': 255}
+6000 off: character-05 Jun Marrow (initial): 512, character-09 Orin Rill (initial): 404, character-04 Sable Morrow (initial): 233, character-02 Bram Quill (initial): 90, character-10 Kessa Calder (initial): 53, character-03 Niko Wren (initial): 48, character-13 Ada Sorn (initial): 27 | seats {'glassport': 361, 'crown-harbor': 611, 'cinder-key': 302, 'cinder-key+glassport': 93}
+6000 ATL: character-04 Sable Morrow (initial): 568, character-06 Iris Stone (initial): 455, character-13 Ada Sorn (initial): 384, character-03 Niko Wren (initial): 120, character-05 Jun Marrow (initial): 60, character-11 Rook Tern (initial): 55, character-08 Vale Drake (initial): 24, character-07 Toma Reef (initial): 20 | seats {'glassport': 201, 'crown-harbor': 255, 'verdant-cay': 581, 'glassport+verdant-cay': 23, 'cinder-key+glassport+verdant-cay': 9, 'cinder-key+verdant-cay': 34, 'cinder-key': 508, 'crown-harbor+verdant-cay': 75}
+6000 ATLS: character-04 Sable Morrow (initial): 1057, character-06 Iris Stone (initial): 162, character-13 Ada Sorn (initial): 67, character-05 Jun Marrow (initial): 60, character-08 Vale Drake (initial): 24, character-02 Bram Quill (initial): 6 | seats {'glassport': 149, 'crown-harbor': 60, 'verdant-cay': 539, 'glassport+verdant-cay': 5, 'cinder-key+glassport+verdant-cay': 9, 'cinder-key+verdant-cay': 489, 'cinder-key': 125}
+7000 off: character-09 Orin Rill (initial): 574, character-02 Bram Quill (initial): 454, character-11 Rook Tern (initial): 274, character-10 Kessa Calder (initial): 83, character-06 Iris Stone (initial): 69, character-05 Jun Marrow (initial): 61, character-12 Lio Crow (initial): 48, character-03 Niko Wren (initial): 22, character-08 Vale Drake (initial): 7, character-13 Ada Sorn (initial): 2 | seats {'glassport': 398, 'crown-harbor': 636, 'cinder-key': 471, 'cinder-key+glassport': 66, 'cinder-key+crown-harbor': 23}
+7000 ATL: character-09 Orin Rill (initial): 427, character-13 Ada Sorn (initial): 383, character-06 Iris Stone (initial): 341, character-11 Rook Tern (initial): 237, character-03 Niko Wren (initial): 182, character-31 Rook Calder (promoted): 100, character-32 Lio Tern (promoted): 96, character-02 Bram Quill (initial): 65, character-10 Kessa Calder (initial): 54, character-12 Lio Crow (initial): 43, character-08 Vale Drake (initial): 17 | seats {'glassport': 478, 'crown-harbor': 666, 'verdant-cay': 568, 'cinder-key+verdant-cay': 1, 'cinder-key': 193, 'cinder-key+glassport': 16, 'crown-harbor+glassport': 23}
+7000 ATLS: character-09 Orin Rill (initial): 427, character-13 Ada Sorn (initial): 383, character-06 Iris Stone (initial): 341, character-11 Rook Tern (initial): 237, character-03 Niko Wren (initial): 182, character-31 Rook Calder (promoted): 100, character-32 Lio Tern (promoted): 96, character-02 Bram Quill (initial): 65, character-10 Kessa Calder (initial): 54, character-12 Lio Crow (initial): 43, character-08 Vale Drake (initial): 17 | seats {'glassport': 478, 'crown-harbor': 666, 'verdant-cay': 568, 'cinder-key+verdant-cay': 1, 'cinder-key': 193, 'cinder-key+glassport': 16, 'crown-harbor+glassport': 23}
+8000 off: character-08 Vale Drake (initial): 446, character-11 Rook Tern (initial): 228, character-12 Lio Crow (initial): 155, character-09 Orin Rill (initial): 92, character-02 Bram Quill (initial): 71, character-05 Jun Marrow (initial): 44, character-10 Kessa Calder (initial): 32, character-03 Niko Wren (initial): 11, character-07 Toma Reef (initial): 11 | seats {'glassport': 315, 'crown-harbor': 428, 'cinder-key+crown-harbor': 13, 'cinder-key': 334}
+8000 ATL: character-09 Orin Rill (initial): 770, character-12 Lio Crow (initial): 363, character-05 Jun Marrow (initial): 328, character-08 Vale Drake (initial): 325, character-07 Toma Reef (initial): 74, character-11 Rook Tern (initial): 35, character-13 Ada Sorn (initial): 13, character-02 Bram Quill (initial): 2 | seats {'glassport': 450, 'crown-harbor': 715, 'verdant-cay': 358, 'cinder-key+glassport': 2, 'cinder-key+crown-harbor': 57, 'cinder-key': 328}
+8000 ATLS: character-09 Orin Rill (initial): 770, character-12 Lio Crow (initial): 363, character-05 Jun Marrow (initial): 328, character-08 Vale Drake (initial): 325, character-07 Toma Reef (initial): 74, character-11 Rook Tern (initial): 35, character-13 Ada Sorn (initial): 13, character-02 Bram Quill (initial): 2 | seats {'glassport': 450, 'crown-harbor': 715, 'verdant-cay': 358, 'cinder-key+glassport': 2, 'cinder-key+crown-harbor': 57, 'cinder-key': 328}
+9000 off: character-11 Rook Tern (initial): 474, character-03 Niko Wren (initial): 380, character-10 Kessa Calder (initial): 173, character-13 Ada Sorn (initial): 136, character-02 Bram Quill (initial): 43, character-07 Toma Reef (initial): 39, character-09 Orin Rill (initial): 24, character-12 Lio Crow (initial): 7 | seats {'glassport': 444, 'crown-harbor': 456, 'cinder-key': 376}
+9000 ATL: character-04 Sable Morrow (initial): 449, character-10 Kessa Calder (initial): 228, character-03 Niko Wren (initial): 119, character-05 Jun Marrow (initial): 87, character-02 Bram Quill (initial): 77, character-07 Toma Reef (initial): 48, character-12 Lio Crow (initial): 38 | seats {'glassport': 239, 'crown-harbor': 297, 'crown-harbor+verdant-cay': 15, 'cinder-key': 235, 'crown-harbor+glassport': 28, 'verdant-cay': 232}
+9000 ATLS: character-10 Kessa Calder (initial): 446, character-03 Niko Wren (initial): 281, character-04 Sable Morrow (initial): 174, character-02 Bram Quill (initial): 125, character-11 Rook Tern (initial): 117, character-07 Toma Reef (initial): 89, character-12 Lio Crow (initial): 38, character-06 Iris Stone (initial): 38, character-08 Vale Drake (initial): 34, character-05 Jun Marrow (initial): 7 | seats {'glassport': 305, 'crown-harbor': 281, 'crown-harbor+verdant-cay': 15, 'cinder-key': 475, 'verdant-cay': 215, 'cinder-key+glassport': 30, 'crown-harbor+glassport': 28}
+10000 off: character-11 Rook Tern (initial): 660, character-06 Iris Stone (initial): 480, character-05 Jun Marrow (initial): 286, character-02 Bram Quill (initial): 16 | seats {'glassport': 16, 'crown-harbor': 1118, 'cinder-key': 286, 'crown-harbor+glassport': 22}
+10000 ATL: character-06 Iris Stone (initial): 243, character-07 Toma Reef (initial): 222, character-11 Rook Tern (initial): 176, character-02 Bram Quill (initial): 145, character-03 Niko Wren (initial): 53, character-12 Lio Crow (initial): 34 | seats {'glassport': 170, 'crown-harbor': 374, 'verdant-cay': 300, 'cinder-key': 2, 'crown-harbor+glassport': 27}
+10000 ATLS: character-02 Bram Quill (initial): 400, character-06 Iris Stone (initial): 237, character-11 Rook Tern (initial): 176, character-07 Toma Reef (initial): 75, character-03 Niko Wren (initial): 53, character-12 Lio Crow (initial): 20 | seats {'glassport': 170, 'crown-harbor': 342, 'verdant-cay': 315, 'cinder-key': 62, 'crown-harbor+glassport': 27, 'cinder-key+verdant-cay': 45}
+
+## Per-seed WG port-ticks and seated port-ticks: off -> ATL
+1847: port-ticks 1901->2341, seated 1758->2126, maxWgPorts 3->4, by port off {'crown-harbor': 906, 'glassport': 463, 'cinder-key': 532} ATL {'crown-harbor': 937, 'glassport': 469, 'verdant-cay': 803, 'cinder-key': 132}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+2718: port-ticks 1902->2351, seated 1552->2185, maxWgPorts 3->4, by port off {'crown-harbor': 682, 'glassport': 640, 'cinder-key': 580} ATL {'crown-harbor': 828, 'glassport': 449, 'verdant-cay': 617, 'cinder-key': 457}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+4096: port-ticks 1622->2322, seated 1530->2296, maxWgPorts 3->4, by port off {'crown-harbor': 444, 'glassport': 390, 'cinder-key': 788} ATL {'crown-harbor': 577, 'glassport': 222, 'verdant-cay': 1006, 'cinder-key': 517}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+1000: port-ticks 1710->2785, seated 1640->2785, maxWgPorts 3->4, by port off {'crown-harbor': 1006, 'glassport': 368, 'cinder-key': 336} ATL {'crown-harbor': 1166, 'glassport': 681, 'verdant-cay': 670, 'cinder-key': 268}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+2000: port-ticks 1504->2145, seated 1327->2065, maxWgPorts 3->4, by port off {'crown-harbor': 736, 'glassport': 464, 'cinder-key': 304} ATL {'crown-harbor': 1016, 'glassport': 405, 'verdant-cay': 531, 'cinder-key': 193}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+3000: port-ticks 2168->2353, seated 2162->2041, maxWgPorts 3->4, by port off {'crown-harbor': 862, 'glassport': 761, 'cinder-key': 545} ATL {'crown-harbor': 754, 'glassport': 516, 'verdant-cay': 519, 'cinder-key': 564}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+4000: port-ticks 1611->2419, seated 1529->2329, maxWgPorts 3->4, by port off {'crown-harbor': 715, 'glassport': 404, 'cinder-key': 492} ATL {'crown-harbor': 702, 'glassport': 598, 'verdant-cay': 548, 'cinder-key': 571}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+5000: port-ticks 1632->2714, seated 1561->2645, maxWgPorts 3->4, by port off {'crown-harbor': 473, 'glassport': 715, 'cinder-key': 444} ATL {'crown-harbor': 825, 'glassport': 489, 'verdant-cay': 1051, 'cinder-key': 349}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+6000: port-ticks 1773->2357, seated 1773->2313, maxWgPorts 3->4, by port off {'crown-harbor': 760, 'glassport': 507, 'cinder-key': 506} ATL {'crown-harbor': 472, 'glassport': 357, 'verdant-cay': 966, 'cinder-key': 562}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+7000: port-ticks 2099->2784, seated 1950->2639, maxWgPorts 3->4, by port off {'crown-harbor': 860, 'glassport': 594, 'cinder-key': 645} ATL {'crown-harbor': 840, 'glassport': 682, 'verdant-cay': 848, 'cinder-key': 414}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+8000: port-ticks 1557->2887, seated 1474->2887, maxWgPorts 3->4, by port off {'crown-harbor': 766, 'glassport': 402, 'cinder-key': 389} ATL {'crown-harbor': 1047, 'glassport': 925, 'verdant-cay': 515, 'cinder-key': 400}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+9000: port-ticks 1737->1630, seated 1583->1556, maxWgPorts 3->4, by port off {'crown-harbor': 675, 'glassport': 631, 'cinder-key': 431} ATL {'crown-harbor': 636, 'glassport': 368, 'verdant-cay': 278, 'cinder-key': 348}, purchases ATL [{'tick': 48, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 852}}]
+10000: port-ticks 1584->1475, seated 1584->1396, maxWgPorts 3->3, by port off {'crown-harbor': 1200, 'glassport': 68, 'cinder-key': 316} ATL {'crown-harbor': 530, 'glassport': 412, 'verdant-cay': 527, 'cinder-key': 6}, purchases ATL [{'tick': 24, 'settlement': 'verdant-cay', 'data': {'factionId': 'world-government', 'price': 840}}]
+
+## Stub mode (uncapped stubUniform): hook eligible == engine records? True
+| Measure | off | A | T | L | AL | AT | TL | ATL | ATLS |
+|---|---|---|---|---|---|---|---|---|---|
+| WG decisions | 123,052 | 126,373 | 124,255 | 115,331 | 115,380 | 123,939 | 124,759 | 124,450 | 123,927 |
+| haul gate open | 122,548 | 125,846 | 123,832 | 114,918 | 114,986 | 123,479 | 124,389 | 124,068 | 123,513 |
+| governor decisions | 15,559 | 15,630 | 21,718 | 15,276 | 14,820 | 21,125 | 22,002 | 21,566 | 21,876 |
+| holder | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| gov: raid/claim legal | 116 | 139 | 155 | 114 | 112 | 170 | 156 | 160 | 143 |
+| gov: <2 legal | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| gov: dup | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| eligible | 15,443 | 15,491 | 21,563 | 15,162 | 14,708 | 20,955 | 21,846 | 21,406 | 21,733 |
+| gov away from seat | 8,971 | 9,276 | 15,131 | 8,496 | 8,401 | 15,408 | 16,073 | 14,685 | 15,192 |
+| eligible away | 8,855 | 9,137 | 14,976 | 8,382 | 8,289 | 15,238 | 15,917 | 14,525 | 15,049 |
+| gov at pact/peace port | 0 | 342 | 0 | 0 | 204 | 307 | 0 | 302 | 734 |
+| eligible at pact/peace port | 0 | 342 | 0 | 0 | 204 | 307 | 0 | 302 | 659 |
+| WG port-ticks | 23,902 | 23,891 | 32,071 | 22,795 | 21,618 | 31,382 | 32,662 | 31,261 | 32,061 |
+| seated port-ticks | 22,915 | 22,922 | 30,983 | 21,511 | 20,880 | 30,479 | 31,410 | 30,572 | 31,238 |
+| vacant port-ticks | 987 | 969 | 1,088 | 1,284 | 738 | 903 | 1,252 | 689 | 823 |
+| seated by promoted | 0 | 0 | 0 | 356 | 162 | 0 | 65 | 124 | 312 |
+| eligible by promoted | 0 | 0 | 0 | 283 | 121 | 0 | 43 | 85 | 219 |
+| WG promotions | 0 | 0 | 0 | 14 | 6 | 0 | 11 | 8 | 8 |
+| WG retirements | 0 | 0 | 0 | 19 | 27 | 0 | 31 | 31 | 29 |
+| WG purchases | 0 | 0 | 12 | 0 | 0 | 12 | 12 | 12 | 12 |
+stub off: WG port-ticks by port {'cinder-key': 5894, 'crown-harbor': 11440, 'glassport': 6568}
+stub ATL: WG port-ticks by port {'cinder-key': 5660, 'crown-harbor': 9928, 'glassport': 5975, 'verdant-cay': 9698}
+stub ATLS: WG port-ticks by port {'cinder-key': 5375, 'crown-harbor': 10445, 'glassport': 5978, 'verdant-cay': 10263}
+
+## Leave-one-out per seed (read-only eligible): ATL, minus A (=TL), minus T (=AL), minus L (=AT)
+| Seed | off | ATL | TL (−A) | AL (−T) | AT (−L) | WG port-ticks off→ATL | Verdant Cay WG port-ticks ATL |
+|---|---|---|---|---|---|---|---|
+| 1847 | 1,482 | 1,686 | 1,807 | 1,295 | 1,974 | 1,901→2,341 | 803 |
+| 2718 | 1,329 | 1,348 | 1,424 | 1,237 | 1,625 | 1,902→2,351 | 617 |
+| 4096 | 1,152 | 1,460 | 1,534 | 1,309 | 1,488 | 1,622→2,322 | 1,006 |
+| 1000 | 1,400 | 2,008 | 1,777 | 1,299 | 1,874 | 1,710→2,785 | 670 |
+| 2000 | 1,003 | 1,510 | 1,496 | 1,464 | 2,151 | 1,504→2,145 | 531 |
+| 3000 | 1,681 | 1,591 | 1,320 | 1,305 | 1,401 | 2,168→2,353 | 519 |
+| 4000 | 1,148 | 1,582 | 1,582 | 1,378 | 1,358 | 1,611→2,419 | 548 |
+| 5000 | 1,108 | 1,633 | 1,419 | 1,492 | 1,205 | 1,632→2,714 | 1,051 |
+| 6000 | 1,367 | 1,686 | 1,120 | 1,290 | 1,632 | 1,773→2,357 | 966 |
+| 7000 | 1,594 | 1,945 | 1,945 | 1,762 | 1,930 | 2,099→2,784 | 848 |
+| 8000 | 1,090 | 1,910 | 1,684 | 1,251 | 1,641 | 1,557→2,887 | 515 |
+| 9000 | 1,276 | 1,046 | 1,485 | 1,457 | 1,374 | 1,737→1,630 | 278 |
+| 10000 | 1,442 | 873 | 1,478 | 1,101 | 1,185 | 1,584→1,475 | 527 |
