@@ -30,12 +30,11 @@ Git remains the complete history. This file exists for three things git does not
 
 ## Current state
 
-- **Baseline:** `origin/main` `7515445`; `feature/port-balance` adds home starts and Cinder Key fortification 1.5 (unmerged).
-- **Pins (default, EXILE_RECOVERY on — `feature/exile-default`):** 72 ticks `7f76e474` / `976c40bd` / `08943ea5` (8247 / 8155 / 8457). 1,200 ticks `94de9c02` / `7a3741c9` / `af6eeaea` (160337 / 157701 / 162679).
-- **Pins (opt-out `exileRecovery: false` / `--no-exile-recovery` / `EXILE_RECOVERY=0`, = the port-balance pins):** 72 ticks `66e8ccb7` / `b4ccedab` / `b04c5ac4` (8239 / 8177 / 8404). 1,200 ticks `b51aa07a` / `091f7628` / `25bdbf15` (156382 / 157208 / 160697).
-- **Feed-reasons stub baseline (default-on):** 188 / 169 / 194 events on 1847 / 2718 / 4096. Caps $0.10 / 200 calls (300 with exile on). Opt-out: `--no-feed-reasons` / `FEED_REASONS=0` / `feedReasons: false`.
-- **Last verified:** `feature/feed-reasons-default` on `origin/main` `3b6178d` (#182): `npm test` 669/669 keys unset; evaluate-milestone feed-reasons-default passed; live 3-seed spend $0.1129 (see entry).
-- **Runtime:** Node 24.22.1, pinned by `.node-version`.
+- **Baseline:** `origin/main` `c24a752` (#187). `feature/secession-aftermath` adds peace, protection, and membership behind `SECESSION_AFTERMATH`, default off.
+- **Pins (default, EXILE_RECOVERY on):** 72 ticks `7f76e474` / `976c40bd` / `08943ea5`. 1,200 ticks `94de9c02` / `7a3741c9` / `af6eeaea`. Flag off matches these.
+- **Pins (exile opt-out):** 72 ticks `66e8ccb7` / `b4ccedab` / `b04c5ac4`. 1,200 ticks `b51aa07a` / `091f7628` / `25bdbf15`. Flag off matches these.
+- **Last verified:** `feature/secession-aftermath`: `npm test` 682/682 with keys unset; `evaluate-milestone.sh secession-aftermath` passed (see entry).
+- **Runtime:** Node 24.21.0, pinned by `.node-version`.
 
 ## Open items
 
@@ -154,6 +153,52 @@ Git remains the complete history. This file exists for three things git does not
 ## Milestones
 
 Backfilled from the commit graph on 2026-09-25. **Attribution caveat:** commits do not record which agent authored them. Milestones M1–M11 are attributed to the ChatGPT partner from session context, not from the repository, and should not be read as verified provenance.
+
+### 2026-11-27 — SECESSION_AFTERMATH behind a flag (secession-aftermath.md rev 2 + Lead rulings)
+
+- **Agent / Branch / Commits / Type:** Open Era Engineer / `feature/secession-aftermath` off `origin/main` `c24a752` / see the branch / feature behind a flag.
+- **Changed:** Peace, protection, or membership for a seceded port still held after 67 ticks. Flag `SECESSION_AFTERMATH` (`runTick` option `secessionAftermath`), default off. Off, `world.secessionAftermath` is never created.
+  - **Module:** `src/sim/secession-aftermath.ts` — `aftermathStep`, `applyAftermathEvent`, `noteProtection`, `atPeace`, `threatTo`, `patronCandidates`.
+  - **Lead rulings:**
+    1. Peace blocks autonomous raids in `buildCandidates` (`peaceFriendly`). A player raid is not peace-gated (`processPlayerCommands`); `latestCrossRaid` emits `faction-peace-broken`. Autonomous raids are not opened to produce breaks.
+    2. `AFTERMATH_WINDOW` is 67. The age check is `age < 67`, so an outcome on that tick is legal. The window is not read from the environment.
+    3. `peaceTick` is set on `faction-peace` and left set by `faction-peace-broken`, so a secession peaces once. `protectionTick` blocks a second protection. Join is not gated on `peaceTick` and can still fire; it sets `joinedTick` and stops.
+  - **Hooks:** engine (raid/claim gate, joint battles and alliance breaks when either flag is on, `allianceForms` still ALLIANCES-only, `aftermathStep` after lifecycle); state (`applyAftermathEvent`, `noteProtection`); dynamism counts `secession-joined` as a port change.
+  - **CLI:** `--secession-aftermath` / `SECESSION_AFTERMATH=1` on simulate and action-picker. Replay restores it from the summary.
+  - **Gate:** `scripts/secession-aftermath-sweep.ts` in `evaluate-milestone.sh`.
+  - **Patron radius:** `portDistance` rounds to 3 decimals, so Crown Harbor–Glassport (raw hypot 43.829214, listed as 43.829) is inside `PATRON_NEAR`. The threat's near test stays raw `ALLIANCE_NEAR` (30).
+- **Why:** secession-aftermath.md rev 2. A seceded port that holds past the p90 loss either makes peace with the old faction, takes a protector, or joins a solvent patron.
+- **Verified:** No tuning. No live AI. `DEEPSEEK_API_KEY` and `JEV_API_KEY` unset. Node 24.21.0.
+  | Gated item | Result | Pass |
+  |---|---|---|
+  | Flag-off pins, default (72 / 1,200) | `7f76e474` / `976c40bd` / `08943ea5` and `94de9c02` / `7a3741c9` / `af6eeaea` | ✓ |
+  | Flag-off pins, exile opt-out (72 / 1,200) | `66e8ccb7` / `b4ccedab` / `b04c5ac4` and `b51aa07a` / `091f7628` / `25bdbf15` | ✓ |
+  | Property violations, 13 seeds | **0** (by property: none). Replay exact 13/13 | ✓ |
+  | Claims and port changes > 0 every seed | min 22 / 26 (seed 10000) | ✓ |
+  | No new wipeouts | none on or off, 13/13 | ✓ |
+  | Secessions on ≥ 6/13 | 12/13 | ✓ |
+  - **npm test** (keys unset): 682/682. New `tests/secession-aftermath.test.ts` (8): pins and opt-out; CLI; patron radius vs threat near; age 67 peace; no second peace and join after a break; one protection; autonomous raid blocked and a player raid breaks peace; store recovery.
+  - **evaluate-milestone.sh secession-aftermath:** EXILE, OCCUPATION, WG PICKER, ALLIANCES, PORT TRANSFER, LIFECYCLE, and SECESSION AFTERMATH ACCEPTANCE PASSED; feed reasons check passed; recovery check passed (`7f76e474…`).
+- **Report only** (13 × 1,200, exile on, flag off → on). Not tuned toward the prototype table. Headless runs have no player raids, so breaks stay 0.
+  | Seed | Peace | Breaks | Protection | Joins | Claims off/on | Port changes off/on | Battles off/on | Secessions off/on |
+  |---|---|---|---|---|---|---|---|---|
+  | 1847 | 1 | 0 | 0 | 0 | 51/51 | 52/52 | 74/74 | 1/1 |
+  | 2718 | 0 | 0 | 0 | 0 | 64/64 | 64/64 | 81/81 | 0/0 |
+  | 4096 | 2 | 0 | 1 | 2 | 56/50 | 59/56 | 81/74 | 3/4 |
+  | 1000 | 0 | 0 | 0 | 1 | 42/41 | 44/44 | 69/68 | 2/2 |
+  | 2000 | 1 | 0 | 1 | 1 | 50/56 | 52/59 | 72/77 | 2/2 |
+  | 3000 | 1 | 0 | 0 | 0 | 42/38 | 44/39 | 58/55 | 2/1 |
+  | 4000 | 1 | 0 | 0 | 0 | 63/61 | 64/62 | 79/77 | 1/1 |
+  | 5000 | 1 | 0 | 0 | 0 | 55/57 | 57/59 | 71/73 | 2/2 |
+  | 6000 | 1 | 0 | 0 | 2 | 50/59 | 55/65 | 65/75 | 5/4 |
+  | 7000 | 2 | 0 | 0 | 0 | 61/61 | 65/65 | 78/78 | 4/4 |
+  | 8000 | 2 | 0 | 0 | 0 | 62/33 | 66/35 | 76/47 | 4/2 |
+  | 9000 | 2 | 0 | 0 | 1 | 58/47 | 60/51 | 78/67 | 2/3 |
+  | 10000 | 2 | 0 | 1 | 1 | 28/22 | 31/26 | 45/39 | 3/3 |
+  | **Total** | **16** | **0** | **3** | **8** | **682/640** | **713/677** | **927/885** | **31/29** |
+  Ages include 67 on seeds 5000, 8000, and 9000. Those outcomes passed the cause checks.
+- **Left open:** No choice-break (spec: not in v1). The hostility filter is unchanged. A recorded protection does not later join, even if that pact breaks; join after a broken peace does fire. Headless runs do not show `faction-peace-broken` because autonomous raids cannot cross peace.
+- **Links:** [secession-aftermath.md](docs/design/secession-aftermath.md)
 
 ### 2026-11-06 — LIFECYCLE behind a flag (lifecycle.md rev 2 + Lead rulings: seed-offset names, returning governor competes) (Cursor)
 - **Agent / Branch / Commits / Type:** Cursor / feature/lifecycle off origin/main ae34cdb (#182, #183) / see the branch / feature behind a flag.

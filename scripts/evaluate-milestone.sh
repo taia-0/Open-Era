@@ -51,6 +51,12 @@ echo "Running the 13-seed lifecycle sweep"
 node --experimental-strip-types scripts/lifecycle-sweep.ts --json "${evaluation_output}/lifecycle-sweep.json" 2>&1 | tee "${evaluation_output}/lifecycle-sweep.log"
 grep -q "LIFECYCLE ACCEPTANCE PASSED" "${evaluation_output}/lifecycle-sweep.log"
 
+# secession-aftermath.md §5 + Lead rulings (peace blocks autonomous raids, age 67 is legal,
+# one peace and one protection, no peace after a break): flag-off pins, 0 property violations, liveness.
+echo "Running the 13-seed secession-aftermath sweep"
+node --experimental-strip-types scripts/secession-aftermath-sweep.ts --json "${evaluation_output}/secession-aftermath-sweep.json" 2>&1 | tee "${evaluation_output}/secession-aftermath-sweep.log"
+grep -q "SECESSION AFTERMATH ACCEPTANCE PASSED" "${evaluation_output}/secession-aftermath-sweep.log"
+
 # Slice B feed reasons (feed-reasons.md section 10; default-on as of Micah 2026-11-06): stub brain
 # on, 1,200 ticks, stateHash equal to the default pins (EXILE_RECOVERY on, hash-neutral with reasons);
 # then an offline replay with zero writer calls and byte-identical feed text. Opt-out is
