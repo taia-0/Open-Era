@@ -20,7 +20,7 @@ So (a) is next. Its remaining precondition, "new caps are agreed", is decision 1
 ## Proposal
 
 **Scope (ruling 2)**
-- v1 consults only World Government's **command holder and governors**. The eligibility rule is unchanged: at least 2 legal rows and no legal raid or claim (`engine.ts` `consultActionPicker`).
+- v1 consults only World Government's **command holder and governors while docked at a seat they hold** (amended: [offices-docked-governor.md](offices-docked-governor.md); a governor away from every seat runs on the sim's own pick with no consult). The eligibility rule is unchanged: at least 2 legal rows and no legal raid or claim (`engine.ts` `consultActionPicker`).
 - Other members come later, and only if the entropy readout shows value.
 - Raid and claim decisions stay with slice 5 triage. There are no WG social reads in v1.
 
@@ -67,7 +67,7 @@ So (a) is next. Its remaining precondition, "new caps are agreed", is decision 1
 ## Lead rulings (2026-11-01)
 
 1. **Caps** are the recount max plus 25 % headroom: 1,853 calls and $0.11 per run. No sampling.
-2. **v1 consults the command holder and governors only.** Members are added later, if entropy shows value.
+2. **v1 consults the command holder and governors while docked at a seat they hold** (amended by [offices-docked-governor.md](offices-docked-governor.md), Lead ruling 3 on #191). Members, and a governor's own-ship decisions away from the seat, are a separate later decision.
 3. **Nudge-only**, blended like triage v3.
 
 The acceptance check "secession median within ±1" is replaced with "secessions on at least 6 of 13 seeds, and liveness holds".

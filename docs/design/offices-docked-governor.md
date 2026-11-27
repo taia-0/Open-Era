@@ -1,6 +1,6 @@
 # Offices amendment: the governor is consulted only while docked at the seat
 
-Status: proposal for the Lead (Lead ruling 3 on #191). Offline, $0, no AI. Base: `main` `e7ec840`.
+Status: **Ruled** (Lead, 2026-11-27): the docked-governor rule is adopted as prototyped; rulings below. Offline, $0, no AI. Base: `main` `e7ec840`.
 
 This is a separate amendment note. It amends [offices.md](offices.md) and the [WG Jev picker](wg-jev-picker.md) spec. offices.md is not edited, and the two lines this note changes are quoted under Consistency below. The prototype is [offices-docked-governor/docked.patch](offices-docked-governor/docked.patch). It changes `engine.ts` only and is not committed to `src`.
 
@@ -91,6 +91,8 @@ The fix leaves ATL byte-identical on all 13 seeds (ATL + fix equals ATL). In ATL
 
 ### Caps (original rule: read-only max × 1.25, rounded up; $0.0000544 per call, rounded up to the cent)
 
+**Reference only (Lead ruling 1):** the cap in force stays 2,108 calls for standard runs and 2,510 for anything else, until it is re-derived from the first live docked run.
+
 | Set | Rule | 3-seed max | Cap | $ | 13-seed max | 13-seed cap | $ | Stub max (uncapped), 3 seeds / 13 |
 |---|---|---|---|---|---|---|---|---|
 | ATL | current seat (#191, ruled) | 1,686 (1847) | 2,108 | $0.12 | 2,008 (1000) | 2,510 | $0.14 | 1,722 / 2,415 |
@@ -130,14 +132,107 @@ These **match the post-#192 pins the Lead and Engineer confirmed.**
 
 `seatToNpc` in `wg-picker.test.ts` calls `wgPickerRole`, which still returns `"governor"` for an away governor, so the fixture keeps excluding every seat holder.
 
+## Lead rulings (2026-11-27)
+
+1. **Caps are unchanged, as headroom:** 2,108 calls for standard runs and 2,510 for anything else. The cap is a safety stop, and live counts have reached 1.255× the read-only recount (4096 on main, #191). Re-derive the cap from the first live docked run. The docked caps (1,119 / 1,293 / 1,323) are recorded above for reference only.
+2. **Docked-share readout: a report, not a gate.** Specified and measured below.
+3. **No member or own-ship consults in v1.** Those are a separate, later decision. [wg-jev-picker.md](wg-jev-picker.md) now records its scope and ruling 2 as "governors while docked at a seat they hold", with a pointer to this note.
+4. **The lifecycle `office` field records the seat held at retirement.** The Engineer will build it. The prototype and its pin impact are below.
+5. **Levy and stipend keep paying while the governor is away.** No change.
+
+## Docked-share readout (ruling 2)
+
+**Readout.**
+- **When it is read:** between ticks, after each `runTick`, for every port with `governorId(world, port) !== null`. That covers every faction; WG is the one the picker uses.
+- **What it counts:** one *seat-tick* for the pair (port, governor). The tick is also *docked* when that governor has `locationId === port`, `travel === null` and `captivity === null`. That is the same test as `wgGovernorDocked`, applied per seat.
+- **What it reports:**
+  - For each governor and seat, seat-ticks, docked ticks and docked share.
+  - For each seat, the same totals summed over its governors.
+- **Flag:** a seat is flagged only if it was held for at least 1 tick in the run and had 0 docked ticks. A single governor with 0 docked ticks is reported, not flagged.
+- **Cost:** no gate and no world write. It reads state only; end hashes are unchanged.
+
+It is added to [count.ts](offices-docked-governor/count.ts) as `dockRead` (plus `retiredOffices`). [readout.py](offices-docked-governor/readout.py) prints it, and the full per-governor listing for ATL is in `raw/readout-ATL.txt`.
+
+**ATL, docked rule, 13 seeds × 1,200** (read-only = no picker; stub = stubUniform with `docked.patch`)
+
+| Seed | WG docked share (read-only) | Lowest WG seat (read-only) | WG docked share (stub) | Lowest WG seat (stub) |
+|---|---|---|---|---|
+| 1847 | 843 / 2,126 (39.7 %) | Cinder Key 8/132 (6 %); Verdant Cay 44/725 (6 %) | 452 / 2,288 (19.8 %) | Verdant Cay 13/743 (2 %) |
+| 2718 | 896 / 2,185 (41.0 %) | Verdant Cay 31/527 (6 %) | 484 / 2,271 (21.3 %) | Verdant Cay 12/472 (3 %) |
+| 4096 | 807 / 2,296 (35.1 %) | Verdant Cay 53/1,006 (5 %) | 25 / 1,100 (2.3 %) | Crown Harbor 4/574 (1 %) |
+| 1000 | 780 / 2,785 (28.0 %) | Verdant Cay 62/670 (9 %) | 88 / 1,936 (4.5 %) | Crown Harbor 15/1,200 (1 %) |
+| 2000 | 496 / 2,065 (24.0 %) | Verdant Cay 20/530 (4 %) | 194 / 2,736 (7.1 %) | Crown Harbor 27/984 (3 %) |
+| 3000 | 862 / 2,041 (42.2 %) | Verdant Cay 28/383 (7 %) | 696 / 2,040 (34.1 %) | Verdant Cay 18/483 (4 %) |
+| 4000 | 907 / 2,329 (38.9 %) | Verdant Cay 16/548 (3 %) | 261 / 2,010 (13.0 %) | Glassport 27/348 (8 %) |
+| 5000 | 984 / 2,645 (37.2 %) | Verdant Cay 65/1,048 (6 %) | 433 / 2,696 (16.1 %) | Verdant Cay 47/749 (6 %) |
+| 6000 | 976 / 2,313 (42.2 %) | Verdant Cay 23/966 (2 %) | 301 / 1,559 (19.3 %) | Verdant Cay 9/533 (2 %) |
+| 7000 | 1,060 / 2,639 (40.2 %) | Verdant Cay 15/848 (2 %) | 460 / 2,574 (17.9 %) | Verdant Cay 33/997 (3 %) |
+| 8000 | 852 / 2,887 (29.5 %) | Verdant Cay 39/515 (8 %) | 106 / 2,446 (4.3 %) | Crown Harbor 3/1,200 (0.25 %) |
+| 9000 | 438 / 1,556 (28.1 %) | Verdant Cay 9/278 (3 %) | 385 / 2,407 (16.0 %) | Verdant Cay 25/655 (4 %) |
+| 10000 | 364 / 1,396 (26.1 %) | Glassport 61/387 (16 %), Cinder Key 1/6 | 511 / 2,085 (24.5 %) | Verdant Cay 27/574 (5 %) |
+| **13 seeds** | **10,265 / 29,263 (35.1 %)** | | **4,396 / 28,148 (15.6 %)** | |
+
+**No seat is flagged** in any of the 26 runs, for any faction.
+
+**13-seed WG totals by seat:**
+
+| Seat | Read-only | Stub |
+|---|---|---|
+| Cinder Key | 77.6 % | 38.4 % |
+| Crown Harbor | 42.8 % | 14.3 % |
+| Glassport | 32.9 % | 21.5 % |
+| Verdant Cay | 5.1 % | 3.4 % |
+
+**Governors with 0 docked ticks** (reported, not flagged): one per mode.
+- Read-only: Niko Wren, Crown Harbor, seed 9000, 216 seat-ticks. He retired at tick 216 while docked at Verdant Cay; see the office fix below.
+- Stub: Iris Stone, Glassport, seed 1000, 85 seat-ticks.
+
+## Lifecycle office fix (ruling 4)
+
+**Prototype.** [office-fix.patch](offices-docked-governor/office-fix.patch) is a separate patch: `lifecycle.ts` only, not folded into `docked.patch`, because it is the Engineer's change and independent of the picker.
+- `character-retired.data.office` becomes the seat the retiring captain holds, docked or away (`heldSeat`, which reads `governorId` over the settlements).
+- The old value was the port where they stand if they govern it, else null.
+- A captain holding several seats records the lowest settlement id. The field stays a string or null. `client-readiness.ts` withholds `office` by key name, so adding a new key would also need adding to that list.
+
+**Effect (ATL and ATLS, 13 seeds, with `docked.patch`).**
+
+| | ATL | ATLS |
+|---|---|---|
+| Retirements | 81 | 76 |
+| Retirements with `office` set (old → new) | 5 → 10 | 4 → 8 |
+| Records changed from null to the held seat | 5 | 4 |
+
+The changed records:
+
+| Seed | Tick | Captain | Docked at | Seat recorded now | In |
+|---|---|---|---|---|---|
+| 1847 | 217 | character-22 | Crown Harbor | Verdant Cay | ATL, ATLS |
+| 5000 | 217 | character-11 | Glassport | Crown Harbor | ATL, ATLS |
+| 9000 | 216 | character-03 | Verdant Cay | Crown Harbor | ATL, ATLS |
+| 10000 | 217 | character-19 | Glassport | Verdant Cay | ATL, ATLS |
+| 10000 | 833 | character-12 | Verdant Cay | Crown Harbor | ATL only |
+
+Two retirees held two seats each, in both ATL and ATLS. Only the lowest id is recorded for them:
+- seed 5000, tick 217, character-11: Crown Harbor + Verdant Cay;
+- seed 8000, tick 441, character-18: Glassport + Verdant Cay.
+
+**Pin impact: none.** `stateHash` does not cover event payloads.
+
+| Check | Patches | Result |
+|---|---|---|
+| Flag-off main 72 / 1,200 (1847 / 2718 / 4096) | docked + office | `7f76e474` / `94de9c02`, `976c40bd` / `7a3741c9`, `08943ea5` / `af6eeaea`: unchanged |
+| Post-#192 ATL pins | docked + office | `e8963d15` / `77d4697d`, `a08fbf46` / `2c7809db`, `21de6a8b` / `c61988f4`: match |
+| ATLS with `fix.patch` | docked + fix | `85658e53` / `5367691c`, `aa54ada1` / `faf5798a`, `e4361ee1` / `7e93eab2` |
+| ATLS with `fix.patch` | docked + fix + office | identical to the row above |
+| ATL and ATLS end hashes, 13 seeds | docked vs docked + office | identical on 13 / 13 |
+| `npm test` (includes the golden fixture) | docked + office | 690 / 690 pass, exit 0 |
+| `npm test` | docked + fix + office | 690 / 690 pass, exit 0 |
+
+`fix.patch` leaves the three standard ATLS pins where they were before the fix. It changes only seeds 2000 and 9000, which are not pinned. Raw output is in `raw/pins-pins{fix,office,officefix}.txt` and `raw/npm-test-docked-office{,-fix}.txt`.
+
 ## Open questions for the Lead
 
-1. **Which cap to adopt** if the docked rule is adopted:
-   - ATL: 1,119 calls / $0.07 for the 3 standard seeds, and 1,323 / $0.08 for 13 seeds.
-   - ATLS + fix: 1,293 / $0.08 and 1,323 / $0.08.
+All five questions from the proposal are ruled above. What remains:
 
-   Or keep the ruled 2,108 / $0.12 as headroom, since live counts on main came in under the read-only recount on 1847 but above it on 2718 and 4096 (#191)?
-2. **Stub feedback.** Under the uniform stub, docked governors are often nudged out to sea and stay out, so consults collapse on some seeds (25 on seed 4096 under ATL). Is that acceptable as a property of v1, or should the live run's acceptance add a check that governors still spend time at their seat?
-3. **Away governors as members.** Should own-ship decisions away from the seat ever be consulted? That is the "members later" question from ruling 2.
-4. **Lifecycle `office` field.** Should the Engineer record the seat a retiring governor actually held, rather than the docked-only check? This is pre-existing.
-5. **Levy and stipend while away.** Keep paying both on the sticky seat? They are unchanged here.
+1. **Multi-seat retirees.** For a retiree holding several seats, `office` records the lowest settlement id: 2 of 81 ATL retirements, and the same 2 in ATLS. Should it record every seat, as a new key that `client-readiness` also withholds? This is the Engineer's call.
+2. **Verdant Cay's docked share is 5.1 %** (read-only, ATL), and it is never zero, so it is never flagged. Under the docked rule its picker consults are about 416 over 13 seeds. Report only, as ruled.

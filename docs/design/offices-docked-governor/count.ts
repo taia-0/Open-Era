@@ -74,6 +74,7 @@ for (const seed of seeds) {
   // Seat occupancy, read between ticks (governorId previews; it does not write the world).
   const seats = { wgPortTicks: 0, seatedTicks: 0, vacantTicks: 0, wgPortTicksBySettlement: {} as Record<string, number>, seatedBySettlement: {} as Record<string, number>, seatedByOrigin: {} as Record<string, number>, maxWgPorts: 0, seatedBin: {} as Record<string, number> };
   const events: SimEvent[] = [];
+  const dockRead: Record<string, { seat: string; governor: string; name: string; faction: string; seatTicks: number; dockedTicks: number }> = {};
   let records = 0;
   const ai = stub ? { picker: stubUniformPicker(), pickerFactions: [WG_FACTION_ID], wgPickerCap: 1e9 } : undefined;
   for (let i = 0; i < ticks; i++) {
@@ -81,6 +82,16 @@ for (const seed of seeds) {
     for (const e of runTick(w, ai ? { ...opts, ai } : { ...opts }).events) {
       events.push(e);
       if ((e.data as { ai?: { picker?: { wg?: unknown } } } | undefined)?.ai?.picker?.wg) records++;
+    }
+    // Ruling 2 readout (report, not a gate): per governor and seat, seat-ticks and docked seat-ticks, read between ticks.
+    for (const s of Object.values(w.settlements)) {
+      const g = s.factionId ? governorId(w, s.id) : null;
+      if (!g) continue;
+      const ch = w.characters[g];
+      const key = `${s.id}|${g}`;
+      const row = (dockRead[key] ??= { seat: s.id, governor: g, name: ch?.name ?? "?", faction: s.factionId!, seatTicks: 0, dockedTicks: 0 });
+      row.seatTicks++;
+      if (ch && ch.locationId === s.id && ch.travel === null && ch.captivity === null) row.dockedTicks++;
     }
     const wgPorts = Object.values(w.settlements).filter((s) => s.factionId === WG_FACTION_ID);
     seats.maxWgPorts = Math.max(seats.maxWgPorts, wgPorts.length);
@@ -96,6 +107,7 @@ for (const seed of seeds) {
   const n = (t: string) => events.filter((e) => e.type === t).length;
   const wgEv = (t: string) => events.filter((e) => e.type === t && (w.characters[e.actorId ?? ""]?.factionId === WG_FACTION_ID || (e.data as { buyer?: string; factionId?: string })?.buyer === WG_FACTION_ID || (e.data as { factionId?: string })?.factionId === WG_FACTION_ID)).length;
   const purchases = events.filter((e) => e.type === "settlement-purchased").map((e) => ({ tick: e.tick, settlement: e.settlementId ?? e.targetId, data: Object.fromEntries(Object.entries(e.data ?? {}).filter(([k]) => ["buyer", "factionId", "price"].includes(k))) }));
-  console.log(JSON.stringify({ label, mode: stub ? "stub" : "readonly", seed, hash1200: stateHash(w).slice(0, 8), stubRecords: stub ? records : null, ...c, seats, actorMeta,
+  const retiredOffices = events.filter((e) => e.type === "character-retired").map((e) => ({ tick: e.tick, actor: e.actorId, at: e.settlementId, office: (e.data as { office?: string | null }).office ?? null }));
+  console.log(JSON.stringify({ label, dockRead: Object.values(dockRead), retiredOffices, mode: stub ? "stub" : "readonly", seed, hash1200: stateHash(w).slice(0, 8), stubRecords: stub ? records : null, ...c, seats, actorMeta,
     promotions: n("character-promoted"), wgPromotions: wgEv("character-promoted"), retirements: n("character-retired"), wgRetirements: wgEv("character-retired"), returns: n("character-returned"), purchases, pacts: n("alliance-formed") }));
 }
