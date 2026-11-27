@@ -1,0 +1,21 @@
+| Seed | Promotions | Retirements | Returns (causes) | Retired at t1200 | Active cast t0/300/600/900/end | Claims off → on | Port changes off → on | Secessions off → on | Offices vacated | Names | Violations | Replay |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 2 | 5 | 3 {"crisis":3} | 2 | 30/28/28/30/29 (off 30/30/30/30/29) | 51 → 32 | 52 → 37 | 1 → 4 | 0 (0 refilled, 0 empty) | Finn Vale, Esme Hale | 0 | exact |
+| 2718 | 1 | 5 | 2 {"crisis":2} | 3 | 30/25/25/26/26 (off 30/29/29/28/28) | 64 → 42 | 64 → 47 | 0 → 4 | 0 (0 refilled, 0 empty) | Orin Quill | 0 | exact |
+| 4096 | 0 | 3 | 2 {"crisis":2} | 1 | 30/28/27/28/28 (off 30/30/29/29/29) | 56 → 31 | 59 → 34 | 3 → 2 | 0 (0 refilled, 0 empty) | — | 0 | exact |
+| 1000 | 2 | 6 | 4 {"crisis":4} | 2 | 30/26/25/28/27 (off 30/30/29/29/27) | 42 → 26 | 44 → 28 | 2 → 1 | 0 (0 refilled, 0 empty) | Rook Calder, Lio Tern | 0 | exact |
+| 2000 | 2 | 7 | 4 {"crisis":4} | 3 | 30/24/27/24/27 (off 30/29/29/28/28) | 50 → 38 | 52 → 40 | 2 → 1 | 1 (1 refilled, 0 empty) | Rook Pike, Lio Vane | 0 | exact |
+| 3000 | 2 | 9 | 4 {"crisis":4} | 5 | 30/27/26/25/26 (off 30/30/30/29/29) | 42 → 47 | 44 → 51 | 2 → 3 | 0 (0 refilled, 0 empty) | Rook Calder, Lio Tern | 0 | exact |
+| 4000 | 4 | 4 | 3 {"crisis":3} | 1 | 30/29/28/29/31 (off 30/30/29/29/28) | 63 → 60 | 64 → 61 | 1 → 0 | 0 (0 refilled, 0 empty) | Rook Pike, Lio Vane, Ada Quill, Pax Wren | 0 | exact |
+| 5000 | 2 | 4 | 3 {"crisis":3} | 1 | 30/27/28/30/28 (off 30/30/29/29/27) | 55 → 29 | 57 → 31 | 2 → 1 | 0 (0 refilled, 0 empty) | Rook Calder, Lio Tern | 0 | exact |
+| 6000 | 0 | 7 | 1 {"crisis":1} | 5 | 30/23/24/23/23 (off 30/30/29/28/28) | 50 → 29 | 55 → 33 | 5 → 3 | 1 (1 refilled, 0 empty) | — | 0 | exact |
+| 7000 | 3 | 2 | 2 {"crisis":2} | 0 | 30/29/28/28/31 (off 30/30/29/28/28) | 61 → 54 | 65 → 55 | 4 → 0 | 0 (0 refilled, 0 empty) | Rook Calder, Lio Tern, Ada Crow | 0 | exact |
+| 8000 | 0 | 6 | 2 {"crisis":2} | 4 | 30/28/24/24/24 (off 30/30/28/28/28) | 62 → 25 | 66 → 29 | 4 → 3 | 1 (1 refilled, 0 empty) | — | 0 | exact |
+| 9000 | 2 | 8 | 6 {"crisis":6} | 2 | 30/27/28/29/30 (off 30/30/30/30/30) | 58 → 43 | 60 → 49 | 2 → 5 | 0 (0 refilled, 0 empty) | Rook Calder, Lio Tern | 0 | exact |
+| 10000 | 1 | 10 | 9 {"crisis":9} | 1 | 30/30/28/26/29 (off 30/30/30/29/29) | 28 → 41 | 31 → 48 | 3 → 5 | 1 (1 refilled, 0 empty) | Rook Pike | 0 | exact |
+| total | 21 | 76 | 45 | | | 682 → 497 | 713 → 543 | 31 → 32 | | | 0 | |
+pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
+first-promoted-name variety across seeds: 4 distinct of 10 (["Finn Vale","Orin Quill","Rook Calder","Rook Pike","Rook Calder","Rook Pike","Rook Calder","Rook Calder","Rook Calder","Rook Pike"])
+seeds with secession 11/13; min claims 25, min port changes 28
+{"1_flagOffPins":true,"2_propertyViolations0":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
+LIFECYCLE ACCEPTANCE PASSED

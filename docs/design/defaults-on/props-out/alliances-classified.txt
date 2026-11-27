@@ -1,0 +1,41 @@
+== OATLS
+protection | break late: ally gone: 1 hits, 1 pacts, ticks alive past condition per pact: 1
+protection | break late: enemy portless: 4 hits, 4 pacts, ticks alive past condition per pact: 1,1,1,1
+protection | one pact per faction: 1 hits, 1 pacts
+protection | pair cooldown: 2 hits, 2 pacts
+protection | scope: 24-tick clock: 5 hits, 5 pacts
+protection | scope: cause format: 10 hits, 5 pacts
+seeds: 1847,4096,6000,9000
+== ATLS
+protection | break late: enemy portless: 2 hits, 2 pacts, ticks alive past condition per pact: 1,1
+protection | one pact per faction: 1 hits, 1 pacts
+protection | pair cooldown: 2 hits, 2 pacts
+protection | scope: 24-tick clock: 3 hits, 3 pacts
+protection | scope: cause format: 6 hits, 3 pacts
+seeds: 2000,9000
+== A+S
+alliances | break late: enemy portless: 2 hits, 2 pacts, ticks alive past condition per pact: 1,1
+protection | break late: enemy portless: 7 hits, 7 pacts, ticks alive past condition per pact: 1,1,1,1,1,1,1
+protection | one pact per faction: 2 hits, 2 pacts
+protection | pair cooldown: 5 hits, 5 pacts
+protection | scope: 24-tick clock: 9 hits, 9 pacts
+protection | scope: cause format: 18 hits, 9 pacts
+seeds: 4096,2000,4000,9000,10000
+== TLS
+protection | break late: enemy portless: 3 hits, 3 pacts, ticks alive past condition per pact: 1,1,1
+protection | scope: 24-tick clock: 8 hits, 8 pacts
+protection | scope: cause format: 18 hits, 9 pacts
+seeds: 1847,2718,4096,2000,3000,5000,8000
+== S-only
+protection | break late: enemy portless: 2 hits, 2 pacts, ticks alive past condition per pact: 1,1
+protection | scope: 24-tick clock: 2 hits, 2 pacts
+protection | scope: cause format: 6 hits, 3 pacts
+seeds: 4096,2000,10000
+== OTLS
+protection | break late: enemy portless: 4 hits, 4 pacts, ticks alive past condition per pact: 1,1,1,1
+protection | one pact per faction: 1 hits, 1 pacts
+protection | scope: 24-tick clock: 6 hits, 6 pacts
+protection | scope: cause format: 12 hits, 6 pacts
+seeds: 4096,6000,9000
+== ATL
+seeds: 

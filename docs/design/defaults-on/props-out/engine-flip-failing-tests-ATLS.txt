@@ -1,0 +1,76 @@
+✖ 1,200-tick runs: every autonomous declaration records its routes; once per spell; never the holder; route-only never a last port
+✖ 1. flag off: 1200-tick hashes and counts unchanged, no data.ai, no trace
+✖ 1. off is off: 72 ticks with the flag off, and with the brain on and context unset, match the golden fixture
+✖ 2. agree stays identical: brain stubAgree with each context stub gives the flag-off 1200-tick hash
+✖ 2. agree stub: same world and counts as flag off; every Free Tide step is the model's and equals the scorer
+✖ 2. flag off: the 72-tick fixture and no data.ai.picker anywhere
+✖ 2. flag off: the 72-tick fixture and no data.ai.read anywhere
+✖ 3. failing stub: timeout, error and illegal each reproduce the flag-off world, scorer applied
+✖ 3. stubArgmax with social reads for all members: flag-off hashes at 72 and 1,200 ticks; sampled is always the scorer's pick
+✖ 3. stubArgmax: 1,200-tick hash equals flag off (b51aa07a) and every sampled is the scorer's pick
+✖ 4. recovery reaches the scripted live hash without calling the provider
+✖ 5. the provider is called only by the tax step, only for Free Tide, once per clock point
+✖ 6. cap of 10: later clock points apply the scorer with reason cap; the default 50 does not bind
+✖ 8. calls: the reader is called exactly as often as the brain, 24 / 30 / 27 at 1200 ticks (port balance; was 21 / 25 / 22)
+✖ ALLIANCES is off by default; off and explicit false are byte-identical to the 72-tick pins with no alliance state
+✖ CLI flag: --alliances or ALLIANCES=1 turns it on; otherwise off
+✖ CLI flag: --lifecycle or LIFECYCLE=1 turns it on; otherwise off
+✖ CLI flag: --port-transfer or PORT_TRANSFER=1 turns it on; otherwise off
+✖ CLI flag: --secession-aftermath or SECESSION_AFTERMATH=1 turns it on; otherwise off
+✖ CLI help lists --no-feed-reasons; opt-out on run-feed-reasons keeps the default pin
+✖ Corin Hale's release at event tick 108 keeps the paid line beside his prison record
+✖ EXILE_RECOVERY on: home-port raids carry the claim as trigger; off: no cause recorded
+✖ Glassport at tick 54 is a World Government port the commander is standing away from
+✖ Iris Stone's page folds her three identical offers to Bram Quill into one line
+✖ LIFECYCLE is off by default; off and explicit false match the 72-tick pins with no lifecycle field
+✖ Mara's tick-336 page folds Bram Quill's two offers to Iris Stone, and the acceptance folds its order
+✖ Mina Vale's hold on seed 2718 matches the note.
+✖ Mina Vale's release recovers from the tick 95 snapshot
+✖ OCCUPATION is off by default; off is byte-identical to the default and opt-out pins, with no occupation field anywhere
+✖ PORT_TRANSFER is off by default; off and explicit false match the 72-tick pins with no purchase
+✖ Pax Ash's capture on seed 2718 names World Government beside the captor row
+✖ SECESSION_AFTERMATH is off by default; off, explicit false, and the exile opt-out match the pins with no aftermath state
+✖ WorldStore.recover across route declarations matches the continuous run (events replay through applyEvent)
+✖ a captor row that already shows leadership does not say the skill is withheld
+✖ a contract offer names the carrier and the cargo, and only the parties see the price
+✖ a garrison age equals the world tick minus the tick the player is shown
+✖ a headless Crown Harbor run has no contract event, and fulfilment is not production
+✖ a ransom release recovers from the snapshot before it
+✖ a refusal gives the stored reason to the parties and a figure-free reason to others
+✖ a restart in the middle of a short streak matches a continuous run
+✖ acceptance 1–2: stub reasons on leave stateHash and every other byte of the events unchanged (72-tick pins)
+✖ an offer line that differs for the viewer does not fold
+✖ briefing titles on returned troops are sentences
+✖ event page count and total are the projected rows, and sequence gaps are the omitted action rows
+✖ every raise in a 1200-tick run carries the shock; no hold or cut does; replay of events reaches the hash
+✖ exile CLI polish: --no-exile-recovery on run-action-picker and run-ai-pilot reproduces the opt-out pin; --exile-recovery is a no-op
+✖ flag off and stubs: hashes byte-identical; the fetch guard was never tripped
+✖ flag on: homeService is written only where the faction holds the port; claim reasons only from captains who served there
+✖ flag on: recovery from the store replays to the same hash
+✖ follow-up (b): raids carry the scorer's cause without EXILE_RECOVERY, with no new event bytes and the pins unchanged
+✖ gate items 2–3: flag off keeps the pins, and a never-flag triage stub equals picker-only
+✖ opt-out (exileRecovery: false): the pre-default 72-tick and 1,200-tick pins, no courier, no homeService
+✖ opt-out (feedReasons: false) and default-on stub keep the default 72-tick pins (hash-neutral)
+✖ pinned seeds reproduce their committed state hash and event count
+✖ pins: 72-tick fixture and 1,200-tick pins (re-pinned for home starts) (b51aa07a / 091f7628 / 25bdbf15)
+✖ recovery replays an autonomous set
+✖ ruling 1: every decision kind is scored, for every actor role, and routine moves are not
+✖ run-feed-reasons default (stub, reasons on) matches the default 72-tick pin
+✖ seed 1847 lets Mara choose at tick 72 in a headless run and not in a live session
+✖ seed 1847 live names the haul order and a cancellation in the feed
+✖ seed 1847 sequence 749 names the purse share recorded on the event
+✖ seed 1847 tick 154: Lio's cancellation names the buyer; the escrow stays party-only
+✖ seed 1847 tick 203: Toma's breach reads its stored cause, figure-free for the public
+✖ seed 1847 tick 334: the folded row names its first tick
+✖ seed 1847 withholds standing-order refusals as sentences, and no feed row keeps the raw type
+✖ seed 2718 Mina Vale at tick 93 rounds the held troop figures
+✖ seed 2718 names both captains and does not say each one took the port
+✖ seed 2718 tick 168 keeps the opening order warnings inside a 180-tick check-in
+✖ seed 2718 tick 79 states the captured troops on the captor's feed and not on a rival's
+✖ seed 4096 at state tick 12 agrees the routine digest with completed orders
+✖ step 1: a loss reaches the losing faction's members by courier exactly one day after the claim, once
+✖ stubArgmax equals flag off at 1,200 ticks on seed 1847 (b51aa07a)
+✖ stubs and fallbacks record no answers field; flag off and the stub runner are unchanged
+✖ the acceptance and its order on the same tick are one line, in each viewer's words
+✖ the contract haul moves the 72-tick pin on 2718 and 4096 only
+✖ the news cap moves the first autonomous tax set to tick 72
