@@ -149,7 +149,7 @@ index 9683a2c..950e59b 100644
        return "A company joined a faction";
      case "secession-declared":
 diff --git a/src/sim/engine.ts b/src/sim/engine.ts
-index 6332431..91eecd9 100644
+index 6332431..799c2f1 100644
 --- a/src/sim/engine.ts
 +++ b/src/sim/engine.ts
 @@ -40,6 +40,7 @@ import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PAR
@@ -160,16 +160,18 @@ index 6332431..91eecd9 100644
  import { LIFECYCLE_DEFAULT, isRetired, lifecycleStep } from "./lifecycle.ts";
  import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
  import { SECESSION_AFTERMATH_DEFAULT, aftermathStep, atPeace } from "./secession-aftermath.ts";
-@@ -3566,6 +3567,8 @@ export interface TickOptions {
+@@ -3566,6 +3567,10 @@ export interface TickOptions {
    lifecycle?: boolean;
    /** SECESSION_AFTERMATH (secession-aftermath.md): peace, protection, membership for a seceded port. Off by default; off is byte-identical. */
    secessionAftermath?: boolean;
 +  /** NEGOTIATED_TRANSFER (negotiated-transfer.md): a holder offers a held port; the receiver accepts or declines. Off by default; off is byte-identical. */
 +  negotiatedTransfer?: boolean;
++  /** Diagnosis only (leave-one-trigger-out). Unset means both triggers. Not a product flag. */
++  negotiatedTransferTriggers?: { cession?: boolean; sale?: boolean };
    /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
    /**
     * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
-@@ -4551,6 +4554,7 @@ let alliancesOn = false;
+@@ -4551,6 +4556,7 @@ let alliancesOn = false;
  let lifecycleOn = false;
  let portTransferOn = false;
  let aftermathOn = false;
@@ -177,7 +179,7 @@ index 6332431..91eecd9 100644
  
  export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
    occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
-@@ -4558,6 +4562,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
+@@ -4558,6 +4564,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
    alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
    lifecycleOn = options.lifecycle ?? LIFECYCLE_DEFAULT;
    aftermathOn = options.secessionAftermath ?? SECESSION_AFTERMATH_DEFAULT;
@@ -185,20 +187,20 @@ index 6332431..91eecd9 100644
    if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
    if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
    const leading: SimEvent[] = [];
-@@ -4586,6 +4591,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+@@ -4586,6 +4593,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
    declareAutonomousSecessions(world, events, options.liveSession === true, options.ai);
    if (alliancesOn) allianceForms(world, (d) => emit(world, events, d as EventDraft));
    if (portTransferOn) portPurchases(world, (d) => emit(world, events, d as EventDraft));
-+  if (negotiatedOn) negotiatedTransfers(world, (d) => emit(world, events, d as EventDraft), options.liveSession === true);
++  if (negotiatedOn) negotiatedTransfers(world, (d) => emit(world, events, d as EventDraft), options.liveSession === true, options.negotiatedTransferTriggers ?? {});
    resolveOfferedContracts(world, events);
    resolveContractOutcomes(world, events);
    offerAutonomousSupply(world, events);
 diff --git a/src/sim/negotiated-transfer.ts b/src/sim/negotiated-transfer.ts
 new file mode 100644
-index 0000000..513a614
+index 0000000..3a75da7
 --- /dev/null
 +++ b/src/sim/negotiated-transfer.ts
-@@ -0,0 +1,176 @@
+@@ -0,0 +1,181 @@
 +import { allied } from "./alliances.ts";
 +import { freeMateCount } from "./allowance.ts";
 +import { ADJACENT, PRICE_PER_SOLDIER, PURCHASE_CLOCK, RESERVE_PER_HEAD, freeDocked } from "./port-transfer.ts";
@@ -224,8 +226,8 @@ index 0000000..513a614
 +  raids: Record<string, { by: string; against: string; tick: number }>;
 +  /** Faction → first tick of the current below-reserve spell. */
 +  shortage: Record<string, number>;
-+  /** Declined offers, remembered for the spell (trigger + since) that produced them. */
-+  declined: Array<{ settlementId: string; sellerFactionId: string; factionId: string; trigger: string; since: number }>;
++  /** Declined offers (rev 2, ruling 3): after a decline, no re-offer of this port by this seller to this receiver for THREAT_WINDOW (152) ticks. The seller does not see the receiver's treasury. */
++  declined: Array<{ settlementId: string; sellerFactionId: string; factionId: string; tick: number }>;
 +  /** Port → the faction that gave it up by agreement and the tick. No offer back to that faction within THREAT_WINDOW. */
 +  returned: Record<string, { from: string; tick: number }>;
 +}
@@ -253,8 +255,14 @@ index 0000000..513a614
 +    .sort((a, b) => Number(b.pact) - Number(a.pact) || Number(b.peace) - Number(a.peace) || b.troops - a.troops || a.factionId.localeCompare(b.factionId));
 +}
 +
-+/** Runs every tick with the flag on, right after portPurchases. Offers only on the purchase clock. */
-+export function negotiatedTransfers(world: WorldState, emit: Emit, liveSession: boolean): void {
++export type NegotiatedTriggers = { cession?: boolean; sale?: boolean };
++
++/** Runs every tick with the flag on, right after portPurchases. Offers only on the purchase clock.
++ *  `triggers` is a diagnosis hook (leave-one-trigger-out). Unset means both fire. Not a product flag. */
++export function negotiatedTransfers(world: WorldState, emit: Emit, liveSession: boolean, triggers: NegotiatedTriggers = {}): void {
++  const wantCession = triggers.cession !== false;
++  const wantSale = triggers.sale !== false;
++
 +  if (!ledger(world)) emit({ type: "transfer-ledger-opened", data: {} });
 +  const nt = ledger(world)!;
 +  // Shortage watch, every tick: treasury below the port-transfer reserve while holding a port.
@@ -274,13 +282,13 @@ index 0000000..513a614
 +    if (ports.length < 2) continue;
 +    const busy = (id: string) => Object.values(world.activeBattles).some((b) => b.settlementId === id);
 +    const tries: Array<{ portId: string; trigger: "cession" | "sale"; since: number; raider: string | null; cause: string }> = [];
-+    for (const p of ports) {
++    if (wantCession) for (const p of ports) {
 +      const r = nt.raids[p.id];
 +      if (!r || r.against !== seller || world.tick - r.tick > THREAT_WINDOW || p.garrison > CESSION_GARRISON || busy(p.id)) continue;
 +      tries.push({ portId: p.id, trigger: "cession", since: r.tick, raider: r.by, cause: `raided by ${r.by} at tick ${r.tick}; garrison ${p.garrison} ≤ ${CESSION_GARRISON}` });
 +    }
 +    const since = nt.shortage[seller];
-+    if (since !== undefined && world.tick - since >= SHORTAGE_SPELL) {
++    if (wantSale && since !== undefined && world.tick - since >= SHORTAGE_SPELL) {
 +      for (const p of [...ports].sort((a, b) => b.garrison - a.garrison || a.id.localeCompare(b.id))) {
 +        if (busy(p.id) || tries.some((t) => t.portId === p.id)) continue;
 +        const r = nt.raids[p.id];
@@ -296,7 +304,7 @@ index 0000000..513a614
 +        if (liveSession && humanHeld(world, r.factionId)) continue;
 +        const back = nt.returned[t.portId];
 +        if (back && back.from === r.factionId && world.tick - back.tick <= THREAT_WINDOW) continue;
-+        if (nt.declined.some((d) => d.settlementId === t.portId && d.sellerFactionId === seller && d.factionId === r.factionId && d.trigger === t.trigger && d.since === t.since)) continue;
++        if (nt.declined.some((d) => d.settlementId === t.portId && d.sellerFactionId === seller && d.factionId === r.factionId && world.tick - d.tick <= THREAT_WINDOW)) continue;
 +        const kind = t.trigger === "cession" && r.pact ? "grant" : "sale";
 +        const price = kind === "grant" ? 0 : PRICE_PER_SOLDIER * port.garrison;
 +        const offerId = `offer-${world.tick}-${t.portId}-${r.factionId}`;
@@ -330,14 +338,13 @@ index 0000000..513a614
 +    case "transfer-watch-cleared": {
 +      const nt = w.negotiatedTransfer!; const f = event.data.factionId as string;
 +      delete nt.shortage[f];
-+      nt.declined = nt.declined.filter((d) => !(d.sellerFactionId === f && d.trigger === "sale"));
 +      return true;
 +    }
 +    case "transfer-offered": return true;
 +    case "transfer-declined": {
 +      const nt = w.negotiatedTransfer!;
-+      nt.declined = nt.declined.filter((d) => d.trigger !== "cession" || event.tick - d.since <= THREAT_WINDOW);
-+      nt.declined.push({ settlementId: event.settlementId!, sellerFactionId: event.data.sellerFactionId as string, factionId: event.data.factionId as string, trigger: event.data.trigger as string, since: event.data.since as number });
++      nt.declined = nt.declined.filter((d) => event.tick - d.tick <= THREAT_WINDOW);
++      nt.declined.push({ settlementId: event.settlementId!, sellerFactionId: event.data.sellerFactionId as string, factionId: event.data.factionId as string, tick: event.tick });
 +      return true;
 +    }
 +    case "settlement-transferred": {
@@ -350,7 +357,7 @@ index 0000000..513a614
 +      const nt = w.negotiatedTransfer;
 +      if (nt) {
 +        delete nt.raids[s.id];
-+        nt.declined = nt.declined.filter((d) => d.settlementId !== s.id);
++        nt.declined = nt.declined.filter((d) => event.tick - d.tick <= THREAT_WINDOW);
 +        for (const [id, x] of Object.entries(nt.returned)) if (event.tick - x.tick > THREAT_WINDOW) delete nt.returned[id];
 +        nt.returned[s.id] = { from: event.data.sellerFactionId as string, tick: event.tick };
 +      }

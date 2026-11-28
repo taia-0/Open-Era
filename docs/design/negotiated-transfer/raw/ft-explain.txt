@@ -1,0 +1,108 @@
+
+## ATLS (13 seeds)
+
+### world-government
+start treasury 18000, end avg 6065.01, end min/max 965.68/15649.37
+tax rate start 0.14, time-avg (mean of per-seed avgs) 0.1, end avg 0.07, tax-rate-set events 96
+flow (sum over seeds): {"tax":268202.95,"ransom":13596.46,"debt":0,"drawn":353932.89,"purchase":10932,"transferIn":0,"transferOut":0,"joinIn":0}; residual sum -72089.35 (mostly silent stipend)
+treasury draws by event (sum): {"character-upkeep":81191.22,"market-trade":156175.92,"recruited":105078.12,"contract-offered":11487.63}
+ticks below reserve 0 / 13×1200, of which while holding ≥2 ports 0
+shortage spells 0 (2+ ports 0)
+upkeep shortage ticks 0, garrison loss from shortage 0, holder-ticks 30167
+clock surplus p10/p50/p90 (median across seeds of that percentile): 7182.09, 13182.64, 17119.33; clocks below reserve 0 / 637; clocks with ≥2 ports 444 / 637
+clock avgs (mean of seed avgs): treasury 12878.03, reserve 222.13, ports 1.92, mates 10.43
+
+### free-tide
+start treasury 2800, end avg 67.73, end min/max 0/499.1
+tax rate start 0.08, time-avg (mean of per-seed avgs) 0.11, end avg 0.15, tax-rate-set events 276
+flow (sum over seeds): {"tax":181405.03,"ransom":7008.94,"debt":0,"drawn":209584.53,"purchase":0,"transferIn":0,"transferOut":0,"joinIn":0}; residual sum -14348.94 (mostly silent stipend)
+treasury draws by event (sum): {"character-upkeep":35197.69,"market-trade":45122.19,"recruited":119830.68,"contract-offered":9433.97}
+ticks below reserve 6990 / 13×1200, of which while holding ≥2 ports 3726
+shortage spells 355 (2+ ports 141)
+upkeep shortage ticks 0, garrison loss from shortage 0, holder-ticks 19959
+clock surplus p10/p50/p90 (median across seeds of that percentile): -104.63, -20.8, 740; clocks below reserve 391 / 637; clocks with ≥2 ports 270 / 637
+clock avgs (mean of seed avgs): treasury 262.07, reserve 101.98, ports 1.29, mates 4.37
+
+### breakaways (aggregated)
+tax 50757.04, ticks below 1228 (2+ 116), spells 84, holder-ticks 11938, upkeep shortage 0
+
+## ATLS-NT (13 seeds)
+
+### world-government
+start treasury 18000, end avg 8217.9, end min/max 2255.8/14242.56
+tax rate start 0.14, time-avg (mean of per-seed avgs) 0.11, end avg 0.07, tax-rate-set events 88
+flow (sum over seeds): {"tax":305179.85,"ransom":11721.49,"debt":0,"drawn":350582.4,"purchase":10932,"transferIn":0,"transferOut":2916,"joinIn":0}; residual sum -79638.26 (mostly silent stipend)
+treasury draws by event (sum): {"character-upkeep":78034.75,"market-trade":152737.78,"recruited":107512.65,"contract-offered":12297.22}
+ticks below reserve 0 / 13×1200, of which while holding ≥2 ports 0
+shortage spells 0 (2+ ports 0)
+upkeep shortage ticks 0, garrison loss from shortage 0, holder-ticks 33025
+clock surplus p10/p50/p90 (median across seeds of that percentile): 9379.21, 13776.83, 17309.45; clocks below reserve 0 / 637; clocks with ≥2 ports 497 / 637
+clock avgs (mean of seed avgs): treasury 13832.43, reserve 231.49, ports 2.09, mates 10.77
+
+### free-tide
+start treasury 2800, end avg 97.68, end min/max 0/474.74
+tax rate start 0.08, time-avg (mean of per-seed avgs) 0.11, end avg 0.14, tax-rate-set events 280
+flow (sum over seeds): {"tax":155516.18,"ransom":5359.76,"debt":0,"drawn":184651.58,"purchase":0,"transferIn":3048,"transferOut":0,"joinIn":0}; residual sum -14402.5 (mostly silent stipend)
+treasury draws by event (sum): {"character-upkeep":35106.16,"market-trade":44311.39,"recruited":98228.89,"contract-offered":7005.14}
+ticks below reserve 7326 / 13×1200, of which while holding ≥2 ports 2399
+shortage spells 370 (2+ ports 96)
+upkeep shortage ticks 0, garrison loss from shortage 0, holder-ticks 17057
+clock surplus p10/p50/p90 (median across seeds of that percentile): -96.91, -3.36, 623.45; clocks below reserve 399 / 637; clocks with ≥2 ports 193 / 637
+clock avgs (mean of seed avgs): treasury 241.92, reserve 93.73, ports 1.12, mates 4.08
+
+### breakaways (aggregated)
+tax 52829.53, ticks below 1487 (2+ 110), spells 56, holder-ticks 11982, upkeep shortage 0
+
+## ATLS-exile-off (13 seeds)
+
+### world-government
+start treasury 18000, end avg 6820.02, end min/max 597/17276.33
+tax rate start 0.14, time-avg (mean of per-seed avgs) 0.11, end avg 0.08, tax-rate-set events 84
+flow (sum over seeds): {"tax":298900.23,"ransom":8927.2,"debt":0,"drawn":362077.46,"purchase":10932,"transferIn":0,"transferOut":0,"joinIn":0}; residual sum -80157.67 (mostly silent stipend)
+treasury draws by event (sum): {"character-upkeep":68969.75,"market-trade":165206.21,"recruited":116902.64,"contract-offered":10998.86}
+ticks below reserve 0 / 13×1200, of which while holding ≥2 ports 0
+shortage spells 0 (2+ ports 0)
+upkeep shortage ticks 0, garrison loss from shortage 0, holder-ticks 31106
+clock surplus p10/p50/p90 (median across seeds of that percentile): 8023.2, 13998.96, 17620.34; clocks below reserve 0 / 637; clocks with ≥2 ports 439 / 637
+clock avgs (mean of seed avgs): treasury 13664.54, reserve 235.16, ports 1.97, mates 11.09
+
+### free-tide
+start treasury 2800, end avg 151.13, end min/max 0/794.13
+tax rate start 0.08, time-avg (mean of per-seed avgs) 0.13, end avg 0.18, tax-rate-set events 260
+flow (sum over seeds): {"tax":180276.62,"ransom":4602.3,"debt":0,"drawn":211000.92,"purchase":0,"transferIn":0,"transferOut":0,"joinIn":0}; residual sum -8313.3 (mostly silent stipend)
+treasury draws by event (sum): {"character-upkeep":24069.05,"market-trade":33894.03,"recruited":144302.65,"contract-offered":8735.19}
+ticks below reserve 6456 / 13×1200, of which while holding ≥2 ports 3052
+shortage spells 234 (2+ ports 79)
+upkeep shortage ticks 0, garrison loss from shortage 0, holder-ticks 17594
+clock surplus p10/p50/p90 (median across seeds of that percentile): -110.87, -39.61, 783.03; clocks below reserve 436 / 637; clocks with ≥2 ports 221 / 637
+clock avgs (mean of seed avgs): treasury 239.54, reserve 97.66, ports 1.15, mates 4.28
+
+### breakaways (aggregated)
+tax 51728.26, ticks below 1742 (2+ 97), spells 104, holder-ticks 13364, upkeep shortage 0
+
+## ATLS-NT-exile-off (13 seeds)
+
+### world-government
+start treasury 18000, end avg 7373.17, end min/max 3654.06/12138.81
+tax rate start 0.14, time-avg (mean of per-seed avgs) 0.11, end avg 0.08, tax-rate-set events 76
+flow (sum over seeds): {"tax":300830.57,"ransom":8462.81,"debt":0,"drawn":354680.24,"purchase":11004,"transferIn":288,"transferOut":3576,"joinIn":0}; residual sum -78469.91 (mostly silent stipend)
+treasury draws by event (sum): {"character-upkeep":72226.98,"market-trade":160663.58,"recruited":111328.53,"contract-offered":10461.15}
+ticks below reserve 0 / 13×1200, of which while holding ≥2 ports 0
+shortage spells 0 (2+ ports 0)
+upkeep shortage ticks 0, garrison loss from shortage 0, holder-ticks 30597
+clock surplus p10/p50/p90 (median across seeds of that percentile): 8805.18, 14622.47, 17662.01; clocks below reserve 0 / 637; clocks with ≥2 ports 431 / 637
+clock avgs (mean of seed avgs): treasury 14117.24, reserve 227.3, ports 1.94, mates 10.69
+
+### free-tide
+start treasury 2800, end avg 17.08, end min/max 0/150.35
+tax rate start 0.08, time-avg (mean of per-seed avgs) 0.13, end avg 0.16, tax-rate-set events 274
+flow (sum over seeds): {"tax":169321.51,"ransom":3848.56,"debt":0,"drawn":204713.06,"purchase":0,"transferIn":3444,"transferOut":0,"joinIn":0}; residual sum -8079.01 (mostly silent stipend)
+treasury draws by event (sum): {"character-upkeep":24975.38,"market-trade":38687.39,"recruited":128982.93,"contract-offered":12067.36}
+ticks below reserve 6718 / 13×1200, of which while holding ≥2 ports 2688
+shortage spells 271 (2+ ports 95)
+upkeep shortage ticks 0, garrison loss from shortage 0, holder-ticks 16959
+clock surplus p10/p50/p90 (median across seeds of that percentile): -114.38, -22.13, 750.83; clocks below reserve 395 / 637; clocks with ≥2 ports 204 / 637
+clock avgs (mean of seed avgs): treasury 237.53, reserve 96.87, ports 1.11, mates 4.27
+
+### breakaways (aggregated)
+tax 61302.77, ticks below 1285 (2+ 132), spells 68, holder-ticks 14496, upkeep shortage 0
