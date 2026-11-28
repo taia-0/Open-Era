@@ -42,6 +42,16 @@ for (const cfg of CFG) for (const a of ["last", "peer-walk", "peer-argmax"]) for
   out.push(`| ${cfg} | ${a} | ${sc} | ${humanOffers} | ${sum(r.map((x) => x.peer.displaced))} | ${sum(r.map((x) => x.peer.reranked))} | ${d(sum(r.map((x) => nOff(x.econ.base))), sum(r.map((x) => nOff(x.econ.on) - x.human.offers)))} | ${d(sum(r.map((x) => x.econ.base.split.npcFulfilled ?? 0)), sum(r.map((x) => x.econ.on.split.npcFulfilled ?? 0)))} | ${d(sum(r.map((x) => x.econ.base.split.npcBreached ?? 0)), sum(r.map((x) => x.econ.on.split.npcBreached ?? 0)))} |`);
 }
 
+out.push("\n### Peer scoring: where a human candidate existed, how the human's `assessSupplyContract` score compared with the NPC walk's pick\n");
+out.push("margin = human score - score of the NPC the walk would pick (lowest id that accepts). Positive = the human outranks it.\n");
+out.push("| config | arm | scenario | decisions with a human candidate and an accepting NPC (contested) | human outranked the walk pick | decisions with a human candidate and no accepting NPC | margin min | margin p50 | margin max |");
+out.push("|---|---|---|---|---|---|---|---|---|");
+for (const cfg of CFG) for (const a of ["peer-walk", "peer-argmax"]) for (const sc of ["idle", "attentive"]) {
+  const r = load(`${cfg}-${a}`).filter((x) => x.scenario === sc); if (!r.length) continue;
+  const m = r.flatMap((x) => x.peer.margins as number[]);
+  out.push(`| ${cfg} | ${a} | ${sc} | ${sum(r.map((x) => x.peer.contested))} | ${sum(r.map((x) => x.peer.humanWins))} | ${sum(r.map((x) => x.peer.humanCandidateNoNpc))} | ${q(m, 0)} | ${q(m, 0.5)} | ${q(m, 1)} |`);
+}
+
 out.push("\n### Economy against flag-off (sum over 13 seeds) with the noise floor (nine flag-off runs with the commander purse +0..+8, min..max)\n");
 out.push("| config | arm | scenario | all offers | all fulfilled | NPC fulfilled | treasury total | claims | port changes | captures | shortage ticks |");
 out.push("|---|---|---|---|---|---|---|---|---|---|---|");

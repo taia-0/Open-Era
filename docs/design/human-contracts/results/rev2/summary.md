@@ -42,10 +42,26 @@
 | atls | peer-argmax | idle | 10 | 0 | 3 | 1893 -> 1667 (-226) | 817 -> 753 (-64) | 466 -> 393 (-73) |
 | atls | peer-argmax | attentive | 25 | 0 | 8 | 1893 -> 1635 (-258) | 817 -> 714 (-103) | 466 -> 407 (-59) |
 
+### Peer scoring: where a human candidate existed, how the human's `assessSupplyContract` score compared with the NPC walk's pick
+
+margin = human score - score of the NPC the walk would pick (lowest id that accepts). Positive = the human outranks it.
+
+| config | arm | scenario | decisions with a human candidate and an accepting NPC (contested) | human outranked the walk pick | decisions with a human candidate and no accepting NPC | margin min | margin p50 | margin max |
+|---|---|---|---|---|---|---|---|---|
+| default | peer-walk | idle | 27 | 0 | 9 | -0.335 | -0.22 | -0.029 |
+| default | peer-walk | attentive | 34 | 0 | 20 | -0.335 | -0.193 | -0.029 |
+| default | peer-argmax | idle | 21 | 0 | 7 | -0.335 | -0.155 | -0.029 |
+| default | peer-argmax | attentive | 29 | 0 | 18 | -0.335 | -0.169 | -0.029 |
+| atls | peer-walk | idle | 19 | 0 | 9 | -0.289 | -0.179 | -0.077 |
+| atls | peer-walk | attentive | 38 | 0 | 23 | -0.299 | -0.164 | -0.071 |
+| atls | peer-argmax | idle | 10 | 0 | 10 | -0.277 | -0.193 | -0.106 |
+| atls | peer-argmax | attentive | 34 | 0 | 25 | -0.277 | -0.173 | -0.071 |
+
 ### Economy against flag-off (sum over 13 seeds) with the noise floor (nine flag-off runs with the commander purse +0..+8, min..max)
 
 | config | arm | scenario | all offers | all fulfilled | NPC fulfilled | treasury total | claims | port changes | captures | shortage ticks |
 |---|---|---|---|---|---|---|---|---|---|---|
+| default | NOISE FLOOR (min..max of 9) | - | 1846..1916 | 835..869 | (same as all fulfilled) | 163998.92..172452.31 | 671..702 | 699..729 | 247..257 | 14745..14745 |
 | default | last | idle | 1865 -> 1823 (-42) | 849 -> 799 (-50) | 849 -> 799 (-50) | 169633.42 -> 169054.39 (-579.03) | 682 -> 630 (-52) | 711 -> 660 (-51) | 247 -> 220 (-27) | 14745 -> 14741 (-4) |
 | default | last | attentive | 1865 -> 1748 (-117) | 849 -> 764 (-85) | 849 -> 760 (-89) | 169633.42 -> 179469.69 (+9836.27) | 682 -> 659 (-23) | 711 -> 694 (-17) | 247 -> 232 (-15) | 14745 -> 14732 (-13) |
 | default | last | afirst | 1865 -> 1905 (+40) | 849 -> 868 (+19) | 849 -> 864 (+15) | 169633.42 -> 163495.93 (-6137.49) | 682 -> 678 (-4) | 711 -> 712 (+1) | 247 -> 231 (-16) | 14745 -> 14737 (-8) |
@@ -57,6 +73,7 @@
 | default | last-noescrow | idle | 1865 -> 1876 (+11) | 849 -> 849 (+0) | 849 -> 849 (+0) | 169633.42 -> 169633.42 (+0) | 682 -> 682 (+0) | 711 -> 711 (+0) | 247 -> 247 (+0) | 14745 -> 14745 (+0) |
 | default | last-noescrow | attentive | 1865 -> 1905 (+40) | 849 -> 829 (-20) | 849 -> 825 (-24) | 169633.42 -> 161618.1 (-8015.32) | 682 -> 668 (-14) | 711 -> 697 (-14) | 247 -> 226 (-21) | 14745 -> 14737 (-8) |
 | default | last-noallow | afirst | 1865 -> 1905 (+40) | 849 -> 868 (+19) | 849 -> 864 (+15) | 169633.42 -> 163495.93 (-6137.49) | 682 -> 678 (-4) | 711 -> 712 (+1) | 247 -> 231 (-16) | 14745 -> 14737 (-8) |
+| atls | NOISE FLOOR (min..max of 9) | - | 1773..2002 | 763..900 | (same as all fulfilled) | 94153.83..108198.52 | 491..526 | 531..571 | 194..214 | 14584..14584 |
 | atls | last | idle | 1893 -> 1730 (-163) | 817 -> 761 (-56) | 817 -> 761 (-56) | 105834.7 -> 108129.93 (+2295.23) | 497 -> 521 (+24) | 537 -> 561 (+24) | 214 -> 209 (-5) | 14584 -> 14620 (+36) |
 | atls | last | attentive | 1893 -> 1630 (-263) | 817 -> 708 (-109) | 817 -> 703 (-114) | 105834.7 -> 108639.04 (+2804.34) | 497 -> 489 (-8) | 537 -> 536 (-1) | 214 -> 190 (-24) | 14584 -> 14629 (+45) |
 | atls | last | afirst | 1893 -> 1728 (-165) | 817 -> 725 (-92) | 817 -> 720 (-97) | 105834.7 -> 110433.46 (+4598.76) | 497 -> 521 (+24) | 537 -> 564 (+27) | 214 -> 207 (-7) | 14584 -> 14632 (+48) |
@@ -75,6 +92,28 @@ Noise range per seed = min..max over the nine purse nudges of that seed's own to
 
 | config | arm | scenario | seeds outside noise: fulfilled | seeds outside noise: treasury | mean per-seed fulfilled change | mean per-seed treasury change | noise mean absolute per-seed fulfilled spread (max-min) |
 |---|---|---|---|---|---|---|---|
+| default | last | idle | 6/13 | 5/13 | -3.85 | -44.54 | 8.46 |
+| default | last | attentive | 6/13 | 6/13 | -6.54 | +756.64 | 8.46 |
+| default | last | afirst | 5/13 | 6/13 | +1.46 | -472.11 | 8.46 |
+| default | last | lazy | 4/13 | 5/13 | -0.15 | -1381.12 | 8.46 |
+| default | peer-walk | idle | 6/13 | 5/13 | -3.85 | -44.54 | 8.46 |
+| default | peer-walk | attentive | 6/13 | 6/13 | -6.54 | +756.64 | 8.46 |
+| default | peer-argmax | idle | 7/13 | 6/13 | -5.23 | +223.88 | 8.46 |
+| default | peer-argmax | attentive | 9/13 | 9/13 | -5.92 | +601.04 | 8.46 |
+| default | last-noescrow | idle | 0/13 | 0/13 | +0 | +0 | 8.46 |
+| default | last-noescrow | attentive | 6/13 | 6/13 | -1.54 | -616.56 | 8.46 |
+| default | last-noallow | afirst | 5/13 | 6/13 | +1.46 | -472.11 | 8.46 |
+| atls | last | idle | 4/13 | 4/13 | -4.31 | +176.56 | 14.38 |
+| atls | last | attentive | 5/13 | 6/13 | -8.38 | +215.72 | 14.38 |
+| atls | last | afirst | 3/13 | 6/13 | -7.08 | +353.75 | 14.38 |
+| atls | last | lazy | 4/13 | 5/13 | -6.92 | +69.73 | 14.38 |
+| atls | peer-walk | idle | 4/13 | 4/13 | -4.31 | +176.56 | 14.38 |
+| atls | peer-walk | attentive | 5/13 | 6/13 | -8.38 | +215.72 | 14.38 |
+| atls | peer-argmax | idle | 5/13 | 5/13 | -4.92 | -294.09 | 14.38 |
+| atls | peer-argmax | attentive | 5/13 | 7/13 | -7.38 | -1058.08 | 14.38 |
+| atls | last-noescrow | idle | 0/13 | 0/13 | +0 | +0 | 14.38 |
+| atls | last-noescrow | attentive | 6/13 | 6/13 | -10.08 | -276.79 | 14.38 |
+| atls | last-noallow | afirst | 3/13 | 6/13 | -7.08 | +353.75 | 14.38 |
 
 ### Accept-then-buy (afirst) against buy-then-accept (attentive), and the derived allowance
 
