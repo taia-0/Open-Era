@@ -1,0 +1,6 @@
+faction world-government holder before character-01
+known recipients 12
+issue character-01 ok
+issue character-03 ok
+issue character-04 ok
+holder after null orders by me 3
