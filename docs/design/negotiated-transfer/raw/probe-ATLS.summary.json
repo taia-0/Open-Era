@@ -1,0 +1,119 @@
+{
+ "file": "docs/design/negotiated-transfer/raw/probe-ATLS.jsonl",
+ "raidsOnHeldPorts": 720,
+ "lostWithin152": 540,
+ "garrisonAtRaidLost": {
+  "n": 540,
+  "min": 7,
+  "p10": 7,
+  "p25": 7,
+  "p50": 14,
+  "p75": 96,
+  "p90": 149,
+  "max": 260
+ },
+ "garrisonAtRaidKept": {
+  "n": 180,
+  "min": 7,
+  "p10": 7,
+  "p25": 14,
+  "p50": 131,
+  "p75": 203,
+  "p90": 246,
+  "max": 260
+ },
+ "heldGarrisonAtClock": {
+  "n": 2534,
+  "min": 0,
+  "p10": 5,
+  "p25": 7,
+  "p50": 10,
+  "p75": 14,
+  "p90": 49,
+  "max": 255
+ },
+ "shortageSpellsClosed": {
+  "n": 434,
+  "min": 1,
+  "p10": 1,
+  "p25": 2,
+  "p50": 7,
+  "p75": 19,
+  "p90": 54,
+  "max": 245
+ },
+ "shortageSpellsClosedMultiPort": {
+  "n": 148,
+  "min": 1,
+  "p10": 1,
+  "p25": 2,
+  "p50": 5,
+  "p75": 13,
+  "p90": 41,
+  "max": 113
+ },
+ "shortageSpellsOpenAtEnd": 5,
+ "portsHeldAtClock": {
+  "n": 1552,
+  "min": 1,
+  "p10": 1,
+  "p25": 1,
+  "p50": 1,
+  "p75": 2,
+  "p90": 3,
+  "max": 4
+ },
+ "surplusAtClock": {
+  "n": 1552,
+  "min": -183.6,
+  "p10": -61.95,
+  "p25": 43.34,
+  "p50": 1200.6,
+  "p75": 11536.58,
+  "p90": 16312.92,
+  "max": 18841.35
+ },
+ "lossRateByGarrison": [
+  {
+   "band": "0-10",
+   "raids": 229,
+   "lost": 208
+  },
+  {
+   "band": "10-20",
+   "raids": 178,
+   "lost": 133
+  },
+  {
+   "band": "20-30",
+   "raids": 12,
+   "lost": 11
+  },
+  {
+   "band": "30-40",
+   "raids": 4,
+   "lost": 4
+  },
+  {
+   "band": "40-60",
+   "raids": 12,
+   "lost": 11
+  },
+  {
+   "band": "60-80",
+   "raids": 14,
+   "lost": 13
+  },
+  {
+   "band": "80-120",
+   "raids": 88,
+   "lost": 75
+  },
+  {
+   "band": "120-inf",
+   "raids": 183,
+   "lost": 85
+  }
+ ]
+}
+{"surrenderLine15":{"atOrBelow":{"raids":394,"lost":330},"above":{"raids":326,"lost":210}},"heldGarrisonAtOrBelow15Share":"2019/2534","portsHeldAtLeast2Share":"748/1552","surplusNegativeShare":"332/1552"}
