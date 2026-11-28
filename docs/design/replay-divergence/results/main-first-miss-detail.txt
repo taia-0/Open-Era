@@ -1,0 +1,36 @@
+{"seed":10000,"firstMissTick":1621,"hashA":"bb2cb380","hashB":"048f9fa7","diff":["world.characters.character-10.shortMorningStreak: A=7 B=8"]}
+events of tick 1621 (160):
+{"sequence":221754,"tick":1620,"type":"plan-reconsidered","actorId":"character-02","data":{"reason":"provisions fell below the safe reserve","selectedGoalId":"character-02:expand-influence","goalScores":[{"goalId":"character-02:expand-influence","kind":"expand-influence","score":0.963,"reason":"ambition, aggression, and reputation seeking"},{"goalId":"character-02:serve-faction","kind":"serve-fact
+events of tick 1621 (160):
+{"sequence":221739,"tick":1620,"type":"character-died","actorId":"character-04","settlementId":"glassport","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":0,"sailors":18,"t
+{"sequence":221740,"tick":1620,"type":"news-posted","actorId":"character-04","settlementId":"glassport","data":{"record":{"item":{"id":"news-221739","type":"character-died","observedTick":1620,"factio
+{"sequence":221741,"tick":1620,"type":"character-died","actorId":"character-10","settlementId":"crown-harbor","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":44.01,"sailors
+{"sequence":221742,"tick":1620,"type":"news-posted","actorId":"character-10","settlementId":"crown-harbor","data":{"record":{"item":{"id":"news-221741","type":"character-died","observedTick":1620,"fac
+{"sequence":221743,"tick":1620,"type":"settlement-produced","settlementId":"cinder-key","data":{"focus":"shipMaterials","stocks":{"provisions":2.796,"arms":105.263,"medicine":4.515,"shipMaterials":107
+{"seed":20000,"firstMissTick":1801,"hashA":"ef321313","hashB":"c3587955","diff":["world.characters.character-22.shortMorningStreak: A=4 B=5"]}
+events of tick 1801 (132):
+{"sequence":227892,"tick":1800,"type":"tax-rate-set","actorId":"character-01","targetId":"world-government","data":{"factionId":"world-government","taxRate":0.03,"previousTaxRate":0.02,"taxRateSetTick":1800,"raiseShock":[{"settlementId":"crown-harbor","before":56.29,"stability":55.29}]}}
+events of tick 1801 (132):
+{"sequence":227881,"tick":1800,"type":"character-died","actorId":"character-06","settlementId":"cinder-key","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":13.15,"sailors":
+{"sequence":227882,"tick":1800,"type":"news-posted","actorId":"character-06","settlementId":"cinder-key","data":{"record":{"item":{"id":"news-227881","type":"character-died","observedTick":1800,"facti
+{"sequence":227883,"tick":1800,"type":"character-died","actorId":"character-22","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":27876.52,"sailors":14,"troops":{"count":31,"
+{"sequence":227884,"tick":1800,"type":"settlement-produced","settlementId":"cinder-key","data":{"focus":"shipMaterials","stocks":{"provisions":2.794,"arms":4.471,"medicine":18.61,"shipMaterials":10724
+{"sequence":227885,"tick":1800,"type":"settlement-upkeep","settlementId":"cinder-key","data":{"demand":1.778,"consumed":1.778,"shortage":0,"stocks":{"provisions":1.016,"arms":1.271,"medicine":15.41,"s
+{"seed":4000,"firstMissTick":2881,"hashA":"693b3d28","hashB":"2b8337ad","diff":["world.characters.character-22.shortMorningStreak: A=13 B=14"]}
+events of tick 2881 (122):
+{"sequence":381016,"tick":2880,"type":"plan-reconsidered","actorId":"character-03","data":{"reason":"provisions fell below the safe reserve","selectedGoalId":"character-03:serve-faction","goalScores":[{"goalId":"character-03:serve-faction","kind":"serve-faction","score":0.558,"reason":"loyalty and institutional duty"}],"orderAssessment":null,"plan":{"id":"character-03:plan:2880:serve-faction","goa
+events of tick 2881 (122):
+{"sequence":381002,"tick":2880,"type":"character-died","actorId":"character-06","settlementId":"cinder-key","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":54.31,"sailors":
+{"sequence":381003,"tick":2880,"type":"news-posted","actorId":"character-06","settlementId":"cinder-key","data":{"record":{"item":{"id":"news-381002","type":"character-died","observedTick":2880,"facti
+{"sequence":381004,"tick":2880,"type":"character-died","actorId":"character-22","settlementId":"glassport","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":4203.75,"sailors"
+{"sequence":381005,"tick":2880,"type":"news-posted","actorId":"character-22","settlementId":"glassport","data":{"record":{"item":{"id":"news-381004","type":"character-died","observedTick":2880,"factio
+{"sequence":381006,"tick":2880,"type":"settlement-produced","settlementId":"cinder-key","data":{"focus":"shipMaterials","stocks":{"provisions":2.782,"arms":69.661,"medicine":66.171,"shipMaterials":176
+{"seed":9000,"firstMissTick":4861,"hashA":"2a80b4c1","hashB":"60fa8cd0","diff":["world.characters.character-15.shortMorningStreak: A=1 B=undefined"]}
+events of tick 4861 (117):
+{"sequence":661069,"tick":4860,"type":"debt-repaid","actorId":"character-11","targetId":"free-tide","data":{"debtId":"debt-642631","paid":7.66,"remainingValue":226.54,"originalValue":411.05,"characterMoney":0,"factionTreasury":51.78,"closed":false}}
+events of tick 4861 (117):
+{"sequence":661055,"tick":4860,"type":"character-died","actorId":"character-12","settlementId":"crown-harbor","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":90047.43,"sail
+{"sequence":661056,"tick":4860,"type":"news-posted","actorId":"character-12","settlementId":"crown-harbor","data":{"record":{"item":{"id":"news-661055","type":"character-died","observedTick":4860,"fac
+{"sequence":661057,"tick":4860,"type":"character-died","actorId":"character-15","settlementId":"cinder-key","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":2.69,"sailors":1
+{"sequence":661058,"tick":4860,"type":"news-posted","actorId":"character-15","settlementId":"cinder-key","data":{"record":{"item":{"id":"news-661057","type":"character-died","observedTick":4860,"facti
+{"sequence":661059,"tick":4860,"type":"character-died","actorId":"character-18","settlementId":"glassport","data":{"cause":"old-age","ageYears":120,"policy":"vacant","characterMoney":84.02,"sailors":1

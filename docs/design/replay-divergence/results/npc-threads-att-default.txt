@@ -1,0 +1,4 @@
+unpatched-3c55552+npc-threads@85f8241 "seed":2000	"replayExact":false	"replayExactHookOff":true	"replayDiffs":["world.characters.character-16.shortMorningStreak"]
+unpatched-3c55552+npc-threads@85f8241 "seed":8000	"replayExact":false	"replayExactHookOff":false	"replayDiffs":["world.characters.character-03.shortMorningStreak"]
+patched "seed":2000	"replayExact":true	"replayExactHookOff":true	"replayDiffs":[]
+patched "seed":8000	"replayExact":true	"replayExactHookOff":true	"replayDiffs":[]

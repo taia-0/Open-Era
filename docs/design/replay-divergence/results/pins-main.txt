@@ -1,0 +1,6 @@
+{"label":"flag-off","seed":1847,"t72":"7f76e474","t1200":"94de9c02","replayExact":true}
+{"label":"flag-off","seed":2718,"t72":"976c40bd","t1200":"7a3741c9","replayExact":true}
+{"label":"flag-off","seed":4096,"t72":"08943ea5","t1200":"af6eeaea","replayExact":true}
+{"label":"ATLS","seed":1847,"t72":"85658e53","t1200":"5367691c","replayExact":true}
+{"label":"ATLS","seed":2718,"t72":"aa54ada1","t1200":"faf5798a","replayExact":true}
+{"label":"ATLS","seed":4096,"t72":"e4361ee1","t1200":"7e93eab2","replayExact":true}
