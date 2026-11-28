@@ -18,7 +18,7 @@ function emit(world: WorldState, events: SimEvent[], draft: EventDraft): void {
 }
 
 /** The one storage addition: an optional provenance mark on an NPC opener. Absent on every human message and every reply. */
-export type Origin = { trigger: string; sequence: number };
+export type Origin = { trigger: string; sequence: number; orderId?: string };
 type Marked = ConversationMessage & { origin?: Origin };
 const originOf = (m: ConversationMessage): Origin | undefined => (m as Marked).origin;
 const isOpener = (m: ConversationMessage) => originOf(m) !== undefined;
@@ -59,7 +59,7 @@ export function openNpcThreads(world: WorldState, tickEvents: SimEvent[], caps: 
       }
       const message: Marked = {
         id: `message-${String(world.nextMessageSequence).padStart(6, "0")}`, threadId: thread.id, senderId: c.senderId, body: c.text.slice(0, 800),
-        createdTick: world.tick, source: "autonomous", tags: classifyMessage(c.text), origin: { trigger: c.trigger, sequence: c.sequence },
+        createdTick: world.tick, source: "autonomous", tags: classifyMessage(c.text), origin: { trigger: c.trigger, sequence: c.sequence, ...(c.orderId ? { orderId: c.orderId } : {}) },
       };
       emit(world, events, { type: "conversation-message-sent", actorId: c.senderId, targetId: c.receiverId, data: { message, nextMessageSequence: world.nextMessageSequence + 1 } });
       opened.push({ c, threadId: thread.id, messageId: message.id, newThread });
@@ -68,11 +68,21 @@ export function openNpcThreads(world: WorldState, tickEvents: SimEvent[], caps: 
   return events;
 }
 
-/** The request tab, per the Lead's ruling: incoming threads the viewer has not answered. */
+/** The request tab: incoming threads the viewer has not answered (Lead 2026-11-27 ruling 5). */
+function orderAnswered(world: WorldState, threadId: string): boolean {
+  const msgs = world.conversationMessages.filter((m) => m.threadId === threadId);
+  const opener = [...msgs].reverse().find((m) => originOf(m)?.trigger === "standing-order-completion-reported");
+  const orderId = opener ? originOf(opener)?.orderId : undefined;
+  if (!orderId) return false;
+  const order = Object.values(world.characters).flatMap((c) => c.standingOrders).find((o) => o.id === orderId);
+  return !order || order.status !== "awaiting-confirmation";
+}
+
 export function requestThreads(world: WorldState, viewerId: string): string[] {
   return Object.values(world.conversationThreads)
     .filter((t) => t.participantIds.includes(viewerId) && t.createdById !== viewerId)
     .filter((t) => !world.conversationMessages.some((m) => m.threadId === t.id && m.senderId === viewerId))
+    .filter((t) => !orderAnswered(world, t.id))
     .sort((a, b) => (b.lastMessageTick ?? -1) - (a.lastMessageTick ?? -1) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     .map((t) => t.id);
 }

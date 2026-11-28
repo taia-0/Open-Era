@@ -1,15 +1,29 @@
 # NPC-initiated threads (spec)
 
-Spec on `main` `3c55552` (cards v1 merged as #201). It follows [ui-cards-v1.md](ui-cards-v1.md) and the Lead's five rulings on its section 14. It covers the slice after cards: **non-player characters open conversation threads with the human commander** so the inbox is not dead. Everything is measured offline with a harness in [npc-threads/](npc-threads/) (13 standard seeds × 1,200 ticks, $0, no AI calls, no change to `src/`).
+Spec on `main` `3c55552` (cards v1 merged as #201), merged with `main` `7cc34b3` (#202). It follows [ui-cards-v1.md](ui-cards-v1.md), the Lead's five rulings on its section 14, and the Lead's eight rulings of 2026-11-27 (section below). It covers the slice after cards: **non-player characters open conversation threads with the human commander** so the inbox is not dead. Everything is measured offline with a harness in [npc-threads/](npc-threads/) (13 standard seeds × 1,200 ticks, $0, no AI calls, no change to `src/`).
 
 ## 1. Rulings this spec follows
 
 1. `allyFactionId` is renamed `againstFactionId` now, no alias (cards doc; the Engineer builds from the ruling).
 2. 180 ticks is the check-in window (`CHECK_IN_TICKS`, `src/dashboard/view-model.ts:87`).
-3. `request` = incoming threads awaiting the viewer's reply. Once answered, the thread moves to `direct` or `group`. Written here as: `createdById !== viewer` and the viewer has sent no message in the thread.
+3. `request` = incoming threads awaiting the viewer's reply. Once answered, the thread moves to `direct` or `group`. Written here as: `createdById !== viewer`, the viewer has sent no message in the thread, and (Lead 2026-11-27, ruling 5) a completion-report thread is also answered when its order is confirmed or resolved. See §5.
 4. The troop readout is label-only. No count, no cuts.
 5. A still-open order's latest report always shows.
 6. From the cards round: `DeterministicDialogueProvider` stays; `ai.speech` is a later opt-in; the thread link is derived, never stored.
+
+
+## Rulings (Lead, 2026-11-27)
+
+Recorded from the Lead's answers to §12. Affected body text is updated in place.
+
+1. **Add** the optional `origin?: { trigger: string; sequence: number }` on `ConversationMessage`. (An `orderId` on order openers is specified in §5 so ruling 5 can be projected without the event log.)
+2. **No receiver cap.** Ship the pair rule, sender cap 9, pair cap 3.
+3. **Stored hook** (option B): the inbox is real persistent state, seen the same way across sessions. Flag `npcThreads` (default off) lives on the callers, not in `TickOptions`.
+4. Keep `standing-order-accepted` and `debt-repaid` **off**.
+5. **Confirming or resolving the order answers its thread.** Projection-only request-tab rule; no stored "answered" flag. See §5.
+6. **No archive in v1**, but add **read state** for unread badges: a per-participant `lastReadTick` set through `POST /api/threads/:id/read`. Keep it out of the hashed state if possible. Specified in §5.1: it can be hash-neutral, in a `WorldStore` side table, not on `WorldState`.
+7. **Next sim slice** (recorded, not specified here): a contract offer to a human first (human-carrier path through `carrierBlocked` `engine.ts:2068`, plus an accept/decline command), then debt demand.
+8. `shortMorningStreak` is covered by the separate replay bisect (N4 stands).
 
 ## 2. Findings that shaped the spec
 
@@ -26,7 +40,7 @@ Spec on `main` `3c55552` (cards v1 merged as #201). It follows [ui-cards-v1.md](
    | Order reports | `standing-order-completion-reported` 177, `-refused` 82, `-deviated` 728, `-accepted` 178 (default) | in the payload: 112, 44, 96, 112 (the commander is the issuer) |
    | Secession | `secession-declared` 31 (default) / 32 (ATLS) | former-faction members, incl. the commander |
 
-   So the live idle inbox of the commander can be fed by **order reports, captures and releases, secessions, and (ATLS) alliance and peace notices**. Contract threads exist only when the *player* is a party (the player offers, the NPC carrier refuses/accepts/fulfils). Debt demands, pact proposals, ransom offers and cession offers need a new sim event first; that is a separate slice and is *not* specified here (non-goal N1).
+   So the live idle inbox of the commander can be fed by **order reports, captures and releases, secessions, and (ATLS) alliance and peace notices**. Contract threads exist only when the *player* is a party (the player offers, the NPC carrier refuses/accepts/fulfils). Debt demands, pact proposals, ransom offers and cession offers need a new sim event first; that is a separate slice and is *not* specified here (non-goal N1). The Lead has ordered the next sim slice: a contract offer to a human first, then debt demand (ruling 7); this document only records that order.
 2. **Order reports are the volume.** The commander is the issuer of the standing order held by each `world-government` character (`src/sim/scenario.ts:251`: issuer `character-01` for `world-government`, `character-14` otherwise), so all reports arrive at one receiver. At t72 the request tab holds **12 threads in all 13 seeds**; after t100 the commander gets 0–2 openers per 100 ticks (default) (table 6.1).
 3. **Conversation state is already stored and hashed** (`canonicalJson(world)`, `src/sim/state.ts:532`; events applied in `applyEvent`, `state.ts:588-614`). Conversation events are produced *outside* `runTick`: `resolveDueReplies` runs after it (`src/dashboard/server.ts:168-170`, `src/cli/run-simulation.ts:93-95`). A hook placed beside it cannot move any runTick-only pin or `tests/fixtures/golden-hashes.json`.
 4. **The existing feed already limits what a character may know about an event** (`projectEventFeed(world, viewerId, events)`, `view-model.ts:909`). A thread must not tell its receiver more than the receiver's own feed row for the same event. Visibility is therefore defined *relative to that row* (P3, P4), not re-derived.
@@ -77,16 +91,59 @@ The message is stored with `source: "autonomous"` (the existing source tag), `ta
 
 - **Thread**: `kind: "direct"`, `participantIds` = sorted [sender, receiver], `createdById` = sender, `title` = the sender's name (the existing 60-char cap). `createConversationThread` allows one direct thread per pair (`conversations.ts:139-145`), so a later opener from the same sender reuses the thread (when the player already made one, the NPC writes into it).
 - **Ids** are the existing counters (`thread-00001`, `message-000001`). No new id scheme.
-- **Request tab** (ruling 3): `createdById !== viewer` and the viewer has sent no message in the thread. Reference: `requestThreads` in [hook.ts](npc-threads/hook.ts). Once the player writes, the thread leaves `request` and sits in `direct` (both are projection reads; the cards doc's `tabs.request` is computed this way, replacing `createdById !== viewer` alone).
+- **Request tab** (cards ruling 3, updated by Lead 2026-11-27 ruling 5). A thread is in `request` iff all of: the viewer is a participant; `createdById !== viewer`; the viewer has sent no message in the thread; and the thread is not answered by a confirmed or resolved order. **Answered by order** (projection only): the thread has an opener whose `origin.trigger` is `standing-order-completion-reported` and whose `origin.orderId` names a `StandingOrder` whose `status` is no longer `awaiting-confirmation` (or the order is gone). That covers a player's `confirm-order` (`engine.ts:2755-2776`, applied as `standing-order-completed` with `lastReport.kind` `confirmed`, `state.ts:764-775`) and any other resolution that leaves that status, including `cancel-order` and the one-day `issuer-silent` close (`confirmUnansweredOrders`, `engine.ts:2986-3020`; a day is `ticksPerDay` = 6, `scenario.ts:426`). Refused and deviated threads are not answered this way (their orders are not awaiting confirmation). Reference: `requestThreads` in [hook.ts](npc-threads/hook.ts). Once answered, the thread leaves `request` and sits in `direct`. The measured request-tab sizes in §6.1 used the pre-ruling (message-only) rule and were not re-run.
 - **Card link**: cards already derive `threadId` as the viewer's direct thread whose participants are exactly the card's two parties (`ui-cards-v1.md` section 3.1). An NPC opener creates exactly such a thread, so an order-report card links to its report thread **with no change to the card derivation** (seed 1847: 12 order cards carried a `threadId`, `orderCardsWithThread` 12). Faction-level cards (peace/pact) have no two-character parties and keep `threadId: null`.
-- **One storage addition**: an optional `origin?: { trigger: string; sequence: number }` on a `ConversationMessage` written by the hook, absent on every human message and every reply. It is the state the throttle reads (6.2), so throttling survives restart and is derivable from the world. It also makes each opener auditable (which event opened it).
-- **Flag**: `npcThreads` (default off), read by the *callers* of the hook (dashboard server and CLI), **not** by `TickOptions`, so `runTick` is untouched and runTick-only pins cannot move. The hook runs once per tick, after `runTick` and beside `resolveDueReplies`, in event order then receiver id.
+- **Storage addition (ruled)**: an optional `origin?: { trigger: string; sequence: number; orderId?: string }` on a `ConversationMessage` written by the hook, absent on every human message and every reply. `trigger` and `sequence` are the source event (the pair rule, 6.2, and the audit key). `orderId` is set only on order-topic openers, from `event.data.orderId` (e.g. `engine.ts:4720`), so the request-tab rule can find the standing order from the world alone. It is not needed for other topics.
+- **Flag (ruled)**: `npcThreads` (default off), read by the *callers* of the hook (dashboard server and CLI), **not** by `TickOptions`, so `runTick` is untouched and runTick-only pins cannot move. The hook runs once per tick, after `runTick` and beside `resolveDueReplies`, in event order then receiver id. Threads are stored world state, so the inbox is the same after recover and across sessions (ruling 3).
+
+
+### 5.1 Read state and unread badges (v1)
+
+No archive in v1 (ruling 6). Unread badges need a per-participant last-read marker, set through a small POST. The Lead asked to keep it out of the hashed state if possible.
+
+**How the hash is computed.** `stateHash(world)` is SHA-256 of `canonicalJson(world)` (`src/sim/state.ts:528-533`). `canonicalJson` is a key-sorted `JSON.stringify` of the value it is given, with **no field allow-list or denylist**. Every field of `WorldState` (`types.ts:777-818`) is in the hash, including `players` (`:805`), `conversationThreads` (`:808`), `conversationMessages` (`:809`), and `scheduledReplies` (`:810`). The thread interface is `:502-509`; the message interface is `:517-531`. There is no existing hook to omit a field.
+
+**How conversations are stored and persisted.** Threads and messages live only on `WorldState`. They are written exclusively through `applyEvent` (`state.ts:588-614`: `conversation-thread-created`, `conversation-message-sent`, and the reply events). The dashboard and CLI persist the world in `WorldStore` (`src/sim/persistence.ts`): a SQLite file with `events`, `snapshots`, and `metadata` (`persistence.ts:57-80`). A snapshot row is `JSON.stringify(world)` plus `stateHash(world)` (`:90-97`, `:115-144`). Recover loads the latest snapshot, checks that hash, then replays later events (`:154-181`). `appendTick` writes events and, on a day boundary or every 5,000 sequences, a new snapshot of the whole world (`:109-152`). The existing similar UI marker — `Player.briefingAcknowledgements` (`types.ts:482-484`) — **is in the hash**: `POST /api/briefing/acknowledge` (`server.ts:231-240`) calls `acknowledgeBriefingItem`, which emits `briefing-item-acknowledged`; `applyEvent` writes `player.briefingAcknowledgements[itemId] = world.tick` (`state.ts:624-627`) and `store.appendTick` persists it. Putting `lastReadTick` on `ConversationThread` or on `Player` would do the same and **could not be hash-neutral**.
+
+**Where read state lives (hash-neutral).** A new table on `WorldStore`, not a field of `WorldState`, not a sim event, not a snapshot column:
+
+```sql
+CREATE TABLE IF NOT EXISTS thread_reads (
+  thread_id TEXT NOT NULL,
+  player_id TEXT NOT NULL,
+  last_read_tick INTEGER NOT NULL,
+  PRIMARY KEY (thread_id, player_id)
+);
+```
+
+Methods on `WorldStore` (names are suggestions): `setThreadRead(playerId, threadId, lastReadTick)` and `threadReads(playerId): ReadonlyMap<string, number>`. `POST /api/threads/:id/read` writes this table only. It must not call `applyEvent`, must not append to `events`, and must not call `appendTick`. Then `stateHash` cannot move, golden hashes and the flag-off pins stay still, and a headless CLI run that never opens the table is unchanged. Reads survive dashboard restart because they sit in the same SQLite file as the snapshots; they do not survive a `--reset`, a recover from `state_json` alone, or a tool that copies only the world blob. That is the trade-off of staying off the hash.
+
+`lastReadTick` (not a last-read message id) is the v1 marker. The POST sets it to `world.tick` at the moment of the request. Several messages in one thread can share a `createdTick` (a hook opener and a scheduled reply in the same tick); they become read together. A last-read message id would be hash-neutral the same way if the Lead later wants per-message precision.
+
+**Endpoint.**
+
+- Path: `POST /api/threads/:id/read` (add next to the existing conversation routes, `server.ts:249-273`; catalog it in `requestContract`, `commands.ts:309-318`).
+- Body: `{ playerId: string }` (required; the id from `state.player.id`, same as `POST /api/threads` and `POST /api/messages`).
+- Success: `200 { ok: true, threadId, lastReadTick }`. Idempotent: a later POST overwrites with the then-current `world.tick`.
+- Failures (HTTP 400, stable `code`): `unknown-player`; `unknown-thread`; `not-participant` (the player's character is not in `thread.participantIds`). An unknown thread is a 400, not a 404, to match the other conversation routes.
+- Auth/session is whatever the other `/api/*` routes already use (today, the body `playerId` against `world.players`).
+
+**Visibility.** Each player sees only their own read marker. `lastReadTick` is keyed by `playerId`, not by character id (unread is a player-UI concern; the prototype has one human character per player). A participant who is not this player — including the NPC sender — never receives this player's marker, and this player never receives anyone else's. The projection is viewer-scoped, like `conversations.threads` today (`view-model.ts:1686-1699`): a bystander still does not see the thread (P7), and no payload field lists another player's `lastReadTick`.
+
+**`/api/state` derivation.** The server already reads the store to build the event page before calling `dashboardState` (`server.ts:131-136`; `dashboardState` itself, `view-model.ts:1397-1411`, does not take the store). Pass this viewer's map as a new argument, e.g. `threadReads?: ReadonlyMap<string, number>`, from `store.threadReads(player.id)`, the same way `feedCounts` is passed today. On the viewer-scoped `conversations` block (`view-model.ts:1686-1699`):
+
+- `threads[]` gains `lastReadTick: number | null` (null if this player has never POSTed a read for that thread) and `unreadCount: number`.
+- `unreadCount` for a thread = the number of that thread's messages (already filtered to threads the viewer is in) with `createdTick > lastReadTick`. If `lastReadTick` is null, every message in the thread is unread.
+- `conversations.unreadCount: number` = the sum of per-thread `unreadCount`, for a nav badge. Tab arrays stay id lists; the client derives a per-tab unread sum from the thread fields.
+- These fields are projection-only. They are not on `ConversationThread` in `types.ts`.
+
+**Properties (add to §8 as P13–P15).** A POST /read does not change `stateHash`. A viewer payload never includes another player's marker. `unreadCount` is exactly the messages with `createdTick > lastReadTick` (or all messages when the marker is null).
 
 ## 6. Throttles, from measured distributions
 
 ### 6.1 Volume the commander sees
 
-Measured with the recommended rules (pair rule, sender cap 9, pair cap 3, no receiver cap; section 6.4). `per100` = openers received in each 100-tick bin. "Threads" = threads created by an NPC. Inbox sizes are the tab lengths the app would show from `view-model.ts`' `conversations` block (the same function the harness calls).
+Measured with the recommended rules (pair rule, sender cap 9, pair cap 3, no receiver cap; section 6.4). `per100` = openers received in each 100-tick bin. "Threads" = threads created by an NPC. Inbox sizes are the tab lengths the app would show from `view-model.ts`' `conversations` block (the same function the harness calls). **These request-tab counts used the pre-ruling message-only rule.** Under ruling 5, a completion-report thread leaves `request` once its order is no longer `awaiting-confirmation`, including the one-day `issuer-silent` close (6 ticks). The harness was not re-run; live idle request tabs will be smaller than the t72 / t1200 figures below once that rule is applied.
 
 | Run (13 seeds × 1,200) | Openers | Per seed | Openers per 100 ticks | Threads created (per 100 ticks) | bin 0 (t0–99) | bins 1–11 mean / p95 / max | Request tab at t72 | Request tab at t1200 | All tab at t1200 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -131,7 +188,7 @@ ATLS: receiver p95 8 (p99 15, max 17), pair p95 3 (max 5), sender p95 8 (p99 13,
 
 **Finding.** After t100 the commander never gets more than 2 openers per 100 ticks at idle default (3 ATLS, 4 attentive ATLS), so a p90 receiver cap of 6 never binds there either. The **only** thing a receiver cap removes is the startup burst of order reports, i.e. the reports the player is meant to confirm: at p95, 115 dropped candidates in default idle, all `order`, and 40 % fewer openers (232 → 140). The commander is a structural outlier because they are an issuer (`scenario.ts:251`); `character-14`, the other issuer, sees the same burst (bin 0 of 10–11, max receiver cell 17 overall). A population percentile would silently starve the one seat the inbox is for.
 
-**Recommendation (v1):** ship the pair rule, a **sender cap of 9** and a **pair cap of 3** (the measured p95s; neither binds for the commander in the idle default run, and the pair cap binds once in 13 ATLS seeds on a capture), and **no receiver cap**. Revisit the receiver cap when a real session distribution exists; the harness reproduces the table with `CAPS=r,p,s`. This is Open Question 2.
+**Ruled (v1):** ship the pair rule, a **sender cap of 9** and a **pair cap of 3** (the measured p95s; neither binds for the commander in the idle default run, and the pair cap binds once in 13 ATLS seeds on a capture), and **no receiver cap**. Revisit the receiver cap when a real session distribution exists; the harness reproduces the table with `CAPS=r,p,s`.
 
 ## 7. Hash impact: stored (B, recommended) or projection-derived (A)
 
@@ -153,7 +210,7 @@ ATLS: receiver p95 8 (p99 15, max 17), pair p95 3 (max 5), sender p95 8 (p99 13,
 - **The hook writes nothing but conversation state, except that it consumes `nextEventSequence`.** That shifts ids minted from it (`news-N`, `battle-N`, `debt-N`, `"sequence"`, "seq N"). With those normalised, the sim event stream is identical to hook-off in 13/13 seeds in every configuration (`simStreamEqual`), and the world with all conversation fields blanked is identical in 13/13 (`blankedEqual`). The hook draws no RNG. This is why B re-pins but does not change sim behaviour. If the Lead wants B to be byte-neutral for the sim, the hook must mint events without `nextEventSequence`, which the event store does not support; I did not try it.
 - Replay: idle runs replay exactly in 13/13 (default and ATLS). Conversation state replays exactly in 13/13 in every run. Commanded (attentive) runs replay exactly in 11/13 (default) and 12/13 (ATLS); the hook-off run is 12/13 in both. The only differing field is `characters.<id>.shortMorningStreak`. It also differs with the hook off (seed 8000), so it is not caused by the hook; I did not find why seed 2000 differs only with the hook on (default). Likely cause: a between-tick command applied after the silent start in replay but before it live. Reported, not fixed (non-goal N4).
 
-**Recommendation: B.** A is attractive because it moves no pin, but it needs a materialize path inside the send command, virtual ids the rest of the app must handle, and loses openers beyond the read window. B costs one re-pin behind a default-off flag and nothing else.
+**Ruled: B.** The inbox is real persistent state, seen the same way across sessions. A is attractive because it moves no pin, but it needs a materialize path inside the send command, virtual ids the rest of the app must handle, and loses openers beyond the read window. B costs one re-pin behind a default-off flag and nothing else.
 
 ## 8. Visibility and privacy (every statement is a check)
 
@@ -168,11 +225,15 @@ Checks run in `measure.ts` on every opener (counts in `results/*.jsonl` `checks`
 | P5 | The thread is `direct`, its participants are exactly {sender, receiver}, `createdById` = sender. | `thread-participants` |
 | P6 | The opener has `source: "autonomous"`, an `origin`, `senderId` in the participants, body ≤ 800. | `opener-shape` |
 | P7 | A character who is neither sender nor receiver never has the thread in their projected `conversations.threads` or tabs. | `bystander-no-thread` |
-| P8 | `tabs.request` is exactly the threads with `createdById !== viewer` and no viewer message. | `request-rule` |
+| P8 | `tabs.request` is exactly the threads with `createdById !== viewer`, no viewer message, and (for a completion-report opener) an order that is still `awaiting-confirmation`. | `request-rule` |
 | P9 | A card's `threadId` is in the viewer's own threads and both parties are participants (cards P9). | `card-threadid-participant`, `card-threadid-viewer-scoped` |
 | P10 | Same seed and script give the same hash twice. | `replayExact`, `conversationReplayExact` |
 | P11 | Flag off: the world is byte-identical to `3c55552`. | pins (section 7) |
 | P12 | The hook draws no RNG and writes only conversation events. | `simStreamEqual`, `blankedEqual` |
+
+| P13 | `POST /api/threads/:id/read` does not change `stateHash(world)` and writes no sim event. | Engineer test T9 |
+| P14 | A viewer's `conversations` payload never includes another player's `lastReadTick`. | T9 |
+| P15 | Per-thread `unreadCount` equals the messages on that thread with `createdTick > lastReadTick`, or every message when the marker is null. | T9 |
 
 Contract-buyer note: the existing feed shows the buyer a refusal's score against the threshold, so a refusal thread repeats numbers the buyer's feed already shows. P4 is defined against that row on purpose; it neither widens nor narrows what the buyer knows.
 
@@ -181,9 +242,9 @@ Contract-buyer note: the existing feed shows the buyer a refusal's score against
 Properties (all must hold, checked over the 13 seeds):
 
 1. P1–P12 above, 0 violations.
-2. **Liveness**: in idle default, every one of the 13 seeds has ≥ 12 request threads at t72 and ≥ 1 thread at t200 (measured: 12 in all). In idle ATLS ≥ 1 diplomacy thread appears in a seed (26 openers over 13 seeds).
+2. **Liveness**: in idle default, every one of the 13 seeds has ≥ 12 threads open by t72 and ≥ 1 thread at t200 (measured: 12 request threads at t72 in all, under the message-only rule). In idle ATLS ≥ 1 diplomacy thread appears in a seed (26 openers over 13 seeds).
 3. **Boundedness**: no 100-tick bin after t100 exceeds 4 openers for the commander (measured max 2 default idle, 3 ATLS idle, 3 attentive default, 4 attentive ATLS); the request tab never exceeds 20 (measured max 17; 20 with `debt`).
-4. **Answered threads leave `request`**: after the player writes, the thread is in `direct` and not in `request` (measured: 0 request threads at the end of the attentive runs).
+4. **Answered threads leave `request`**: after the player writes, or after the named order leaves `awaiting-confirmation`, the thread is in `direct` and not in `request` (measured for the write path: 0 request threads at the end of the attentive runs; the confirm/resolve path is Engineer test T5).
 5. **Throttle law**: no stored (sender, receiver, trigger) has two unanswered openers closer than 180 ticks (`pair-open` drops 52 at idle default).
 6. Flag-off pins unchanged on the three pinned seeds and all 13.
 
@@ -193,31 +254,29 @@ Properties (all must hold, checked over the 13 seeds):
 2. T2 pair rule: two same-trigger events within 180 ticks give one opener; after the receiver writes, the next opens; a different trigger type opens independently.
 3. T3 caps: with `perSender 9`, `perPair 3` set, the 10th/4th opener in 100 ticks is dropped; with no receiver cap nothing is dropped for the order burst.
 4. T4 visibility P1–P7 on a constructed three-party world (bystander never sees the thread; a receiver for whom `projectEventFeed` is empty gets none).
-5. T5 request tab: NPC-created thread in `request`; after the viewer's message it is in `direct`; a player-created thread is never in `request`.
+5. T5 request tab: NPC-created thread in `request`; after the viewer's message it is in `direct`; a player-created thread is never in `request`; a completion-report thread leaves `request` after `confirm-order` (and after `issuer-silent` / cancel) with no viewer message, and a refused-order thread does not.
 6. T6 hook idempotence and recover: re-running the hook for a tick that already opened a thread adds nothing (dedupe on `(origin.sequence, receiver)`); not covered by the harness.
 7. T7 hash: flag off, `golden-hashes.json` and the three pins unchanged; flag on, replay of a recorded run reproduces conversation state exactly.
 8. T8 card link: an order card for a reported order carries the `threadId` of its report thread.
-9. Run `npc-threads/measure.ts` and `summarize.ts` in CI-less review; compare to `results/summary.md`.
+9. T9 read state: `POST /api/threads/:id/read` by a participant returns 200 and leaves `stateHash` unchanged; a non-participant or unknown thread is 400; a second player (constructed) does not see the first player's `lastReadTick`; `unreadCount` matches P15; after a dashboard recover from the same store file the marker is still there.
+10. Run `npc-threads/measure.ts` and `summarize.ts` in CI-less review; compare to `results/summary.md`.
 
 ## 11. Non-goals
 
-- N1 New sim behaviour or events: no debt demand, pact proposal, ransom offer, cession/sale offer, contract offer to a human, or NT. Where those exist as events later, they add a row to section 3 and nothing else.
+- N1 New sim behaviour or events in *this* slice: no debt demand, pact proposal, ransom offer, cession/sale offer, contract offer to a human, or NT. The next sim slice (Lead ruling 7) is a contract offer to a human first, then debt demand; it is recorded, not specified here. Where those exist as events later, they add a row to section 3 and nothing else.
 - N2 NPC-to-NPC stored threads.
 - N3 `ai.speech` or any generated text.
-- N4 Fixing the `shortMorningStreak` replay difference.
-- N5 A read/unread state, push notifications, or auto-archive.
+- N4 Fixing the `shortMorningStreak` replay difference (Lead: covered by the separate replay bisect).
+- N5 Push notifications or auto-archive. Read state for unread badges is in scope (§5.1). No archive in v1.
 - N6 NPCs answering beyond the existing scheduled-reply machinery.
 
 ## 12. Open questions for the Lead
 
-1. **Stored `origin` field** (optional on `ConversationMessage`): approve? It is the only schema addition and the pair rule needs it.
-2. **Receiver cap**: ship none (recommended), or p95 = 8 (cuts the commander's openers by 40 %, all from the startup order reports)? Also: should a cap exempt `awaitsReply` threads?
-3. **B (stored, re-pin, flag `npcThreads` outside `TickOptions`) or A?** The flag lives with the callers; confirm.
-4. `standing-order-accepted` and `debt-repaid` stay off. Confirm, or turn on per topic.
-5. **Does `confirm-order` answer the report thread?** Under ruling 3 a player who only confirms (no message) leaves the thread in `request` forever. Treating an order's resolved card as an answer is a projection-only change; not measured (the idle player never confirms).
-6. Idle inbox grows to 12–17 with no way to clear it (N5). Acceptable for v1?
-7. The sim emits no contract offer, debt demand, pact proposal, ransom offer or cession offer toward a human. Which of these should the next sim slice make an event?
-8. `shortMorningStreak` replay difference on commanded runs (section 7): pre-existing; want it ticketed?
+Items 1–8 of the previous §12 were ruled on 2026-11-27 (see **Rulings (Lead, 2026-11-27)**). Remaining:
+
+1. Ruling 5 is written to treat any departure from `awaiting-confirmation` as resolving, including the one-day `issuer-silent` close (`engine.ts:2986-3020`, 6 ticks). Confirm that an idle commander who never confirms still has those completion-report threads leave `request`. If not, the rule should name only a player's `confirm-order` and `cancel-order`.
+2. Approve adding optional `orderId` to `origin` on order openers? The ruled `{ trigger, sequence }` is not enough to find the standing order from the world alone (events live in the store, not on `WorldState`).
+3. Confirm `lastReadTick` (set to `world.tick` on POST) over a last-read message id. Same-tick messages become read together.
 
 ## 13. Reproduce
 

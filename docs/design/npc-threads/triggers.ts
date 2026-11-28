@@ -11,6 +11,7 @@ export interface Candidate {
   tick: number;
   senderId: string;
   receiverId: string;
+  orderId?: string;          // standing-order id, set on order-topic candidates (request-tab ruling 5)
   awaitsReply: boolean;      // true only where a player verb answers it (confirm-order)
   template: string;          // template id
   summary: string | null;    // the receiver's own projected feed sentence for this event, or null if not feed-visible
@@ -78,7 +79,7 @@ export function candidatesFor(w: WorldState, ev: SimEvent, receivers: "human" | 
       const holder = ev.actorId!, issuer = String(d.issuerId);
       const id = ev.type.replace("standing-order-", "order.");
       push({
-        topic: "order", senderId: holder, receiverId: issuer, awaitsReply: ev.type === "standing-order-completion-reported", template: id,
+        topic: "order", senderId: holder, receiverId: issuer, orderId: String(d.orderId), awaitsReply: ev.type === "standing-order-completion-reported", template: id,
         text: (s) => {
           if (ev.type === "standing-order-completion-reported") return (trust(holder, issuer) > 0.62 ? "Commander, it is done." : "The order is complete.") + tail(s) + " Confirm it when you are satisfied.";
           if (ev.type === "standing-order-refused") return "I cannot take this order." + tail(s);
