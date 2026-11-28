@@ -1,0 +1,3 @@
+{"label":"ATLS","seed":1847,"ticks":1200,"hash8":"5367691c","dbBytes":165638144,"snapshots":201,"events":159450,"eventDataBytes":61200312,"snapshotStateBytes":82672738,"snapshotStateMin":106130,"snapshotStateMax":733269,"elapsedMs":7477}
+{"label":"ATLS","seed":2718,"ticks":1200,"hash8":"faf5798a","dbBytes":152723456,"snapshots":201,"events":145283,"eventDataBytes":54903238,"snapshotStateBytes":77910318,"snapshotStateMin":106147,"snapshotStateMax":673982,"elapsedMs":5273}
+{"label":"ATLS","seed":4096,"ticks":1200,"hash8":"7e93eab2","dbBytes":169955328,"snapshots":201,"events":157896,"eventDataBytes":60870767,"snapshotStateBytes":87503580,"snapshotStateMin":106168,"snapshotStateMax":780092,"elapsedMs":6221}
