@@ -1,0 +1,12 @@
+✔ nudge: q = 0.7·0.95 + 0.3·p; kept when u < q, else Jev's top other legal id (0.312178ms)
+✔ v1: world-government only consults WG governors, never the player holder, rails hold, and replay is exact with 0 calls (1014.165532ms)
+✔ the WG call cap: past it every consult is a cap fallback that keeps the sim's choice (346.903626ms)
+✔ dormant holder path: after the WG seat moves to an NPC, the holder is consulted as "holder" and replays exactly (1034.521647ms)
+ℹ tests 690
+ℹ suites 0
+ℹ pass 690
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 91829.415089

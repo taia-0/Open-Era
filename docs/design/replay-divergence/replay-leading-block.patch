@@ -1,0 +1,54 @@
+diff --git a/src/sim/tick-start.ts b/src/sim/tick-start.ts
+index 741d6b5..014b316 100644
+--- a/src/sim/tick-start.ts
++++ b/src/sim/tick-start.ts
+@@ -32,10 +32,22 @@ export function replayWithSilentStarts(state: WorldState, events: readonly SimEv
+       // A death is the first event of its tick. Desertion, the seat, and the
+       // stipend read the world after it, and the log already contains it, so
+       // replay must not emit a second one.
+-      while (index < events.length && events[index].type === "character-died") {
+-        applyEvent(state, events[index]);
++      // The run applies, in log order: events appended between ticks (player
++      // commands, conversation sends and replies, briefing acks), then
++      // `runTick`'s leading aging deaths, each followed by its own public
++      // news item when the body was ashore, then the silent start. Consume
++      // that whole block first. Stopping at the first event that was not a
++      // death ran the silent start with later deaths unapplied.
++      const deaths = new Set<string>();
++      while (index < events.length) {
++        const leading = events[index];
++        if (leading.type === "character-died") deaths.add(`news-${leading.sequence}`);
++        else if (!OUT_OF_TICK_TYPES.has(leading.type) && !(leading.type === "news-posted" && deaths.has(leadingNewsId(leading)))) break;
++        applyEvent(state, leading);
+         index += 1;
+       }
++      // Events submitted after the last tick: that morning has not run yet.
++      if (index >= events.length) break;
+       applySilentTickStart(state);
+       atStart = false;
+       continue;
+@@ -46,3 +58,24 @@ export function replayWithSilentStarts(state: WorldState, events: readonly SimEv
+     if (event.type === "tick-advanced") atStart = true;
+   }
+ }
++
++/**
++ * Event types appended outside `runTick` (commands.ts, conversations.ts,
++ * briefing.ts via the dashboard store). `runTick` never emits them, so they
++ * can only sit between a `tick-advanced` and the next tick's own events.
++ */
++const OUT_OF_TICK_TYPES = new Set<string>([
++  "player-command-accepted",
++  "conversation-thread-created",
++  "conversation-message-sent",
++  "conversation-reply-scheduled",
++  "conversation-reply-created",
++  "briefing-item-acknowledged",
++  "reporting-officer-assigned",
++]);
++
++/** Item id of a `news-posted` record, or "" when the payload has none. */
++function leadingNewsId(event: SimEvent): string {
++  const record = event.data?.record as { item?: { id?: unknown } } | undefined;
++  return typeof record?.item?.id === "string" ? record.item.id : "";
++}

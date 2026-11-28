@@ -1,0 +1,9 @@
+{"seed":1847,"ticks":60,"morning":true,"submitted":"character-12","exact":true}
+{"seed":1847,"ticks":600,"morning":true,"submitted":"character-02","exact":true}
+{"seed":1847,"ticks":1200,"morning":true,"submitted":"character-02","exact":true}
+{"seed":2718,"ticks":60,"morning":true,"submitted":"character-07","exact":true}
+{"seed":2718,"ticks":600,"morning":true,"submitted":"character-07","exact":true}
+{"seed":2718,"ticks":1200,"morning":true,"submitted":"character-02","exact":true}
+{"seed":4096,"ticks":60,"morning":true,"submitted":"character-07","exact":true}
+{"seed":4096,"ticks":600,"morning":true,"submitted":"none","exact":true}
+{"seed":4096,"ticks":1200,"morning":true,"submitted":"character-02","exact":true}
