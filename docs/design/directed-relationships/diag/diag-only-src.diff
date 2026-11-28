@@ -1,0 +1,13 @@
+diff -ru dr-base/src/sim/relationships.ts dr-diag/src/sim/relationships.ts
+--- dr-base/src/sim/relationships.ts	2026-11-27 16:45:43.683616295 -0800
++++ dr-diag/src/sim/relationships.ts	2026-11-27 16:50:58.258367567 -0800
+@@ -63,7 +63,8 @@
+ export function grudge(world: WorldState, fromId: string | null | undefined, toId: string | null | undefined, tick: number, kind: string): void {
+   if (!fromId || !toId || fromId === toId) return;
+   const from = world.characters[fromId]; if (!from || !world.characters[toId]) return;
+-  reportReader({ reader: "grudge", kind, fromId, toId, tick });
++  const only = process.env.RELCHAR_ONLY; if (only && only !== kind) return; // DIAGNOSIS ONLY (leave-one-writer-in), not in the patch
++  reportReader({ reader: "grudge", kind, fromId, toId, tick, created: !from.relationships[toId] });
+   const prior: Relationship = from.relationships[toId] ?? { characterId: toId, ...BASE, lastChangedTick: tick };
+   from.relationships[toId] = { ...prior, grievance: round(clamp(prior.grievance + GRUDGE_STEP, 0, 1)), lastChangedTick: tick };
+ }

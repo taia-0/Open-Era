@@ -1,0 +1,24 @@
+| Seed | Peace | Breaks | Protection | Joins | Ages | Claims off/on | Port changes off/on | Battles off/on | Secessions off/on | Violations | Replay |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 4 | 0 | 0 | 0 | 67, 155, 234, 67 | 51/34 | 52/40 | 74/69 | 1/5 | 0 | exact |
+| 2718 | 2 | 0 | 0 | 0 | 67, 67 | 64/42 | 64/47 | 81/77 | 0/4 | 0 | exact |
+| 4096 | 2 | 0 | 0 | 0 | 67, 67 | 56/31 | 59/34 | 81/87 | 3/2 | 0 | exact |
+| 1000 | 0 | 0 | 0 | 0 | — | 42/26 | 44/28 | 69/58 | 2/1 | 0 | exact |
+| 2000 | 2 | 0 | 0 | 0 | 67, 77 | 50/38 | 52/44 | 72/71 | 2/5 | 0 | exact |
+| 3000 | 3 | 0 | 0 | 0 | 115, 98, 154 | 42/42 | 44/46 | 58/71 | 2/3 | 0 | exact |
+| 4000 | 0 | 0 | 0 | 0 | — | 63/60 | 64/61 | 79/79 | 1/0 | 0 | exact |
+| 5000 | 2 | 0 | 0 | 0 | 170, 67 | 55/29 | 57/32 | 71/56 | 2/2 | 0 | exact |
+| 6000 | 2 | 0 | 0 | 0 | 82, 67 | 50/44 | 55/50 | 65/83 | 5/4 | 0 | exact |
+| 7000 | 0 | 0 | 0 | 0 | — | 61/54 | 65/55 | 78/73 | 4/0 | 0 | exact |
+| 8000 | 0 | 0 | 0 | 0 | — | 62/25 | 66/29 | 76/43 | 4/3 | 0 | exact |
+| 9000 | 5 | 0 | 1 | 0 | 67, 67, 132, 82, 67, 122 | 58/34 | 60/41 | 78/81 | 2/6 | 0 | exact |
+| 10000 | 1 | 0 | 0 | 0 | 67 | 28/29 | 31/31 | 45/76 | 3/1 | 0 | exact |
+| total | 23 | 0 | 1 | 0 | | 682/488 | 713/538 | 927/924 | 31/36 | 0 | |
+default pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
+opt-out pins: {"1847":{"short":"66e8ccb7","long":"b51aa07a","ok":true},"2718":{"short":"b4ccedab","long":"091f7628","ok":true},"4096":{"short":"b04c5ac4","long":"25bdbf15","ok":true}}
+seeds with secession 11/13; min claims 25, min port changes 28
+wipeouts off/on: 1847:none/none 2718:none/none 4096:none/none 1000:none/none 2000:none/none 3000:none/none 4000:none/none 5000:none/none 6000:none/none 7000:none/none 8000:none/none 9000:none/none 10000:none/none
+violations by property: {}
+{"1_flagOffPinsDefault":true,"1_flagOffPinsOptOut":true,"2_propertyViolations0":true,"2_replayExact":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
+SECESSION AFTERMATH ACCEPTANCE PASSED
+exit=0
