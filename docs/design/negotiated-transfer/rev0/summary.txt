@@ -1,0 +1,74 @@
+| Set | Offers (trigger) | Accepts | Sales / grants | Declines (reason) | Price paid | Claims | Port changes | Battles | Captures | Secessions (seeds) | Peaces | Pacts (protection) | Pact breaks | Purchases | Portless | Wipeouts | Low claims / port changes | Replay | Violations |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ATLS | 0 (—) | 0 | 0 / 0 | 0 (—) | 0 | 488 | 539 | 895 | 221 | 37 (11/13) | 24 | 59 (1) | 39 | 13 | 27 | none | 25 (8000) / 28 (1000) | 13/13 exact | 0 |
+| ATLS-NT | 54 (cession 22, sale 32) | 45 | 32 / 13 | 9 (reserve 9) | 3048 | 464 | 556 | 839 | 149 | 34 (11/13) | 21 | 58 (2) | 40 | 13 | 27 | none | 18 (3000) / 22 (3000) | 13/13 exact | 0 |
+| ATLS-exile-off | 0 (—) | 0 | 0 / 0 | 0 (—) | 0 | 374 | 421 | 778 | 157 | 33 (11/13) | 24 | 50 (2) | 33 | 13 | 27 | none | 12 (1847) / 14 (1000) | 13/13 exact | 0 |
+| ATLS-NT-exile-off | 86 (cession 58, sale 28) | 38 | 29 / 9 | 48 (reserve 48) | 3720 | 383 | 472 | 810 | 162 | 36 (13/13) | 21 | 65 (2) | 44 | 14 | 26 | none | 11 (1000) / 15 (1847) | 13/13 exact | 0 |
+
+ATLS
+| Seed | Offers | Accepts | Declines | Transfers (tick port from→to kind price) | Claims | Port changes | Secessions | Portless | hash72/hash1200 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 0 | 0 | 0  | — | 32 | 37 | 4 | 3 | 85658e53/5367691c |
+| 2718 | 0 | 0 | 0  | — | 42 | 47 | 4 | 3 | aa54ada1/faf5798a |
+| 4096 | 0 | 0 | 0  | — | 31 | 34 | 2 | 1 | e4361ee1/7e93eab2 |
+| 1000 | 0 | 0 | 0  | — | 26 | 28 | 1 | 1 | 22ae0506/91c5d594 |
+| 2000 | 0 | 0 | 0  | — | 38 | 44 | 5 | 3 | 56a41c5f/b00e3f0d |
+| 3000 | 0 | 0 | 0  | — | 47 | 51 | 3 | 2 | 7cd88301/d10058e2 |
+| 4000 | 0 | 0 | 0  | — | 60 | 61 | 0 | 0 | 0d8df558/7aa917b9 |
+| 5000 | 0 | 0 | 0  | — | 29 | 31 | 1 | 0 | 0fc65ea2/9d193422 |
+| 6000 | 0 | 0 | 0  | — | 29 | 33 | 3 | 3 | ec75f93c/0a288d05 |
+| 7000 | 0 | 0 | 0  | — | 54 | 55 | 0 | 0 | 9d629cae/9b2f24aa |
+| 8000 | 0 | 0 | 0  | — | 25 | 29 | 3 | 3 | 1fb3f072/0e099b9b |
+| 9000 | 0 | 0 | 0  | — | 34 | 41 | 6 | 5 | 4517d538/dc57fb34 |
+| 10000 | 0 | 0 | 0  | — | 41 | 48 | 5 | 3 | 43c4eeca/160f324d |
+
+ATLS-NT
+| Seed | Offers | Accepts | Declines | Transfers (tick port from→to kind price) | Claims | Port changes | Secessions | Portless | hash72/hash1200 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 4 | 4 | 0  | 240 verdant-cay free-tide→world-government sale 168; 768 cinder-key free-tide→secession-character-21-glassport-346 grant 0; 864 verdant-cay free-tide→world-government sale 72; 1032 cinder-key world-government→secession-character-21-glassport-346 grant 0 | 31 | 38 | 2 | 2 | 680e69f2/ed7878ed |
+| 2718 | 2 | 2 | 0  | 504 verdant-cay free-tide→world-government sale 144; 816 glassport free-tide→world-government sale 36 | 35 | 42 | 4 | 3 | 000d512b/d91973b5 |
+| 4096 | 1 | 1 | 0  | 240 verdant-cay free-tide→world-government sale 168 | 48 | 54 | 4 | 2 | 293a4228/cdf63d0f |
+| 1000 | 7 | 7 | 0  | 504 glassport free-tide→world-government sale 120; 552 cinder-key free-tide→world-government sale 84; 576 cinder-key free-tide→world-government sale 72; 600 glassport free-tide→world-government sale 72; 624 cinder-key free-tide→world-government sale 72; 672 verdant-cay free-tide→world-government sale 120; 1056 glassport free-tide→world-government sale 72 | 42 | 50 | 0 | 0 | 0c3c002a/23fd4864 |
+| 2000 | 13 | 5 | 8 {"reserve":8} | 408 glassport free-tide→world-government sale 168; 696 cinder-key world-government→free-tide grant 0; 720 crown-harbor free-tide→world-government grant 0; 768 cinder-key free-tide→world-government grant 0; 960 crown-harbor world-government→secession-character-17-glassport-424 grant 0 | 36 | 44 | 2 | 2 | 64932530/343de6b4 |
+| 3000 | 1 | 1 | 0  | 120 verdant-cay free-tide→world-government sale 120 | 18 | 22 | 2 | 1 | 77184e3c/9dd5c985 |
+| 4000 | 8 | 8 | 0  | 408 cinder-key free-tide→world-government sale 48; 504 glassport free-tide→world-government sale 60; 552 cinder-key free-tide→world-government sale 36; 624 glassport free-tide→world-government sale 60; 840 glassport free-tide→world-government sale 84; 864 glassport free-tide→world-government sale 72; 936 cinder-key free-tide→world-government sale 84; 1104 glassport free-tide→world-government sale 84 | 67 | 76 | 0 | 0 | c903fda3/8eea947a |
+| 5000 | 2 | 2 | 0  | 144 verdant-cay free-tide→world-government sale 168; 432 glassport free-tide→world-government sale 60 | 19 | 24 | 2 | 2 | 57762c60/56e3f6cb |
+| 6000 | 1 | 1 | 0  | 120 verdant-cay free-tide→world-government sale 120 | 22 | 26 | 2 | 1 | 3a8b050e/0c4bb290 |
+| 7000 | 6 | 5 | 1 {"reserve":1} | 240 cinder-key free-tide→world-government sale 84; 360 glassport free-tide→secession-character-15-cinder-key-259 grant 0; 480 glassport world-government→secession-character-15-cinder-key-259 grant 0; 528 cinder-key world-government→secession-character-15-cinder-key-259 grant 0; 720 glassport secession-character-15-cinder-key-259→world-government grant 0 | 37 | 46 | 3 | 4 | 3016ea61/d6dd081e |
+| 8000 | 5 | 5 | 0  | 432 glassport free-tide→world-government sale 84; 456 verdant-cay free-tide→world-government sale 96; 504 cinder-key free-tide→world-government sale 96; 624 crown-harbor secession-character-09-crown-harbor-574→world-government grant 0; 840 cinder-key secession-character-09-crown-harbor-574→world-government grant 0 | 29 | 38 | 3 | 2 | a2aed3e6/f41cb054 |
+| 9000 | 2 | 2 | 0  | 312 cinder-key free-tide→secession-character-21-glassport-91 sale 132; 312 glassport secession-character-21-glassport-91→world-government grant 0 | 48 | 58 | 7 | 6 | 483d8a45/d043f324 |
+| 10000 | 2 | 2 | 0  | 168 verdant-cay free-tide→world-government sale 120; 288 glassport free-tide→world-government sale 72 | 32 | 38 | 3 | 2 | 91d9091d/f1ddbd12 |
+
+ATLS-exile-off
+| Seed | Offers | Accepts | Declines | Transfers (tick port from→to kind price) | Claims | Port changes | Secessions | Portless | hash72/hash1200 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 0 | 0 | 0  | — | 12 | 15 | 2 | 1 | 296b11bc/4c1555e9 |
+| 2718 | 0 | 0 | 0  | — | 34 | 38 | 3 | 3 | 9f8b2f2b/c897ea88 |
+| 4096 | 0 | 0 | 0  | — | 34 | 40 | 4 | 3 | 93e6bfeb/226bad48 |
+| 1000 | 0 | 0 | 0  | — | 13 | 14 | 0 | 1 | 99cada88/4d77e935 |
+| 2000 | 0 | 0 | 0  | — | 40 | 45 | 4 | 4 | 800c9989/cfb2e191 |
+| 3000 | 0 | 0 | 0  | — | 34 | 38 | 3 | 1 | e60b3129/d8f5fbf8 |
+| 4000 | 0 | 0 | 0  | — | 30 | 37 | 6 | 4 | c76dd355/5a6a231f |
+| 5000 | 0 | 0 | 0  | — | 26 | 29 | 2 | 2 | 8029b613/d2c7059d |
+| 6000 | 0 | 0 | 0  | — | 35 | 38 | 2 | 2 | 90dacdb0/afa0a550 |
+| 7000 | 0 | 0 | 0  | — | 39 | 40 | 0 | 0 | 2edfa255/0aed99e9 |
+| 8000 | 0 | 0 | 0  | — | 16 | 18 | 1 | 0 | 2d66321c/219fba3f |
+| 9000 | 0 | 0 | 0  | — | 31 | 35 | 3 | 3 | 100f231a/ee80bf4b |
+| 10000 | 0 | 0 | 0  | — | 30 | 34 | 3 | 3 | 52ebc9ab/f7b751c7 |
+
+ATLS-NT-exile-off
+| Seed | Offers | Accepts | Declines | Transfers (tick port from→to kind price) | Claims | Port changes | Secessions | Portless | hash72/hash1200 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 29 | 0 | 29 {"reserve":29} | — | 12 | 15 | 2 | 1 | 47d2dfb2/ecd49130 |
+| 2718 | 1 | 1 | 0  | 408 glassport free-tide→world-government sale 108 | 36 | 39 | 1 | 0 | 0034876d/819a83e6 |
+| 4096 | 5 | 1 | 4 {"reserve":4} | 240 cinder-key free-tide→world-government sale 132 | 23 | 29 | 4 | 3 | 43b89022/c2eda3b8 |
+| 1000 | 17 | 4 | 13 {"reserve":13} | 264 cinder-key free-tide→world-government sale 144; 456 glassport free-tide→world-government sale 120; 576 glassport free-tide→world-government sale 72; 840 cinder-key world-government→secession-character-16-glassport-779 sale 144 | 11 | 17 | 1 | 1 | cb3a9008/f80bf508 |
+| 2000 | 7 | 6 | 1 {"reserve":1} | 360 glassport free-tide→world-government sale 144; 408 glassport free-tide→world-government sale 72; 432 cinder-key free-tide→world-government sale 156; 576 glassport free-tide→world-government sale 144; 936 cinder-key secession-character-22-crown-harbor-619→world-government sale 60; 984 glassport secession-character-22-crown-harbor-619→world-government sale 72 | 35 | 45 | 3 | 3 | 9c5f4bdc/37befe2c |
+| 3000 | 5 | 5 | 0  | 312 glassport free-tide→world-government sale 108; 336 cinder-key free-tide→world-government sale 144; 552 cinder-key free-tide→world-government sale 132; 744 glassport free-tide→world-government sale 132; 888 cinder-key free-tide→world-government sale 156 | 39 | 48 | 3 | 3 | a7480e3b/593b3c29 |
+| 4000 | 1 | 1 | 0  | 504 cinder-key secession-character-07-glassport-270→world-government grant 0 | 37 | 45 | 5 | 5 | 2768a66b/11312fc6 |
+| 5000 | 3 | 3 | 0  | 264 cinder-key free-tide→world-government sale 144; 288 verdant-cay free-tide→world-government sale 156; 504 glassport free-tide→world-government sale 72 | 36 | 44 | 3 | 2 | 90e05c1b/cc63fe2b |
+| 6000 | 5 | 5 | 0  | 240 verdant-cay free-tide→world-government sale 156; 264 cinder-key free-tide→world-government sale 72; 432 glassport free-tide→world-government sale 156; 504 glassport free-tide→world-government sale 168; 1056 glassport free-tide→world-government sale 120 | 37 | 45 | 2 | 2 | a558c159/5c647e4c |
+| 7000 | 1 | 1 | 0  | 600 glassport free-tide→world-government sale 144 | 36 | 40 | 2 | 1 | c3315580/2bfb8b69 |
+| 8000 | 8 | 7 | 1 {"reserve":1} | 504 glassport secession-character-21-glassport-268→free-tide grant 0; 528 glassport free-tide→secession-character-21-glassport-268 grant 0; 576 glassport secession-character-21-glassport-268→free-tide grant 0; 648 glassport free-tide→secession-character-21-glassport-268 grant 0; 672 glassport secession-character-21-glassport-268→free-tide grant 0; 720 glassport free-tide→secession-character-21-glassport-268 grant 0; 1152 cinder-key secession-character-10-cinder-key-1104→secession-character-21-glassport-268 grant 0 | 22 | 33 | 3 | 1 | b41c7352/e5b5980a |
+| 9000 | 2 | 2 | 0  | 288 verdant-cay free-tide→world-government sale 156; 600 verdant-cay free-tide→world-government sale 180 | 28 | 34 | 3 | 1 | e06bac65/1ba447d5 |
+| 10000 | 2 | 2 | 0  | 240 verdant-cay free-tide→world-government sale 156; 1152 cinder-key secession-character-11-glassport-305→world-government grant 0 | 31 | 38 | 4 | 3 | ec4f1a72/6c4f32ad |

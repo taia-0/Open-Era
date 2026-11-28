@@ -1,0 +1,440 @@
+diff --git a/src/dashboard/client-readiness.ts b/src/dashboard/client-readiness.ts
+index 8ed990e..de11dc1 100644
+--- a/src/dashboard/client-readiness.ts
++++ b/src/dashboard/client-readiness.ts
+@@ -1,5 +1,6 @@
+ import { governorId } from "../sim/governor.ts";
+ import type { CharacterLifecycle } from "../sim/lifecycle.ts";
++import { NEGOTIATION_EVENTS, TRANSFER_PRIVATE_KEYS, transferParty } from "../sim/negotiated-transfer.ts";
+ import { readableNews } from "../sim/news.ts";
+ import { OCCUPATION_REGROWTH_STOP } from "../sim/occupation.ts";
+ import { atPeace } from "../sim/secession-aftermath.ts";
+@@ -15,7 +16,7 @@ import type { Character, Settlement, SimEvent, WorldState } from "../sim/types.t
+  * it was learned. Nothing here writes the world.
+  */
+ 
+-const OWNERSHIP_NEWS = new Set(["settlement-claimed", "settlement-purchased", "secession-joined"]);
++const OWNERSHIP_NEWS = new Set(["settlement-claimed", "settlement-purchased", "settlement-transferred", "secession-joined"]);
+ 
+ /** Bookkeeping rows. They stay out of every player feed. */
+ export const PLAYER_FEED_BOOKKEEPING = [
+@@ -23,6 +24,9 @@ export const PLAYER_FEED_BOOKKEEPING = [
+   "lifecycle-watch-cleared",
+   "aftermath-ledger-opened",
+   "alliance-ledger-opened",
++  "transfer-ledger-opened",
++  "transfer-watch",
++  "transfer-watch-cleared",
+ ] as const;
+ 
+ export interface OccupationView {
+@@ -289,6 +293,7 @@ export function diplomacyParty(viewer: Character, event: SimEvent): boolean {
+ export function showInPlayerFeed(viewer: Character, event: SimEvent): boolean {
+   if ((PLAYER_FEED_BOOKKEEPING as readonly string[]).includes(event.type)) return false;
+   if (isDiplomacyEvent(event.type)) return diplomacyParty(viewer, event);
++  if (event.type === "transfer-offered" || event.type === "transfer-declined") return transferParty(viewer.factionId, event);
+   return true;
+ }
+ 
+@@ -410,6 +415,9 @@ export function stripPlayerEventData(viewer: Character, event: SimEvent, data: u
+   if (event.type === "settlement-purchased" && !purchaseParty(viewer, event)) {
+     for (const key of ["price", "reserve", "treasuryBefore", "treasuryAfter", "cause", "priceBasis"]) gone(key);
+   }
++  if ((event.type === "settlement-transferred" || NEGOTIATION_EVENTS.has(event.type)) && !transferParty(viewer.factionId, event)) {
++    for (const key of TRANSFER_PRIVATE_KEYS) gone(key);
++  }
+   if (event.type === "character-retired" || event.type === "character-returned" || event.type === "character-promoted" || event.type === "lifecycle-watch" || event.type === "lifecycle-watch-cleared") {
+     for (const key of ["cause", "troops", "portsAtRetire", "office", "watchSince", "split", "captainTroopsAfter"]) gone(key);
+   }
+diff --git a/src/dashboard/view-model.ts b/src/dashboard/view-model.ts
+index 87296f1..372f09e 100644
+--- a/src/dashboard/view-model.ts
++++ b/src/dashboard/view-model.ts
+@@ -1,5 +1,6 @@
+ import { believedGarrison } from "../sim/agency.ts";
+ import { withFeedReason } from "../sim/feed-reasons.ts";
++import { transferParty } from "../sim/negotiated-transfer.ts";
+ import { combatForecast } from "../sim/combat.ts";
+ import { COMMAND_LIMITS, commandCapabilities } from "../sim/commands.ts";
+ import {
+@@ -226,6 +227,16 @@ function baseEventSummary(world: WorldState, event: SimEvent, events?: SimEvent[
+       if (!reader || !purchaseParty(reader, event) || typeof price !== "number") return base;
+       return `${base} The price was ${price}.`;
+     }
++    case "settlement-transferred":
++    case "transfer-offered":
++    case "transfer-declined": {
++      // NEGOTIATED_TRANSFER: the parties read the terms; everyone else reads the public line.
++      const base = publicFeedSentence(world, event);
++      if (!reader || !transferParty(reader.factionId, event)) return base;
++      const kind = event.data.kind === "grant" ? "a grant" : `a sale for ${event.data.price}`;
++      if (event.type === "transfer-declined") return `${base} Reason: ${event.data.reason}.`;
++      return `${base} Terms: ${kind} (${event.data.trigger}).`;
++    }
+     case "secession-declared": {
+       const base = secessionDeclaredSentence(world, event, actor);
+       if (!reader || !eventPayloadVisible(world, reader, event)) return base;
+@@ -700,6 +711,7 @@ function checkInBriefing(world: WorldState, commanderId: string, events: SimEven
+     "settlement-shortage",
+     "settlement-claimed",
+     "settlement-purchased",
++    "settlement-transferred",
+     "secession-joined",
+   ]);
+   const routineTypes = new Set(["standing-order-accepted", "standing-order-resumed", "standing-order-completed"]);
+diff --git a/src/dashboard/visibility.ts b/src/dashboard/visibility.ts
+index b30da0d..bd813ea 100644
+--- a/src/dashboard/visibility.ts
++++ b/src/dashboard/visibility.ts
+@@ -1,5 +1,6 @@
+ import { assessStandingOrder, garrisonConfidenceLabel } from "../sim/agency.ts";
+ import { commandHolderId, factionPower, partyPower, partyPowerFromTroops, round } from "../sim/state.ts";
++import { NEGOTIATION_EVENTS, transferParty } from "../sim/negotiated-transfer.ts";
+ import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder, SupplyContract, TravelState, WorldState } from "../sim/types.ts";
+ import { PASSAGE_COST_PER_TICK } from "../sim/engine.ts";
+ import { shortPayMember } from "../sim/allowance.ts";
+@@ -1076,6 +1077,10 @@ export function eventPayloadVisible(
+   // open them, and neither does a later owner who was not a party.
+   if (isDiplomacyEvent(event.type)) return diplomacyParty(commander, event);
+ 
++  // NEGOTIATED_TRANSFER: an offer, a decline, a transfer, and the shortage watch are the seller's and the
++  // receiver's business. The price and the terms never reach a third faction, including one holding the port later.
++  if (event.type === "settlement-transferred" || NEGOTIATION_EVENTS.has(event.type)) return transferParty(commander.factionId, event);
++
+   // Anything else attributed to a character belongs to that character. Motives,
+   // beliefs, and logistics stay private even for faction peers, because the
+   // character projection withholds the same fields and a feed that revealed them
+diff --git a/src/dashboard/wording.ts b/src/dashboard/wording.ts
+index 9683a2c..950e59b 100644
+--- a/src/dashboard/wording.ts
++++ b/src/dashboard/wording.ts
+@@ -46,7 +46,7 @@ export function higherScoreClause(data: Record<string, unknown>): string {
+  * `data` stays null. A decision, a contract, and an upkeep row are not in this set.
+  */
+ export function summaryStaysWhenWithheld(type: string): boolean {
+-  return type === "character-captured" || type === "captivity-released" || type === "battle-resolved" || type === "settlement-claimed" || type === "settlement-purchased" || type === "secession-joined" || type === "secession-declared" || type === "tax-rate-set" || type === "character-retired" || type === "character-returned" || type === "character-promoted";
++  return type === "character-captured" || type === "captivity-released" || type === "battle-resolved" || type === "settlement-claimed" || type === "settlement-purchased" || type === "settlement-transferred" || type === "secession-joined" || type === "secession-declared" || type === "tax-rate-set" || type === "character-retired" || type === "character-returned" || type === "character-promoted";
+ }
+ 
+ /**
+@@ -590,6 +590,17 @@ export function publicFeedSentence(world: WorldState, event: SimEvent): string {
+       const buyer = buyerId ? world.factions[buyerId]?.name ?? buyerId : "a faction";
+       return settlement ? `${actor} bought ${settlement} for ${buyer}.` : `${actor} bought a port for ${buyer}.`;
+     }
++    case "settlement-transferred": {
++      // NEGOTIATED_TRANSFER: the public line. No price, no kind, no terms.
++      const name = (id: unknown) => (typeof id === "string" ? world.factions[id]?.name ?? id : "a faction");
++      return settlement
++        ? `${actor} took over ${settlement} for ${name(event.data.factionId ?? event.targetId)} from ${name(event.data.sellerFactionId)} by agreement.`
++        : `${actor} took over a port by agreement.`;
++    }
++    case "transfer-offered":
++      return settlement ? `An offer was made for ${settlement}.` : "An offer was made for a port.";
++    case "transfer-declined":
++      return settlement ? `An offer for ${settlement} was declined.` : "An offer for a port was declined.";
+     case "secession-joined": {
+       const patronId = typeof event.data.joinedFactionId === "string" ? event.data.joinedFactionId : event.targetId;
+       const patron = patronId ? world.factions[patronId]?.name ?? patronId : "another faction";
+@@ -786,6 +797,12 @@ export function eventBriefingTitle(type: string): string {
+       return "A port was claimed";
+     case "settlement-purchased":
+       return "A port was bought";
++    case "settlement-transferred":
++      return "A port changed hands by agreement";
++    case "transfer-offered":
++      return "A port was offered";
++    case "transfer-declined":
++      return "An offer was declined";
+     case "secession-joined":
+       return "A company joined a faction";
+     case "secession-declared":
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 6332431..91eecd9 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -40,6 +40,7 @@ import { taxStepDistribution, templateReason, triage, weightedDraw, WEIGHTED_PAR
+ import { foodBaseline } from "./occupation.ts";
+ import { PICKER_FACTIONS_DEFAULT, WG_FACTION_ID, WG_PICKER_DEFAULT_CAP, wgNudge, type WgNudge, type WgRole } from "./ai-wg-picker.ts";
+ import { PORT_TRANSFER_DEFAULT, portPurchases } from "./port-transfer.ts";
++import { NEGOTIATED_TRANSFER_DEFAULT, negotiatedTransfers } from "./negotiated-transfer.ts";
+ import { LIFECYCLE_DEFAULT, isRetired, lifecycleStep } from "./lifecycle.ts";
+ import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
+ import { SECESSION_AFTERMATH_DEFAULT, aftermathStep, atPeace } from "./secession-aftermath.ts";
+@@ -3566,6 +3567,8 @@ export interface TickOptions {
+   lifecycle?: boolean;
+   /** SECESSION_AFTERMATH (secession-aftermath.md): peace, protection, membership for a seceded port. Off by default; off is byte-identical. */
+   secessionAftermath?: boolean;
++  /** NEGOTIATED_TRANSFER (negotiated-transfer.md): a holder offers a held port; the receiver accepts or declines. Off by default; off is byte-identical. */
++  negotiatedTransfer?: boolean;
+   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
+   /**
+    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
+@@ -4551,6 +4554,7 @@ let alliancesOn = false;
+ let lifecycleOn = false;
+ let portTransferOn = false;
+ let aftermathOn = false;
++let negotiatedOn = false;
+ 
+ export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
+@@ -4558,6 +4562,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
+   alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
+   lifecycleOn = options.lifecycle ?? LIFECYCLE_DEFAULT;
+   aftermathOn = options.secessionAftermath ?? SECESSION_AFTERMATH_DEFAULT;
++  negotiatedOn = options.negotiatedTransfer ?? NEGOTIATED_TRANSFER_DEFAULT;
+   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
+   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
+   const leading: SimEvent[] = [];
+@@ -4586,6 +4591,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+   declareAutonomousSecessions(world, events, options.liveSession === true, options.ai);
+   if (alliancesOn) allianceForms(world, (d) => emit(world, events, d as EventDraft));
+   if (portTransferOn) portPurchases(world, (d) => emit(world, events, d as EventDraft));
++  if (negotiatedOn) negotiatedTransfers(world, (d) => emit(world, events, d as EventDraft), options.liveSession === true);
+   resolveOfferedContracts(world, events);
+   resolveContractOutcomes(world, events);
+   offerAutonomousSupply(world, events);
+diff --git a/src/sim/negotiated-transfer.ts b/src/sim/negotiated-transfer.ts
+new file mode 100644
+index 0000000..513a614
+--- /dev/null
++++ b/src/sim/negotiated-transfer.ts
+@@ -0,0 +1,176 @@
++import { allied } from "./alliances.ts";
++import { freeMateCount } from "./allowance.ts";
++import { ADJACENT, PRICE_PER_SOLDIER, PURCHASE_CLOCK, RESERVE_PER_HEAD, freeDocked } from "./port-transfer.ts";
++import { atPeace } from "./secession-aftermath.ts";
++import { commandHolderId } from "./state.ts";
++import type { SimEvent, WorldState } from "./types.ts";
++
++/**
++ * NEGOTIATED_TRANSFER (docs/design/negotiated-transfer.md, prototype): a holder offers a port it holds to another
++ * faction; the receiver accepts or declines. Behind the `negotiatedTransfer` run option, default off.
++ * Deterministic: no RNG, no AI. Flag off: nothing here runs and `world.negotiatedTransfer` never exists.
++ */
++export const NEGOTIATED_TRANSFER_DEFAULT = false;
++/** Threat window: alliances.ts ALLIANCE_RAID_WINDOW, p90 of the gap between raids (152, flag off, 13 seeds). */
++export const THREAT_WINDOW = 152;
++/** The surrender line, world-simulation.md:97 (garrison at most 15). Measured: a raided held port at or below it was lost within 152 ticks 330/394 (ATLS) and 511/519 (flag off). */
++export const CESSION_GARRISON = 15;
++/** Shortage clock: p90 of closed below-reserve spells of factions holding ≥ 2 ports, ATLS + fix, 13 seeds × 1,200 (41 ticks, n = 148). */
++export const SHORTAGE_SPELL = 41;
++
++export interface NegotiatedTransferState {
++  /** Last raid on each held port: attacker faction, defender (holder) faction, tick. */
++  raids: Record<string, { by: string; against: string; tick: number }>;
++  /** Faction → first tick of the current below-reserve spell. */
++  shortage: Record<string, number>;
++  /** Declined offers, remembered for the spell (trigger + since) that produced them. */
++  declined: Array<{ settlementId: string; sellerFactionId: string; factionId: string; trigger: string; since: number }>;
++  /** Port → the faction that gave it up by agreement and the tick. No offer back to that faction within THREAT_WINDOW. */
++  returned: Record<string, { from: string; tick: number }>;
++}
++type W = WorldState & { negotiatedTransfer?: NegotiatedTransferState };
++type Emit = (d: { type: string; actorId?: string; settlementId?: string; targetId?: string; data: Record<string, unknown> }) => void;
++
++const ledger = (world: WorldState) => (world as W).negotiatedTransfer;
++const held = (world: WorldState, f: string) => Object.values(world.settlements).filter((s) => s.factionId === f).sort((a, b) => a.id.localeCompare(b.id));
++const dist = (w: WorldState, a: string, b: string) => { const p = w.settlements[a].position, q = w.settlements[b].position; return Math.hypot(p.x - q.x, p.y - q.y); };
++const reserveWith = (world: WorldState, f: string, extraPorts: number) => RESERVE_PER_HEAD * (freeMateCount(world, f) + held(world, f).length + extraPorts);
++const humanHeld = (world: WorldState, f: string) => { const h = commandHolderId(world, f); return h ? world.characters[h]?.controller.kind === "human" : false; };
++
++export const NEGOTIATION_EVENTS = new Set(["transfer-offered", "transfer-declined", "transfer-watch", "transfer-watch-cleared", "transfer-ledger-opened"]);
++
++/** The seller's view of a receiver: what it can see in its own port. Pact partner, then peace partner, then adjacent; docked troops; id. */
++function receivers(world: WorldState, seller: string, portId: string, raider: string | null, taken: Set<string>) {
++  const docked = freeDocked(world, portId);
++  const ids = [...new Set(docked.map((c) => c.factionId!))].filter((f) => f !== seller && f !== raider && world.factions[f] && !taken.has(f));
++  return ids.map((f) => {
++    const pact = allied(world, seller, f);
++    const adj = held(world, f).find((s) => dist(world, s.id, portId) <= ADJACENT);
++    const troops = docked.filter((c) => c.factionId === f).reduce((n, c) => n + c.troops.count, 0);
++    return { factionId: f, pact, peace: atPeace(world, seller, f), adjacent: adj?.id ?? null, troops, agentId: docked.find((c) => c.factionId === f)!.id };
++  }).filter((r) => r.pact || r.adjacent)
++    .sort((a, b) => Number(b.pact) - Number(a.pact) || Number(b.peace) - Number(a.peace) || b.troops - a.troops || a.factionId.localeCompare(b.factionId));
++}
++
++/** Runs every tick with the flag on, right after portPurchases. Offers only on the purchase clock. */
++export function negotiatedTransfers(world: WorldState, emit: Emit, liveSession: boolean): void {
++  if (!ledger(world)) emit({ type: "transfer-ledger-opened", data: {} });
++  const nt = ledger(world)!;
++  // Shortage watch, every tick: treasury below the port-transfer reserve while holding a port.
++  for (const f of Object.keys(world.factions).sort()) {
++    const ports = held(world, f).length;
++    const short = ports > 0 && world.factions[f].treasury < reserveWith(world, f, 0);
++    if (short && nt.shortage[f] === undefined) emit({ type: "transfer-watch", targetId: f, data: { factionId: f, since: world.tick } });
++    else if (!short && nt.shortage[f] !== undefined) emit({ type: "transfer-watch-cleared", targetId: f, data: { factionId: f, since: nt.shortage[f] } });
++  }
++  if (world.tick <= 0 || world.tick % PURCHASE_CLOCK !== 0) return;
++  const taken = new Set<string>();
++  for (const seller of Object.keys(world.factions).sort()) {
++    if (liveSession && humanHeld(world, seller)) continue;
++    // One transfer per faction per clock tick, as seller or as receiver.
++    if (taken.has(seller)) continue;
++    const ports = held(world, seller);
++    if (ports.length < 2) continue;
++    const busy = (id: string) => Object.values(world.activeBattles).some((b) => b.settlementId === id);
++    const tries: Array<{ portId: string; trigger: "cession" | "sale"; since: number; raider: string | null; cause: string }> = [];
++    for (const p of ports) {
++      const r = nt.raids[p.id];
++      if (!r || r.against !== seller || world.tick - r.tick > THREAT_WINDOW || p.garrison > CESSION_GARRISON || busy(p.id)) continue;
++      tries.push({ portId: p.id, trigger: "cession", since: r.tick, raider: r.by, cause: `raided by ${r.by} at tick ${r.tick}; garrison ${p.garrison} ≤ ${CESSION_GARRISON}` });
++    }
++    const since = nt.shortage[seller];
++    if (since !== undefined && world.tick - since >= SHORTAGE_SPELL) {
++      for (const p of [...ports].sort((a, b) => b.garrison - a.garrison || a.id.localeCompare(b.id))) {
++        if (busy(p.id) || tries.some((t) => t.portId === p.id)) continue;
++        const r = nt.raids[p.id];
++        const raider = r && r.against === seller && world.tick - r.tick <= THREAT_WINDOW ? r.by : null;
++        tries.push({ portId: p.id, trigger: "sale", since, raider, cause: `below reserve since tick ${since} (${world.tick - since} ≥ ${SHORTAGE_SPELL})` });
++      }
++    }
++    let done = false;
++    for (const t of tries) {
++      if (done) break;
++      const port = world.settlements[t.portId];
++      for (const r of receivers(world, seller, t.portId, t.raider, taken)) {
++        if (liveSession && humanHeld(world, r.factionId)) continue;
++        const back = nt.returned[t.portId];
++        if (back && back.from === r.factionId && world.tick - back.tick <= THREAT_WINDOW) continue;
++        if (nt.declined.some((d) => d.settlementId === t.portId && d.sellerFactionId === seller && d.factionId === r.factionId && d.trigger === t.trigger && d.since === t.since)) continue;
++        const kind = t.trigger === "cession" && r.pact ? "grant" : "sale";
++        const price = kind === "grant" ? 0 : PRICE_PER_SOLDIER * port.garrison;
++        const offerId = `offer-${world.tick}-${t.portId}-${r.factionId}`;
++        const terms = { offerId, sellerFactionId: seller, factionId: r.factionId, kind, trigger: t.trigger, since: t.since, price,
++          priceBasis: { garrison: port.garrison, perSoldier: kind === "grant" ? 0 : PRICE_PER_SOLDIER }, cause: t.cause,
++          receiverStanding: r.pact ? "pact" : r.peace ? "peace" : "adjacent" };
++        emit({ type: "transfer-offered", settlementId: t.portId, targetId: r.factionId, data: terms });
++        // The receiver's rule: the price plus the reserve with the new seat, from its own treasury.
++        const treasury = world.factions[r.factionId].treasury;
++        const reserve = reserveWith(world, r.factionId, 1);
++        const reason = treasury < reserve ? "reserve" : treasury < price + reserve ? "price" : null;
++        if (reason) {
++          emit({ type: "transfer-declined", settlementId: t.portId, targetId: r.factionId, data: { offerId, sellerFactionId: seller, factionId: r.factionId, trigger: t.trigger, since: t.since, reason } });
++          continue;
++        }
++        emit({ type: "settlement-transferred", actorId: r.agentId, settlementId: t.portId, targetId: r.factionId, data: {
++          ...terms, ownerId: r.agentId, previousOwnerId: port.ownerId, payerFactionId: kind === "sale" ? r.factionId : null, reserve } });
++        taken.add(r.factionId); taken.add(seller);
++        done = true;
++        break;
++      }
++    }
++  }
++}
++
++export function applyNegotiatedTransferEvent(world: WorldState, event: SimEvent): boolean {
++  const w = world as W;
++  switch (event.type) {
++    case "transfer-ledger-opened": w.negotiatedTransfer = { raids: {}, shortage: {}, declined: [], returned: {} }; return true;
++    case "transfer-watch": w.negotiatedTransfer!.shortage[event.data.factionId as string] = event.data.since as number; return true;
++    case "transfer-watch-cleared": {
++      const nt = w.negotiatedTransfer!; const f = event.data.factionId as string;
++      delete nt.shortage[f];
++      nt.declined = nt.declined.filter((d) => !(d.sellerFactionId === f && d.trigger === "sale"));
++      return true;
++    }
++    case "transfer-offered": return true;
++    case "transfer-declined": {
++      const nt = w.negotiatedTransfer!;
++      nt.declined = nt.declined.filter((d) => d.trigger !== "cession" || event.tick - d.since <= THREAT_WINDOW);
++      nt.declined.push({ settlementId: event.settlementId!, sellerFactionId: event.data.sellerFactionId as string, factionId: event.data.factionId as string, trigger: event.data.trigger as string, since: event.data.since as number });
++      return true;
++    }
++    case "settlement-transferred": {
++      const s = world.settlements[event.settlementId!];
++      const price = event.data.price as number;
++      world.factions[event.data.sellerFactionId as string].treasury += price;
++      world.factions[event.data.factionId as string].treasury -= price;
++      s.factionId = event.data.factionId as string; s.ownerId = event.data.ownerId as string; s.surrender = null;
++      if (s.occupation) delete s.occupation;
++      const nt = w.negotiatedTransfer;
++      if (nt) {
++        delete nt.raids[s.id];
++        nt.declined = nt.declined.filter((d) => d.settlementId !== s.id);
++        for (const [id, x] of Object.entries(nt.returned)) if (event.tick - x.tick > THREAT_WINDOW) delete nt.returned[id];
++        nt.returned[s.id] = { from: event.data.sellerFactionId as string, tick: event.tick };
++      }
++      return true;
++    }
++  }
++  return false;
++}
++
++/** Raid ledger per port (flag on only: exists after transfer-ledger-opened). Same raid test as alliances.ts noteRaid. */
++export function noteTransferRaid(world: WorldState, event: SimEvent): void {
++  const nt = ledger(world); if (!nt) return;
++  if (!(event.type === "battle-started" || (event.type === "battle-resolved" && !event.data.battleId))) return;
++  if (!event.settlementId) return;
++  const atk = event.actorId ? world.characters[event.actorId]?.factionId : null; const def = event.targetId;
++  if (atk && def && atk !== def && world.settlements[event.settlementId]?.factionId === def) nt.raids[event.settlementId] = { by: atk, against: def, tick: event.tick };
++}
++
++/** Parties to an offer, a decline, or a transfer: the seller and the receiver. */
++export function transferParty(viewerFactionId: string | null, event: SimEvent): boolean {
++  if (!viewerFactionId) return false;
++  return viewerFactionId === event.data.sellerFactionId || viewerFactionId === event.data.factionId;
++}
++export const TRANSFER_PRIVATE_KEYS = ["price", "priceBasis", "kind", "trigger", "since", "cause", "reserve", "offerId", "payerFactionId", "receiverStanding"] as const;
+diff --git a/src/sim/news.ts b/src/sim/news.ts
+index 930fb14..4805e34 100644
+--- a/src/sim/news.ts
++++ b/src/sim/news.ts
+@@ -8,6 +8,7 @@ export const PUBLIC_NEWS_TYPES = new Set([
+   "battle-retreated",
+   "settlement-claimed",
+   "settlement-purchased",
++  "settlement-transferred",
+   "secession-joined",
+   "character-captured",
+   "captivity-released",
+@@ -23,7 +24,7 @@ export const PUBLIC_NEWS_TYPES = new Set([
+  * must not replace the stability or follower item a later decision already read.
+  */
+ function countsAsPortStatus(type: string): boolean {
+-  return type !== "tax-rate-set" && type !== "settlement-purchased" && type !== "secession-joined";
++  return type !== "tax-rate-set" && type !== "settlement-purchased" && type !== "settlement-transferred" && type !== "secession-joined";
+ }
+ 
+ /** An away port's item counts while the tax tick minus `observedTick` is at most this. */
+diff --git a/src/sim/state.ts b/src/sim/state.ts
+index 78e80e3..012316f 100644
+--- a/src/sim/state.ts
++++ b/src/sim/state.ts
+@@ -1,5 +1,6 @@
+ import { applyAftermathEvent, noteProtection } from "./secession-aftermath.ts";
+ import { applyLifecycleEvent } from "./lifecycle.ts";
++import { NEGOTIATION_EVENTS, applyNegotiatedTransferEvent, noteTransferRaid } from "./negotiated-transfer.ts";
+ import { applyPurchase } from "./port-transfer.ts";
+ import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
+ import { createHash } from "node:crypto";
+@@ -565,6 +566,10 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+     return;
+   }
++  if ((NEGOTIATION_EVENTS.has(event.type) || event.type === "settlement-transferred") && applyNegotiatedTransferEvent(world, event)) {
++    world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
++    return;
++  }
+   if (event.type === "settlement-purchased" && applyPurchase(world, event)) {
+     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+     return;
+@@ -579,6 +584,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+     return;
+   }
+   noteRaid(world, event);
++  noteTransferRaid(world, event);
+   applyJoinerLosses(world, event);
+   const actor = event.actorId ? world.characters[event.actorId] : undefined;
+   const settlement = event.settlementId ? world.settlements[event.settlementId] : undefined;
+diff --git a/src/tools/dynamism.ts b/src/tools/dynamism.ts
+index b48d563..d565cd2 100644
+--- a/src/tools/dynamism.ts
++++ b/src/tools/dynamism.ts
+@@ -102,6 +102,7 @@ function count(target: Counts, event: SimEvent, ports: Set<string>): void {
+         if (event.settlementId) ports.add(event.settlementId);
+       }
+       break;
++    case "settlement-transferred":
+     case "settlement-purchased":
+       // port-transfer.md §3 follow-up (Lead ruling): a purchase is a port ownership change (neutral → buyer).
+       target.portOwnershipChanges += 1;
