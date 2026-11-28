@@ -1,5 +1,171 @@
+diff --git a/src/cli/human-contracts-flag.ts b/src/cli/human-contracts-flag.ts
+new file mode 100644
+index 0000000..e626b47
+--- /dev/null
++++ b/src/cli/human-contracts-flag.ts
+@@ -0,0 +1,8 @@
++import { HUMAN_CONTRACTS_DEFAULT } from "../sim/engine.ts";
++
++/** human-contracts.md: HUMAN_CONTRACTS is off by default. `--human-contracts` (or HUMAN_CONTRACTS=1) turns it on for the run. */
++export const HUMAN_CONTRACTS_FLAG_OPTIONS = { "human-contracts": { type: "boolean", default: false } } as const;
++export const HUMAN_CONTRACTS_FLAG_HELP = "  --human-contracts turn on HUMAN_CONTRACTS, supply-contract offers to a human carrier (off by default); also HUMAN_CONTRACTS=1";
++export function resolveHumanContracts(values: { "human-contracts"?: boolean }, env: NodeJS.ProcessEnv = process.env): boolean {
++  return values["human-contracts"] === true || env.HUMAN_CONTRACTS === "1" || HUMAN_CONTRACTS_DEFAULT;
++}
+diff --git a/src/cli/run-dashboard.ts b/src/cli/run-dashboard.ts
+index e1de9ac..b4bb46d 100644
+--- a/src/cli/run-dashboard.ts
++++ b/src/cli/run-dashboard.ts
+@@ -7,6 +7,7 @@ import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS } from "./feed-reason
+ import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS } from "./lifecycle-flag.ts";
+ import { OCCUPATION_FLAG_HELP, OCCUPATION_FLAG_OPTIONS } from "./occupation-flag.ts";
+ import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS } from "./port-transfer-flag.ts";
++import { HUMAN_CONTRACTS_FLAG_HELP, HUMAN_CONTRACTS_FLAG_OPTIONS } from "./human-contracts-flag.ts";
+ import { SECESSION_AFTERMATH_FLAG_HELP, SECESSION_AFTERMATH_FLAG_OPTIONS } from "./secession-aftermath-flag.ts";
+ 
+ const { values } = parseArgs({
+@@ -22,14 +23,15 @@ const { values } = parseArgs({
+     ...PORT_TRANSFER_FLAG_OPTIONS,
+     ...LIFECYCLE_FLAG_OPTIONS,
+     ...SECESSION_AFTERMATH_FLAG_OPTIONS,
++    ...HUMAN_CONTRACTS_FLAG_OPTIONS,
+     ...OCCUPATION_FLAG_OPTIONS,
+     ...FEED_REASONS_FLAG_OPTIONS,
+   },
+ });
+ maybeHelp(
+   values,
+-  "npm run dashboard -- [--port N] [--seed N] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]",
+-  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP],
++  "npm run dashboard -- [--port N] [--seed N] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath] [--human-contracts]",
++  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, HUMAN_CONTRACTS_FLAG_HELP, FEED_REASONS_FLAG_HELP],
+ );
+ 
+ const port = Number.parseInt(values.port!, 10);
+diff --git a/src/cli/run-simulation.ts b/src/cli/run-simulation.ts
+index 33eba21..b3ef745 100644
+--- a/src/cli/run-simulation.ts
++++ b/src/cli/run-simulation.ts
+@@ -4,6 +4,7 @@ import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-fla
+ import { ALLIANCES_FLAG_HELP, ALLIANCES_FLAG_OPTIONS } from "./alliances-flag.ts";
+ import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS } from "./port-transfer-flag.ts";
+ import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS } from "./lifecycle-flag.ts";
++import { HUMAN_CONTRACTS_FLAG_HELP, HUMAN_CONTRACTS_FLAG_OPTIONS } from "./human-contracts-flag.ts";
+ import { SECESSION_AFTERMATH_FLAG_HELP, SECESSION_AFTERMATH_FLAG_OPTIONS } from "./secession-aftermath-flag.ts";
+ import { OCCUPATION_FLAG_HELP, OCCUPATION_FLAG_OPTIONS } from "./occupation-flag.ts";
+ import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS, resolveFeedReasons } from "./feed-reasons-flag.ts";
+@@ -34,6 +35,7 @@ const { values } = parseArgs({
+     ...PORT_TRANSFER_FLAG_OPTIONS,
+     ...LIFECYCLE_FLAG_OPTIONS,
+     ...SECESSION_AFTERMATH_FLAG_OPTIONS,
++    ...HUMAN_CONTRACTS_FLAG_OPTIONS,
+     ...OCCUPATION_FLAG_OPTIONS,
+     // feedReasons: on by default (Micah 2026-11-06); --no-feed-reasons or FEED_REASONS=0 opts out.
+     ...FEED_REASONS_FLAG_OPTIONS,
+@@ -41,8 +43,8 @@ const { values } = parseArgs({
+ });
+ maybeHelp(
+   values,
+-  "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]",
+-  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP],
++  "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath] [--human-contracts]",
++  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, HUMAN_CONTRACTS_FLAG_HELP, FEED_REASONS_FLAG_HELP],
+ );
+ const exileRecovery = resolveExileRecovery(values);
+ const feedReasonsOn = resolveFeedReasons(values);
+diff --git a/src/cli/tick-options.ts b/src/cli/tick-options.ts
+index 8942db3..cf8608c 100644
+--- a/src/cli/tick-options.ts
++++ b/src/cli/tick-options.ts
+@@ -3,6 +3,7 @@ import { feedReasonCallCap, stubFeedReasonWriter, type FeedReasonOptions } from
+ import { resolveAlliances } from "./alliances-flag.ts";
+ import { resolveExileRecovery } from "./exile-flag.ts";
+ import { resolveFeedReasons } from "./feed-reasons-flag.ts";
++import { resolveHumanContracts } from "./human-contracts-flag.ts";
+ import { resolveLifecycle } from "./lifecycle-flag.ts";
+ import { resolveOccupation } from "./occupation-flag.ts";
+ import { resolvePortTransfer } from "./port-transfer-flag.ts";
+@@ -18,6 +19,7 @@ export interface SimFlagValues {
+   "port-transfer"?: boolean;
+   lifecycle?: boolean;
+   "secession-aftermath"?: boolean;
++  "human-contracts"?: boolean;
+   "no-exile-recovery"?: boolean;
+   "no-feed-reasons"?: boolean;
+ }
+@@ -37,6 +39,7 @@ export function tickOptionsFromFlags(values: SimFlagValues, env: NodeJS.ProcessE
+   const portTransfer = resolvePortTransfer(values, env);
+   const lifecycle = resolveLifecycle(values, env);
+   const secessionAftermath = resolveSecessionAftermath(values, env);
++  const humanContracts = resolveHumanContracts(values, env);
+   const feedReasonsOn = resolveFeedReasons(values, env);
+   return {
+     exileRecovery,
+@@ -45,6 +48,7 @@ export function tickOptionsFromFlags(values: SimFlagValues, env: NodeJS.ProcessE
+     ...(portTransfer ? { portTransfer } : {}),
+     ...(lifecycle ? { lifecycle } : {}),
+     ...(secessionAftermath ? { secessionAftermath } : {}),
++    ...(humanContracts ? { humanContracts } : {}),
+     ai: {
+       feedReasons: feedReasonsOn
+         ? ({ callCap: feedReasonCallCap(exileRecovery), exileRecovery } as FeedReasonOptions)
+diff --git a/src/dashboard/server.ts b/src/dashboard/server.ts
+index e98fb61..28ea3fd 100644
+--- a/src/dashboard/server.ts
++++ b/src/dashboard/server.ts
+@@ -140,7 +140,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
+           total: store.eventCount(FEED_OMITTED_TYPES),
+           limitMax: EVENT_FEED_PAGE_LIMIT,
+           limitDefault: EVENT_FEED_PAGE_DEFAULT,
+-        }, beforeSequence === null ? refusals : [], store.feedingCounts()));
++        }, beforeSequence === null ? refusals : [], store.feedingCounts(), tickOptions.humanContracts === true));
+         return;
+       }
+       if (request.method === "GET" && url.pathname === "/api/health") {
+@@ -205,7 +205,7 @@ export function createDashboardApp(options: DashboardOptions): DashboardApp {
+       }
+       if (request.method === "POST" && url.pathname === "/api/commands") {
+         const body = await requestBody(request) as CommandRequest;
+-        const result = submitCommand(world, body);
++        const result = submitCommand(world, body, { humanContracts: tickOptions.humanContracts === true });
+         if (!result.ok) {
+           const player = world.players[body.playerId];
+           const character = player ? world.characters[player.characterId] : undefined;
+diff --git a/src/dashboard/view-model.ts b/src/dashboard/view-model.ts
+index 87296f1..854ceb6 100644
+--- a/src/dashboard/view-model.ts
++++ b/src/dashboard/view-model.ts
+@@ -284,7 +284,9 @@ function baseEventSummary(world: WorldState, event: SimEvent, events?: SimEvent[
+       const whose = buyer ? `${actor}'s provisions contract for ${buyer}` : `${actor}'s provisions contract`;
+       return event.data.reason === "no-longer-needed"
+         ? `${whose} was cancelled: ${destinationName(world, event)} already holds the quantity. The escrow returned.`
+-        : `${actor} cancelled the provisions contract.`;
++        : event.data.reason === "offer-expired"
++          ? `${actor}'s offer lapsed unanswered. Nothing was lost. The escrow returned.`
++          : `${actor} cancelled the provisions contract.`;
+     }
+     case "contract-order-issued":
+       return `${actor} took the order to carry ${event.data.quantity} provisions to ${destinationName(world, event)} by tick ${event.data.deadlineTick}.`;
+@@ -1408,6 +1410,8 @@ export function dashboardState(
+    * missing log leaves `feedCounts` null.
+    */
+   feedCounts?: Record<string, FeedingCounts>,
++  /** The run's `humanContracts` flag, for the capabilities list. */
++  humanContracts = false,
+ ): Record<string, unknown> {
+   const player = Object.values(world.players)[0];
+   const commander = world.characters[player.characterId];
+@@ -1479,7 +1483,7 @@ export function dashboardState(
+     pendingCommands: world.pendingCommands,
+     capabilities: commandCapabilities({
+       eventFeed: { limitMax: feed.limitMax, limitDefault: feed.limitDefault },
+-    }),
++    }, { humanContracts }),
+     combat: {
+       /** The battle this commander is personally leading. */
+       commandedBattle: commandedBattle ? projectCommandedBattle(world, commandedBattle) : null,
 diff --git a/src/sim/commands.ts b/src/sim/commands.ts
-index 0f2d57f..4660046 100644
+index 0f2d57f..c973553 100644
 --- a/src/sim/commands.ts
 +++ b/src/sim/commands.ts
 @@ -4,7 +4,7 @@ import { applyEvent, clamp, marketPrice, round, settlementClaimAvailableTo } fro
@@ -23,16 +189,32 @@ index 0f2d57f..4660046 100644
    | {
        playerId: string;
        type: "set-tax-rate";
-@@ -216,6 +221,8 @@ export const COMMAND_TYPES: readonly string[] = [
-   "escape-captivity",
-   "offer-contract",
-   "cancel-contract",
-+  "accept-contract",
-+  "decline-contract",
-   "set-tax-rate",
-   "declare-secession",
- ];
-@@ -397,6 +404,8 @@ function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
+@@ -326,14 +331,22 @@ function requestContract(transport: CommandTransport): Record<string, unknown> {
+   };
+ }
+ 
+-export function commandCapabilities(transport?: CommandTransport): Record<string, unknown> {
++/** HUMAN_CONTRACTS: the two verbs exist only in a world that runs the flag. They are not in `COMMAND_TYPES`, so the flag-off capabilities list is unchanged. */
++export const HUMAN_CONTRACT_COMMAND_TYPES: readonly string[] = ["accept-contract", "decline-contract"];
++
++export interface SubmitOptions {
++  /** The run's `TickOptions.humanContracts`. Absent is off. */
++  humanContracts?: boolean;
++}
++
++export function commandCapabilities(transport?: CommandTransport, options: SubmitOptions = {}): Record<string, unknown> {
+   return {
+     limits: COMMAND_LIMITS,
+     actionPreconditions: ACTION_PRECONDITIONS,
+     actions: ACTION_CAPABILITIES,
+     orderPreconditions: ORDER_PRECONDITIONS,
+     directives: DIRECTIVE_CAPABILITIES,
+-    commandTypes: COMMAND_TYPES,
++    commandTypes: options.humanContracts === true ? [...COMMAND_TYPES, ...HUMAN_CONTRACT_COMMAND_TYPES] : COMMAND_TYPES,
+     ...(transport ? { requests: requestContract(transport) } : {}),
+   };
+ }
+@@ -397,6 +410,8 @@ function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
          ? command.factionId
        : command.type === "declare-secession"
          ? command.settlementId
@@ -41,7 +223,7 @@ index 0f2d57f..4660046 100644
        : command.characterId;
    const event: SimEvent = {
      sequence: world.nextEventSequence,
-@@ -1044,7 +1053,8 @@ function validateOfferContract(
+@@ -1044,7 +1059,8 @@ function validateOfferContract(
  function contractMutationPending(world: WorldState, contractId: string): boolean {
    return world.pendingCommands.some((command) =>
      (command.type === "offer-contract" && command.contractId === contractId) ||
@@ -51,14 +233,14 @@ index 0f2d57f..4660046 100644
    );
  }
  
-@@ -1117,6 +1127,42 @@ function validateCancelContract(
+@@ -1117,9 +1133,47 @@ function validateCancelContract(
    return { ok: true, command, event: acceptedEvent(world, command) };
  }
  
+-export function submitCommand(world: WorldState, request: CommandRequest): CommandSubmission {
 +/**
 + * HUMAN_CONTRACTS: the human carrier answers an offer a buyer made to them.
-+ * A world without the flag has no contract whose carrier is human, so both
-+ * verbs refuse with `not-carrier` there and need no flag check.
++ * `submitCommand` refuses both verbs with `contracts-not-enabled` unless the run has the flag.
 + */
 +function validateAnswerContract(
 +  world: WorldState,
@@ -91,10 +273,16 @@ index 0f2d57f..4660046 100644
 +  return { ok: true, command, event: acceptedEvent(world, command) };
 +}
 +
- export function submitCommand(world: WorldState, request: CommandRequest): CommandSubmission {
++export function submitCommand(world: WorldState, request: CommandRequest, options: SubmitOptions = {}): CommandSubmission {
    const player = world.players[request.playerId];
    if (!player) return reject("unknown-player", "The player session is unknown");
-@@ -1141,6 +1187,7 @@ export function submitCommand(world: WorldState, request: CommandRequest): Comma
++  if ((request.type === "accept-contract" || request.type === "decline-contract") && options.humanContracts !== true) {
++    return reject("contracts-not-enabled", "Contract offers to a player are not enabled in this world.");
++  }
+   const character = world.characters[player.characterId];
+   if (character.captivity && request.type !== "escape-captivity") {
+     return reject("character-captive", "Only an escape attempt is available while the character is captive");
+@@ -1141,6 +1195,7 @@ export function submitCommand(world: WorldState, request: CommandRequest): Comma
    if (request.type === "cancel-order") return validateOrderCancellation(world, request);
    if (request.type === "offer-contract") return validateOfferContract(world, request);
    if (request.type === "cancel-contract") return validateCancelContract(world, request);
@@ -103,7 +291,7 @@ index 0f2d57f..4660046 100644
    if (request.type === "declare-secession") return validateDeclareSecession(world, request);
    // Without this, an unrecognised `type` fell through to order cancellation and
 diff --git a/src/sim/engine.ts b/src/sim/engine.ts
-index 6a103fa..5ad2fe0 100644
+index 6a103fa..31b561d 100644
 --- a/src/sim/engine.ts
 +++ b/src/sim/engine.ts
 @@ -84,6 +84,7 @@ import {
@@ -123,7 +311,15 @@ index 6a103fa..5ad2fe0 100644
    type: string,
    actorId: string,
    extra: Record<string, unknown> = {},
-@@ -2246,8 +2247,12 @@ function resolveContractCommand(
+@@ -2223,6 +2224,7 @@ function refundEscrow(
+     escrowFromPurse: 0,
+     settled: true,
+     observedTick: world.tick,
++    ...(typeof extra.closeReason === "string" ? { closeReason: extra.closeReason as SupplyContract["closeReason"] } : {}),
+   };
+   emitContract(
+     world,
+@@ -2246,8 +2248,12 @@ function resolveContractCommand(
    world: WorldState,
    events: SimEvent[],
    commander: Character,
@@ -137,7 +333,7 @@ index 6a103fa..5ad2fe0 100644
    if (command.type === "cancel-contract") {
      const contract = world.contracts?.[command.contractId];
      if (!contract || contract.buyerId !== commander.id || (contract.status !== "offered" && contract.status !== "accepted")) {
-@@ -2410,6 +2415,101 @@ function resolveContractCommand(
+@@ -2410,6 +2416,124 @@ function resolveContractCommand(
    });
  }
  
@@ -151,12 +347,34 @@ index 6a103fa..5ad2fe0 100644
 +export const HUMAN_OFFER_WINDOW_TICKS = 180;
 +
 +/**
++ * The buy-and-sail allowance, in ticks, derived from timings already in the engine. No constant.
++ *
++ * The NPC deadline is `travel + 1`: the one tick is the departure (`offerAutonomousSupply`). A human who holds
++ * the cargo needs nothing more: accept and `travel` can be queued together. A human who must still buy spends one
++ * direct-action tick per purchase (one action may be queued at a time, `commands.ts` `action-already-queued`), and one
++ * purchase moves at most `tradeQuote(...).maxQuantity`, the smallest of stock, `marketDepth` (`MARKET_DEPTH_FRACTION`),
++ * free hold and purse. If the buys run one after the accept, departure is `buys` ticks later than the NPC's. The engine
++ * already tolerates one tick: `resolveContractOutcomes` does not breach a loaded carrier that is one tick out at the
++ * deadline. So the allowance is `buys - 1`, floored at 0. `need` is the shortfall the NPC walk's own-port skip uses.
++ */
++export function humanBuyAllowance(world: WorldState, carrier: Character, contract: SupplyContract): number {
++  if (carrier.travel || !carrier.locationId) return 0;
++  const voyage = carrier.locationId === contract.destinationId ? 0 : travelDuration(world, carrier, contract.destinationId);
++  const need = contract.quantity + provisionDemand(carrier) * voyage - carrier.cargo.provisions;
++  if (!(need > 0)) return 0;
++  const perBuy = tradeQuote(world, carrier, "provisions", "buy", need).maxQuantity;
++  if (!(perBuy > 0)) return 0;
++  return Math.max(0, Math.ceil(need / perBuy) - 1);
++}
++
++/**
 + * The delivery deadline a human carrier gets if they answer yes now: the NPC
 + * formula (`offerAutonomousSupply`), applied at the moment of acceptance.
 + */
 +export function humanAcceptTerms(world: WorldState, carrier: Character, contract: SupplyContract) {
 +  const travelTicks = contractTravelTicks(world, carrier, contract.destinationId);
-+  const deadlineTick = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1, 2));
++  const allowance = humanBuyAllowance(world, carrier, contract);
++  const deadlineTick = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1 + allowance, 2));
 +  const assessment = assessSupplyContract(world, carrier, {
 +    buyerId: contract.buyerId,
 +    quantity: contract.quantity,
@@ -192,6 +410,7 @@ index 6a103fa..5ad2fe0 100644
 +      commandId: command.id,
 +      gate: "declined",
 +      reason: "The carrier declined.",
++      closeReason: "declined",
 +    });
 +    emit(world, events, {
 +      type: "player-command-resolved",
@@ -232,14 +451,14 @@ index 6a103fa..5ad2fe0 100644
 +    .filter((c) => c.status === "offered" && !c.settled && c.offerExpiresTick !== undefined && world.tick >= c.offerExpiresTick)
 +    .sort((a, b) => a.id.localeCompare(b.id));
 +  for (const contract of lapsed) {
-+    refundEscrow(world, events, contract, "expired", "contract-cancelled", contract.buyerId, { reason: "offer-expired" });
++    refundEscrow(world, events, contract, "expired", "contract-cancelled", contract.buyerId, { reason: "offer-expired", closeReason: "offer-expired" });
 +  }
 +}
 +
  /**
   * Score contracts that were already offered before this tick.
   *
-@@ -2429,6 +2529,8 @@ function resolveOfferedContracts(world: WorldState, events: SimEvent[]): void {
+@@ -2429,6 +2553,8 @@ function resolveOfferedContracts(world: WorldState, events: SimEvent[]): void {
    for (const contract of offered) {
      const parties = contractParties(world, contract);
      if (!parties) continue;
@@ -248,7 +467,20 @@ index 6a103fa..5ad2fe0 100644
      const assessment = assessSupplyContract(world, parties.carrier, {
        buyerId: parties.buyer.id,
        quantity: contract.quantity,
-@@ -2849,7 +2951,7 @@ function processPlayerCommands(
+@@ -2486,7 +2612,11 @@ function resolveContractOutcomes(world: WorldState, events: SimEvent[]): void {
+     if (!landedNow) {
+       // The cancellation test is the full quantity on the destination shelf.
+       if (world.settlements[contract.destinationId].stocks.provisions >= contract.quantity) {
+-        refundEscrow(world, events, contract, "cancelled", "contract-cancelled", c.id, { reason: "no-longer-needed" });
++        refundEscrow(world, events, contract, "cancelled", "contract-cancelled", c.id, {
++          reason: "no-longer-needed",
++          // HUMAN_CONTRACTS: the card and thread of a human carrier say why (the rule is the same for everyone).
++          ...(humanContractsOn && c.controller.kind === "human" ? { closeReason: "no-longer-needed" } : {}),
++        });
+         continue;
+       }
+       if (world.tick >= contract.deadlineTick) {
+@@ -2849,7 +2979,7 @@ function processPlayerCommands(
        continue;
      }
  
@@ -257,7 +489,7 @@ index 6a103fa..5ad2fe0 100644
        resolveContractCommand(world, events, commander, command);
        continue;
      }
-@@ -3566,6 +3668,8 @@ export interface TickOptions {
+@@ -3566,6 +3696,8 @@ export interface TickOptions {
    lifecycle?: boolean;
    /** SECESSION_AFTERMATH (secession-aftermath.md): peace, protection, membership for a seceded port. Off by default; off is byte-identical. */
    secessionAftermath?: boolean;
@@ -266,7 +498,7 @@ index 6a103fa..5ad2fe0 100644
    /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
    /**
     * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
-@@ -4366,6 +4470,52 @@ const SUPPLY_QUANTITY = 10;
+@@ -4366,6 +4498,49 @@ const SUPPLY_QUANTITY = 10;
  const SUPPLY_PRICE = 56.25;
  const SUPPLY_DEADLINE_CAP = 720;
  
@@ -289,7 +521,7 @@ index 6a103fa..5ad2fe0 100644
 +    if (mine.some((c) => c.buyerId === buyer.id && (c.status === "declined" || c.status === "expired" || c.status === "breached") && world.tick - c.observedTick < HUMAN_OFFER_WINDOW_TICKS)) continue;
 +    // The NPC walk skips, unchanged: standing on the shelf without the quantity, or an own port that cannot stock the voyage.
 +    if (carrier.locationId === settlement.id && carrier.cargo.provisions < SUPPLY_QUANTITY) continue;
-+    if (carrier.locationId !== settlement.id && process.env.OPEN_ERA_HUMAN_SKIP !== "relaxed") {
++    if (carrier.locationId !== settlement.id) {
 +      const voyage = travelDuration(world, carrier, settlement.id);
 +      const shortfall = SUPPLY_QUANTITY + provisionDemand(carrier) * voyage - carrier.cargo.provisions;
 +      if (world.settlements[carrier.locationId].stocks.provisions < shortfall) continue;
@@ -298,9 +530,6 @@ index 6a103fa..5ad2fe0 100644
 +  }
 +  return out.sort((a, b) => a.id.localeCompare(b.id));
 +}
-+
-+/** Measurement toggle only: "first" offers the human ahead of the NPC carriers, "last" only when no NPC would take it. */
-+const HUMAN_OFFER_ORDER: "first" | "last" = process.env.OPEN_ERA_HUMAN_OFFER === "first" ? "first" : "last";
 +
 +function pickHumanCarrier(world: WorldState, buyer: Character, settlement: Settlement): { carrier: Character; deadlineTick: number } | null {
 +  for (const candidate of humanCarrierCandidates(world, buyer, settlement)) {
@@ -319,33 +548,19 @@ index 6a103fa..5ad2fe0 100644
  export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): void {
    const settlements = Object.values(world.settlements).sort((left, right) => left.id.localeCompare(right.id));
    for (const settlement of settlements) {
-@@ -4389,7 +4539,12 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
-       .sort((left, right) => left.id.localeCompare(right.id));
-     let chosen: Character | null = null;
-     let deadlineTick = 0;
--    if (process.env.OPEN_ERA_SUPPLY_WALK === "off") {
-+    let humanFirst: ReturnType<typeof pickHumanCarrier> = null;
-+    if (humanContractsOn && HUMAN_OFFER_ORDER === "first") humanFirst = pickHumanCarrier(world, buyer, settlement);
-+    if (humanFirst) {
-+      chosen = humanFirst.carrier;
-+      deadlineTick = humanFirst.deadlineTick;
-+    } else if (process.env.OPEN_ERA_SUPPLY_WALK === "off") {
-       // Measurement toggle only: the pre-walk offer, to the lowest unblocked carrier.
-       const first = carriers[0];
-       if (!first || openSupplyContract(world, buyer.id, first.id)) continue;
-@@ -4419,6 +4574,11 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
+@@ -4419,6 +4594,11 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
        deadlineTick = deadline;
        break;
      }
-+    // HUMAN_CONTRACTS: where the human sits in the carrier order (measurement toggle, as OPEN_ERA_SUPPLY_WALK above).
-+    if (humanContractsOn && HUMAN_OFFER_ORDER === "last" && !chosen) {
++    // HUMAN_CONTRACTS: the human is a carrier of last resort. Offered only when the walk above found no NPC to take it.
++    if (humanContractsOn && !chosen) {
 +      const pick = pickHumanCarrier(world, buyer, settlement);
 +      if (pick) { chosen = pick.carrier; deadlineTick = pick.deadlineTick; }
 +    }
      if (!chosen) continue;
      const escrow = resolveQuotedSpend(world, buyer, SUPPLY_PRICE, PASSAGE_COST_PER_TICK);
      if (!escrow.ok) continue;
-@@ -4440,6 +4600,7 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
+@@ -4440,6 +4620,7 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
        status: "offered",
        revision: 1,
        observedTick: world.tick,
@@ -353,7 +568,7 @@ index 6a103fa..5ad2fe0 100644
      };
      emitContract(world, events, "contract-offered", contract, escrow.characterMoney, chosen.money, buyer.id, {
        ...spendData(escrow),
-@@ -4551,6 +4712,7 @@ let alliancesOn = false;
+@@ -4551,6 +4732,7 @@ let alliancesOn = false;
  let lifecycleOn = false;
  let portTransferOn = false;
  let aftermathOn = false;
@@ -361,7 +576,7 @@ index 6a103fa..5ad2fe0 100644
  
  export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
    occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
-@@ -4558,6 +4720,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
+@@ -4558,6 +4740,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
    alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
    lifecycleOn = options.lifecycle ?? LIFECYCLE_DEFAULT;
    aftermathOn = options.secessionAftermath ?? SECESSION_AFTERMATH_DEFAULT;
@@ -369,7 +584,7 @@ index 6a103fa..5ad2fe0 100644
    if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
    if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
    const leading: SimEvent[] = [];
-@@ -4588,6 +4751,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+@@ -4588,6 +4771,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
    if (portTransferOn) portPurchases(world, (d) => emit(world, events, d as EventDraft));
    resolveOfferedContracts(world, events);
    resolveContractOutcomes(world, events);
@@ -378,7 +593,7 @@ index 6a103fa..5ad2fe0 100644
    processCaptivityDeadlines(world, events, rng);
    collectCaptivityDebts(world, events);
 diff --git a/src/sim/types.ts b/src/sim/types.ts
-index 750b8a3..62d6493 100644
+index 750b8a3..6faa3bb 100644
 --- a/src/sim/types.ts
 +++ b/src/sim/types.ts
 @@ -408,7 +408,11 @@ export type SupplyContractStatus =
@@ -394,16 +609,18 @@ index 750b8a3..62d6493 100644
  
  /**
   * A paid provisions delivery. The price sits on `escrow`, in neither purse and
-@@ -453,6 +457,8 @@ export interface SupplyContract {
+@@ -453,6 +457,10 @@ export interface SupplyContract {
    order?: SupplyContractOrder;
    /** Tick of the last status change. The projection's age is `tick - observedTick`. */
    observedTick: number;
 +  /** HUMAN_CONTRACTS only: the last tick a human carrier may answer. Absent on every other contract. */
 +  offerExpiresTick?: number;
++  /** HUMAN_CONTRACTS only: why a human carrier's contract closed without delivery. Absent on every other contract. */
++  closeReason?: "declined" | "offer-expired" | "no-longer-needed";
  }
  
  export interface StandingOrder {
-@@ -659,6 +665,13 @@ export type PlayerCommand =
+@@ -659,6 +667,13 @@ export type PlayerCommand =
        characterId: string;
        contractId: string;
      }

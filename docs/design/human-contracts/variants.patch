@@ -1,0 +1,90 @@
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 31b561d..1765c44 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -2437,6 +2437,7 @@ export const HUMAN_OFFER_WINDOW_TICKS = 180;
+  * deadline. So the allowance is `buys - 1`, floored at 0. `need` is the shortfall the NPC walk's own-port skip uses.
+  */
+ export function humanBuyAllowance(world: WorldState, carrier: Character, contract: SupplyContract): number {
++  if (process.env.OPEN_ERA_HC_ALLOWANCE === "off") return 0; // MEASUREMENT VARIANT ONLY (variants.patch)
+   if (carrier.travel || !carrier.locationId) return 0;
+   const voyage = carrier.locationId === contract.destinationId ? 0 : travelDuration(world, carrier, contract.destinationId);
+   const need = contract.quantity + provisionDemand(carrier) * voyage - carrier.cargo.provisions;
+@@ -4594,13 +4595,59 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
+       deadlineTick = deadline;
+       break;
+     }
++    // MEASUREMENT VARIANTS ONLY (variants.patch). OPEN_ERA_HC_VARIANT = last (default) | peer-walk | peer-argmax.
++    const variant = process.env.OPEN_ERA_HC_VARIANT ?? "last";
++    let displacedCarrierId: string | null = null;
++    let reranked = false;
++    let humanScore: number | null = null;
++    let walkScore: number | null = null;
++    let bestNpcScore: number | null = null;
++    if (humanContractsOn && variant !== "last") {
++      const pick = pickHumanCarrier(world, buyer, settlement);
++      if (pick) {
++        const human = pick.carrier;
++        const travelTicks = contractTravelTicks(world, human, settlement.id);
++        const hDeadline = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1, 2));
++        humanScore = assessSupplyContract(world, human, { buyerId: buyer.id, quantity: SUPPLY_QUANTITY, price: SUPPLY_PRICE, destinationId: settlement.id, deadlineTick: hDeadline }).score;
++        // Every NPC the walk would accept, with its score.
++        const accepted: Array<{ c: Character; score: number; deadline: number }> = [];
++        for (const carrier of carriers) {
++          if (openSupplyContract(world, buyer.id, carrier.id)) continue;
++          if (carrier.locationId === settlement.id && carrier.cargo.provisions < SUPPLY_QUANTITY) continue;
++          if (carrier.locationId && carrier.locationId !== settlement.id) {
++            const voyage = travelDuration(world, carrier, settlement.id);
++            const shortfall = SUPPLY_QUANTITY + provisionDemand(carrier) * voyage - carrier.cargo.provisions;
++            if (world.settlements[carrier.locationId].stocks.provisions < shortfall) continue;
++          }
++          const tt = contractTravelTicks(world, carrier, settlement.id);
++          const dl = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(tt + 1, 2));
++          const a = assessSupplyContract(world, carrier, { buyerId: buyer.id, quantity: SUPPLY_QUANTITY, price: SUPPLY_PRICE, destinationId: settlement.id, deadlineTick: dl });
++          if (a.accepted) accepted.push({ c: carrier, score: a.score ?? 0, deadline: dl });
++        }
++        const walkPick = accepted[0] ?? null; // the lowest id: what main would choose
++        walkScore = walkPick?.score ?? null;
++        bestNpcScore = accepted.length ? Math.max(...accepted.map((a) => a.score)) : null;
++        if (variant === "peer-walk") {
++          if (!walkPick) { chosen = human; deadlineTick = pick.deadlineTick; }
++          else if ((humanScore ?? -1) > walkPick.score) { chosen = human; deadlineTick = pick.deadlineTick; displacedCarrierId = walkPick.c.id; }
++        } else if (variant === "peer-argmax") {
++          let best: { c: Character; score: number; deadline: number } | null = null;
++          for (const a of accepted) if (!best || a.score > best.score) best = a;
++          if (!best || (humanScore ?? -1) > best.score) { chosen = human; deadlineTick = pick.deadlineTick; displacedCarrierId = walkPick?.c.id ?? null; }
++          else { chosen = best.c; deadlineTick = best.deadline; reranked = best.c.id !== walkPick?.c.id; }
++        }
++      }
++    }
+     // HUMAN_CONTRACTS: the human is a carrier of last resort. Offered only when the walk above found no NPC to take it.
+     if (humanContractsOn && !chosen) {
+       const pick = pickHumanCarrier(world, buyer, settlement);
+       if (pick) { chosen = pick.carrier; deadlineTick = pick.deadlineTick; }
+     }
+     if (!chosen) continue;
+-    const escrow = resolveQuotedSpend(world, buyer, SUPPLY_PRICE, PASSAGE_COST_PER_TICK);
++    const noEscrow = process.env.OPEN_ERA_HC_ESCROW === "off" && chosen.controller.kind === "human";
++    const escrow = noEscrow
++      ? ({ ok: true, treasuryDrawn: 0, purseDrawn: 0, characterMoney: buyer.money, allowanceRemaining: null } as unknown as ReturnType<typeof resolveQuotedSpend>)
++      : resolveQuotedSpend(world, buyer, SUPPLY_PRICE, PASSAGE_COST_PER_TICK);
+     if (!escrow.ok) continue;
+     const contract: SupplyContract = {
+       id: `supply-${settlement.id}-${world.tick}`,
+@@ -4610,7 +4657,7 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
+       quantity: SUPPLY_QUANTITY,
+       destinationId: settlement.id,
+       price: SUPPLY_PRICE,
+-      escrow: SUPPLY_PRICE,
++      escrow: noEscrow ? 0 : SUPPLY_PRICE,
+       escrowFromTreasury: escrow.treasuryDrawn,
+       escrowFromPurse: escrow.purseDrawn,
+       settled: false,
+@@ -4625,6 +4672,7 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
+     emitContract(world, events, "contract-offered", contract, escrow.characterMoney, chosen.money, buyer.id, {
+       ...spendData(escrow),
+       characterMoney: escrow.characterMoney,
++      ...(humanContractsOn && variant !== "last" ? { displacedCarrierId, reranked, humanScore, walkScore, bestNpcScore } : {}),
+     });
+   }
+ }

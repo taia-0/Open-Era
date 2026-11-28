@@ -1,0 +1,6 @@
+COMMAND_TYPES ["character-action","issue-order","confirm-order","amend-order","cancel-order","retreat-battle","escape-captivity","offer-contract","cancel-contract","set-tax-rate","declare-secession"]
+capabilities flag-off ["character-action","issue-order","confirm-order","amend-order","cancel-order","retreat-battle","escape-captivity","offer-contract","cancel-contract","set-tax-rate","declare-secession"]
+capabilities flag-on  ["character-action","issue-order","confirm-order","amend-order","cancel-order","retreat-battle","escape-captivity","offer-contract","cancel-contract","set-tax-rate","declare-secession","accept-contract","decline-contract"]
+accept flag-off contracts-not-enabled: Contract offers to a player are not enabled in this world.
+decline flag-off contracts-not-enabled: Contract offers to a player are not enabled in this world.
+accept flag-on, unknown contract unknown-contract: That contract does not exist
