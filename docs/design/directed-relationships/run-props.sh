@@ -14,6 +14,13 @@ for nt in false true; do for ex in on off; do for r in R R+Rc; do
   jobs+=("protection-pact-fix/props-alliances.ts|alliances|$name|$B" "defaults-on/props-secession-aftermath.ts|aftermath|$name|$B" "defaults-on/props-lifecycle.ts|lifecycle|$name|$B" "defaults-on/props-port-transfer.ts|port-transfer|$name|$B")
   if [ $nt = true ]; then jobs+=("NTMEASURE|nt|$name|$B"); fi
 done; done; done
+# Rev 2 ruling 6 (report-only): ATLS + R + R-char with occupation on, exile on and off.
+for ex in on off; do
+  e=''; [ $ex = off ] && e=',"exileRecovery":false'
+  name="ATLS-occ+R+Rc$([ $ex = off ] && echo -exile-off)"
+  B="{${ATLS/\"occupation\":false/\"occupation\":true},\"negotiatedTransfer\":false,\"relationships\":true,\"relationshipsChar\":true$e}"
+  jobs+=("protection-pact-fix/props-alliances.ts|alliances|$name|$B" "defaults-on/props-secession-aftermath.ts|aftermath|$name|$B" "defaults-on/props-lifecycle.ts|lifecycle|$name|$B" "defaults-on/props-port-transfer.ts|port-transfer|$name|$B")
+done
 printf '%s\n' "${jobs[@]}" | xargs -d '\n' -P 8 -I{} bash -c '
   IFS="|" read -r script kind name base <<< "$0"
   if [ "$script" = NTMEASURE ]; then node --experimental-strip-types docs/design/negotiated-transfer/measure-nt.ts "$name" "$base" > '"$P"'/nt-$name.jsonl 2>&1

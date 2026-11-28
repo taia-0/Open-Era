@@ -11,7 +11,8 @@ import { dynamismReadout } from "../../../src/tools/dynamism.ts";
 import { projectFactions } from "../../../src/dashboard/visibility.ts";
 import { projectEventFeed } from "../../../src/dashboard/view-model.ts";
 import { ALLIANCE_RAID_WINDOW } from "../../../src/sim/alliances.ts";
-import { GRUDGE_STEP, HARM_WINDOW, harmReceivedRows } from "../../../src/sim/relationships.ts";
+import { SCORE_RESPECT, SCORE_TRUST } from "../../../src/sim/contracts.ts";
+import { GRUDGE_STEP, HARM_WINDOW, NEW_TIE_RESPECT, NEW_TIE_TRUST, harmReceivedRows } from "../../../src/sim/relationships.ts";
 import type { SimEvent, WorldState } from "../../../src/sim/types.ts";
 
 const [label, optsJson] = process.argv.slice(2);
@@ -25,6 +26,7 @@ const portsOf = (w: WorldState, f: string) => Object.values(w.settlements).filte
 const members = (w: WorldState, f: string) => Object.values(w.characters).filter((c) => !c.dead && c.factionId === f).length;
 type H = Record<string, { recent: Array<{ tick: number; kind: string }>; total: number; lastTick: number }>;
 if (HARM_WINDOW !== ALLIANCE_RAID_WINDOW) throw new Error("HARM_WINDOW must equal ALLIANCE_RAID_WINDOW");
+if (NEW_TIE_TRUST !== SCORE_TRUST || NEW_TIE_RESPECT !== SCORE_RESPECT) throw new Error("new-tie trust/respect must equal the contract score defaults");
 
 for (const seed of seeds) {
   const w = createPrototypeWorld(seed);
@@ -36,7 +38,7 @@ for (const seed of seeds) {
   const viol: Record<string, number> = {};
   const bad = (k: string) => { viol[k] = (viol[k] ?? 0) + 1; };
   (globalThis as { __relHook?: unknown }).__relHook = (d: Record<string, any>) => {
-    if (d.reader === "grudge") { grudges[d.kind] = (grudges[d.kind] ?? 0) + 1; return; }
+    if (d.reader === "grudge") { grudges[d.kind] = (grudges[d.kind] ?? 0) + 1; if (d.created) grudges[d.kind + "-created"] = (grudges[d.kind + "-created"] ?? 0) + 1; return; }
     if (d.reader === "alliance") {
       rd.allianceDecisions++; if (d.changed) rd.allianceChanged++;
       const c = d.candidates as Array<{ harm: number }>; const min = Math.min(...c.map((x) => x.harm));
@@ -52,12 +54,31 @@ for (const seed of seeds) {
       }
     }
   };
-  let pressedPortTicks = 0, privacyChecks = 0;
+  let pressedPortTicks = 0, privacyChecks = 0, relRowChecks = 0, relRowsSeen = 0, relRowsParty = 0;
   for (let i = 0; i < ticks; i++) {
     events.push(...runTick(w, { ...opts }).events);
     if (i === 71) hash72 = stateHash(w).slice(0, 8);
     pressedPortTicks += Object.values(w.settlements).filter((s) => s.factionId && s.stability <= PRESSED).length;
     if ((i + 1) % 100 === 0 || i === ticks - 1) {
+      // Rev 2 ruling 4: no non-party sees any relationship-changed row (party = the actor, or the actor's own faction).
+      const relEvents = events.filter((e) => e.type === "relationship-changed" && w.tick - e.tick <= 100).slice(-300);
+      if (relEvents.length) {
+        const viewers = Object.keys(w.factions).sort().map((f) => Object.values(w.characters).filter((c) => !c.dead && c.factionId === f).sort((a, b) => a.id.localeCompare(b.id))[0]).filter(Boolean);
+        const actors = [...new Set(relEvents.map((e) => e.actorId!))].slice(0, 3).map((id) => w.characters[id]).filter((c) => c && !c.dead);
+        for (const viewer of [...viewers, ...actors]) {
+          relRowChecks++;
+          const rows = projectEventFeed(w, viewer.id, relEvents) as Array<Record<string, any>>;
+          const expected = relEvents.filter((e) => e.actorId === viewer.id || (viewer.factionId !== null && w.characters[e.actorId!]?.factionId === viewer.factionId)).length;
+          relRowsParty += expected;
+          for (const row of rows) {
+            if (row.type !== "relationship-changed") continue;
+            relRowsSeen++;
+            const actorFaction = w.characters[row.actorId]?.factionId ?? null;
+            if (row.actorId !== viewer.id && !(viewer.factionId !== null && actorFaction === viewer.factionId)) bad("privacy-relationship-row-non-party");
+          }
+          if (rows.filter((r) => r.type === "relationship-changed").length !== expected) bad("privacy-relationship-row-party-count");
+        }
+      }
       // Projection privacy (ruling 5): each faction's first living member as the viewer.
       for (const f of Object.keys(w.factions).sort()) {
         const viewer = Object.values(w.characters).filter((c) => !c.dead && c.factionId === f).sort((a, b) => a.id.localeCompare(b.id))[0];
@@ -97,7 +118,7 @@ for (const seed of seeds) {
       const a = e.actorId ? r2.characters[e.actorId] : undefined; const atk = a?.factionId ?? null; const def = e.targetId ?? null;
       if (a && atk && def && atk !== def) {
         if (ledgerOn) addH(atk, def, "raid", e.tick);
-        if (charOn) { const holder = e.settlementId ? r2.settlements[e.settlementId]?.ownerId ?? null : null; const cmd = commandHolderId(r2, def); for (const t of [...new Set([holder, cmd])]) if (t && t !== a.id && r2.characters[t]) pairs.push([a.id, t]); }
+        if (charOn) { const holder = e.settlementId ? r2.settlements[e.settlementId]?.ownerId ?? null : null; const cmd = commandHolderId(r2, def); for (const t of [...new Set([holder, cmd])]) if (t && t !== a.id && r2.characters[t]) pairs.push([t, a.id]); }
       }
     } else if (e.type === "character-captured") {
       const p = e.actorId ? r2.characters[e.actorId] : undefined; const cf = e.targetId ?? null; const pf = p?.factionId ?? null;
@@ -109,14 +130,28 @@ for (const seed of seeds) {
     } else if (e.type === "settlement-claimed" && ledgerOn) {
       const by = e.data.factionId as string | null, on = e.data.previousFactionId as string | null; if (by && on && by !== on) addH(by, on, "claim", e.tick);
     }
-    const before = pairs.map(([f, t]) => r2.characters[f].relationships[t]?.grievance ?? 0);
+    const before = pairs.map(([f, t]) => r2.characters[f].relationships[t]);
+    const raidPairs = (e.type === "battle-started" || (e.type === "battle-resolved" && !e.data.battleId)) && charOn && e.actorId ? Object.fromEntries(Object.entries(r2.characters[e.actorId]?.relationships ?? {}).map(([k, r]) => [k, r.grievance])) : null;
     const seatLost = e.type === "relationship-changed" && String(e.data.trigger).startsWith("lost the seat at ");
     const seatBefore = seatLost ? (r2.characters[e.actorId!].relationships[e.targetId!]?.grievance ?? 0) : 0;
+    const seatPrior = seatLost ? r2.characters[e.actorId!].relationships[e.targetId!] : undefined;
     applyEvent(r2, e);
-    pairs.forEach(([f, t], i) => { grudgeChecks++; if (r2.characters[f].relationships[t]?.grievance !== round(clamp(before[i] + GRUDGE_STEP, 0, 1))) bad("grudge-step"); });
+    const OTHER = ["trust", "affinity", "respect", "fear", "obligation"] as const;
+    const NEW_TIE = { trust: SCORE_TRUST, affinity: 0.25, respect: SCORE_RESPECT, fear: 0.08, obligation: 0 };
+    pairs.forEach(([f, t], i) => {
+      grudgeChecks++;
+      const after = r2.characters[f].relationships[t]; const b = before[i];
+      if (after?.grievance !== round(clamp((b?.grievance ?? 0) + GRUDGE_STEP, 0, 1))) bad("grudge-step");
+      // Rev 2 ruling 2: only grievance moves; a created tie has the score's missing-tie trust/respect.
+      for (const k of OTHER) if (after?.[k] !== (b ? b[k] : NEW_TIE[k])) bad(b ? "grudge-moved-other-field" : "grudge-new-tie-not-score-default");
+    });
+    // Rev 2 ruling 1: the raider gains no grievance from raiding (its ties are not touched by this event's grudge writer).
+    if (raidPairs && e.actorId) { const a = r2.characters[e.actorId]; if (a) for (const [k, r] of Object.entries(a.relationships)) if ((raidPairs[k] ?? null) !== r.grievance && !pairs.some(([f]) => f === a.id)) bad("raider-gained-grievance"); }
     if (seatLost) {
       grudgeChecks++;
       if (r2.characters[e.actorId!].relationships[e.targetId!]?.grievance !== round(clamp(seatBefore + GRUDGE_STEP, 0, 1))) bad("seat-grudge-step");
+      const sr = r2.characters[e.actorId!].relationships[e.targetId!]; const sp = seatPrior;
+      for (const k of ["trust", "affinity", "respect", "fear", "obligation"] as const) if (sr?.[k] !== (sp ? sp[k] : ({ trust: SCORE_TRUST, affinity: 0.25, respect: SCORE_RESPECT, fear: 0.08, obligation: 0 })[k])) bad(sp ? "seat-grudge-moved-other-field" : "seat-new-tie-not-score-default");
       if (!events.some((x) => x.tick === e.tick && x.type === "settlement-transferred" && x.settlementId === e.settlementId && x.sequence < e.sequence)) bad("seat-grudge-without-transfer");
     }
   };
@@ -163,6 +198,7 @@ for (const seed of seeds) {
     earnedNonZero: earned.filter((x) => Math.abs(x) > 1e-9).length, earnedP99: q(earned, 0.99), earnedAtHated: earned.filter((x) => x >= HATED).length,
     factions: factions.length, portless: portless.length,
     wipeouts: ["world-government", "free-tide"].filter((f) => portsOf(w, f) === 0 && members(w, f) === 0),
-    privacyChecks, grudgeChecks, violations: viol,
+    privacyChecks, grudgeChecks, relRowChecks, relRowsSeen, relRowsParty, violations: viol,
+    contracts: { offered: n("contract-offered"), accepted: n("contract-accepted"), refused: n("contract-refused"), breached: n("contract-breached"), fulfilled: n("contract-fulfilled") },
   }));
 }

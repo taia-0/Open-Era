@@ -8,14 +8,14 @@
 | 3000 | 1 | 0 {} | 1 / 1 / 0 | 1 / 1 | 4 (4) | 3 | 117 / 3698 | 42 → 28 | 44 → 33 | 2 → 1 | 0 |
 | 4000 | 11 | 8 {"enemy-portless":7,"ally-gone":1} | 8 / 7 / 7 | 9 / 11 | 30 (44) | 9 | 2176 / 21998 | 63 → 36 | 64 → 44 | 1 → 6 | 0 |
 | 5000 | 3 | 1 {"enemy-portless":1} | 3 / 1 / 2 | 3 / 3 | 27 (29) | 23 | 546 / 8713 | 55 → 37 | 57 → 45 | 2 → 3 | 0 |
-| 6000 | 3 | 2 {"enemy-portless":2} | 1 / 3 / 0 | 3 / 3 | 2 (3) | 2 | 45 / 1233 | 50 → 37 | 55 → 45 | 5 → 2 | 0 |
-| 7000 | 8 | 6 {"enemy-portless":6} | 5 / 7 / 4 | 8 / 8 | 22 (28) | 9 | 1375 / 17646 | 61 → 30 | 65 → 34 | 4 → 3 | 0 |
-| 8000 | 3 | 3 {"enemy-portless":3} | 3 / 2 / 1 | 3 / 3 | 23 (29) | 14 | 532 / 10575 | 62 → 25 | 66 → 28 | 4 → 1 | 0 |
+| 6000 | 2 | 1 {"enemy-portless":1} | 2 / 0 / 2 | 1 / 2 | 2 (2) | 0 | 706 / 3948 | 50 → 38 | 55 → 46 | 5 → 2 | 0 |
+| 7000 | 2 | 0 {} | 1 / 3 / 0 | 2 / 2 | 6 (6) | 6 | 766 / 7902 | 61 → 36 | 65 → 40 | 4 → 2 | 0 |
+| 8000 | 1 | 0 {} | 1 / 1 / 0 | 1 / 1 | 43 (49) | 33 | 824 / 11744 | 62 → 16 | 66 → 20 | 4 → 1 | 0 |
 | 9000 | 5 | 3 {"enemy-portless":3} | 7 / 2 / 1 | 5 / 5 | 17 (21) | 5 | 490 / 9445 | 58 → 28 | 60 → 34 | 2 → 3 | 0 |
-| 10000 | 6 | 4 {"enemy-portless":4} | 4 / 4 / 4 | 6 / 6 | 16 (20) | 13 | 992 / 10944 | 28 → 21 | 31 → 27 | 3 → 2 | 0 |
-| total | 55 | 34 {"enemy-portless":32,"ally-gone":2} | 51 / 35 / 22 | 52 / 55 | 269 (324) | 178 | 11743 / 167699 | 682 → 359 | 713 → 436 | 31 → 34 | 0 |
+| 10000 | 6 | 4 {"enemy-portless":4} | 3 / 5 / 4 | 6 / 6 | 19 (23) | 13 | 966 / 10558 | 28 → 23 | 31 → 30 | 3 → 3 | 0 |
+| total | 46 | 24 {"enemy-portless":22,"ally-gone":2} | 45 / 28 / 19 | 42 / 46 | 276 (324) | 192 | 12061 / 161453 | 682 → 359 | 713 → 438 | 31 → 34 | 0 |
 pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
-seeds with forms 13/13, breaks 9/13, secessions 13/13; min claims 11, min port changes 17; joiners attacker/defender 252/566; pacts live at end 21
+seeds with forms 13/13, breaks 7/13, secessions 13/13; min claims 11, min port changes 17; joiners attacker/defender 208/567; pacts live at end 22
 {"1_flagOffPins":true,"2-4_propertyViolations0":true,"liveness_formsOn7of13":true,"liveness_breaksOn5of13":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
 ALLIANCES ACCEPTANCE PASSED
 exit=0

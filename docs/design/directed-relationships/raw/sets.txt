@@ -9,6 +9,10 @@ ATLS-NT+R+Rc
 ATLS-NT+R+Rc-exile-off
 ATLS-NT-exile-off
 ATLS-exile-off
+ATLS-occ
+ATLS-occ+R+Rc
+ATLS-occ+R+Rc-exile-off
+ATLS-occ-exile-off
 R
 R+Rc
 R+Rc-exile-off

@@ -9,6 +9,10 @@ ATLS-NT+R+Rc {"occupation":false,"alliances":true,"portTransfer":true,"lifecycle
 ATLS-NT+R+Rc-exile-off {"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":true,"relationships":true,"relationshipsChar":true,"exileRecovery":false}
 ATLS-NT-exile-off {"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":true,"relationships":false,"relationshipsChar":false,"exileRecovery":false}
 ATLS-exile-off {"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":false,"relationshipsChar":false,"exileRecovery":false}
+ATLS-occ {"occupation":true,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":false,"relationshipsChar":false}
+ATLS-occ+R+Rc {"occupation":true,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+ATLS-occ+R+Rc-exile-off {"occupation":true,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true,"exileRecovery":false}
+ATLS-occ-exile-off {"occupation":true,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":false,"relationshipsChar":false,"exileRecovery":false}
 R {"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":false,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":false}
 R+Rc {"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":false,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
 R+Rc-exile-off {"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":false,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true,"exileRecovery":false}

@@ -8,12 +8,12 @@
 | 3000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 1 | 0 → 2 | 42 → 28 | 44 → 33 | 2 → 1 | 0 |
 | 4000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-07-glassport-270) | 0 → 3 | 0 → 8 | 63 → 36 | 64 → 44 | 1 → 6 | 0 |
 | 5000 | 2 | world-government, world-government | 24, 312 | 840, 72 | adjacent, adjacent | neutral → world-government | 0 → 1 | 0 → 3 | 55 → 37 | 57 → 45 | 2 → 3 | 0 |
-| 6000 | 1 | world-government | 24 | 840 | adjacent | neutral → free-tide | 0 → 5 | 0 → 2 | 50 → 37 | 55 → 45 | 5 → 2 | 0 |
-| 7000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 3 | 0 → 4 | 61 → 30 | 65 → 34 | 4 → 3 | 0 |
-| 8000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 9 | 0 → 6 | 62 → 25 | 66 → 28 | 4 → 1 | 0 |
+| 6000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 3 | 0 → 3 | 50 → 38 | 55 → 46 | 5 → 2 | 0 |
+| 7000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 0 | 0 → 4 | 61 → 36 | 65 → 40 | 4 → 2 | 0 |
+| 8000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 10 | 0 → 4 | 62 → 16 | 66 → 20 | 4 → 1 | 0 |
 | 9000 | 1 | world-government | 48 | 852 | adjacent | neutral → free-tide | 0 → 5 | 0 → 5 | 58 → 28 | 60 → 34 | 2 → 3 | 0 |
-| 10000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 3 | 0 → 3 | 28 → 21 | 31 → 27 | 3 → 2 | 0 |
-| total | 14 | | | | | | 0 → 45 | 0 → 56 | 682 → 359 | 713 → 436 | 31 → 34 | 0 |
+| 10000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 3 | 0 → 3 | 28 → 23 | 31 → 30 | 3 → 3 | 0 |
+| total | 14 | | | | | | 0 → 41 | 0 → 55 | 682 → 359 | 713 → 438 | 31 → 34 | 0 |
 pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
 purchases 14 on 13/13 seeds; multi-candidate purchases 0; secession seeds 13/13; min claims 11, min port changes 17
 {"pins_flagOff":true,"purchases_validAndCaused_0violations":true,"rulings_buyerAndAgentRecomputed_0mismatches":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
