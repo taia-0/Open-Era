@@ -1,8 +1,8 @@
 # Negotiated port transfer and grant
 
-**Status:** Open. Rev 2 incorporates the Lead's rulings on #196 (2026-11-27). Prototype for the Lead to accept, change or reject.
+**Status:** Open. Rev 2 was merged as #197 (`main` `e2508bd`). Prototype for the Lead to accept, change or reject. Post-#197 rulings: the capture drop is accepted as emergent and will not be tuned (mechanism: [negotiated-transfer-captures.md](negotiated-transfer-captures.md)); `negotiatedTransferTriggers` stays harness-only.
 - **Author and date:** Researcher, 2026-11-27. Rev 2, same day.
-- **Base:** `main` `4eb16ee` (#196 merged the rev-1 spec). `src` is unchanged since `e7ec840`, and every layer `*_DEFAULT` is still `false`, so all flags are passed explicitly.
+- **Base:** `main` `e2508bd` (#197 merged the rev-2 spec; #196 was `4eb16ee`). `src` is unchanged since `e7ec840`, and every layer `*_DEFAULT` is still `false`, so all flags are passed explicitly.
 - **Spend and runs:** offline, $0, no AI.
 - **Prototype:** [negotiated-transfer/negotiated-transfer.patch](negotiated-transfer/negotiated-transfer.patch). It is not committed to `src`. It stacks on [protection-pact-fix/fix.patch](protection-pact-fix/fix.patch) and also applies cleanly on bare `main`.
 
@@ -18,6 +18,11 @@ This is option 2 of [after-lifecycle.md](after-lifecycle.md) §4. It covers the 
 6. **No one-port cession in v1.** The join path covers a single-port breakaway under threat.
 7. **Default off** until the ATL and S default-on flips are in code. Before any default-on, diagnose the capture drop (221→155 in rev 1 under ATLS with the flag on). That diagnosis is §6 (rev 2: 221→156). Exile-off does not show the drop (157→159).
 
+### Rulings after #197 (Lead, 2026-11-27)
+
+1. **The capture drop is accepted as emergent and will not be tuned.** Default-on still needs the off-port mechanism explained in one paragraph. That note is [negotiated-transfer-captures.md](negotiated-transfer-captures.md), traced from seed 3000 under ATLS + fix.
+2. **`negotiatedTransferTriggers` stays harness-only.** It is not a product flag.
+
 ## 1. Rule
 
 ### 1.1 Flag, clock and order
@@ -28,7 +33,7 @@ This is option 2 of [after-lifecycle.md](after-lifecycle.md) §4. It covers the 
   - Offers are made only on the purchase clock: `t > 0`, `t % 24 === 0` (`PURCHASE_CLOCK`).
   - Sellers are taken in faction-id order.
 - **Determinism:** no RNG draw and no AI.
-- **Diagnosis hook only:** `TickOptions.negotiatedTransferTriggers` may omit `cession` or `sale` for leave-one-trigger-out runs. Unset means both fire. This is not a product flag.
+- **Diagnosis hook only:** `TickOptions.negotiatedTransferTriggers` may omit `cession` or `sale` for leave-one-trigger-out runs. Unset means both fire. This is not a product flag. After #197 it stays harness-only.
 
 ### 1.2 Who offers, and why
 
@@ -237,6 +242,8 @@ Across all 13 seeds, hashes also move on ATLS + NT 2000 (the one transfer-list c
 
 ## 6. Capture diagnosis
 
+The off-port mechanism (who stopped raiding whom in seed 3000, and why the exile-off knock-on runs the other way) is [negotiated-transfer-captures.md](negotiated-transfer-captures.md). The tables below are the 13-seed attribution from rev 2.
+
 The question was: the capture drop under ATLS with the flag on (rev 1: 221 → 155; rev 2: 221 → 156) — is it cessions pre-empting raids, or fewer raidable targets? And why does exile-off not show it (157 → 159)? Captures here are `character-captured` events, not port claims. Full tables: [raw/capture-diagnosis.txt](negotiated-transfer/raw/capture-diagnosis.txt). Leave-one-trigger-out uses the diagnosis hook, both triggers otherwise. Nothing was tuned.
 
 ### 6.1 Leave-one-trigger-out (the attribution)
@@ -317,7 +324,7 @@ Under ATLS every bought port is at garrison ≤ 14, median 7, so it sits below t
 - The ports WG buys under exile-off are healthier (median garrison 12 vs 7), and the 152-tick window after a sale sees more starts, not fewer.
 - Cessions stay rare (3 grants and 2 cession-sales) and do not move the total.
 
-The same sale mechanic therefore has opposite knock-on signs in the two exile settings, and the sign tracks the garrison of the sold port and where the missing captures would have been (other ports vs the sold port itself). This is report-only.
+The same sale mechanic therefore has opposite knock-on signs in the two exile settings, and the sign tracks the garrison of the sold port and where the missing captures would have been (other ports vs the sold port itself). This is report-only. Event diffs for seed 3000 (ATLS, exile on) and seed 2718 (ATLS, exile off) are in [negotiated-transfer-captures.md](negotiated-transfer-captures.md).
 
 ## 7. Why Free Tide is the chronic seller
 
@@ -372,11 +379,11 @@ With the flag on, the picture is the same mechanism plus the sales themselves: F
 
 ## 8. Open questions for the Lead
 
-Rulings 1–7 are recorded above. These are new, from the rev-2 runs. Nothing is proposed as a tune.
+Rulings 1–7 are recorded above. After #197 the Lead also ruled: the capture drop is accepted as emergent and will not be tuned (item 1), and `negotiatedTransferTriggers` stays harness-only (item 3). The mechanism, including why exile-off runs the other way (item 2), is [negotiated-transfer-captures.md](negotiated-transfer-captures.md). Nothing else is proposed as a tune.
 
-1. **The ATLS capture drop is a sale knock-on, concentrated off the transferred port, and uneven across seeds.** Seed 3000 alone is 21 → 1 from one t120 sale of Verdant Cay. Is that acceptable in the same sense as ruling 2, before any default-on? (Ruling 7 asked for the diagnosis first.)
-2. **Sold garrisons are lower with exile on (median 7, all ≤ 14) than with exile off (median 12, one at 15).** That is the measured difference that tracks the opposite knock-on signs in §6.4. Worth a separate look, or leave it?
-3. **The diagnosis hook** `negotiatedTransferTriggers` is harness-only. Keep it out of any product flag set?
+1. **The ATLS capture drop is a sale knock-on, concentrated off the transferred port, and uneven across seeds.** Seed 3000 alone is 21 → 1 from one t120 sale of Verdant Cay. ~~Is that acceptable in the same sense as ruling 2, before any default-on?~~ **Ruled after #197:** accepted as emergent; will not be tuned. The off-port mechanism is in [negotiated-transfer-captures.md](negotiated-transfer-captures.md).
+2. **Sold garrisons are lower with exile on (median 7, all ≤ 14) than with exile off (median 12, one at 15).** That is the measured difference that tracks the opposite knock-on signs in §6.4. The same look is in [negotiated-transfer-captures.md](negotiated-transfer-captures.md): selling a quiet rear port lets the war at the other ports die; selling a contested front-line port (the typical exile-off case) raises starts and captures at that port.
+3. **The diagnosis hook** `negotiatedTransferTriggers` is harness-only. ~~Keep it out of any product flag set?~~ **Ruled after #197:** it stays harness-only.
 
 ## 9. Reproduce
 
