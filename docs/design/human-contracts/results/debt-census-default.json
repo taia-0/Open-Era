@@ -1,0 +1,1 @@
+{"opts":{},"released":218,"withDebt":139,"repaid":2026,"closed":71,"openAtEnd":68,"cmdDebts":16,"cmdRepaid":0,"debtorsHuman":0,"humanCreditorFactionDebts":53,"creditorNone":0,"firstRepayLag":{"n":108,"p50":10,"p90":74,"max":383},"closeLag":{"n":71,"p50":202,"p90":328,"max":553},"original":{"n":139,"p50":351.72,"max":590.02}}

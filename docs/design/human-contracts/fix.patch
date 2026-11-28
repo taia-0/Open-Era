@@ -1,0 +1,419 @@
+diff --git a/src/sim/commands.ts b/src/sim/commands.ts
+index 0f2d57f..4660046 100644
+--- a/src/sim/commands.ts
++++ b/src/sim/commands.ts
+@@ -4,7 +4,7 @@ import { applyEvent, clamp, marketPrice, round, settlementClaimAvailableTo } fro
+ import { resolveQuotedSpend, spendRole, spendableAmount, type SpendSource } from "./allowance.ts";
+ import { declareSecessionRefusal } from "./secession.ts";
+ import { parseTaxRate, TAX_RATE_COOLDOWN_TICKS, TAX_RATE_MAX, TAX_RATE_MIN, TAX_RATE_STEP, taxRateCommandRefusal } from "./tax-rate.ts";
+-import { MARKET_DEPTH_FRACTION, marketDepth, PASSAGE_COST_PER_TICK, provisionResupplyTarget, quotedPassage, tradeAmounts, tradeQuote } from "./engine.ts";
++import { humanAcceptTerms, MARKET_DEPTH_FRACTION, marketDepth, PASSAGE_COST_PER_TICK, provisionResupplyTarget, quotedPassage, tradeAmounts, tradeQuote } from "./engine.ts";
+ import type {
+   Character,
+   OrderDirective,
+@@ -89,6 +89,11 @@ export type CommandRequest =
+       characterId: string;
+       contractId: string;
+     }
++  | {
++      playerId: string;
++      type: "accept-contract" | "decline-contract";
++      contractId: string;
++    }
+   | {
+       playerId: string;
+       type: "set-tax-rate";
+@@ -216,6 +221,8 @@ export const COMMAND_TYPES: readonly string[] = [
+   "escape-captivity",
+   "offer-contract",
+   "cancel-contract",
++  "accept-contract",
++  "decline-contract",
+   "set-tax-rate",
+   "declare-secession",
+ ];
+@@ -397,6 +404,8 @@ function acceptedEvent(world: WorldState, command: PlayerCommand): SimEvent {
+         ? command.factionId
+       : command.type === "declare-secession"
+         ? command.settlementId
++      : command.type === "accept-contract" || command.type === "decline-contract"
++        ? world.contracts?.[command.contractId]?.buyerId
+       : command.characterId;
+   const event: SimEvent = {
+     sequence: world.nextEventSequence,
+@@ -1044,7 +1053,8 @@ function validateOfferContract(
+ function contractMutationPending(world: WorldState, contractId: string): boolean {
+   return world.pendingCommands.some((command) =>
+     (command.type === "offer-contract" && command.contractId === contractId) ||
+-    (command.type === "cancel-contract" && command.contractId === contractId)
++    (command.type === "cancel-contract" && command.contractId === contractId) ||
++    ((command.type === "accept-contract" || command.type === "decline-contract") && command.contractId === contractId)
+   );
+ }
+ 
+@@ -1117,6 +1127,42 @@ function validateCancelContract(
+   return { ok: true, command, event: acceptedEvent(world, command) };
+ }
+ 
++/**
++ * HUMAN_CONTRACTS: the human carrier answers an offer a buyer made to them.
++ * A world without the flag has no contract whose carrier is human, so both
++ * verbs refuse with `not-carrier` there and need no flag check.
++ */
++function validateAnswerContract(
++  world: WorldState,
++  request: Extract<CommandRequest, { type: "accept-contract" | "decline-contract" }>,
++): CommandSubmission {
++  const player = world.players[request.playerId];
++  const carrier = world.characters[player.characterId];
++  const contract = typeof request.contractId === "string" ? world.contracts?.[request.contractId] : undefined;
++  if (!contract) return reject("unknown-contract", "That contract does not exist");
++  if (contract.carrierId !== carrier.id) return reject("not-carrier", "Only the character the contract was offered to may answer it");
++  if (contract.status !== "offered" || contract.settled) return reject("contract-not-open", "That contract is already closed");
++  if (contract.offerExpiresTick === undefined) return reject("not-carrier", "Only the character the contract was offered to may answer it");
++  if (world.tick >= contract.offerExpiresTick) return reject("offer-expired", "The offer has lapsed");
++  if (contractMutationPending(world, contract.id)) {
++    return reject("contract-already-queued", "Another command already queued will act on that contract");
++  }
++  if (request.type === "accept-contract") {
++    if (carrier.travel || !carrier.locationId) return reject("carrier-traveling", "The carrier is at sea");
++    const terms = humanAcceptTerms(world, carrier, contract);
++    if (terms.assessment.gate === "travel") return reject("voyage-too-long", terms.assessment.reason ?? "The voyage does not fit the deadline.");
++    if (terms.assessment.gate === "purse") return reject("insufficient-money", "The purse cannot cover the cargo shortfall");
++  }
++  const command: PlayerCommand = {
++    id: `command-${String(world.nextCommandSequence).padStart(5, "0")}`,
++    playerId: player.id,
++    issuedTick: world.tick,
++    type: request.type,
++    contractId: contract.id,
++  };
++  return { ok: true, command, event: acceptedEvent(world, command) };
++}
++
+ export function submitCommand(world: WorldState, request: CommandRequest): CommandSubmission {
+   const player = world.players[request.playerId];
+   if (!player) return reject("unknown-player", "The player session is unknown");
+@@ -1141,6 +1187,7 @@ export function submitCommand(world: WorldState, request: CommandRequest): Comma
+   if (request.type === "cancel-order") return validateOrderCancellation(world, request);
+   if (request.type === "offer-contract") return validateOfferContract(world, request);
+   if (request.type === "cancel-contract") return validateCancelContract(world, request);
++  if (request.type === "accept-contract" || request.type === "decline-contract") return validateAnswerContract(world, request);
+   if (request.type === "set-tax-rate") return validateSetTaxRate(world, request);
+   if (request.type === "declare-secession") return validateDeclareSecession(world, request);
+   // Without this, an unrecognised `type` fell through to order cancellation and
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 6a103fa..5ad2fe0 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -84,6 +84,7 @@ import {
+   type PlayerCommand,
+   type ResourceKey,
+   type Resources,
++  type Settlement,
+   type SettlementKnowledge,
+   type SimEvent,
+   type StandingOrder,
+@@ -2204,7 +2205,7 @@ function refundEscrow(
+   world: WorldState,
+   events: SimEvent[],
+   contract: SupplyContract,
+-  status: "refused" | "breached" | "cancelled",
++  status: "refused" | "breached" | "cancelled" | "declined" | "expired",
+   type: string,
+   actorId: string,
+   extra: Record<string, unknown> = {},
+@@ -2246,8 +2247,12 @@ function resolveContractCommand(
+   world: WorldState,
+   events: SimEvent[],
+   commander: Character,
+-  command: Extract<PlayerCommand, { type: "offer-contract" | "cancel-contract" }>,
++  command: Extract<PlayerCommand, { type: "offer-contract" | "cancel-contract" | "accept-contract" | "decline-contract" }>,
+ ): void {
++  if (command.type === "accept-contract" || command.type === "decline-contract") {
++    resolveHumanAnswer(world, events, commander, command);
++    return;
++  }
+   if (command.type === "cancel-contract") {
+     const contract = world.contracts?.[command.contractId];
+     if (!contract || contract.buyerId !== commander.id || (contract.status !== "offered" && contract.status !== "accepted")) {
+@@ -2410,6 +2415,101 @@ function resolveContractCommand(
+   });
+ }
+ 
++/**
++ * HUMAN_CONTRACTS. How long a human carrier may answer an offer: the app's own
++ * check-in window (`CHECK_IN_TICKS`, src/dashboard/view-model.ts:87). A test pins the two equal.
++ * An NPC carrier answers on the next tick (`resolveOfferedContracts`), which is
++ * too short for a player who steps the clock in batches.
++ */
++export const HUMAN_CONTRACTS_DEFAULT = false;
++export const HUMAN_OFFER_WINDOW_TICKS = 180;
++
++/**
++ * The delivery deadline a human carrier gets if they answer yes now: the NPC
++ * formula (`offerAutonomousSupply`), applied at the moment of acceptance.
++ */
++export function humanAcceptTerms(world: WorldState, carrier: Character, contract: SupplyContract) {
++  const travelTicks = contractTravelTicks(world, carrier, contract.destinationId);
++  const deadlineTick = world.tick + Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1, 2));
++  const assessment = assessSupplyContract(world, carrier, {
++    buyerId: contract.buyerId,
++    quantity: contract.quantity,
++    price: contract.price,
++    destinationId: contract.destinationId,
++    deadlineTick,
++  });
++  return { deadlineTick, assessment };
++}
++
++/** A human carrier says yes or no. A yes re-checks the two hard gates, never the score. */
++function resolveHumanAnswer(
++  world: WorldState,
++  events: SimEvent[],
++  commander: Character,
++  command: Extract<PlayerCommand, { type: "accept-contract" | "decline-contract" }>,
++): void {
++  const contract = world.contracts?.[command.contractId];
++  const stale = !contract || contract.carrierId !== commander.id || contract.status !== "offered" || contract.settled ||
++    contract.offerExpiresTick === undefined || world.tick >= contract.offerExpiresTick;
++  if (stale) {
++    emit(world, events, {
++      type: "player-command-failed",
++      actorId: commander.id,
++      data: { commandId: command.id, reason: "the offer is no longer open" },
++    });
++    return;
++  }
++  const parties = contractParties(world, contract);
++  if (!parties) return;
++  if (command.type === "decline-contract") {
++    refundEscrow(world, events, contract, "declined", "contract-refused", commander.id, {
++      commandId: command.id,
++      gate: "declined",
++      reason: "The carrier declined.",
++    });
++    emit(world, events, {
++      type: "player-command-resolved",
++      actorId: commander.id,
++      targetId: parties.buyer.id,
++      data: { commandId: command.id, outcome: "contract-declined", contractId: contract.id },
++    });
++    return;
++  }
++  const terms = humanAcceptTerms(world, commander, contract);
++  if (commander.travel || !commander.locationId || terms.assessment.gate === "travel" || terms.assessment.gate === "purse") {
++    emit(world, events, {
++      type: "player-command-failed",
++      actorId: commander.id,
++      targetId: parties.buyer.id,
++      data: { commandId: command.id, reason: terms.assessment.reason ?? "the carrier can no longer take this contract" },
++    });
++    return;
++  }
++  const next: SupplyContract = { ...contract, status: "accepted", acceptedTick: world.tick, deadlineTick: terms.deadlineTick, observedTick: world.tick };
++  emitContract(world, events, "contract-accepted", next, parties.buyer.money, commander.money, commander.id, {
++    commandId: command.id,
++    travelTicks: terms.assessment.travelTicks,
++    ticksLeft: terms.assessment.ticksLeft,
++    costBasis: terms.assessment.costBasis,
++  });
++  emit(world, events, {
++    type: "player-command-resolved",
++    actorId: commander.id,
++    targetId: parties.buyer.id,
++    data: { commandId: command.id, outcome: "contract-accepted", contractId: contract.id },
++  });
++}
++
++/** An unanswered human-carried offer lapses at its window and the escrow returns. No relationship is written, as for an NPC refusal. */
++function expireHumanOffers(world: WorldState, events: SimEvent[]): void {
++  const lapsed = Object.values(world.contracts ?? {})
++    .filter((c) => c.status === "offered" && !c.settled && c.offerExpiresTick !== undefined && world.tick >= c.offerExpiresTick)
++    .sort((a, b) => a.id.localeCompare(b.id));
++  for (const contract of lapsed) {
++    refundEscrow(world, events, contract, "expired", "contract-cancelled", contract.buyerId, { reason: "offer-expired" });
++  }
++}
++
+ /**
+  * Score contracts that were already offered before this tick.
+  *
+@@ -2429,6 +2529,8 @@ function resolveOfferedContracts(world: WorldState, events: SimEvent[]): void {
+   for (const contract of offered) {
+     const parties = contractParties(world, contract);
+     if (!parties) continue;
++    // HUMAN_CONTRACTS: a human carrier answers by command or the offer lapses. The score never decides for them.
++    if (humanContractsOn && parties.carrier.controller.kind === "human") continue;
+     const assessment = assessSupplyContract(world, parties.carrier, {
+       buyerId: parties.buyer.id,
+       quantity: contract.quantity,
+@@ -2849,7 +2951,7 @@ function processPlayerCommands(
+       continue;
+     }
+ 
+-    if (command.type === "offer-contract" || command.type === "cancel-contract") {
++    if (command.type === "offer-contract" || command.type === "cancel-contract" || command.type === "accept-contract" || command.type === "decline-contract") {
+       resolveContractCommand(world, events, commander, command);
+       continue;
+     }
+@@ -3566,6 +3668,8 @@ export interface TickOptions {
+   lifecycle?: boolean;
+   /** SECESSION_AFTERMATH (secession-aftermath.md): peace, protection, membership for a seceded port. Off by default; off is byte-identical. */
+   secessionAftermath?: boolean;
++  /** HUMAN_CONTRACTS (human-contracts.md): a human character may be offered a supply contract and answers it by command. Off by default; off is byte-identical. */
++  humanContracts?: boolean;
+   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
+   /**
+    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
+@@ -4366,6 +4470,52 @@ const SUPPLY_QUANTITY = 10;
+ const SUPPLY_PRICE = 56.25;
+ const SUPPLY_DEADLINE_CAP = 720;
+ 
++/**
++ * HUMAN_CONTRACTS eligibility, in id order. A human is a candidate when they are docked and free
++ * (the same test as an NPC carrier, minus `controller`), the buyer is someone they know, the pair has no open contract, they hold no other open offer, and the same
++ * buyer has not just been answered no, silence or a breach (one window).
++ */
++function humanCarrierCandidates(world: WorldState, buyer: Character, settlement: Settlement): Character[] {
++  const out: Character[] = [];
++  for (const player of Object.values(world.players)) {
++    const carrier = world.characters[player.characterId];
++    if (!carrier || carrier.dead || carrier.id === buyer.id || carrier.controller.kind !== "human") continue;
++    if (carrier.captivity || carrier.travel || !carrier.locationId) continue;
++    if (Object.values(world.activeBattles).some((battle) => battle.attackerId === carrier.id)) continue;
++    if (!player.knownCharacterIds.includes(buyer.id)) continue;
++    if (openSupplyContract(world, buyer.id, carrier.id)) continue;
++    const mine = Object.values(world.contracts ?? {}).filter((c) => c.carrierId === carrier.id);
++    if (mine.some((c) => c.status === "offered" && !c.settled)) continue;
++    if (mine.some((c) => c.buyerId === buyer.id && (c.status === "declined" || c.status === "expired" || c.status === "breached") && world.tick - c.observedTick < HUMAN_OFFER_WINDOW_TICKS)) continue;
++    // The NPC walk skips, unchanged: standing on the shelf without the quantity, or an own port that cannot stock the voyage.
++    if (carrier.locationId === settlement.id && carrier.cargo.provisions < SUPPLY_QUANTITY) continue;
++    if (carrier.locationId !== settlement.id && process.env.OPEN_ERA_HUMAN_SKIP !== "relaxed") {
++      const voyage = travelDuration(world, carrier, settlement.id);
++      const shortfall = SUPPLY_QUANTITY + provisionDemand(carrier) * voyage - carrier.cargo.provisions;
++      if (world.settlements[carrier.locationId].stocks.provisions < shortfall) continue;
++    }
++    out.push(carrier);
++  }
++  return out.sort((a, b) => a.id.localeCompare(b.id));
++}
++
++/** Measurement toggle only: "first" offers the human ahead of the NPC carriers, "last" only when no NPC would take it. */
++const HUMAN_OFFER_ORDER: "first" | "last" = process.env.OPEN_ERA_HUMAN_OFFER === "first" ? "first" : "last";
++
++function pickHumanCarrier(world: WorldState, buyer: Character, settlement: Settlement): { carrier: Character; deadlineTick: number } | null {
++  for (const candidate of humanCarrierCandidates(world, buyer, settlement)) {
++    const travelTicks = contractTravelTicks(world, candidate, settlement.id);
++    const delivery = Math.min(SUPPLY_DEADLINE_CAP, Math.max(travelTicks + 1, 2));
++    const assessment = assessSupplyContract(world, candidate, {
++      buyerId: buyer.id, quantity: SUPPLY_QUANTITY, price: SUPPLY_PRICE, destinationId: settlement.id, deadlineTick: world.tick + delivery,
++    });
++    // The two hard gates bind. The score is an NPC's willingness; the human decides for themselves.
++    if (!assessment.accepted && assessment.gate !== "score") continue;
++    return { carrier: candidate, deadlineTick: world.tick + HUMAN_OFFER_WINDOW_TICKS + delivery };
++  }
++  return null;
++}
++
+ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): void {
+   const settlements = Object.values(world.settlements).sort((left, right) => left.id.localeCompare(right.id));
+   for (const settlement of settlements) {
+@@ -4389,7 +4539,12 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
+       .sort((left, right) => left.id.localeCompare(right.id));
+     let chosen: Character | null = null;
+     let deadlineTick = 0;
+-    if (process.env.OPEN_ERA_SUPPLY_WALK === "off") {
++    let humanFirst: ReturnType<typeof pickHumanCarrier> = null;
++    if (humanContractsOn && HUMAN_OFFER_ORDER === "first") humanFirst = pickHumanCarrier(world, buyer, settlement);
++    if (humanFirst) {
++      chosen = humanFirst.carrier;
++      deadlineTick = humanFirst.deadlineTick;
++    } else if (process.env.OPEN_ERA_SUPPLY_WALK === "off") {
+       // Measurement toggle only: the pre-walk offer, to the lowest unblocked carrier.
+       const first = carriers[0];
+       if (!first || openSupplyContract(world, buyer.id, first.id)) continue;
+@@ -4419,6 +4574,11 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
+       deadlineTick = deadline;
+       break;
+     }
++    // HUMAN_CONTRACTS: where the human sits in the carrier order (measurement toggle, as OPEN_ERA_SUPPLY_WALK above).
++    if (humanContractsOn && HUMAN_OFFER_ORDER === "last" && !chosen) {
++      const pick = pickHumanCarrier(world, buyer, settlement);
++      if (pick) { chosen = pick.carrier; deadlineTick = pick.deadlineTick; }
++    }
+     if (!chosen) continue;
+     const escrow = resolveQuotedSpend(world, buyer, SUPPLY_PRICE, PASSAGE_COST_PER_TICK);
+     if (!escrow.ok) continue;
+@@ -4440,6 +4600,7 @@ export function offerAutonomousSupply(world: WorldState, events: SimEvent[]): vo
+       status: "offered",
+       revision: 1,
+       observedTick: world.tick,
++      ...(chosen.controller.kind === "human" ? { offerExpiresTick: world.tick + HUMAN_OFFER_WINDOW_TICKS } : {}),
+     };
+     emitContract(world, events, "contract-offered", contract, escrow.characterMoney, chosen.money, buyer.id, {
+       ...spendData(escrow),
+@@ -4551,6 +4712,7 @@ let alliancesOn = false;
+ let lifecycleOn = false;
+ let portTransferOn = false;
+ let aftermathOn = false;
++let humanContractsOn = false;
+ 
+ export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
+@@ -4558,6 +4720,7 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
+   alliancesOn = options.alliances ?? ALLIANCES_DEFAULT;
+   lifecycleOn = options.lifecycle ?? LIFECYCLE_DEFAULT;
+   aftermathOn = options.secessionAftermath ?? SECESSION_AFTERMATH_DEFAULT;
++  humanContractsOn = options.humanContracts ?? HUMAN_CONTRACTS_DEFAULT;
+   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
+   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
+   const leading: SimEvent[] = [];
+@@ -4588,6 +4751,7 @@ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnTyp
+   if (portTransferOn) portPurchases(world, (d) => emit(world, events, d as EventDraft));
+   resolveOfferedContracts(world, events);
+   resolveContractOutcomes(world, events);
++  if (humanContractsOn) expireHumanOffers(world, events);
+   offerAutonomousSupply(world, events);
+   processCaptivityDeadlines(world, events, rng);
+   collectCaptivityDebts(world, events);
+diff --git a/src/sim/types.ts b/src/sim/types.ts
+index 750b8a3..62d6493 100644
+--- a/src/sim/types.ts
++++ b/src/sim/types.ts
+@@ -408,7 +408,11 @@ export type SupplyContractStatus =
+   | "refused"
+   | "fulfilled"
+   | "breached"
+-  | "cancelled";
++  | "cancelled"
++  /** HUMAN_CONTRACTS only: the human carrier answered no. */
++  | "declined"
++  /** HUMAN_CONTRACTS only: a human-carried offer lapsed unanswered at `offerExpiresTick`. */
++  | "expired";
+ 
+ /**
+  * A paid provisions delivery. The price sits on `escrow`, in neither purse and
+@@ -453,6 +457,8 @@ export interface SupplyContract {
+   order?: SupplyContractOrder;
+   /** Tick of the last status change. The projection's age is `tick - observedTick`. */
+   observedTick: number;
++  /** HUMAN_CONTRACTS only: the last tick a human carrier may answer. Absent on every other contract. */
++  offerExpiresTick?: number;
+ }
+ 
+ export interface StandingOrder {
+@@ -659,6 +665,13 @@ export type PlayerCommand =
+       characterId: string;
+       contractId: string;
+     }
++  | {
++      id: string;
++      playerId: string;
++      issuedTick: number;
++      type: "accept-contract" | "decline-contract";
++      contractId: string;
++    }
+   | {
+       id: string;
+       playerId: string;
