@@ -1,0 +1,17 @@
+ATLS
+ATLS+R
+ATLS+R+Rc
+ATLS+R+Rc-exile-off
+ATLS+R-exile-off
+ATLS-NT
+ATLS-NT+R
+ATLS-NT+R+Rc
+ATLS-NT+R+Rc-exile-off
+ATLS-NT-exile-off
+ATLS-exile-off
+R
+R+Rc
+R+Rc-exile-off
+R-exile-off
+main
+main-exile-off

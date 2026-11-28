@@ -1,0 +1,12 @@
+main||{"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":false,"negotiatedTransfer":false,"relationships":false,"relationshipsChar":false}
+R+Rc||{"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":false,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+R+Rc-only-raid|raid|{"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":false,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+R+Rc-only-capture|capture|{"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":false,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+R+Rc-only-ransom|ransom|{"occupation":false,"alliances":false,"portTransfer":false,"lifecycle":false,"secessionAftermath":false,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+ATLS||{"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":false,"relationshipsChar":false}
+ATLS+R+Rc||{"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+ATLS+R+Rc-only-raid|raid|{"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+ATLS+R+Rc-only-capture|capture|{"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+ATLS+R+Rc-only-ransom|ransom|{"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":false,"relationships":true,"relationshipsChar":true}
+ATLS-NT+R||{"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":true,"relationships":true,"relationshipsChar":false}
+ATLS-NT+R+Rc||{"occupation":false,"alliances":true,"portTransfer":true,"lifecycle":true,"secessionAftermath":true,"negotiatedTransfer":true,"relationships":true,"relationshipsChar":true}

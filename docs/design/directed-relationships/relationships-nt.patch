@@ -1,0 +1,410 @@
+diff --git a/src/dashboard/client-readiness.ts b/src/dashboard/client-readiness.ts
+index de11dc1..1c6bf36 100644
+--- a/src/dashboard/client-readiness.ts
++++ b/src/dashboard/client-readiness.ts
+@@ -27,6 +27,8 @@ export const PLAYER_FEED_BOOKKEEPING = [
+   "transfer-ledger-opened",
+   "transfer-watch",
+   "transfer-watch-cleared",
++  "harm-ledger-opened",
++  "grudge-ledger-opened",
+ ] as const;
+ 
+ export interface OccupationView {
+diff --git a/src/dashboard/visibility.ts b/src/dashboard/visibility.ts
+index bd813ea..68d6f79 100644
+--- a/src/dashboard/visibility.ts
++++ b/src/dashboard/visibility.ts
+@@ -5,6 +5,7 @@ import type { Character, PartySighting, ReleaseSighting, SimEvent, StandingOrder
+ import { PASSAGE_COST_PER_TICK } from "../sim/engine.ts";
+ import { shortPayMember } from "../sim/allowance.ts";
+ import { projectAllowance } from "./allowance.ts";
++import { harmReceivedRows } from "../sim/relationships.ts";
+ import { diplomacyFor, diplomacyParty, governorSeats, isDiplomacyEvent, lifecycleView, stripPlayerEventData } from "./client-readiness.ts";
+ import { causeLabelFor, captivityReleasedParts, characterName, learnedInPortNote, loyaltyNoteFor, ownedPortTaxSentence, publicFeedSentence, qualifyCollidingNames, releaseDebtNote, ransomIncomeNote, seatSummaryFor, secessionSuccessorClause, SHORT_PAY_CARD_LINE, SHORT_PAY_UPKEEP_LINE, shortPayAudience, shortPayUpkeepVisible, skillGainSentence, skillsWithheldNote, summaryStaysWhenWithheld, treasuryBreakdownLine, treasuryDrawSentence, withheldRecruitSentence } from "./wording.ts";
+ 
+@@ -993,6 +994,12 @@ export function projectFactions(
+         diplomacy: diplomacyFor(world, commander, faction.id, owned),
+         /** Governor seats. Own faction only. News does not name an office. */
+         governors: governorSeats(world, commander, faction.id),
++        /**
++         * RELATIONSHIPS only (directed-relationships.md ruling 5): harm this faction received, by the faction that did it,
++         * with the 152-tick window count, the total and the last tick. Own faction only; harm dealt and third-party harm
++         * never appear. The key is absent when the ledger is off, so flag-off projections are unchanged.
++         */
++        ...(world.harm ? { harmReceived: owned ? harmReceivedRows(world, faction.id) : null } : {}),
+         intelligence: {
+           exact: owned,
+           source: owned ? "faction-record" : "reputation",
+diff --git a/src/sim/alliances.ts b/src/sim/alliances.ts
+index e250cdd..3fc0569 100644
+--- a/src/sim/alliances.ts
++++ b/src/sim/alliances.ts
+@@ -1,4 +1,5 @@
+ import type { SimEvent, WorldState } from "./types.ts";
++import { harmLedger, mutualHarm, reportReader } from "./relationships.ts";
+ /**
+  * ALLIANCES (docs/design/alliances.md rev 2), behind the `alliances` run option / `--alliances`, default off. Deterministic, no RNG draw.
+  * Flag off: nothing here runs; world.alliances / world.allianceMemory never exist.
+@@ -84,13 +85,38 @@ export function allianceForms(world: WorldState, emit: Emit): void {
+   const factions = Object.keys(world.factions).filter((f) => alive(world, f)).sort();
+   const inPact = (f: string) => alliancesOf(world).some((a) => a.factionIds.includes(f));
+   const blocked = (p: string, q: string) => ((world as W).allianceMemory ?? []).some((m) => m.factionIds.includes(p) && m.factionIds.includes(q) && world.tick - m.brokenTick < ALLIANCE_COOLDOWN);
+-  for (const p of factions) for (const q of factions) {
+-    if (q <= p || inPact(p) || inPact(q) || blocked(p, q)) continue;
+-    const enemies = factions.filter((e) => e !== p && e !== q && portsOf(world, e).length).sort((a, b) => portsOf(world, b).length - portsOf(world, a).length || a.localeCompare(b));
+-    for (const e of enemies) {
+-      const cp = allianceCause(world, p, e), cq = allianceCause(world, q, e);
+-      if (cp && cq) { emit({ type: "alliance-formed", data: { alliance: { id: `alliance-${world.tick}-${p}-${q}`, factionIds: [p, q], enemyFactionId: e, formedTick: world.tick, causes: { [p]: cp, [q]: cq }, portsAtForm: { [p]: portsOf(world, p).length, [q]: portsOf(world, q).length } } } }); break; }
++  const valid = () => {
++    const out: Array<{ p: string; q: string; e: string; cp: string; cq: string }> = [];
++    for (const p of factions) for (const q of factions) {
++      if (q <= p || inPact(p) || inPact(q) || blocked(p, q)) continue;
++      const enemies = factions.filter((e) => e !== p && e !== q && portsOf(world, e).length).sort((a, b) => portsOf(world, b).length - portsOf(world, a).length || a.localeCompare(b));
++      for (const e of enemies) {
++        const cp = allianceCause(world, p, e), cq = allianceCause(world, q, e);
++        if (cp && cq) { out.push({ p, q, e, cp, cq }); break; }
++      }
+     }
++    return out;
++  };
++  const form = ({ p, q, e, cp, cq }: { p: string; q: string; e: string; cp: string; cq: string }) =>
++    emit({ type: "alliance-formed", data: { alliance: { id: `alliance-${world.tick}-${p}-${q}`, factionIds: [p, q], enemyFactionId: e, formedTick: world.tick, causes: { [p]: cp, [q]: cq }, portsAtForm: { [p]: portsOf(world, p).length, [q]: portsOf(world, q).length } } } });
++  if (!harmLedger(world)) {
++    for (const p of factions) for (const q of factions) {
++      if (q <= p || inPact(p) || inPact(q) || blocked(p, q)) continue;
++      const enemies = factions.filter((e) => e !== p && e !== q && portsOf(world, e).length).sort((a, b) => portsOf(world, b).length - portsOf(world, a).length || a.localeCompare(b));
++      for (const e of enemies) {
++        const cp = allianceCause(world, p, e), cq = allianceCause(world, q, e);
++        if (cp && cq) { form({ p, q, e, cp, cq }); break; }
++      }
++    }
++    return;
++  }
++  // RELATIONSHIPS reader 1 (directed-relationships.md): repeatedly form the valid pair with the least mutual harm in the
++  // window, then the id order above. Without harm this is exactly the id-order loop (forming only removes candidates).
++  for (let list = valid(); list.length; list = valid()) {
++    const scored = list.map((c, idx) => ({ c, idx, harm: mutualHarm(world, c.p, c.q) }));
++    const pick = [...scored].sort((a, b) => a.harm - b.harm || a.idx - b.idx)[0];
++    reportReader({ reader: "alliance", tick: world.tick, candidates: scored.map((x) => ({ pair: [x.c.p, x.c.q], enemy: x.c.e, harm: x.harm })), chosenIdx: pick.idx, changed: pick.idx !== 0 });
++    form(pick.c);
+   }
+ }
+ /** Ruling: joiner losses, applied from the battle event (flag on only: only flag-on battles carry allyJoiners). */
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 799c2f1..c9b0c09 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -44,6 +44,7 @@ import { NEGOTIATED_TRANSFER_DEFAULT, negotiatedTransfers } from "./negotiated-t
+ import { LIFECYCLE_DEFAULT, isRetired, lifecycleStep } from "./lifecycle.ts";
+ import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWith, shareSideLosses, type AllyJoiner } from "./alliances.ts";
+ import { SECESSION_AFTERMATH_DEFAULT, aftermathStep, atPeace } from "./secession-aftermath.ts";
++import { RELATIONSHIPS_CHAR_DEFAULT, RELATIONSHIPS_DEFAULT } from "./relationships.ts";
+ import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
+ import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+ import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
+@@ -735,6 +736,8 @@ interface CaptureAttempt {
+    * retreat paths leave it unset and keep the settlement's faction.
+    */
+   captorFactionId?: string | null;
++  /** RELATIONSHIPS_CHAR only: the person who took the prisoner (the attacker on an outscore loss). */
++  captorId?: string;
+ }
+ 
+ function attemptCapture(
+@@ -778,6 +781,9 @@ function attemptCapture(
+       health: attempt.health,
+       morale: attempt.morale,
+       captivity,
++      // RELATIONSHIPS_CHAR (directed-relationships.md): who took the prisoner. Outscore loss: the attacker.
++      // Defeat or failed retreat: the port's owner, else the captor faction's command holder.
++      ...(relCharOn ? { captorId: attempt.captorId ?? world.settlements[settlementId]?.ownerId ?? (captivity.captorFactionId ? commandHolderId(world, captivity.captorFactionId) : null) ?? undefined } : {}),
+     },
+   });
+   return true;
+@@ -1403,6 +1409,7 @@ function completeMajorBattle(
+         morale: prisoner.morale,
+         troopCount: prisoner.troops.count,
+         captorFactionId: character.factionId,
++        captorId: character.id,
+       }, events, rng, roll);
+     }
+   }
+@@ -3571,6 +3578,10 @@ export interface TickOptions {
+   negotiatedTransfer?: boolean;
+   /** Diagnosis only (leave-one-trigger-out). Unset means both triggers. Not a product flag. */
+   negotiatedTransferTriggers?: { cession?: boolean; sale?: boolean };
++  /** RELATIONSHIPS (directed-relationships.md): faction harm ledger and its two readers. Off by default; off is byte-identical. */
++  relationships?: boolean;
++  /** RELATIONSHIPS_CHAR (directed-relationships.md): personal grievance from raids, captures, ransoms and lost seats. Off by default; off is byte-identical. */
++  relationshipsChar?: boolean;
+   /* "news-only" runs step 1 (couriers) without the step-2 claim, for the per-step trace. */
+   /**
+    * AI pilot A (ai-pilot-a.md section 4). Absent means off: the tax step runs
+@@ -4557,6 +4568,8 @@ let lifecycleOn = false;
+ let portTransferOn = false;
+ let aftermathOn = false;
+ let negotiatedOn = false;
++let relOn = false;
++let relCharOn = false;
+ 
+ export function runTick(world: WorldState, options: TickOptions = {}): TickResult {
+   occupationOn = options.occupation ?? OCCUPATION_DEFAULT;
+@@ -4565,6 +4578,8 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
+   lifecycleOn = options.lifecycle ?? LIFECYCLE_DEFAULT;
+   aftermathOn = options.secessionAftermath ?? SECESSION_AFTERMATH_DEFAULT;
+   negotiatedOn = options.negotiatedTransfer ?? NEGOTIATED_TRANSFER_DEFAULT;
++  relOn = options.relationships ?? RELATIONSHIPS_DEFAULT;
++  relCharOn = options.relationshipsChar ?? RELATIONSHIPS_CHAR_DEFAULT;
+   if (options.exileRecovery === undefined) options = { ...options, exileRecovery: EXILE_RECOVERY_DEFAULT };
+   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
+   const leading: SimEvent[] = [];
+@@ -4583,6 +4598,8 @@ export function runTick(world: WorldState, options: TickOptions = {}): TickResul
+ function runTickBody(world: WorldState, options: TickOptions, notices: ReturnType<typeof applySilentTickStart>): TickResult {
+   const rng = new DeterministicRng(world.rngState);
+   const events: SimEvent[] = [];
++  if (relOn && !world.harm) emit(world, events, { type: "harm-ledger-opened", data: {} });
++  if (relCharOn && !world.grudges) emit(world, events, { type: "grudge-ledger-opened", data: {} });
+ 
+   resolveMorningDesertion(world, events, notices, options.ai);
+   produceSettlements(world, events);
+diff --git a/src/sim/negotiated-transfer.ts b/src/sim/negotiated-transfer.ts
+index 3a75da7..bdf4b27 100644
+--- a/src/sim/negotiated-transfer.ts
++++ b/src/sim/negotiated-transfer.ts
+@@ -3,6 +3,8 @@ import { freeMateCount } from "./allowance.ts";
+ import { ADJACENT, PRICE_PER_SOLDIER, PURCHASE_CLOCK, RESERVE_PER_HEAD, freeDocked } from "./port-transfer.ts";
+ import { atPeace } from "./secession-aftermath.ts";
+ import { commandHolderId } from "./state.ts";
++import { governorId } from "./governor.ts";
++import { grudgeRelationship, grudgesOn, harmCount, harmLedger, reportReader } from "./relationships.ts";
+ import type { SimEvent, WorldState } from "./types.ts";
+ 
+ /**
+@@ -49,8 +51,14 @@ function receivers(world: WorldState, seller: string, portId: string, raider: st
+     const troops = docked.filter((c) => c.factionId === f).reduce((n, c) => n + c.troops.count, 0);
+     return { factionId: f, pact, peace: atPeace(world, seller, f), adjacent: adj?.id ?? null, troops, agentId: docked.find((c) => c.factionId === f)!.id };
+   }).filter((r) => r.pact || r.adjacent)
+-    .sort((a, b) => Number(b.pact) - Number(a.pact) || Number(b.peace) - Number(a.peace) || b.troops - a.troops || a.factionId.localeCompare(b.factionId));
++    .map((r) => ({ ...r, harm: harmLedger(world) ? harmCount(world, r.factionId, seller) : 0 }))
++    // RELATIONSHIPS reader 2 (directed-relationships.md ruling 3): inside each group, least harm the receiver did the
++    // seller in the window, before docked troops. The seller's own ledger entry; no rival treasury is read.
++    .sort((a, b) => Number(b.pact) - Number(a.pact) || Number(b.peace) - Number(a.peace) || a.harm - b.harm || b.troops - a.troops || a.factionId.localeCompare(b.factionId));
+ }
++/** The pre-R order, for the harness hook only. */
++const plainOrder = (rs: Array<{ factionId: string; pact: boolean; peace: boolean; troops: number }>) =>
++  [...rs].sort((a, b) => Number(b.pact) - Number(a.pact) || Number(b.peace) - Number(a.peace) || b.troops - a.troops || a.factionId.localeCompare(b.factionId));
+ 
+ export type NegotiatedTriggers = { cession?: boolean; sale?: boolean };
+ 
+@@ -97,7 +105,12 @@ export function negotiatedTransfers(world: WorldState, emit: Emit, liveSession:
+     for (const t of tries) {
+       if (done) break;
+       const port = world.settlements[t.portId];
+-      for (const r of receivers(world, seller, t.portId, t.raider, taken)) {
++      const ranked = receivers(world, seller, t.portId, t.raider, taken);
++      if (harmLedger(world) && ranked.length) {
++        const plain = plainOrder(ranked);
++        reportReader({ reader: "transfer", tick: world.tick, seller, portId: t.portId, ranked: ranked.map((r) => ({ factionId: r.factionId, pact: r.pact, peace: r.peace, harm: r.harm, troops: r.troops })), changed: ranked.some((r, i) => r.factionId !== plain[i].factionId), firstChanged: ranked[0].factionId !== plain[0].factionId });
++      }
++      for (const r of ranked) {
+         if (liveSession && humanHeld(world, r.factionId)) continue;
+         const back = nt.returned[t.portId];
+         if (back && back.from === r.factionId && world.tick - back.tick <= THREAT_WINDOW) continue;
+@@ -117,8 +130,20 @@ export function negotiatedTransfers(world: WorldState, emit: Emit, liveSession:
+           emit({ type: "transfer-declined", settlementId: t.portId, targetId: r.factionId, data: { offerId, sellerFactionId: seller, factionId: r.factionId, trigger: t.trigger, since: t.since, reason } });
+           continue;
+         }
++        const seatHolder = grudgesOn(world) ? governorId(world, t.portId) : null;
+         emit({ type: "settlement-transferred", actorId: r.agentId, settlementId: t.portId, targetId: r.factionId, data: {
+           ...terms, ownerId: r.agentId, previousOwnerId: port.ownerId, payerFactionId: kind === "sale" ? r.factionId : null, reserve } });
++        if (seatHolder && world.characters[seatHolder]) {
++          // RELATIONSHIPS_CHAR (ruling 1): the seller's seated governor (the seat as the tick froze it) loses the seat to
++          // the transfer; one grudge step toward the buyer's command holder and the buyer's agent who took the port.
++          // Written after the transfer and its news line, as the existing relationship-changed event.
++          const gov = seatHolder;
++          const buyers = [...new Set([commandHolderId(world, r.factionId), r.agentId].filter((x): x is string => !!x && x !== gov))];
++          for (const b of buyers) {
++            reportReader({ reader: "grudge", kind: "seat-lost", fromId: gov, toId: b, tick: world.tick });
++            emit({ type: "relationship-changed", actorId: gov, targetId: b, settlementId: t.portId, data: { characterId: b, trigger: `lost the seat at ${port.name} by agreement`, relationship: grudgeRelationship(world, gov, b, world.tick) } });
++          }
++        }
+         taken.add(r.factionId); taken.add(seller);
+         done = true;
+         break;
+diff --git a/src/sim/relationships.ts b/src/sim/relationships.ts
+new file mode 100644
+index 0000000..45b5c8b
+--- /dev/null
++++ b/src/sim/relationships.ts
+@@ -0,0 +1,124 @@
++import { clamp, commandHolderId, round } from "./state.ts";
++import type { Relationship, SimEvent, WorldState } from "./types.ts";
++
++/**
++ * DIRECTED RELATIONSHIPS (docs/design/directed-relationships.md, prototype). Two flags, both default off; off is byte-identical.
++ *  - `relationships` (R): a faction → faction harm ledger, `world.harm`, keyed `by>on`, derived in the reducer from
++ *    existing events (raid, capture, claim). Read by alliance partner order and negotiated-transfer receiver ranking.
++ *  - `relationshipsChar` (R-char): personal grievance in `Character.relationships`, written in the reducer from the
++ *    events where people wrong each other (raid, capture, ransom) and, with negotiated transfer, a lost seat.
++ * Deterministic: no RNG, no AI. Every write is a fold of a recorded event, so replay is exact.
++ */
++export const RELATIONSHIPS_DEFAULT = false;
++export const RELATIONSHIPS_CHAR_DEFAULT = false;
++/** The harm window: ALLIANCE_RAID_WINDOW, the measured p90 gap between raids by one faction on another (152; alliances.ts). */
++export const HARM_WINDOW = 152; // === alliances.ts ALLIANCE_RAID_WINDOW (a literal: the two modules import each other)
++/**
++ * One wrong's grievance step: the codebase's existing per-incident grievance delta for being wronged, `DEFEAT.grievance`
++ * in contracts.ts (a breached contract) and the costly-defeat-under-orders write in engine.ts recordBattleConsequences. Not tuned.
++ */
++export const GRUDGE_STEP = 0.035;
++/** A side with no tie yet starts here: contracts.ts RELATIONSHIP_BASE / engine.ts evolveLocalRelationship defaults. */
++const BASE = { trust: 0.28, affinity: 0.25, respect: 0.28, fear: 0.08, grievance: 0, obligation: 0 } as const;
++
++export type HarmKind = "raid" | "capture" | "claim";
++export interface HarmPair { recent: Array<{ tick: number; kind: HarmKind }>; total: number; lastTick: number }
++export type HarmLedger = Record<string, HarmPair>;
++type W = WorldState & { harm?: HarmLedger; grudges?: true };
++
++export const harmLedger = (world: WorldState) => (world as W).harm;
++export const grudgesOn = (world: WorldState) => (world as W).grudges === true;
++
++/** Harm by `by` on `on` inside the window ending at `tick` (inclusive, `tick - t <= 152`, the allianceCause test). */
++export function harmCount(world: WorldState, by: string, on: string, tick = world.tick): number {
++  const p = harmLedger(world)?.[`${by}>${on}`];
++  return p ? p.recent.filter((e) => tick - e.tick <= HARM_WINDOW).length : 0;
++}
++export const mutualHarm = (world: WorldState, a: string, b: string) => harmCount(world, a, b) + harmCount(world, b, a);
++
++/** Openers. Returns true when the event was a relationships bookkeeping event. */
++export function applyRelationshipsEvent(world: WorldState, event: SimEvent): boolean {
++  const w = world as W;
++  if (event.type === "harm-ledger-opened") { w.harm = {}; return true; }
++  if (event.type === "grudge-ledger-opened") { w.grudges = true; return true; }
++  return false;
++}
++
++function addHarm(world: WorldState, by: string, on: string, kind: HarmKind, tick: number): void {
++  const l = harmLedger(world); if (!l || by === on) return;
++  const key = `${by}>${on}`;
++  const p = l[key] ?? { recent: [], total: 0, lastTick: tick };
++  p.recent = [...p.recent.filter((e) => tick - e.tick <= HARM_WINDOW), { tick, kind }];
++  p.total += 1; p.lastTick = tick;
++  l[key] = p;
++}
++
++/** The relationship after one grudge step (for a writer that emits `relationship-changed`). */
++export function grudgeRelationship(world: WorldState, fromId: string, toId: string, tick: number): Relationship {
++  const prior: Relationship = world.characters[fromId].relationships[toId] ?? { characterId: toId, ...BASE, lastChangedTick: tick };
++  return { ...prior, grievance: round(clamp(prior.grievance + GRUDGE_STEP, 0, 1)), lastChangedTick: tick };
++}
++
++/** One grudge step from `fromId` toward `toId`. A missing tie starts from the local defaults. */
++export function grudge(world: WorldState, fromId: string | null | undefined, toId: string | null | undefined, tick: number, kind: string): void {
++  if (!fromId || !toId || fromId === toId) return;
++  const from = world.characters[fromId]; if (!from || !world.characters[toId]) return;
++  reportReader({ reader: "grudge", kind, fromId, toId, tick });
++  const prior: Relationship = from.relationships[toId] ?? { characterId: toId, ...BASE, lastChangedTick: tick };
++  from.relationships[toId] = { ...prior, grievance: round(clamp(prior.grievance + GRUDGE_STEP, 0, 1)), lastChangedTick: tick };
++}
++
++/** Reducer hook, before the event is applied (the world is as it was when the event happened). */
++export function noteHarm(world: WorldState, event: SimEvent): void {
++  const ledgerOn = harmLedger(world) !== undefined, charOn = grudgesOn(world);
++  if (!ledgerOn && !charOn) return;
++  if (event.type === "battle-started" || (event.type === "battle-resolved" && !event.data.battleId)) {
++    // The raid test alliances.ts noteRaid uses.
++    const attacker = event.actorId ? world.characters[event.actorId] : undefined;
++    const atk = attacker?.factionId ?? null; const def = event.targetId ?? null;
++    if (!attacker || !atk || !def || atk === def) return;
++    if (ledgerOn) addHarm(world, atk, def, "raid", event.tick);
++    if (charOn) {
++      // Ruling 1: the raid commander against the defending holder (the port's owner) and the defending faction's commander.
++      const holder = event.settlementId ? world.settlements[event.settlementId]?.ownerId ?? null : null;
++      const commander = commandHolderId(world, def);
++      grudge(world, attacker.id, holder, event.tick, "raid");
++      if (commander !== holder) grudge(world, attacker.id, commander, event.tick, "raid");
++    }
++    return;
++  }
++  if (event.type === "character-captured") {
++    const prisoner = event.actorId ? world.characters[event.actorId] : undefined;
++    const captorF = event.targetId ?? null; const pf = prisoner?.factionId ?? null;
++    if (ledgerOn && captorF && pf && captorF !== pf) addHarm(world, captorF, pf, "capture", event.tick);
++    if (charOn && prisoner) grudge(world, prisoner.id, event.data.captorId as string | undefined, event.tick, "capture");
++    return;
++  }
++  if (event.type === "captivity-released" && charOn) {
++    const terms = event.data.terms as { moneyPaid?: number; debtValue?: number } | undefined;
++    if (!terms || (terms.moneyPaid ?? 0) + (terms.debtValue ?? 0) <= 0) return;
++    const ransom = event.data.ransom as { leaderId?: string } | undefined;
++    const ransomer = ransom?.leaderId ?? (event.targetId ? commandHolderId(world, event.targetId) : null);
++    grudge(world, event.actorId, ransomer, event.tick, "ransom");
++    return;
++  }
++  if (event.type === "settlement-claimed" && ledgerOn) {
++    const by = event.data.factionId as string | null, on = event.data.previousFactionId as string | null;
++    if (by && on && by !== on) addHarm(world, by, on, "claim", event.tick);
++  }
++}
++
++/** Own-faction projection (ruling 5): harm received, by faction, window count, total and last tick. Harm dealt and third-party rows are never returned. */
++export function harmReceivedRows(world: WorldState, factionId: string, tick = world.tick) {
++  const l = harmLedger(world); if (!l) return [];
++  return Object.entries(l)
++    .filter(([k]) => k.endsWith(`>${factionId}`) && k.split(">")[1] === factionId)
++    .map(([k, p]) => ({ factionId: k.split(">")[0], recent: p.recent.filter((e) => tick - e.tick <= HARM_WINDOW).length, total: p.total, lastTick: p.lastTick }))
++    .sort((a, b) => a.factionId.localeCompare(b.factionId));
++}
++
++/** Harness-only diagnostic hook (not state, not an event): readers report each decision so a checker can see whether harm changed it. */
++export function reportReader(d: Record<string, unknown>): void {
++  const h = (globalThis as { __relHook?: (d: Record<string, unknown>) => void }).__relHook;
++  if (h) h(d);
++}
+diff --git a/src/sim/state.ts b/src/sim/state.ts
+index 012316f..505f660 100644
+--- a/src/sim/state.ts
++++ b/src/sim/state.ts
+@@ -3,6 +3,7 @@ import { applyLifecycleEvent } from "./lifecycle.ts";
+ import { NEGOTIATION_EVENTS, applyNegotiatedTransferEvent, noteTransferRaid } from "./negotiated-transfer.ts";
+ import { applyPurchase } from "./port-transfer.ts";
+ import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
++import { applyRelationshipsEvent, noteHarm } from "./relationships.ts";
+ import { createHash } from "node:crypto";
+ import type {
+   Character,
+@@ -562,6 +563,10 @@ function standingOrderFromEvent(world: WorldState, event: SimEvent): StandingOrd
+ }
+ 
+ export function applyEvent(world: WorldState, event: SimEvent): void {
++  if ((event.type === "harm-ledger-opened" || event.type === "grudge-ledger-opened") && applyRelationshipsEvent(world, event)) {
++    world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
++    return;
++  }
+   if ((event.type === "lifecycle-watch" || event.type === "lifecycle-watch-cleared" || event.type === "character-retired" || event.type === "character-returned" || event.type === "character-promoted") && applyLifecycleEvent(world, event)) {
+     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+     return;
+@@ -583,6 +588,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+     world.nextEventSequence = Math.max(world.nextEventSequence, event.sequence + 1);
+     return;
+   }
++  noteHarm(world, event);
+   noteRaid(world, event);
+   noteTransferRaid(world, event);
+   applyJoinerLosses(world, event);
+diff --git a/src/sim/types.ts b/src/sim/types.ts
+index 750b8a3..81cc863 100644
+--- a/src/sim/types.ts
++++ b/src/sim/types.ts
+@@ -779,6 +779,10 @@ export interface WorldState {
+   alliances?: import("./alliances.ts").Alliance[];
+   allianceMemory?: Array<{ factionIds: [string, string]; brokenTick: number }>;
+   allianceRaids?: Record<string, number>;
++  /** RELATIONSHIPS flag only (directed-relationships.md): faction harm ledger, keyed `by>on`. Absent when off. */
++  harm?: import("./relationships.ts").HarmLedger;
++  /** RELATIONSHIPS_CHAR flag only: personal grievance writes are on. Absent when off. */
++  grudges?: true;
+   /** SECESSION_AFTERMATH flag only (secession-aftermath.md §3). Absent when the flag is off, so flag-off worlds hash as before. */
+   secessionAftermath?: import("./secession-aftermath.ts").SecessionAftermathState;
+   version: 5;

@@ -1,0 +1,21 @@
+| Seed | Purchases | Buyer(s) | Tick(s) | Price(s) | Cause | VC owner t1200 (off → on) | VC battles off → on | VC claims off → on | Claims off → on | Port changes off → on | Secessions off → on | Violations |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-06-glassport-496) | 0 → 0 | 0 → 4 | 51 → 14 | 52 → 17 | 1 → 2 | 0 |
+| 2718 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-21-verdant-cay-1075) | 0 → 2 | 0 → 7 | 64 → 43 | 64 → 50 | 0 → 6 | 0 |
+| 4096 | 2 | world-government, world-government | 24, 312 | 840, 84 | adjacent, adjacent | neutral → breakaway (secession-character-11-crown-harbor-334) | 0 → 0 | 0 → 3 | 56 → 26 | 59 → 31 | 3 → 3 | 0 |
+| 1000 | 1 | world-government | 24 | 840 | adjacent | neutral → free-tide | 0 → 3 | 0 → 5 | 42 → 22 | 44 → 23 | 2 → 0 | 0 |
+| 2000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 1 | 0 → 6 | 50 → 35 | 52 → 41 | 2 → 5 | 0 |
+| 3000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-03-glassport-938) | 0 → 5 | 0 → 3 | 42 → 21 | 44 → 24 | 2 → 2 | 0 |
+| 4000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 2 | 0 → 4 | 63 → 55 | 64 → 56 | 1 → 0 | 0 |
+| 5000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 0 | 0 → 5 | 55 → 35 | 57 → 43 | 2 → 6 | 0 |
+| 6000 | 1 | world-government | 24 | 840 | adjacent | neutral → free-tide | 0 → 0 | 0 → 5 | 50 → 49 | 55 → 55 | 5 → 5 | 0 |
+| 7000 | 1 | world-government | 24 | 840 | adjacent | neutral → free-tide | 0 → 3 | 0 → 5 | 61 → 64 | 65 → 65 | 4 → 0 | 0 |
+| 8000 | 1 | world-government | 24 | 840 | adjacent | neutral → world-government | 0 → 3 | 0 → 4 | 62 → 39 | 66 → 40 | 4 → 0 | 0 |
+| 9000 | 1 | world-government | 48 | 852 | adjacent | neutral → breakaway (secession-character-11-crown-harbor-961) | 0 → 4 | 0 → 5 | 58 → 35 | 60 → 42 | 2 → 6 | 0 |
+| 10000 | 1 | world-government | 24 | 840 | adjacent | neutral → breakaway (secession-character-19-verdant-cay-1065) | 0 → 2 | 0 → 5 | 28 → 29 | 31 → 35 | 3 → 5 | 0 |
+| total | 14 | | | | | | 0 → 25 | 0 → 61 | 682 → 467 | 713 → 522 | 31 → 40 | 0 |
+pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
+purchases 14 on 13/13 seeds; multi-candidate purchases 0; secession seeds 9/13; min claims 14, min port changes 17
+{"pins_flagOff":true,"purchases_validAndCaused_0violations":true,"rulings_buyerAndAgentRecomputed_0mismatches":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
+PORT TRANSFER ACCEPTANCE PASSED
+exit=0

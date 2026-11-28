@@ -1,0 +1,21 @@
+| Seed | Forms | Breaks (reasons) | Causes raided/near/landless | Port-holder pacts | Joined battles (rounds) | Flipped | Joiner losses / troops | Claims off → on | Port changes off → on | Secessions off → on | Violations |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1847 | 2 | 1 {"enemy-portless":1} | 1 / 2 / 1 | 2 / 2 | 25 (26) | 19 | 1567 / 18270 | 51 → 14 | 52 → 17 | 1 → 2 | 0 |
+| 2718 | 13 | 12 {"enemy-portless":12} | 6 / 9 / 9 | 10 / 13 | 9 (10) | 2 | 611 / 7888 | 64 → 43 | 64 → 50 | 0 → 6 | 0 |
+| 4096 | 6 | 5 {"enemy-portless":5} | 6 / 4 / 2 | 5 / 6 | 25 (30) | 12 | 819 / 13099 | 56 → 26 | 59 → 31 | 3 → 3 | 0 |
+| 1000 | 0 | 0 {} | 0 / 0 / 0 | 0 / 0 | 0 (0) | 0 | 0 / 0 | 42 → 22 | 44 → 23 | 2 → 0 | 0 |
+| 2000 | 10 | 8 {"enemy-portless":7,"ally-gone":1} | 9 / 6 / 5 | 10 / 10 | 24 (27) | 13 | 605 / 10813 | 50 → 35 | 52 → 41 | 2 → 5 | 0 |
+| 3000 | 4 | 3 {"enemy-portless":3} | 6 / 2 / 0 | 4 / 4 | 37 (40) | 31 | 1120 / 17893 | 42 → 21 | 44 → 24 | 2 → 2 | 0 |
+| 4000 | 0 | 0 {} | 0 / 0 / 0 | 0 / 0 | 0 (0) | 0 | 0 / 0 | 63 → 55 | 64 → 56 | 1 → 0 | 0 |
+| 5000 | 14 | 13 {"enemy-portless":12,"ally-gone":1} | 10 / 10 / 8 | 12 / 14 | 22 (26) | 5 | 443 / 7089 | 55 → 35 | 57 → 43 | 2 → 6 | 0 |
+| 6000 | 11 | 10 {"enemy-portless":8,"ally-gone":2} | 12 / 2 / 8 | 7 / 11 | 27 (27) | 12 | 903 / 9377 | 50 → 49 | 55 → 55 | 5 → 5 | 0 |
+| 7000 | 0 | 0 {} | 0 / 0 / 0 | 0 / 0 | 0 (0) | 0 | 0 / 0 | 61 → 64 | 65 → 65 | 4 → 0 | 0 |
+| 8000 | 0 | 0 {} | 0 / 0 / 0 | 0 / 0 | 0 (0) | 0 | 0 / 0 | 62 → 39 | 66 → 40 | 4 → 0 | 0 |
+| 9000 | 8 | 5 {"enemy-portless":5} | 7 / 3 / 4 | 5 / 8 | 35 (41) | 24 | 1936 / 25136 | 58 → 35 | 60 → 42 | 2 → 6 | 0 |
+| 10000 | 5 | 3 {"enemy-portless":2,"ally-gone":1} | 4 / 3 / 3 | 5 / 5 | 18 (19) | 9 | 1085 / 12830 | 28 → 29 | 31 → 35 | 3 → 5 | 0 |
+| total | 73 | 60 {"enemy-portless":55,"ally-gone":5} | 61 / 41 / 40 | 60 / 73 | 222 (246) | 127 | 9089 / 122395 | 682 → 467 | 713 → 522 | 31 → 40 | 0 |
+pins: {"1847":{"short":"7f76e474","long":"94de9c02","ok":true},"2718":{"short":"976c40bd","long":"7a3741c9","ok":true},"4096":{"short":"08943ea5","long":"af6eeaea","ok":true}}
+seeds with forms 9/13, breaks 9/13, secessions 9/13; min claims 14, min port changes 17; joiners attacker/defender 218/444; pacts live at end 13
+{"1_flagOffPins":true,"2-4_propertyViolations0":true,"liveness_formsOn7of13":true,"liveness_breaksOn5of13":true,"liveness_claimsAndPortChangesEverySeed":true,"liveness_noNewWipeouts":true,"liveness_secessionsOn6of13":true}
+ALLIANCES ACCEPTANCE PASSED
+exit=0
