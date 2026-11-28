@@ -12,6 +12,67 @@ index 0000000..e626b47
 +export function resolveHumanContracts(values: { "human-contracts"?: boolean }, env: NodeJS.ProcessEnv = process.env): boolean {
 +  return values["human-contracts"] === true || env.HUMAN_CONTRACTS === "1" || HUMAN_CONTRACTS_DEFAULT;
 +}
+diff --git a/src/cli/run-dashboard.ts b/src/cli/run-dashboard.ts
+index e1de9ac..b4bb46d 100644
+--- a/src/cli/run-dashboard.ts
++++ b/src/cli/run-dashboard.ts
+@@ -7,6 +7,7 @@ import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS } from "./feed-reason
+ import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS } from "./lifecycle-flag.ts";
+ import { OCCUPATION_FLAG_HELP, OCCUPATION_FLAG_OPTIONS } from "./occupation-flag.ts";
+ import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS } from "./port-transfer-flag.ts";
++import { HUMAN_CONTRACTS_FLAG_HELP, HUMAN_CONTRACTS_FLAG_OPTIONS } from "./human-contracts-flag.ts";
+ import { SECESSION_AFTERMATH_FLAG_HELP, SECESSION_AFTERMATH_FLAG_OPTIONS } from "./secession-aftermath-flag.ts";
+ 
+ const { values } = parseArgs({
+@@ -22,14 +23,15 @@ const { values } = parseArgs({
+     ...PORT_TRANSFER_FLAG_OPTIONS,
+     ...LIFECYCLE_FLAG_OPTIONS,
+     ...SECESSION_AFTERMATH_FLAG_OPTIONS,
++    ...HUMAN_CONTRACTS_FLAG_OPTIONS,
+     ...OCCUPATION_FLAG_OPTIONS,
+     ...FEED_REASONS_FLAG_OPTIONS,
+   },
+ });
+ maybeHelp(
+   values,
+-  "npm run dashboard -- [--port N] [--seed N] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]",
+-  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP],
++  "npm run dashboard -- [--port N] [--seed N] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath] [--human-contracts]",
++  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, HUMAN_CONTRACTS_FLAG_HELP, FEED_REASONS_FLAG_HELP],
+ );
+ 
+ const port = Number.parseInt(values.port!, 10);
+diff --git a/src/cli/run-simulation.ts b/src/cli/run-simulation.ts
+index 33eba21..b3ef745 100644
+--- a/src/cli/run-simulation.ts
++++ b/src/cli/run-simulation.ts
+@@ -4,6 +4,7 @@ import { EXILE_FLAG_OPTIONS, maybeHelp, resolveExileRecovery } from "./exile-fla
+ import { ALLIANCES_FLAG_HELP, ALLIANCES_FLAG_OPTIONS } from "./alliances-flag.ts";
+ import { PORT_TRANSFER_FLAG_HELP, PORT_TRANSFER_FLAG_OPTIONS } from "./port-transfer-flag.ts";
+ import { LIFECYCLE_FLAG_HELP, LIFECYCLE_FLAG_OPTIONS } from "./lifecycle-flag.ts";
++import { HUMAN_CONTRACTS_FLAG_HELP, HUMAN_CONTRACTS_FLAG_OPTIONS } from "./human-contracts-flag.ts";
+ import { SECESSION_AFTERMATH_FLAG_HELP, SECESSION_AFTERMATH_FLAG_OPTIONS } from "./secession-aftermath-flag.ts";
+ import { OCCUPATION_FLAG_HELP, OCCUPATION_FLAG_OPTIONS } from "./occupation-flag.ts";
+ import { FEED_REASONS_FLAG_HELP, FEED_REASONS_FLAG_OPTIONS, resolveFeedReasons } from "./feed-reasons-flag.ts";
+@@ -34,6 +35,7 @@ const { values } = parseArgs({
+     ...PORT_TRANSFER_FLAG_OPTIONS,
+     ...LIFECYCLE_FLAG_OPTIONS,
+     ...SECESSION_AFTERMATH_FLAG_OPTIONS,
++    ...HUMAN_CONTRACTS_FLAG_OPTIONS,
+     ...OCCUPATION_FLAG_OPTIONS,
+     // feedReasons: on by default (Micah 2026-11-06); --no-feed-reasons or FEED_REASONS=0 opts out.
+     ...FEED_REASONS_FLAG_OPTIONS,
+@@ -41,8 +43,8 @@ const { values } = parseArgs({
+ });
+ maybeHelp(
+   values,
+-  "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath]",
+-  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, FEED_REASONS_FLAG_HELP],
++  "npm run simulate -- [--ticks N] [--seed N] [--database path] [--output dir] [--reset] [--occupation] [--alliances] [--port-transfer] [--lifecycle] [--secession-aftermath] [--human-contracts]",
++  [OCCUPATION_FLAG_HELP, ALLIANCES_FLAG_HELP, PORT_TRANSFER_FLAG_HELP, LIFECYCLE_FLAG_HELP, SECESSION_AFTERMATH_FLAG_HELP, HUMAN_CONTRACTS_FLAG_HELP, FEED_REASONS_FLAG_HELP],
+ );
+ const exileRecovery = resolveExileRecovery(values);
+ const feedReasonsOn = resolveFeedReasons(values);
 diff --git a/src/cli/tick-options.ts b/src/cli/tick-options.ts
 index 8942db3..cf8608c 100644
 --- a/src/cli/tick-options.ts
