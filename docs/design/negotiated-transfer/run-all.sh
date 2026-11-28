@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# negotiated-transfer.md runs: 13 seeds × 1,200 ticks, offline, $0. Needs fix.patch and patch.diff applied to src (not committed).
+# negotiated-transfer.md rev 2 runs: 13 seeds × 1,200 ticks, offline, $0.
+# Needs fix.patch and negotiated-transfer.patch applied to src (not committed).
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 D=docs/design/negotiated-transfer; OUT=$D/raw; P=$D/props-out; mkdir -p "$OUT" "$P"
@@ -9,7 +10,11 @@ m() { node --experimental-strip-types $D/measure-nt.ts "$1" "$2" > "$OUT/$1.json
 m ATLS-NT "{$ATLS,\"negotiatedTransfer\":true}" &
 [ "${SKIP_BASE:-}" ] || m ATLS-exile-off "{$ATLS,\"exileRecovery\":false,\"negotiatedTransfer\":false}" &
 m ATLS-NT-exile-off "{$ATLS,\"exileRecovery\":false,\"negotiatedTransfer\":true}" &
-[ "${SKIP_BASE:-}" ] && { wait; } || true
+# Leave-one-trigger-out (diagnosis only).
+m ATLS-NT-cession "{$ATLS,\"negotiatedTransfer\":true,\"negotiatedTransferTriggers\":{\"sale\":false}}" &
+m ATLS-NT-sale "{$ATLS,\"negotiatedTransfer\":true,\"negotiatedTransferTriggers\":{\"cession\":false}}" &
+m ATLS-NT-exile-off-cession "{$ATLS,\"exileRecovery\":false,\"negotiatedTransfer\":true,\"negotiatedTransferTriggers\":{\"sale\":false}}" &
+m ATLS-NT-exile-off-sale "{$ATLS,\"exileRecovery\":false,\"negotiatedTransfer\":true,\"negotiatedTransferTriggers\":{\"cession\":false}}" &
 # Pins: flag off, three seeds (defaults-on/measure.ts).
 pin() { [ "${SKIP_BASE:-}" ] && return 0; SEEDS=1847,2718,4096 node --experimental-strip-types docs/design/defaults-on/measure.ts "$1" "$2" > "$OUT/pins-$1.jsonl"; }
 pin main '{}' &
