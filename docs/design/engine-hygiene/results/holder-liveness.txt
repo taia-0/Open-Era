@@ -1,0 +1,6 @@
+base flag-off minClaims 28 minPortChanges 31 secSeeds 12 wipeouts 0
+base atls minClaims 25 minPortChanges 28 secSeeds 11 wipeouts 0
+v4a flag-off minClaims 28 minPortChanges 31 secSeeds 12 wipeouts 0
+v4a atls minClaims 25 minPortChanges 28 secSeeds 11 wipeouts 0
+v4c flag-off minClaims 28 minPortChanges 31 secSeeds 12 wipeouts 0
+v4c atls minClaims 25 minPortChanges 28 secSeeds 11 wipeouts 0

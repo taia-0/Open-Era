@@ -1,0 +1,8 @@
+ℹ fail 4
+ℹ pass 686
+ℹ tests 690
+✖ Mina Vale's release recovers from the tick 95 snapshot (844.749933ms)
+✖ a ransom release recovers from the snapshot before it (345.560701ms)
+✖ failing tests:
+✖ seed 2718 replays through tick 160 from the tick 100 and tick 150 snapshots (762.425665ms)
+✖ the first headless release on seed 1847 recovers from its release-tick snapshot (2482.525396ms)

@@ -1,0 +1,214 @@
+diff --git a/src/cli/run-simulation.ts b/src/cli/run-simulation.ts
+index 33eba21..f42d576 100644
+--- a/src/cli/run-simulation.ts
++++ b/src/cli/run-simulation.ts
+@@ -58,7 +58,8 @@ if (values.reset && existsSync(databasePath)) rmSync(databasePath);
+ if (values.reset && existsSync(`${databasePath}-shm`)) rmSync(`${databasePath}-shm`);
+ if (values.reset && existsSync(`${databasePath}-wal`)) rmSync(`${databasePath}-wal`);
+ 
+-const store = new WorldStore(databasePath);
++// The reports read the whole log, so the CLI keeps the full archive.
++const store = new WorldStore(databasePath, { archive: true });
+ let world;
+ let replayedEvents = 0;
+ let resumed = false;
+diff --git a/src/dashboard/server.ts b/src/dashboard/server.ts
+index e98fb61..b9c073f 100644
+--- a/src/dashboard/server.ts
++++ b/src/dashboard/server.ts
+@@ -91,7 +91,7 @@ function removeDatabase(path: string): void {
+ export function createDashboardApp(options: DashboardOptions): DashboardApp {
+   const databasePath = resolve(options.databasePath);
+   if (options.reset) removeDatabase(databasePath);
+-  const store = new WorldStore(databasePath);
++  const store = new WorldStore(databasePath, { archive: process.env.OPEN_ERA_ARCHIVE === "1" });
+   const dialogueProvider = options.dialogueProvider ?? new DeterministicDialogueProvider();
+   let world: WorldState;
+   if (store.hasWorld()) world = store.recover().state;
+diff --git a/src/sim/governor.ts b/src/sim/governor.ts
+index d5e0a1d..5051590 100644
+--- a/src/sim/governor.ts
++++ b/src/sim/governor.ts
+@@ -168,6 +168,21 @@ export function payGovernorStipends(world: WorldState): void {
+   }
+ }
+ 
++/** The seat map as stored beside a snapshot: [settlementId, characterId, factionId], sorted by port. */
++export function exportGovernorSeats(world: WorldState): Array<[string, string, string]> {
++  return [...memory(world).seats.entries()]
++    .sort((left, right) => left[0].localeCompare(right[0]))
++    .map(([settlementId, seat]) => [settlementId, seat.characterId, seat.factionId]);
++}
++
++/** Put a stored seat map on a world restored from its snapshot. The hash does not see it. */
++export function importGovernorSeats(world: WorldState, seats: ReadonlyArray<readonly [string, string, string]>): void {
++  memories.set(world, {
++    seats: new Map(seats.map(([settlementId, characterId, factionId]) => [settlementId, { characterId, factionId }])),
++    levySettlements: null,
++  });
++}
++
+ /** Move the seat memory onto a world rebuilt by replay. The hash does not see it. */
+ export function transplantGovernorSeats(from: WorldState, to: WorldState): void {
+   const source = memory(from);
+diff --git a/src/sim/persistence.ts b/src/sim/persistence.ts
+index b8a6eda..6f8bd60 100644
+--- a/src/sim/persistence.ts
++++ b/src/sim/persistence.ts
+@@ -1,7 +1,7 @@
+ import { mkdirSync } from "node:fs";
+ import { dirname } from "node:path";
+ import { DatabaseSync } from "node:sqlite";
+-import { transplantGovernorSeats } from "./governor.ts";
++import { exportGovernorSeats, importGovernorSeats, transplantGovernorSeats } from "./governor.ts";
+ import { normalizeWorldState, stateHash } from "./state.ts";
+ import { replayWithSilentStarts } from "./tick-start.ts";
+ import type { SimEvent, WorldState } from "./types.ts";
+@@ -15,6 +15,22 @@ export const EVENT_FEED_PAGE_LIMIT = 200;
+ export const CHECK_IN_READ_CAP = 40_000;
+ /** Page size used when a request does not ask for one. */
+ export const EVENT_FEED_PAGE_DEFAULT = 100;
++/**
++ * How many ticks of events the store keeps behind the newest tick: the 180-tick
++ * check-in window (`CHECK_IN_TICKS`, `dashboard/view-model.ts`; a literal here,
++ * the sim does not import the dashboard). Events after the latest snapshot are
++ * always kept, whatever their age.
++ */
++export const EVENT_WINDOW_TICKS = 180;
++
++export interface WorldStoreOptions {
++  /**
++   * Keep every snapshot and every event, as the store did before it became a
++   * window. Off by default. For debugging and for the reporting CLI.
++   */
++  archive?: boolean;
++  windowTicks?: number;
++}
+ 
+ export interface RecoveryResult {
+   state: WorldState;
+@@ -46,8 +62,12 @@ function typeFilter(omitTypes: readonly string[]): { clause: string; params: str
+ 
+ export class WorldStore {
+   readonly database: DatabaseSync;
++  private readonly archive: boolean;
++  private readonly windowTicks: number;
+ 
+-  constructor(path: string) {
++  constructor(path: string, options: WorldStoreOptions = {}) {
++    this.archive = options.archive === true;
++    this.windowTicks = options.windowTicks ?? EVENT_WINDOW_TICKS;
+     mkdirSync(dirname(path), { recursive: true });
+     this.database = new DatabaseSync(path);
+     this.database.exec("PRAGMA journal_mode = WAL");
+@@ -76,7 +96,32 @@ export class WorldStore {
+         key TEXT PRIMARY KEY,
+         value TEXT NOT NULL
+       );
++      CREATE TABLE IF NOT EXISTS snapshot_seats (
++        sequence INTEGER PRIMARY KEY,
++        seats_json TEXT NOT NULL
++      );
++      CREATE TABLE IF NOT EXISTS feeding_counts (
++        actor_id TEXT PRIMARY KEY,
++        worked INTEGER NOT NULL DEFAULT 0,
++        voyages INTEGER NOT NULL DEFAULT 0,
++        battles INTEGER NOT NULL DEFAULT 0
++      );
+     `);
++    // Lifetime counts used to be read from the whole log. The log is a window now,
++    // so they are kept as a running total. A store written before this table
++    // existed is counted once, from the events it still has.
++    const counted = this.database.prepare("SELECT value FROM metadata WHERE key = 'feeding-counts'").get();
++    if (!counted) {
++      this.database.exec(`
++        INSERT INTO feeding_counts(actor_id, worked, voyages, battles)
++        SELECT actor_id,
++               SUM(type = 'worked'), SUM(type = 'travel-started'), SUM(type = 'battle-resolved')
++        FROM events
++        WHERE actor_id IS NOT NULL AND type IN ('worked', 'travel-started', 'battle-resolved')
++        GROUP BY actor_id;
++        INSERT INTO metadata(key, value) VALUES ('feeding-counts', '1');
++      `);
++    }
+   }
+ 
+   hasWorld(): boolean {
+@@ -115,6 +160,12 @@ export class WorldStore {
+       INSERT OR REPLACE INTO snapshots(sequence, tick, state_json, state_hash)
+       VALUES (?, ?, ?, ?)
+     `);
++    const insertSeats = this.database.prepare("INSERT OR REPLACE INTO snapshot_seats(sequence, seats_json) VALUES (?, ?)");
++    const addFeeding = this.database.prepare(`
++      INSERT INTO feeding_counts(actor_id, worked, voyages, battles) VALUES (?, ?, ?, ?)
++      ON CONFLICT(actor_id) DO UPDATE SET
++        worked = worked + excluded.worked, voyages = voyages + excluded.voyages, battles = battles + excluded.battles
++    `);
+     const updateSchemaVersion = this.database.prepare(`
+       INSERT INTO metadata(key, value) VALUES ('schema-version', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value
+@@ -138,10 +189,24 @@ export class WorldStore {
+           event.settlementId ?? null,
+           JSON.stringify(event.data),
+         );
++        if (event.actorId) {
++          if (event.type === "worked") addFeeding.run(event.actorId, 1, 0, 0);
++          else if (event.type === "travel-started") addFeeding.run(event.actorId, 0, 1, 0);
++          else if (event.type === "battle-resolved") addFeeding.run(event.actorId, 0, 0, 1);
++        }
+       }
+       updateSchemaVersion.run(String(world.version));
+       if (shouldSnapshot) {
+         insertSnapshot.run(lastSequence, world.tick, JSON.stringify(world), stateHash(world));
++        // The seat map is not in the hash, so it is stored beside the snapshot.
++        insertSeats.run(lastSequence, JSON.stringify(exportGovernorSeats(world)));
++        if (!this.archive) {
++          // The store is a window: the newest snapshot, every event after it, and
++          // the events of the last `windowTicks` ticks. Older rows go in the same commit.
++          this.database.prepare("DELETE FROM snapshots WHERE sequence < ?").run(lastSequence);
++          this.database.prepare("DELETE FROM snapshot_seats WHERE sequence < ?").run(lastSequence);
++          this.database.prepare("DELETE FROM events WHERE sequence <= ? AND tick < ?").run(lastSequence, world.tick - this.windowTicks);
++        }
+       }
+       this.database.exec("COMMIT");
+     } catch (error) {
+@@ -166,7 +231,11 @@ export class WorldStore {
+       throw new Error(`Snapshot hash mismatch at sequence ${snapshot.sequence}`);
+     }
+     normalizeWorldState(state);
+-    this.restoreGovernorSeats(state, snapshot.sequence);
++    const stored = this.database
++      .prepare("SELECT seats_json FROM snapshot_seats WHERE sequence = ?")
++      .get(snapshot.sequence) as { seats_json: string } | undefined;
++    if (stored) importGovernorSeats(state, JSON.parse(stored.seats_json) as Array<[string, string, string]>);
++    else this.restoreGovernorSeats(state, snapshot.sequence);
+ 
+     const rows = this.database
+       .prepare("SELECT * FROM events WHERE sequence > ? ORDER BY sequence")
+@@ -286,22 +355,11 @@ export class WorldStore {
+    * none of these events is absent; the caller treats that as zero.
+    */
+   feedingCounts(): Record<string, { worked: number; voyages: number; battles: number }> {
+-    const rows = this.database.prepare(`
+-      SELECT actor_id AS actorId, type, COUNT(*) AS count
+-      FROM events
+-      WHERE actor_id IS NOT NULL
+-        AND type IN ('worked', 'travel-started', 'battle-resolved')
+-      GROUP BY actor_id, type
+-    `).all() as Array<{ actorId: string; type: string; count: number }>;
++    const rows = this.database
++      .prepare("SELECT actor_id AS actorId, worked, voyages, battles FROM feeding_counts")
++      .all() as Array<{ actorId: string; worked: number; voyages: number; battles: number }>;
+     const counts: Record<string, { worked: number; voyages: number; battles: number }> = {};
+-    for (const row of rows) {
+-      const entry = counts[row.actorId] ?? { worked: 0, voyages: 0, battles: 0 };
+-      const count = Number(row.count);
+-      if (row.type === "worked") entry.worked = count;
+-      else if (row.type === "travel-started") entry.voyages = count;
+-      else if (row.type === "battle-resolved") entry.battles = count;
+-      counts[row.actorId] = entry;
+-    }
++    for (const row of rows) counts[row.actorId] = { worked: Number(row.worked), voyages: Number(row.voyages), battles: Number(row.battles) };
+     return counts;
+   }
+ 

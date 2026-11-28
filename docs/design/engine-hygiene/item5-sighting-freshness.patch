@@ -1,0 +1,41 @@
+diff --git a/src/sim/combat.ts b/src/sim/combat.ts
+index ecf0b5d..c3f7845 100644
+--- a/src/sim/combat.ts
++++ b/src/sim/combat.ts
+@@ -1,4 +1,4 @@
+-import { believedGarrison } from "./agency.ts";
++import { GARRISON_FRESHNESS_TICKS, believedGarrison } from "./agency.ts";
+ import { clamp, distanceBetween, partyPower, round } from "./state.ts";
+ import type {
+   ActiveBattle,
+@@ -133,14 +133,18 @@ export function combatForecast(
+   // Remote only. Standing there already sees the parties, and the local branch
+   // is what a battle stores. Adding live troops here would move the golden
+   // hashes; the stored sighting does not, because the golden run never surveys.
+-  // A sighting older than 72 stays in the sum. The line names that age.
++  // A sighting older than GARRISON_FRESHNESS_TICKS (72, the garrison report's
++  // horizon) is dated knowledge and is left out of the sum. The line counts
++  // how many were left out.
+   let sightedPower = 0;
+   let sightedAge: number | null = null;
++  let staleSightings = 0;
+   if (!locallyObserved && attacker.partySightings) {
+     for (const sighting of Object.values(attacker.partySightings)) {
+       if (sighting.locationId !== settlementId) continue;
+-      sightedPower += sighting.partyPower;
+       const age = Math.max(0, world.tick - sighting.observedTick);
++      if (age > GARRISON_FRESHNESS_TICKS) { staleSightings += 1; continue; }
++      sightedPower += sighting.partyPower;
+       if (sightedAge === null || age > sightedAge) sightedAge = age;
+     }
+   }
+@@ -200,6 +204,9 @@ export function combatForecast(
+     if (sightedAge !== null) {
+       revealedFactors.push(`sighted parties at this port are ${sightedAge} ticks old`);
+     }
++    if (staleSightings > 0) {
++      revealedFactors.push(`${staleSightings} older sighted ${staleSightings === 1 ? "party" : "parties"} at this port not counted (over ${GARRISON_FRESHNESS_TICKS} ticks)`);
++    }
+   } else if (strategy >= 70) {
+     // Stored this way so an active battle's forecast does not change the
+     // golden hashes. The player projection rewrites the line, while the

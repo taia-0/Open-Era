@@ -1,0 +1,104 @@
+diff --git a/src/sim/scenario.ts b/src/sim/scenario.ts
+index 1348696..2e07d44 100644
+--- a/src/sim/scenario.ts
++++ b/src/sim/scenario.ts
+@@ -291,6 +291,7 @@ export function createPrototypeWorld(seed = 1847, options: PrototypeWorldOptions
+       color: "#345995",
+       treasury: 18_000,
+       taxRate: 0.14,
++      commandHolderId: "character-01",
+     },
+     "free-tide": {
+       id: "free-tide",
+@@ -298,6 +299,7 @@ export function createPrototypeWorld(seed = 1847, options: PrototypeWorldOptions
+       color: "#d05a47",
+       treasury: 2_800,
+       taxRate: 0.08,
++      commandHolderId: "character-14",
+     },
+   };
+ 
+diff --git a/src/sim/state.ts b/src/sim/state.ts
+index 78e80e3..0b69a1b 100644
+--- a/src/sim/state.ts
++++ b/src/sim/state.ts
+@@ -71,6 +71,12 @@ export function normalizeWorldState(world: WorldState): WorldState {
+     character.scars ??= [];
+     character.debts ??= [];
+   }
++  for (const faction of Object.values(world.factions)) {
++    if (faction.commandHolderId === undefined) {
++      const seat = seatFromOrders(world, faction.id);
++      if (seat !== null) faction.commandHolderId = seat;
++    }
++  }
+   for (const player of Object.values(world.players)) {
+     player.briefingAcknowledgements ??= {};
+     player.routineBriefingThroughSequence ??= 0;
+@@ -301,10 +307,23 @@ export function captorPartyLeader(world: WorldState, prisoner: Character): Chara
+ /**
+  * The one person who issues this faction's standing orders.
+  *
+- * The seat is that issuer. It is not stored on the faction. Two issuers, or
+- * none, leave the seat unnamed. Trust, grievance, troops, and location are not read.
++ * The seat is stored on the faction (`Faction.commandHolderId`). The named
++ * character must be a member now; otherwise the seat is unnamed, as it was when
++ * the seat was read from the orders. Issuing an order does not move the seat.
++ * Trust, grievance, troops, and location are not read.
+  */
+ export function commandHolderId(world: WorldState, factionId: string): string | null {
++  const holderId = world.factions[factionId]?.commandHolderId;
++  if (!holderId) return null;
++  return world.characters[holderId]?.factionId === factionId ? holderId : null;
++}
++
++/**
++ * The seat as the stored orders name it. Only `normalizeWorldState` uses it, to
++ * give a world saved before the seat was stored its field. Two issuers, or
++ * none, leave it unnamed.
++ */
++function seatFromOrders(world: WorldState, factionId: string): string | null {
+   let holderId: string | null = null;
+   for (const character of Object.values(world.characters)) {
+     for (const order of character.standingOrders) {
+@@ -1129,9 +1148,9 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+       settlement.stability = event.data.stability as number;
+       settlement.secessionDeclaredBy = ownerId;
+       delete settlement.occupation;
+-      // The cover takes the old seat in this same step. Retargeting the
+-      // holder's orders makes `commandHolderId` resolve to the successor,
+-      // whose faction was not moved. The new faction mints no order.
++      // The cover takes the old seat in this same step. The seat moves to
++      // the successor, whose faction was not moved, and the holder's orders are
++      // retargeted so the issuer on each order matches the seat. The new faction mints no order.
+       if (successorId !== null) {
+         const successor = world.characters[successorId];
+         if (!successor) throw new Error(`Secession event names a missing successor: ${successorId}`);
+@@ -1140,6 +1159,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+             if (order.issuerId === ownerId) order.issuerId = successorId;
+           }
+         }
++        if (previous.commandHolderId === ownerId) previous.commandHolderId = successorId;
+       }
+       const nextActing = event.data.actingCommanderId;
+       if (typeof nextActing === "string") previous.actingCommanderId = nextActing;
+diff --git a/src/sim/types.ts b/src/sim/types.ts
+index 750b8a3..c94dc29 100644
+--- a/src/sim/types.ts
++++ b/src/sim/types.ts
+@@ -24,6 +24,15 @@ export interface Faction {
+    * Absent, not null, once that holder is free. The holder is not stored here.
+    */
+   actingCommanderId?: string;
++  /**
++   * The one person who issues this faction's standing orders: the seat.
++   * Written at the scenario start and when a secession hands the seat to a cover
++   * (`secession-declared.data.successorId`). Absent on a breakaway until someone
++   * is seated. Read through `commandHolderId`, which also requires the named
++   * character to be a member now: a dead, deserted, or exiled holder leaves the
++   * seat unnamed, as before.
++   */
++  commandHolderId?: string;
+   /**
+    * The owner who declared this breakaway, from `secession-declared.data.ownerId`.
+    * Absent on every faction that did not come from a secession. Only the
