@@ -1,0 +1,2 @@
+{"label":"mig","mode":"migrate-write","seed":1847,"ticks":400,"hash8":"ac373b88"}
+{"label":"mig","mode":"migrate-read","seed":1847,"ticks":400,"more":30,"recoveredLegacyEqualsLive":true,"continuedEqualsLive":true,"recoveredAfterPruneEqualsLive":true,"before":{"snapshots":67,"seatRows":0,"events":48276,"oldestEventTick":0,"feedingRows":29},"after":{"snapshots":1,"seatRows":1,"events":23425,"oldestEventTick":246,"feedingRows":29},"feedingCountsLifetime":29}

@@ -1,0 +1,18 @@
+## flag-off: base vs win180, 13 seeds x 1,200 ticks
+sim stream identical (event digest incl. sequence, h72, h1200, event count) in 13/13 seeds
+totals base: claims 617, portChanges 637, battles 846, captures 199, secessions 20; wipeouts 0; secession seeds 8/13; min claims 23, min port changes 25
+totals win180: claims 617, portChanges 637, battles 846, captures 199, secessions 20; wipeouts 0; secession seeds 8/13; min claims 23, min port changes 25
+script (explore orders accepted/failed, confirms): 1141/133, 726; sightings held at t1200 per seed: 27–30
+forecasts read (every 12 ticks, every other port): 3904; with any stored sighting at that port 3237; with a sighting older than 72 2849 (first at t108)
+forecasts changed by the window: win chance 1943, defender power 2169, revealed-factor count 1444, headline outlook band 588
+win chance low, windowed minus base (points): min 0.0, median 1.1, p90 32.8, max 75.0; mean |d| 9.6; defender power low d: median -134.2, min -2498.1
+ALL SEEDS: sim identical
+## atls: base vs win180, 13 seeds x 1,200 ticks
+sim stream identical (event digest incl. sequence, h72, h1200, event count) in 13/13 seeds
+totals base: claims 515, portChanges 568, battles 878, captures 193, secessions 36; wipeouts 0; secession seeds 11/13; min claims 30, min port changes 34
+totals win180: claims 515, portChanges 568, battles 878, captures 193, secessions 36; wipeouts 0; secession seeds 11/13; min claims 30, min port changes 34
+script (explore orders accepted/failed, confirms): 1150/104, 734; sightings held at t1200 per seed: 30–33
+forecasts read (every 12 ticks, every other port): 3902; with any stored sighting at that port 3209; with a sighting older than 72 2791 (first at t108)
+forecasts changed by the window: win chance 1993, defender power 2086, revealed-factor count 1370, headline outlook band 648
+win chance low, windowed minus base (points): min 0.0, median 1.1, p90 32.5, max 56.7; mean |d| 9.7; defender power low d: median -129.1, min -2223.3
+ALL SEEDS: sim identical

@@ -1,0 +1,2 @@
+flag-off 1847 arrival posts older than 180: 60 first ticks 2121,2121,2121,2121,2121 ages min/max 181 327
+atls 1847 arrival posts older than 180: 76 first ticks 2716,2716,2716,2716,2716 ages min/max 183 335

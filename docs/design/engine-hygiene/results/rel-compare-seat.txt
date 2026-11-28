@@ -1,0 +1,18 @@
+## rel flag-off: main vs seat (13 seeds)
+event log identical (digest incl. sequence): 1/13; same count+type order: 1/13; events 2105611 vs 2107747
+h72 unchanged 13/13; h1200 unchanged 1/13
+main: claims 682, portChanges 713, battles 927, captures 247, secessions 31; wipeouts 0; secession seeds 12
+seat: claims 688, portChanges 718, battles 933, captures 244, secessions 30; wipeouts 0; secession seeds 12
+holder oracle mismatches (ticks with any faction differing from legacy derivation): main 0, seat 0; holder changes 0
+replay exact seat: 13/13
+seeds with different event log: 1847,4096,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000
+pins seat: 1847 7f76e474/dc0ab365; 2718 976c40bd/7a3741c9; 4096 08943ea5/1e80b2c9
+## rel atls: main vs seat (13 seeds)
+event log identical (digest incl. sequence): 2/13; same count+type order: 2/13; events 2015488 vs 2015400
+h72 unchanged 13/13; h1200 unchanged 2/13
+main: claims 497, portChanges 543, battles 898, captures 214, secessions 32; wipeouts 0; secession seeds 11
+seat: claims 497, portChanges 543, battles 898, captures 214, secessions 32; wipeouts 0; secession seeds 11
+holder oracle mismatches (ticks with any faction differing from legacy derivation): main 0, seat 0; holder changes 0
+replay exact seat: 13/13
+seeds with different event log: 1847,2718,4096,1000,2000,3000,5000,6000,8000,9000,10000
+pins seat: 1847 85658e53/7313f220; 2718 aa54ada1/a832ce13; 4096 e4361ee1/5b2a5d2e

@@ -1,0 +1,6 @@
+flag-off base: newsEvents 10396 bytes 2225676 arrivalPosts 7798 >24 390 >180 0 >240 0
+flag-off ledger items t1200 base 10396 (max port 246) bytes 2121833 | prune 1503 (max 43) bytes 313433 ; state bytes base 7390266 prune 4500778
+ per seed ledger items base 848,975,888,781,805,688,921,860,651,792,821,913,453 prune 148,135,136,102,93,76,161,88,91,86,153,165,69
+atls base: newsEvents 9708 bytes 2075678 arrivalPosts 7316 >24 272 >180 0 >240 0
+atls ledger items t1200 base 9708 (max port 237) bytes 1978715 | prune 1418 (max 39) bytes 302978 ; state bytes base 7364687 prune 4646054
+ per seed ledger items base 773,858,824,644,845,750,941,700,448,862,478,800,785 prune 117,142,144,84,121,63,137,68,48,142,61,148,143

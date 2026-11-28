@@ -1,0 +1,565 @@
+--- a/src/sim/tick-start.ts	2026-11-27 20:15:27.416224053 -0800
++++ b/src/sim/tick-start.ts	2026-11-27 20:10:08.013680179 -0800
+@@ -24,25 +24,29 @@
+  * Does not run the start after the final `tick-advanced`. The next `runTick`
+  * applies that morning.
+  */
++const preStartMarks = new WeakMap<SimEvent, boolean>();
++
++/** Store-only: this event precedes the silent start of its tick. Not on the world and not hashed. */
++export function markEventPreStart(event: SimEvent, value: boolean): void {
++  preStartMarks.set(event, value);
++}
++
++export function eventPreStart(event: SimEvent): boolean | undefined {
++  return preStartMarks.get(event);
++}
++
+ export function replayWithSilentStarts(state: WorldState, events: readonly SimEvent[]): void {
+   let index = 0;
+   let atStart = events.length > 0;
+   while (index < events.length) {
+     if (atStart) {
+-      // A death is the first event of its tick. Desertion, the seat, and the
+-      // stipend read the world after it, and the log already contains it, so
+-      // replay must not emit a second one.
+-      // The run applies, in log order: events appended between ticks (player
+-      // commands, conversation sends and replies, briefing acks), then
+-      // `runTick`'s leading aging deaths, each followed by its own public
+-      // news item when the body was ashore, then the silent start. Consume
+-      // that whole block first. Stopping at the first event that was not a
+-      // death ran the silent start with later deaths unapplied.
++      // Prefer the store's pre_start column when it is present. A legacy row
++      // (no mark) falls back to the between-tick type list plus aging deaths
++      // and their news. Consume that whole leading block before the silent start.
+       const deaths = new Set<string>();
+       while (index < events.length) {
+         const leading = events[index];
+-        if (leading.type === "character-died") deaths.add(`news-${leading.sequence}`);
+-        else if (!OUT_OF_TICK_TYPES.has(leading.type) && !(leading.type === "news-posted" && deaths.has(leadingNewsId(leading)))) break;
++        if (!isLeadingEvent(leading, deaths)) break;
+         applyEvent(state, leading);
+         index += 1;
+       }
+@@ -64,7 +68,7 @@
+  * briefing.ts via the dashboard store). `runTick` never emits them, so they
+  * can only sit between a `tick-advanced` and the next tick's own events.
+  */
+-const OUT_OF_TICK_TYPES = new Set<string>([
++export const OUT_OF_TICK_TYPES = new Set<string>([
+   "player-command-accepted",
+   "conversation-thread-created",
+   "conversation-message-sent",
+@@ -79,3 +83,32 @@
+   const record = event.data?.record as { item?: { id?: unknown } } | undefined;
+   return typeof record?.item?.id === "string" ? record.item.id : "";
+ }
++
++/**
++ * A between-tick event (command, conversation, briefing) whose type is not in
++ * `OUT_OF_TICK_TYPES`. The store throws when one is appended; a test should fail
++ * the same way when a new type appears between ticks.
++ */
++export function unexpectedBetweenTickType(type: string): boolean {
++  return !OUT_OF_TICK_TYPES.has(type);
++}
++
++function isLeadingEvent(event: SimEvent, deaths: Set<string>): boolean {
++  const marked = preStartMarks.get(event);
++  if (marked === true) {
++    if (event.type === "character-died") deaths.add(`news-${event.sequence}`);
++    return true;
++  }
++  if (marked === false) return false;
++  // Proof hook: recover with USE_COLUMN_ONLY=1 ignores the type list, so a
++  // pass means the store column is what replay used. Legacy rows (no mark) then
++  // look like body events.
++  if (process.env.USE_COLUMN_ONLY === "1") return false;
++  // Legacy: no column. Same type list as the replay-leading-block patch.
++  if (event.type === "character-died") {
++    deaths.add(`news-${event.sequence}`);
++    return true;
++  }
++  if (OUT_OF_TICK_TYPES.has(event.type)) return true;
++  return event.type === "news-posted" && deaths.has(leadingNewsId(event));
++}
+--- a/src/sim/persistence.ts	2026-11-27 20:15:27.412224072 -0800
++++ b/src/sim/persistence.ts	2026-11-27 20:09:43.141793183 -0800
+@@ -1,9 +1,9 @@
+ import { mkdirSync } from "node:fs";
+ import { dirname } from "node:path";
+ import { DatabaseSync } from "node:sqlite";
+-import { transplantGovernorSeats } from "./governor.ts";
++import { exportGovernorSeats, importGovernorSeats, transplantGovernorSeats } from "./governor.ts";
+ import { normalizeWorldState, stateHash } from "./state.ts";
+-import { replayWithSilentStarts } from "./tick-start.ts";
++import { markEventPreStart, replayWithSilentStarts, unexpectedBetweenTickType } from "./tick-start.ts";
+ import type { SimEvent, WorldState } from "./types.ts";
+ 
+ /** Largest event-feed page a player may request in one read. */
+@@ -15,6 +15,32 @@
+ export const CHECK_IN_READ_CAP = 40_000;
+ /** Page size used when a request does not ask for one. */
+ export const EVENT_FEED_PAGE_DEFAULT = 100;
++/**
++ * How many ticks of events the store keeps behind the newest tick: the 180-tick
++ * check-in window (`CHECK_IN_TICKS`, `dashboard/view-model.ts`; a literal here,
++ * the sim does not import the dashboard). Events after the latest snapshot are
++ * always kept, whatever their age. Events after the previous snapshot
++ * (the fallback) are kept too, so a hash mismatch can replay from it.
++ */
++export const EVENT_WINDOW_TICKS = 180;
++/** Window mode keeps the latest snapshot and the one before it, so recover has a fallback. */
++export const SNAPSHOTS_KEPT = 2;
++
++export interface AppendTickOptions {
++  /** Front events from `runTick` that precede the silent start (deaths and their news). */
++  leadingCount?: number;
++  /** This append is a between-tick command, briefing, or conversation write, not a `runTick` batch. */
++  betweenTicks?: boolean;
++}
++
++export interface WorldStoreOptions {
++  /**
++   * Keep every snapshot and every event, as the store did before it became a
++   * window. Off by default. For debugging and for the reporting CLI.
++   */
++  archive?: boolean;
++  windowTicks?: number;
++}
+ 
+ export interface RecoveryResult {
+   state: WorldState;
+@@ -36,6 +62,7 @@
+   target_id: string | null;
+   settlement_id: string | null;
+   data_json: string;
++  pre_start: number | null;
+ }
+ 
+ function typeFilter(omitTypes: readonly string[]): { clause: string; params: string[] } {
+@@ -46,8 +73,12 @@
+ 
+ export class WorldStore {
+   readonly database: DatabaseSync;
++  private readonly archive: boolean;
++  private readonly windowTicks: number;
+ 
+-  constructor(path: string) {
++  constructor(path: string, options: WorldStoreOptions = {}) {
++    this.archive = options.archive === true;
++    this.windowTicks = options.windowTicks ?? EVENT_WINDOW_TICKS;
+     mkdirSync(dirname(path), { recursive: true });
+     this.database = new DatabaseSync(path);
+     this.database.exec("PRAGMA journal_mode = WAL");
+@@ -61,7 +92,8 @@
+         actor_id TEXT,
+         target_id TEXT,
+         settlement_id TEXT,
+-        data_json TEXT NOT NULL
++        data_json TEXT NOT NULL,
++        pre_start INTEGER
+       );
+       CREATE INDEX IF NOT EXISTS events_tick_index ON events(tick);
+       CREATE INDEX IF NOT EXISTS events_type_index ON events(type);
+@@ -76,7 +108,36 @@
+         key TEXT PRIMARY KEY,
+         value TEXT NOT NULL
+       );
++      CREATE TABLE IF NOT EXISTS snapshot_seats (
++        sequence INTEGER PRIMARY KEY,
++        seats_json TEXT NOT NULL
++      );
++      CREATE TABLE IF NOT EXISTS feeding_counts (
++        actor_id TEXT PRIMARY KEY,
++        worked INTEGER NOT NULL DEFAULT 0,
++        voyages INTEGER NOT NULL DEFAULT 0,
++        battles INTEGER NOT NULL DEFAULT 0
++      );
+     `);
++    // Lifetime counts used to be read from the whole log. The log is a window now,
++    // so they are kept as a running total. A store written before this table
++    // existed is counted once, from the events it still has.
++    const eventCols = this.database.prepare("PRAGMA table_info(events)").all() as Array<{ name: string }>;
++    if (!eventCols.some((column) => column.name === "pre_start")) {
++      this.database.exec("ALTER TABLE events ADD COLUMN pre_start INTEGER");
++    }
++    const counted = this.database.prepare("SELECT value FROM metadata WHERE key = 'feeding-counts'").get();
++    if (!counted) {
++      this.database.exec(`
++        INSERT INTO feeding_counts(actor_id, worked, voyages, battles)
++        SELECT actor_id,
++               SUM(type = 'worked'), SUM(type = 'travel-started'), SUM(type = 'battle-resolved')
++        FROM events
++        WHERE actor_id IS NOT NULL AND type IN ('worked', 'travel-started', 'battle-resolved')
++        GROUP BY actor_id;
++        INSERT INTO metadata(key, value) VALUES ('feeding-counts', '1');
++      `);
++    }
+   }
+ 
+   hasWorld(): boolean {
+@@ -95,6 +156,7 @@
+     this.database.exec("BEGIN IMMEDIATE");
+     try {
+       insertSnapshot.run(0, world.tick, JSON.stringify(world), stateHash(world));
++      this.database.prepare("INSERT INTO snapshot_seats(sequence, seats_json) VALUES (?, ?)").run(0, JSON.stringify(exportGovernorSeats(world)));
+       insertMetadata.run("scenario", world.scenario);
+       insertMetadata.run("seed", String(world.seed));
+       insertMetadata.run("schema-version", String(world.version));
+@@ -105,16 +167,22 @@
+     }
+   }
+ 
+-  appendTick(events: SimEvent[], world: WorldState): void {
++  appendTick(events: SimEvent[], world: WorldState, options: AppendTickOptions = {}): void {
+     if (events.length === 0) return;
+     const insertEvent = this.database.prepare(`
+-      INSERT INTO events(sequence, tick, type, actor_id, target_id, settlement_id, data_json)
+-      VALUES (?, ?, ?, ?, ?, ?, ?)
++      INSERT INTO events(sequence, tick, type, actor_id, target_id, settlement_id, data_json, pre_start)
++      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     `);
+     const insertSnapshot = this.database.prepare(`
+       INSERT OR REPLACE INTO snapshots(sequence, tick, state_json, state_hash)
+       VALUES (?, ?, ?, ?)
+     `);
++    const insertSeats = this.database.prepare("INSERT OR REPLACE INTO snapshot_seats(sequence, seats_json) VALUES (?, ?)");
++    const addFeeding = this.database.prepare(`
++      INSERT INTO feeding_counts(actor_id, worked, voyages, battles) VALUES (?, ?, ?, ?)
++      ON CONFLICT(actor_id) DO UPDATE SET
++        worked = worked + excluded.worked, voyages = voyages + excluded.voyages, battles = battles + excluded.battles
++    `);
+     const updateSchemaVersion = this.database.prepare(`
+       INSERT INTO metadata(key, value) VALUES ('schema-version', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value
+@@ -126,9 +194,29 @@
+     const shouldSnapshot =
+       world.tick % world.ticksPerDay === 0 || lastSequence - latestSnapshot.sequence >= 5_000;
+ 
++    let lastTickAdvanced = -1;
++    for (let i = 0; i < events.length; i++) if (events[i]!.type === "tick-advanced") lastTickAdvanced = i;
++    const leadingCount = options.leadingCount ?? 0;
++    const preStartOf = (index: number, event: SimEvent): number => {
++      if (options.betweenTicks) {
++        if (unexpectedBetweenTickType(event.type)) {
++          throw new Error(`unlisted between-tick event type: ${event.type}`);
++        }
++        return 1;
++      }
++      if (index < leadingCount) return 1;
++      if (lastTickAdvanced >= 0 && index > lastTickAdvanced) {
++        if (unexpectedBetweenTickType(event.type)) {
++          throw new Error(`unlisted between-tick event type: ${event.type}`);
++        }
++        return 1;
++      }
++      return 0;
++    };
++
+     this.database.exec("BEGIN IMMEDIATE");
+     try {
+-      for (const event of events) {
++      for (const [index, event] of events.entries()) {
+         insertEvent.run(
+           event.sequence,
+           event.tick,
+@@ -137,11 +225,30 @@
+           event.targetId ?? null,
+           event.settlementId ?? null,
+           JSON.stringify(event.data),
++          preStartOf(index, event),
+         );
++        if (event.actorId) {
++          if (event.type === "worked") addFeeding.run(event.actorId, 1, 0, 0);
++          else if (event.type === "travel-started") addFeeding.run(event.actorId, 0, 1, 0);
++          else if (event.type === "battle-resolved") addFeeding.run(event.actorId, 0, 0, 1);
++        }
+       }
+       updateSchemaVersion.run(String(world.version));
+       if (shouldSnapshot) {
+         insertSnapshot.run(lastSequence, world.tick, JSON.stringify(world), stateHash(world));
++        // The seat map is not in the hash, so it is stored beside the snapshot.
++        insertSeats.run(lastSequence, JSON.stringify(exportGovernorSeats(world)));
++        if (!this.archive) {
++          // Keep the latest snapshot and the previous one. Events after the
++          // older of those, and the last windowTicks of events, stay.
++          const kept = this.database
++            .prepare("SELECT sequence FROM snapshots ORDER BY sequence DESC LIMIT ?")
++            .all(SNAPSHOTS_KEPT) as Array<{ sequence: number }>;
++          const oldestKept = kept[kept.length - 1]!.sequence;
++          this.database.prepare("DELETE FROM snapshots WHERE sequence < ?").run(oldestKept);
++          this.database.prepare("DELETE FROM snapshot_seats WHERE sequence < ?").run(oldestKept);
++          this.database.prepare("DELETE FROM events WHERE sequence <= ? AND tick < ?").run(oldestKept, world.tick - this.windowTicks);
++        }
+       }
+       this.database.exec("COMMIT");
+     } catch (error) {
+@@ -151,33 +258,43 @@
+   }
+ 
+   recover(): RecoveryResult {
+-    const snapshot = this.database
+-      .prepare("SELECT sequence, state_json, state_hash FROM snapshots ORDER BY sequence DESC LIMIT 1")
+-      .get() as SnapshotRow | undefined;
+-    if (!snapshot) throw new Error("World store has no snapshot");
+-
+-    const state = JSON.parse(snapshot.state_json) as WorldState;
+-    const storedVersion = (state as unknown as { version: number }).version;
+-    if (storedVersion !== 3 && storedVersion !== 4 && storedVersion !== 5) {
+-      throw new Error(`World schema ${storedVersion} is incompatible with schema 5; start this milestone with --reset`);
+-    }
+-    const actualHash = stateHash(state);
+-    if (actualHash !== snapshot.state_hash) {
+-      throw new Error(`Snapshot hash mismatch at sequence ${snapshot.sequence}`);
++    const snapshots = this.database
++      .prepare("SELECT sequence, state_json, state_hash FROM snapshots ORDER BY sequence DESC LIMIT ?")
++      .all(SNAPSHOTS_KEPT) as unknown as SnapshotRow[];
++    if (snapshots.length === 0) throw new Error("World store has no snapshot");
++
++    let lastError: Error | undefined;
++    for (const snapshot of snapshots) {
++      const state = JSON.parse(snapshot.state_json) as WorldState;
++      const storedVersion = (state as unknown as { version: number }).version;
++      if (storedVersion !== 3 && storedVersion !== 4 && storedVersion !== 5) {
++        lastError = new Error(`World schema ${storedVersion} is incompatible with schema 5; start this milestone with --reset`);
++        continue;
++      }
++      const actualHash = stateHash(state);
++      if (actualHash !== snapshot.state_hash) {
++        lastError = new Error(`Snapshot hash mismatch at sequence ${snapshot.sequence}`);
++        continue;
++      }
++      normalizeWorldState(state);
++      const stored = this.database
++        .prepare("SELECT seats_json FROM snapshot_seats WHERE sequence = ?")
++        .get(snapshot.sequence) as { seats_json: string } | undefined;
++      if (stored) importGovernorSeats(state, JSON.parse(stored.seats_json) as Array<[string, string, string]>);
++      else this.restoreGovernorSeats(state, snapshot.sequence);
++
++      const rows = this.database
++        .prepare("SELECT * FROM events WHERE sequence > ? ORDER BY sequence")
++        .all(snapshot.sequence) as unknown as EventRow[];
++      this.replayEvents(state, rows);
++
++      return {
++        state,
++        snapshotSequence: snapshot.sequence,
++        replayedEvents: rows.length,
++      };
+     }
+-    normalizeWorldState(state);
+-    this.restoreGovernorSeats(state, snapshot.sequence);
+-
+-    const rows = this.database
+-      .prepare("SELECT * FROM events WHERE sequence > ? ORDER BY sequence")
+-      .all(snapshot.sequence) as unknown as EventRow[];
+-    this.replayEvents(state, rows);
+-
+-    return {
+-      state,
+-      snapshotSequence: snapshot.sequence,
+-      replayedEvents: rows.length,
+-    };
++    throw lastError ?? new Error("World store has no snapshot");
+   }
+ 
+   /**
+@@ -286,22 +403,11 @@
+    * none of these events is absent; the caller treats that as zero.
+    */
+   feedingCounts(): Record<string, { worked: number; voyages: number; battles: number }> {
+-    const rows = this.database.prepare(`
+-      SELECT actor_id AS actorId, type, COUNT(*) AS count
+-      FROM events
+-      WHERE actor_id IS NOT NULL
+-        AND type IN ('worked', 'travel-started', 'battle-resolved')
+-      GROUP BY actor_id, type
+-    `).all() as Array<{ actorId: string; type: string; count: number }>;
++    const rows = this.database
++      .prepare("SELECT actor_id AS actorId, worked, voyages, battles FROM feeding_counts")
++      .all() as Array<{ actorId: string; worked: number; voyages: number; battles: number }>;
+     const counts: Record<string, { worked: number; voyages: number; battles: number }> = {};
+-    for (const row of rows) {
+-      const entry = counts[row.actorId] ?? { worked: 0, voyages: 0, battles: 0 };
+-      const count = Number(row.count);
+-      if (row.type === "worked") entry.worked = count;
+-      else if (row.type === "travel-started") entry.voyages = count;
+-      else if (row.type === "battle-resolved") entry.battles = count;
+-      counts[row.actorId] = entry;
+-    }
++    for (const row of rows) counts[row.actorId] = { worked: Number(row.worked), voyages: Number(row.voyages), battles: Number(row.battles) };
+     return counts;
+   }
+ 
+@@ -316,7 +422,7 @@
+   }
+ 
+   private rowToEvent(row: EventRow): SimEvent {
+-    return {
++    const event: SimEvent = {
+       sequence: row.sequence,
+       tick: row.tick,
+       type: row.type,
+@@ -325,5 +431,9 @@
+       settlementId: row.settlement_id ?? undefined,
+       data: JSON.parse(row.data_json) as Record<string, unknown>,
+     };
++    // Null is a legacy row: replay falls back to the between-tick type list.
++    if (row.pre_start === 1) markEventPreStart(event, true);
++    else if (row.pre_start === 0) markEventPreStart(event, false);
++    return event;
+   }
+ }
+--- a/src/sim/governor.ts	2026-11-27 20:15:27.412224072 -0800
++++ b/src/sim/governor.ts	2026-11-27 20:07:46.566321844 -0800
+@@ -168,6 +168,21 @@
+   }
+ }
+ 
++/** The seat map as stored beside a snapshot: [settlementId, characterId, factionId], sorted by port. */
++export function exportGovernorSeats(world: WorldState): Array<[string, string, string]> {
++  return [...memory(world).seats.entries()]
++    .sort((left, right) => left[0].localeCompare(right[0]))
++    .map(([settlementId, seat]) => [settlementId, seat.characterId, seat.factionId]);
++}
++
++/** Put a stored seat map on a world restored from its snapshot. The hash does not see it. */
++export function importGovernorSeats(world: WorldState, seats: ReadonlyArray<readonly [string, string, string]>): void {
++  memories.set(world, {
++    seats: new Map(seats.map(([settlementId, characterId, factionId]) => [settlementId, { characterId, factionId }])),
++    levySettlements: null,
++  });
++}
++
+ /** Move the seat memory onto a world rebuilt by replay. The hash does not see it. */
+ export function transplantGovernorSeats(from: WorldState, to: WorldState): void {
+   const source = memory(from);
+--- a/src/sim/types.ts	2026-11-27 20:15:27.412224072 -0800
++++ b/src/sim/types.ts	2026-11-27 20:07:46.582321772 -0800
+@@ -857,6 +857,8 @@
+ export interface TickResult {
+   state: WorldState;
+   events: SimEvent[];
++  /** How many events at the front of `events` precede the silent start (aging deaths and their news). Not stored on the world. */
++  leadingCount?: number;
+   /** AI pilot A: present only when `TickOptions.ai.brainTaxStep` is set. Never on the world. */
+   aiTrace?: import("./ai-provider.ts").TaxStepTraceEntry[];
+   /** A5: cost lines the vendor providers wrote this tick. Never on the world. */
+--- a/src/sim/engine.ts	2026-11-27 20:15:27.412224072 -0800
++++ b/src/sim/engine.ts	2026-11-27 20:07:46.586321754 -0800
+@@ -4562,11 +4562,13 @@
+   if (options.ai?.feedReasons && options.ai.feedReasons.exileRecovery === undefined) options.ai.feedReasons.exileRecovery = options.exileRecovery === true;
+   const leading: SimEvent[] = [];
+   resolveAgingDeaths(world, leading);
++  const leadingCount = leading.length;
+   const notices = applySilentTickStart(world);
+   beginGovernorLevy(world);
+   try {
+     const result = runTickBody(world, options, notices);
+     result.events.unshift(...leading);
++    result.leadingCount = leadingCount;
+     return result;
+   } finally {
+     endGovernorLevy(world);
+--- a/src/cli/run-simulation.ts	2026-11-27 20:15:27.412224072 -0800
++++ b/src/cli/run-simulation.ts	2026-11-27 20:08:58.625995260 -0800
+@@ -58,7 +58,8 @@
+ if (values.reset && existsSync(`${databasePath}-shm`)) rmSync(`${databasePath}-shm`);
+ if (values.reset && existsSync(`${databasePath}-wal`)) rmSync(`${databasePath}-wal`);
+ 
+-const store = new WorldStore(databasePath);
++// The reports read the whole log, so the CLI keeps the full archive.
++const store = new WorldStore(databasePath, { archive: true });
+ let world;
+ let replayedEvents = 0;
+ let resumed = false;
+@@ -92,7 +93,7 @@
+   for (let index = 0; index < ticks; index += 1) {
+     const result = runTick(world, tickOptions);
+     const conversationEvents = await resolveDueReplies(world, dialogueProvider);
+-    store.appendTick([...result.events, ...conversationEvents], world);
++    store.appendTick([...result.events, ...conversationEvents], world, { leadingCount: result.leadingCount });
+   }
+ 
+   const events = store.allEvents();
+--- a/src/dashboard/server.ts	2026-11-27 20:15:27.412224072 -0800
++++ b/src/dashboard/server.ts	2026-11-27 20:08:58.625995260 -0800
+@@ -91,7 +91,7 @@
+ export function createDashboardApp(options: DashboardOptions): DashboardApp {
+   const databasePath = resolve(options.databasePath);
+   if (options.reset) removeDatabase(databasePath);
+-  const store = new WorldStore(databasePath);
++  const store = new WorldStore(databasePath, { archive: process.env.OPEN_ERA_ARCHIVE === "1" });
+   const dialogueProvider = options.dialogueProvider ?? new DeterministicDialogueProvider();
+   let world: WorldState;
+   if (store.hasWorld()) world = store.recover().state;
+@@ -144,7 +144,13 @@
+         return;
+       }
+       if (request.method === "GET" && url.pathname === "/api/health") {
+-        json(response, 200, { ok: true, tick: world.tick, events: store.eventCount() });
++        json(response, 200, {
++          ok: true,
++          tick: world.tick,
++          events: Math.max(0, world.nextEventSequence - 1),
++          lifetimeEvents: Math.max(0, world.nextEventSequence - 1),
++          windowEvents: store.eventCount(),
++        });
+         return;
+       }
+       if (request.method === "POST" && url.pathname === "/api/advance") {
+@@ -168,7 +174,7 @@
+           const result = runTick(world, tickOptions);
+           const conversationEvents = await resolveDueReplies(world, dialogueProvider);
+           const tickEvents = [...result.events, ...conversationEvents];
+-          store.appendTick(tickEvents, world);
++          store.appendTick(tickEvents, world, { leadingCount: result.leadingCount });
+           produced.push(...tickEvents);
+           ticksAdvanced += 1;
+           const combatEvent = result.events.find((event) =>
+@@ -220,7 +226,7 @@
+           json(response, 400, result);
+           return;
+         }
+-        store.appendTick([result.event], world);
++        store.appendTick([result.event], world, { betweenTicks: true });
+         json(response, 202, {
+           ok: true,
+           command: result.command,
+@@ -235,7 +241,7 @@
+           json(response, 400, result);
+           return;
+         }
+-        store.appendTick([result.event], world);
++        store.appendTick([result.event], world, { betweenTicks: true });
+         json(response, 200, { ok: true, itemId: body.itemId });
+         return;
+       }
+@@ -246,7 +252,7 @@
+           json(response, 400, result);
+           return;
+         }
+-        store.appendTick([result.event], world);
++        store.appendTick([result.event], world, { betweenTicks: true });
+         json(response, 200, { ok: true, characterId: body.characterId });
+         return;
+       }
+@@ -257,7 +263,7 @@
+           json(response, 400, result);
+           return;
+         }
+-        store.appendTick(result.events, world);
++        store.appendTick(result.events, world, { betweenTicks: true });
+         json(response, 201, { ok: true, thread: result.value });
+         return;
+       }
+@@ -268,7 +274,7 @@
+           json(response, result.code === "rate-limited" ? 429 : 400, result);
+           return;
+         }
+-        store.appendTick(result.events, world);
++        store.appendTick(result.events, world, { betweenTicks: true });
+         json(response, 202, { ok: true, message: result.value.message, replies: result.value.replies });
+         return;
+       }

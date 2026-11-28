@@ -1,0 +1,16 @@
+## news flag-off: base5000 vs prune5000 (1 seeds)
+event log identical (digest incl. sequence): 0/1; same count+type order: 0/1; events 625997 vs 625940
+h72 unchanged 1/1; h1200 unchanged 0/1
+base5000: claims 214, portChanges 215, battles 246, captures 83, secessions 1; wipeouts 0; secession seeds 1
+prune5000: claims 214, portChanges 215, battles 246, captures 83, secessions 1; wipeouts 0; secession seeds 1
+replay exact prune5000: 1/1
+seeds with different event log: 1847
+pins prune5000: 1847 7f76e474/80a66b6c
+## news atls: base5000 vs prune5000 (1 seeds)
+event log identical (digest incl. sequence): 0/1; same count+type order: 0/1; events 666157 vs 666082
+h72 unchanged 1/1; h1200 unchanged 0/1
+base5000: claims 169, portChanges 175, battles 302, captures 108, secessions 5; wipeouts 1; secession seeds 1
+prune5000: claims 169, portChanges 175, battles 302, captures 108, secessions 5; wipeouts 1; secession seeds 1
+replay exact prune5000: 1/1
+seeds with different event log: 1847
+pins prune5000: 1847 85658e53/7c996994

@@ -68,14 +68,23 @@ export function openNpcThreads(world: WorldState, tickEvents: SimEvent[], caps: 
   return events;
 }
 
-/** The request tab: incoming threads the viewer has not answered (Lead 2026-11-27 ruling 5). */
+/**
+ * The request tab: incoming threads the viewer has not answered.
+ * Lead 2026-11-27 ruling 5, narrowed: only the player's own `confirm-order` or `cancel-order` answers an
+ * order thread. An `issuer-silent` auto-close does not. Read from the order: a confirm leaves
+ * `status` "completed" with `lastReport.kind` "confirmed" (state.ts `standing-order-completed`); a cancel
+ * leaves `status` "cancelled"; the silent close leaves "completed" with `lastReport.kind` "closed-unanswered".
+ * (An autonomous issuer's own judgment also writes "confirmed", but the viewer here is a human issuer, who
+ * never "judges", engine.ts confirmUnansweredOrders.)
+ */
 function orderAnswered(world: WorldState, threadId: string): boolean {
   const msgs = world.conversationMessages.filter((m) => m.threadId === threadId);
   const opener = [...msgs].reverse().find((m) => originOf(m)?.trigger === "standing-order-completion-reported");
   const orderId = opener ? originOf(opener)?.orderId : undefined;
   if (!orderId) return false;
   const order = Object.values(world.characters).flatMap((c) => c.standingOrders).find((o) => o.id === orderId);
-  return !order || order.status !== "awaiting-confirmation";
+  if (!order) return false;
+  return order.status === "cancelled" || (order.status === "completed" && order.lastReport?.kind === "confirmed");
 }
 
 export function requestThreads(world: WorldState, viewerId: string): string[] {

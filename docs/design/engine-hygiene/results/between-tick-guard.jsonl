@@ -1,0 +1,2 @@
+{"ok":true,"listed":["player-command-accepted","conversation-thread-created","conversation-message-sent","conversation-reply-scheduled","conversation-reply-created","briefing-item-acknowledged","reporting-officer-assigned"],"listedOk":true,"unknownOk":true,"ticks":120,"tickAppends":120,"betweenTickAppends":9,"types":["player-command-accepted","conversation-thread-created","conversation-message-sent","conversation-reply-scheduled","conversation-reply-created","briefing-item-acknowledged","reporting-officer-assigned"]}
+{"throwOnUnlisted":true}

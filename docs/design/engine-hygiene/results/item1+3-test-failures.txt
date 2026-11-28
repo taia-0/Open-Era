@@ -1,0 +1,26 @@
+ℹ fail 22
+ℹ pass 668
+ℹ tests 690
+✖ 1. flag off: 1200-tick hashes and counts unchanged, no data.ai, no trace (3397.637919ms)
+✖ 2. agree stays identical: brain stubAgree with each context stub gives the flag-off 1200-tick hash (2161.40735ms)
+✖ 2. agree stub: same world and counts as flag off; every Free Tide step is the model's and equals the scorer (1757.449988ms)
+✖ 3. failing stub: timeout, error and illegal each reproduce the flag-off world, scorer applied (1741.833944ms)
+✖ 3. stubArgmax with social reads for all members: flag-off hashes at 72 and 1,200 ticks; sampled is always the scorer's pick (4131.961404ms)
+✖ 3. stubArgmax: 1,200-tick hash equals flag off (b51aa07a) and every sampled is the scorer's pick (2346.119664ms)
+✖ 5. the provider is called only by the tax step, only for Free Tide, once per clock point (1643.601309ms)
+✖ 6. cap of 10: later clock points apply the scorer with reason cap; the default 50 does not bind (1892.346729ms)
+✖ 8. calls: the reader is called exactly as often as the brain, 24 / 30 / 27 at 1200 ticks (port balance; was 21 / 25 / 22) (1792.467833ms)
+✖ Mina Vale's release recovers from the tick 95 snapshot (949.775323ms)
+✖ OCCUPATION is off by default; off is byte-identical to the default and opt-out pins, with no occupation field anywhere (3104.265916ms)
+✖ a ransom release recovers from the snapshot before it (369.53821ms)
+✖ every raise in a 1200-tick run carries the shock; no hold or cut does; replay of events reaches the hash (3078.322859ms)
+✖ failing tests:
+✖ follow-up (b): raids carry the scorer's cause without EXILE_RECOVERY, with no new event bytes and the pins unchanged (3651.354739ms)
+✖ gate items 2–3: flag off keeps the pins, and a never-flag triage stub equals picker-only (4454.585958ms)
+✖ opt-out (exileRecovery: false): the pre-default 72-tick and 1,200-tick pins, no courier, no homeService (2295.537572ms)
+✖ pins: 72-tick fixture and 1,200-tick pins (re-pinned for home starts) (b51aa07a / 091f7628 / 25bdbf15) (1405.975161ms)
+✖ ruling 1: every decision kind is scored, for every actor role, and routine moves are not (1744.891232ms)
+✖ seed 2718 replays through tick 160 from the tick 100 and tick 150 snapshots (741.431571ms)
+✖ stubArgmax equals flag off at 1,200 ticks on seed 1847 (b51aa07a) (1852.068402ms)
+✖ stubs and fallbacks record no answers field; flag off and the stub runner are unchanged (455.772316ms)
+✖ the first headless release on seed 1847 recovers from its release-tick snapshot (2607.631438ms)

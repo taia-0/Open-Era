@@ -1,0 +1,32 @@
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 6a103fa..f9f9d38 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -1120,9 +1120,12 @@ function recordBattleConsequences(
+     },
+   });
+ 
+-  const relevantOrder = character.standingOrders.find((order) => order.issuerId in character.relationships);
+-  if (relevantOrder) {
+-    const prior = character.relationships[relevantOrder.issuerId];
++  // The seat the character serves under: the stored holder of their faction, not
++  // the first order on file (a closed or cancelled order still named its issuer).
++  const seatId = character.factionId ? commandHolderId(world, character.factionId) : null;
++  const relevantIssuerId = seatId !== null && seatId !== character.id && seatId in character.relationships ? seatId : null;
++  if (relevantIssuerId !== null) {
++    const prior = character.relationships[relevantIssuerId];
+     const relationship = {
+       ...prior,
+       trust: round(clamp(prior.trust + (attackerWon ? 0.012 : -0.025), 0, 1)),
+@@ -1135,9 +1138,9 @@ function recordBattleConsequences(
+     emit(world, events, {
+       type: "relationship-changed",
+       actorId: character.id,
+-      targetId: relevantOrder.issuerId,
++      targetId: relevantIssuerId,
+       data: {
+-        characterId: relevantOrder.issuerId,
++        characterId: relevantIssuerId,
+         trigger: attackerWon ? "victory under standing orders" : "costly defeat under standing orders",
+         relationship,
+       },

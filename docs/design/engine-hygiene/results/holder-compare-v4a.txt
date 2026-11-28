@@ -1,0 +1,16 @@
+## holder flag-off: base vs v4a (13 seeds)
+event log identical (digest incl. sequence): 13/13; same count+type order: 13/13; events 2105611 vs 2105611
+h72 unchanged 0/13; h1200 unchanged 0/13
+base: claims 682, portChanges 713, battles 927, captures 247, secessions 31; wipeouts 0; secession seeds 12
+v4a: claims 682, portChanges 713, battles 927, captures 247, secessions 31; wipeouts 0; secession seeds 12
+holder oracle mismatches (ticks with any faction differing from legacy derivation): base 0, v4a 0; holder changes 0
+replay exact v4a: 13/13
+pins v4a: 1847 83cdbc79/c5ebda78; 2718 1697947f/ec195538; 4096 0166182c/49d7d068
+## holder atls: base vs v4a (13 seeds)
+event log identical (digest incl. sequence): 13/13; same count+type order: 13/13; events 2015488 vs 2015488
+h72 unchanged 0/13; h1200 unchanged 0/13
+base: claims 497, portChanges 543, battles 898, captures 214, secessions 32; wipeouts 0; secession seeds 11
+v4a: claims 497, portChanges 543, battles 898, captures 214, secessions 32; wipeouts 0; secession seeds 11
+holder oracle mismatches (ticks with any faction differing from legacy derivation): base 0, v4a 0; holder changes 0
+replay exact v4a: 13/13
+pins v4a: 1847 e0036f31/ce233ab6; 2718 ef822822/e9e8ac6b; 4096 33279bfb/d4ef5b86

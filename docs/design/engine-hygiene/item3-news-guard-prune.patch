@@ -1,0 +1,102 @@
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 6a103fa..f8f49a4 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -45,7 +45,7 @@ import { ALLIANCES_DEFAULT, allianceBreaks, allianceForms, allied, allyJoinersWi
+ import { SECESSION_AFTERMATH_DEFAULT, aftermathStep, atPeace } from "./secession-aftermath.ts";
+ import { OCCUPATION_DEFAULT, OCCUPATION_DRIFT, OCCUPATION_INTEGRATION_H, OCCUPATION_INTEGRATION_TICKS, OCCUPATION_REGROWTH_STOP, occupationDefectors, occupationTerms } from "./occupation.ts";
+ import { buildGovernorSecession, secessionRoutes, buildSecessionDeclaration, declareSecessionRefusal } from "./secession.ts";
+-import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
++import { PUBLIC_NEWS_TYPES, ledgerHas, newsFollowerIds, newsRecordFor, newsRetained, newsStabilityThousandths, ownLossCouriers } from "./news.ts";
+ import { HOME_CLAIM_RAID_POINTS, HOME_CLAIM_TRAVEL_POINTS, homeClaim, homeClaimReason } from "./exile.ts";
+ import {
+   applyEvent,
+@@ -3498,6 +3498,9 @@ function progressTravel(world: WorldState, character: Character, events: SimEven
+     const destination = world.settlements[destinationId];
+     for (const record of bag) {
+       if (ledgerHas(destination.news, record.item.id)) continue;
++      // An item the port would drop at once (older than the retention window and
++      // not the latest of its kind) is not posted. The port pruned it, or never held it.
++      if (!newsRetained(destination.news, record, world.tick)) continue;
+       emit(world, events, {
+         type: "news-posted",
+         actorId: character.id,
+diff --git a/src/sim/news.ts b/src/sim/news.ts
+index 930fb14..71ec42a 100644
+--- a/src/sim/news.ts
++++ b/src/sim/news.ts
+@@ -29,6 +29,48 @@ function countsAsPortStatus(type: string): boolean {
+ /** An away port's item counts while the tax tick minus `observedTick` is at most this. */
+ export const NEWS_AGE_CAP = 24;
+ 
++/**
++ * How long a port keeps an item on its ledger: the 180-tick check-in window
++ * (`CHECK_IN_TICKS` in `dashboard/view-model.ts`; a literal here, the sim does
++ * not import the dashboard).
++ */
++export const NEWS_RETENTION_TICKS = 180;
++
++const OWNERSHIP_NEWS_TYPES = new Set(["settlement-claimed", "settlement-purchased", "secession-joined"]);
++
++function newer(left: NewsRecord, right: NewsRecord): boolean {
++  return left.item.observedTick > right.item.observedTick ||
++    (left.item.observedTick === right.item.observedTick && left.sequence > right.sequence);
++}
++
++/**
++ * The ledger after retention. An item stays while it is at most
++ * `NEWS_RETENTION_TICKS` old. An older item stays only when it is the latest of
++ * its kind about a port, because a reader still takes the latest: the latest
++ * claim, purchase, and join (`ownLossCouriers`, `learnedHolder`) and the latest
++ * item that carries an occupation (`snapFromNews`). Order is kept.
++ */
++export function pruneNews(records: readonly NewsRecord[], tick: number): NewsRecord[] {
++  const latest = new Map<string, NewsRecord>();
++  const note = (key: string, record: NewsRecord) => {
++    const held = latest.get(key);
++    if (!held || newer(record, held)) latest.set(key, record);
++  };
++  for (const record of records) {
++    if (!record.aboutSettlementId) continue;
++    if (OWNERSHIP_NEWS_TYPES.has(record.item.type)) note(`${record.aboutSettlementId}|${record.item.type}`, record);
++    if (record.item.occupation) note(`${record.aboutSettlementId}|occupation`, record);
++  }
++  const keep = new Set(latest.values());
++  return records.filter((record) => tick - record.item.observedTick <= NEWS_RETENTION_TICKS || keep.has(record));
++}
++
++/** The arrival guard: would `record` survive on this ledger now? Not posting a record the ledger would drop at once keeps the log as it was. */
++export function newsRetained(ledger: readonly NewsRecord[] | undefined, record: NewsRecord, tick: number): boolean {
++  if (tick - record.item.observedTick <= NEWS_RETENTION_TICKS) return true;
++  return pruneNews([...(ledger ?? []), record], tick).includes(record);
++}
++
+ const LOYALTY_LINE = 0.75;
+ 
+ function scarredLoyalty(character: Character): number {
+diff --git a/src/sim/state.ts b/src/sim/state.ts
+index 78e80e3..9ae99fe 100644
+--- a/src/sim/state.ts
++++ b/src/sim/state.ts
+@@ -1,5 +1,6 @@
+ import { applyAftermathEvent, noteProtection } from "./secession-aftermath.ts";
+ import { applyLifecycleEvent } from "./lifecycle.ts";
++import { pruneNews } from "./news.ts";
+ import { applyPurchase } from "./port-transfer.ts";
+ import { applyAllianceEvent, applyJoinerLosses, noteRaid } from "./alliances.ts";
+ import { createHash } from "node:crypto";
+@@ -1153,6 +1154,14 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+       // Deleting an absent field is a no-op, so an old log does not grow one.
+       if (world.ticksPerDay > 0 && world.tick % world.ticksPerDay === 0) {
+         for (const character of Object.values(world.characters)) delete character.allowanceRemaining;
++        // Each morning a port drops the items it no longer keeps (news.ts `pruneNews`).
++        for (const port of Object.values(world.settlements)) {
++          if (!port.news) continue;
++          const kept = pruneNews(port.news, world.tick);
++          if (kept.length === port.news.length) continue;
++          if (kept.length === 0) delete port.news;
++          else port.news = kept;
++        }
+       }
+       break;
+     case "metrics-recorded":
