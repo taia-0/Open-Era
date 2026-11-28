@@ -1,0 +1,27 @@
+defaults seeds 13
+ relEntries total 9725 min/max per seed 721 774 cross 1434 same 1195 noFaction 7096
+ relEvents 54526 per-seed min/max 4010 4407
+ trig {'order confirmed': 170, 'shared time at <port>': 50955, 'costly defeat under standing orders': 138, 'victory under standing orders': 667, 'supply contract fulfilled': 1698, 'supply contract breached': 898}
+ events total/seed [160337, 157701, 162679]  relEvents share 0.026
+ grievanceMax over seeds 0.405 p90 max 0.02 earnedMax 0.2979020741954446 earnedNonZero total 1013
+ captures 247 withEntry 137 withGrievance 50 crossRaids 802 withEntry 654
+ bytesPerEntry 231 max entries*bytes 178794
+ types {'character-captured': 247, 'captivity-released': 218, 'battle-started': 802, 'settlement-claimed': 682, 'secession-declared': 31, 'debt-repaid': 2026, 'contract-breached': 449, 'contract-fulfilled': 849}
+ATLS seeds 13
+ relEntries total 9730 min/max per seed 616 829 cross 1759 same 1405 noFaction 6566
+ relEvents 51327 per-seed min/max 3510 4244
+ trig {'order confirmed': 170, 'shared time at <port>': 47787, 'costly defeat under standing orders': 253, 'victory under standing orders': 551, 'supply contract fulfilled': 1634, 'supply contract breached': 932}
+ events total/seed [159450, 145283, 157896]  relEvents share 0.025
+ grievanceMax over seeds 0.585 p90 max 0.029 earnedMax 0.436 earnedNonZero total 980
+ captures 214 withEntry 101 withGrievance 22 crossRaids 728 withEntry 587
+ bytesPerEntry 231 max entries*bytes 191499
+ types {'character-captured': 214, 'captivity-released': 190, 'battle-started': 728, 'settlement-claimed': 497, 'alliance-formed': 59, 'alliance-broken': 42, 'settlement-purchased': 13, 'faction-peace': 22, 'secession-declared': 32, 'character-promoted': 21, 'character-retired': 76, 'character-returned': 45, 'debt-repaid': 1322, 'contract-breached': 466, 'contract-fulfilled': 817}
+ATLS-exile-off seeds 13
+ relEntries total 9721 min/max per seed 634 851 cross 1712 same 1549 noFaction 6460
+ relEvents 55418 per-seed min/max 3764 4653
+ trig {'order confirmed': 170, 'shared time at <port>': 52134, 'costly defeat under standing orders': 252, 'victory under standing orders': 408, 'supply contract fulfilled': 1560, 'supply contract breached': 894}
+ events total/seed [160608, 157750, 167577]  relEvents share 0.026
+ grievanceMax over seeds 0.527 p90 max 0.032 earnedMax 0.4524368627369404 earnedNonZero total 951
+ captures 155 withEntry 64 withGrievance 22 crossRaids 587 withEntry 445
+ bytesPerEntry 231 max entries*bytes 196581
+ types {'character-captured': 155, 'captivity-released': 144, 'battle-started': 587, 'settlement-claimed': 365, 'alliance-formed': 49, 'alliance-broken': 31, 'settlement-purchased': 13, 'faction-peace': 24, 'secession-declared': 31, 'character-promoted': 26, 'character-retired': 84, 'character-returned': 54, 'debt-repaid': 1054, 'contract-breached': 447, 'contract-fulfilled': 780}

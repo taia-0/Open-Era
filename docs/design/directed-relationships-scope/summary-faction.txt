@@ -1,0 +1,12 @@
+defaults harm/goodwill events {'raid': 802, 'capture': 247, 'raidImmediate': 277, 'claim': 681}
+ ordered harm pairs per seed min/max 2 17 total 123
+ unordered pairs 68 both ways 55 one way 13 skew>=3:1 16
+ window-count at harm event: p50 range [8, 12, 3, 9, 6, 5, 6, 4, 4, 8, 3, 5, 3] p90 [13, 16, 10, 14, 15, 11, 14, 14, 9, 16, 11, 10, 7] max over seeds 23
+ goodwill ordered pairs 0 factions end per seed [3, 2, 5, 4, 4, 4, 3, 4, 7, 6, 6, 4, 5]
+ alliance clock checks 0 with any candidate 0 with a faction having >1 candidate partner 0
+ATLS harm/goodwill events {'raid': 728, 'capture': 213, 'raidImmediate': 360, 'claim': 497, 'pact': 59, 'peace': 22}
+ ordered harm pairs per seed min/max 2 24 total 109
+ unordered pairs 62 both ways 47 one way 15 skew>=3:1 19
+ window-count at harm event: p50 range [5, 9, 6, 7, 7, 5, 12, 7, 4, 11, 5, 4, 3] p90 [12, 17, 15, 14, 12, 12, 18, 18, 18, 16, 14, 13, 9] max over seeds 27
+ goodwill ordered pairs 114 factions end per seed [6, 6, 4, 3, 3, 5, 2, 3, 5, 2, 5, 7, 7]
+ alliance clock checks 650 with any candidate 43 with a faction having >1 candidate partner 23
