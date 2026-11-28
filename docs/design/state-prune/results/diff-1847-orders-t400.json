@@ -1,0 +1,209 @@
+{
+  "mode": "orders",
+  "seed": 1847,
+  "ticks": 400,
+  "hashP": "9548aaea",
+  "hashC": "ac373b88",
+  "nP": 48610,
+  "nC": 48276,
+  "diff": [
+    {
+      "type": "arrived",
+      "pruned": 1271,
+      "control": 1276,
+      "d": -5
+    },
+    {
+      "type": "battle-phase-resolved",
+      "pruned": 45,
+      "control": 55,
+      "d": -10
+    },
+    {
+      "type": "battle-resolved",
+      "pruned": 18,
+      "control": 23,
+      "d": -5
+    },
+    {
+      "type": "battle-retreated",
+      "pruned": 9,
+      "control": 10,
+      "d": -1
+    },
+    {
+      "type": "battle-started",
+      "pruned": 23,
+      "control": 29,
+      "d": -6
+    },
+    {
+      "type": "character-captured",
+      "pruned": 5,
+      "control": 6,
+      "d": -1
+    },
+    {
+      "type": "character-upkeep",
+      "pruned": 11551,
+      "control": 11496,
+      "d": 55
+    },
+    {
+      "type": "contract-accepted",
+      "pruned": 69,
+      "control": 57,
+      "d": 12
+    },
+    {
+      "type": "contract-breached",
+      "pruned": 19,
+      "control": 14,
+      "d": 5
+    },
+    {
+      "type": "contract-fulfilled",
+      "pruned": 48,
+      "control": 41,
+      "d": 7
+    },
+    {
+      "type": "contract-offered",
+      "pruned": 99,
+      "control": 87,
+      "d": 12
+    },
+    {
+      "type": "contract-order-issued",
+      "pruned": 69,
+      "control": 57,
+      "d": 12
+    },
+    {
+      "type": "contract-refused",
+      "pruned": 30,
+      "control": 29,
+      "d": 1
+    },
+    {
+      "type": "decision-made",
+      "pruned": 7431,
+      "control": 7335,
+      "d": 96
+    },
+    {
+      "type": "goal-evolved",
+      "pruned": 28,
+      "control": 33,
+      "d": -5
+    },
+    {
+      "type": "goal-progressed",
+      "pruned": 7415,
+      "control": 7326,
+      "d": 89
+    },
+    {
+      "type": "knowledge-updated",
+      "pruned": 2168,
+      "control": 2160,
+      "d": 8
+    },
+    {
+      "type": "market-trade",
+      "pruned": 2030,
+      "control": 2033,
+      "d": -3
+    },
+    {
+      "type": "news-posted",
+      "pruned": 180,
+      "control": 213,
+      "d": -33
+    },
+    {
+      "type": "plan-reconsidered",
+      "pruned": 1686,
+      "control": 1714,
+      "d": -28
+    },
+    {
+      "type": "post-defeat-withdrawal-started",
+      "pruned": 4,
+      "control": 8,
+      "d": -4
+    },
+    {
+      "type": "recruited",
+      "pruned": 458,
+      "control": 467,
+      "d": -9
+    },
+    {
+      "type": "relationship-changed",
+      "pruned": 1159,
+      "control": 1140,
+      "d": 19
+    },
+    {
+      "type": "rested",
+      "pruned": 1267,
+      "control": 1219,
+      "d": 48
+    },
+    {
+      "type": "scattered-troops-returned",
+      "pruned": 29,
+      "control": 28,
+      "d": 1
+    },
+    {
+      "type": "settlement-produced",
+      "pruned": 1566,
+      "control": 1561,
+      "d": 5
+    },
+    {
+      "type": "settlement-upkeep",
+      "pruned": 1566,
+      "control": 1561,
+      "d": 5
+    },
+    {
+      "type": "standing-order-deviated",
+      "pruned": 76,
+      "control": 54,
+      "d": 22
+    },
+    {
+      "type": "standing-order-resumed",
+      "pruned": 76,
+      "control": 54,
+      "d": 22
+    },
+    {
+      "type": "tax-rate-set",
+      "pruned": 3,
+      "control": 5,
+      "d": -2
+    },
+    {
+      "type": "travel-progressed",
+      "pruned": 3720,
+      "control": 3761,
+      "d": -41
+    },
+    {
+      "type": "travel-started",
+      "pruned": 1261,
+      "control": 1259,
+      "d": 2
+    },
+    {
+      "type": "worked",
+      "pruned": 2366,
+      "control": 2300,
+      "d": 66
+    }
+  ]
+}

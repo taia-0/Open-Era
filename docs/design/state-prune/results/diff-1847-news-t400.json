@@ -1,0 +1,17 @@
+{
+  "mode": "news",
+  "seed": 1847,
+  "ticks": 400,
+  "hashP": "3915043f",
+  "hashC": "ac373b88",
+  "nP": 48277,
+  "nC": 48276,
+  "diff": [
+    {
+      "type": "news-posted",
+      "pruned": 214,
+      "control": 213,
+      "d": 1
+    }
+  ]
+}

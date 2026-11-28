@@ -1,0 +1,3 @@
+{"label":"flag-off","seed":1847,"ticks":1200,"hash8":"94de9c02","dbBytes":170323968,"snapshots":201,"events":160337,"eventDataBytes":61407905,"snapshotStateBytes":87036687,"snapshotStateMin":106130,"snapshotStateMax":735667,"elapsedMs":7090}
+{"label":"flag-off","seed":2718,"ticks":1200,"hash8":"7a3741c9","dbBytes":161927168,"snapshots":201,"events":157701,"eventDataBytes":60919096,"snapshotStateBytes":79523692,"snapshotStateMin":106147,"snapshotStateMax":717749,"elapsedMs":5112}
+{"label":"flag-off","seed":4096,"ticks":1200,"hash8":"af6eeaea","dbBytes":177958912,"snapshots":201,"events":162679,"eventDataBytes":62806289,"snapshotStateBytes":93035025,"snapshotStateMin":106168,"snapshotStateMax":803659,"elapsedMs":6191}
