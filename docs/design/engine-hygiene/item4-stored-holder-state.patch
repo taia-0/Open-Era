@@ -19,7 +19,7 @@ index 1348696..2e07d44 100644
    };
  
 diff --git a/src/sim/state.ts b/src/sim/state.ts
-index 78e80e3..0b69a1b 100644
+index 78e80e3..b8b45a7 100644
 --- a/src/sim/state.ts
 +++ b/src/sim/state.ts
 @@ -71,6 +71,12 @@ export function normalizeWorldState(world: WorldState): WorldState {
@@ -35,7 +35,7 @@ index 78e80e3..0b69a1b 100644
    for (const player of Object.values(world.players)) {
      player.briefingAcknowledgements ??= {};
      player.routineBriefingThroughSequence ??= 0;
-@@ -301,10 +307,23 @@ export function captorPartyLeader(world: WorldState, prisoner: Character): Chara
+@@ -301,10 +307,42 @@ export function captorPartyLeader(world: WorldState, prisoner: Character): Chara
  /**
   * The one person who issues this faction's standing orders.
   *
@@ -47,9 +47,28 @@ index 78e80e3..0b69a1b 100644
 + * Trust, grievance, troops, and location are not read.
   */
  export function commandHolderId(world: WorldState, factionId: string): string | null {
-+  const holderId = world.factions[factionId]?.commandHolderId;
-+  if (!holderId) return null;
-+  return world.characters[holderId]?.factionId === factionId ? holderId : null;
++  const stored = world.factions[factionId]?.commandHolderId;
++  if (stored && world.characters[stored]?.factionId === factionId) return stored;
++  // Vacant stored seat (dead, deserted, or never written): the unique living
++  // issuer, the same rule the derivation used. Two issuers, or none, stay unnamed.
++  return seatFromOrders(world, factionId);
++}
++
++/**
++ * Write the stored seat from the living issuers when the written holder is no
++ * longer a member (death, desertion) or the seat is empty and a unique issuer
++ * has just appeared (`standing-order-issued`). A living written holder is left
++ * alone, so a non-holder issue cannot unseat them.
++ */
++function syncStoredCommandHolder(world: WorldState, factionId: string | null | undefined): void {
++  if (!factionId) return;
++  const faction = world.factions[factionId];
++  if (!faction) return;
++  const stored = faction.commandHolderId;
++  if (stored && world.characters[stored]?.factionId === factionId) return;
++  const next = seatFromOrders(world, factionId);
++  if (next) faction.commandHolderId = next;
++  else delete faction.commandHolderId;
 +}
 +
 +/**
@@ -61,7 +80,46 @@ index 78e80e3..0b69a1b 100644
    let holderId: string | null = null;
    for (const character of Object.values(world.characters)) {
      for (const order of character.standingOrders) {
-@@ -1129,9 +1148,9 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+@@ -699,6 +737,8 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+       const recipient = event.targetId ? world.characters[event.targetId] : undefined;
+       if (!recipient) throw new Error("Standing order has no recipient");
+       recipient.standingOrders.push(normalizeStandingOrder(event.data.order as Character["standingOrders"][number]));
++      const issuerId = (event.data.order as { issuerId?: string } | undefined)?.issuerId ?? event.actorId;
++      syncStoredCommandHolder(world, issuerId ? world.characters[issuerId]?.factionId : undefined);
+       break;
+     }
+     case "standing-order-amended": {
+@@ -992,13 +1032,18 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+       break;
+     case "character-deserted":
+       if (!actor) throw new Error("Desertion event has no actor");
+-      actor.factionId = null;
++      {
++        const previousFactionId = actor.factionId;
++        actor.factionId = null;
++        syncStoredCommandHolder(world, previousFactionId);
++      }
+       break;
+     case "desertion-withheld":
+       // Slice 5 triage: the brain kept a member the morning roll would have let go. Replay
+       // reapplies the silent desertion first, then this restores the faction.
+       if (!actor) throw new Error("Withheld desertion has no actor");
+       actor.factionId = event.data.previousFactionId as string;
++      syncStoredCommandHolder(world, actor.factionId);
+       break;
+     case "character-died": {
+       if (!actor) throw new Error("Death event has no actor");
+@@ -1007,7 +1052,9 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+       actor.sailors = event.data.sailors as number;
+       actor.troops = { ...(event.data.troops as Character["troops"]) };
+       actor.debts = [...(event.data.debts as Character["debts"])];
++      const previousFactionId = actor.factionId;
+       actor.factionId = null;
++      syncStoredCommandHolder(world, previousFactionId);
+       if (event.data.clearCaptivity === true) actor.captivity = null;
+       if (event.data.clearRecovery === true) actor.troopRecovery = null;
+       for (const portId of event.data.ports as string[]) {
+@@ -1129,9 +1176,9 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
        settlement.stability = event.data.stability as number;
        settlement.secessionDeclaredBy = ownerId;
        delete settlement.occupation;
@@ -74,7 +132,7 @@ index 78e80e3..0b69a1b 100644
        if (successorId !== null) {
          const successor = world.characters[successorId];
          if (!successor) throw new Error(`Secession event names a missing successor: ${successorId}`);
-@@ -1140,6 +1159,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
+@@ -1140,6 +1187,7 @@ export function applyEvent(world: WorldState, event: SimEvent): void {
              if (order.issuerId === ownerId) order.issuerId = successorId;
            }
          }

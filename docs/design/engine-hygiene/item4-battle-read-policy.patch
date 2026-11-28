@@ -1,0 +1,61 @@
+diff --git a/src/sim/engine.ts b/src/sim/engine.ts
+index 6a103fa..0c9ce93 100644
+--- a/src/sim/engine.ts
++++ b/src/sim/engine.ts
+@@ -1120,9 +1120,41 @@ function recordBattleConsequences(
+     },
+   });
+ 
+-  const relevantOrder = character.standingOrders.find((order) => order.issuerId in character.relationships);
+-  if (relevantOrder) {
+-    const prior = character.relationships[relevantOrder.issuerId];
++  const openStatus = new Set(["pending", "active", "awaiting-confirmation"]);
++  const firstAny = character.standingOrders.find((order) => order.issuerId in character.relationships);
++  const firstOpen = character.standingOrders.find((order) => openStatus.has(order.status) && order.issuerId in character.relationships);
++  const planOrder = character.plan?.orderId
++    ? character.standingOrders.find((order) => order.id === character.plan!.orderId)
++    : undefined;
++  const planIssuer = planOrder && planOrder.issuerId in character.relationships ? planOrder.issuerId : null;
++  const seatId = character.factionId ? commandHolderId(world, character.factionId) : null;
++  const seatIssuer = seatId !== null && seatId !== character.id && seatId in character.relationships ? seatId : null;
++  const policy = (process.env.ORDER_REL ?? "main") as string;
++  const chosen = policy === "seat" ? seatIssuer
++    : policy === "open" ? (firstOpen?.issuerId ?? null)
++    : policy === "plan" ? (planIssuer ?? firstOpen?.issuerId ?? null)
++    : (firstAny?.issuerId ?? null);
++  const g = ((globalThis as unknown as { __rel?: Record<string, number> }).__rel ??= {
++    calls: 0, main: 0, open: 0, plan: 0, seat: 0, applied: 0,
++    mainEqOpen: 0, mainEqSeat: 0, mainEqPlan: 0, openEqSeat: 0, openEqPlan: 0, planEqSeat: 0,
++    mainClosed: 0, planUsed: 0,
++  });
++  g.calls += 1;
++  if (firstAny) g.main += 1;
++  if (firstOpen) g.open += 1;
++  if (planIssuer || firstOpen) g.plan += 1;
++  if (seatIssuer) g.seat += 1;
++  if (firstAny && firstOpen && firstAny.issuerId === firstOpen.issuerId) g.mainEqOpen += 1;
++  else if (firstAny && !firstOpen) g.mainClosed += 1;
++  if ((firstAny?.issuerId ?? null) === seatIssuer) g.mainEqSeat += 1;
++  if ((firstAny?.issuerId ?? null) === (planIssuer ?? firstOpen?.issuerId ?? null)) g.mainEqPlan += 1;
++  if ((firstOpen?.issuerId ?? null) === seatIssuer) g.openEqSeat += 1;
++  if ((firstOpen?.issuerId ?? null) === (planIssuer ?? firstOpen?.issuerId ?? null)) g.openEqPlan += 1;
++  if ((planIssuer ?? firstOpen?.issuerId ?? null) === seatIssuer) g.planEqSeat += 1;
++  if (planIssuer) g.planUsed += 1;
++  if (chosen !== null) {
++    g.applied += 1;
++    const prior = character.relationships[chosen];
+     const relationship = {
+       ...prior,
+       trust: round(clamp(prior.trust + (attackerWon ? 0.012 : -0.025), 0, 1)),
+@@ -1135,9 +1167,9 @@ function recordBattleConsequences(
+     emit(world, events, {
+       type: "relationship-changed",
+       actorId: character.id,
+-      targetId: relevantOrder.issuerId,
++      targetId: chosen,
+       data: {
+-        characterId: relevantOrder.issuerId,
++        characterId: chosen,
+         trigger: attackerWon ? "victory under standing orders" : "costly defeat under standing orders",
+         relationship,
+       },

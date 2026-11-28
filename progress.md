@@ -35,6 +35,7 @@ Git remains the complete history. This file exists for three things git does not
 - **Pins (exile opt-out):** 72 ticks `66e8ccb7` / `b4ccedab` / `b04c5ac4`. 1,200 ticks `b51aa07a` / `091f7628` / `25bdbf15`. Flag off matches these.
 - **Last verified:** `feature/client-readiness`: `npm test` 690/690 with keys unset; `evaluate-milestone.sh client-readiness` passed (see entry).
 - **Runtime:** Node 24, pinned by `.node-version` (`24.21.0`). This run used Node 24.22.3.
+- Playtest saves already restored before the replay fix (#204, `docs/replay-divergence`) may carry a wrong `shortMorningStreak`. That is accepted as dev data; anyone can reset.
 
 ## Open items
 

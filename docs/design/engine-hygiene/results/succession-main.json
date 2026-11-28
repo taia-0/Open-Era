@@ -1,0 +1,48 @@
+{
+  "label": "main",
+  "hash8": "58da2b41",
+  "rows": [
+    {
+      "name": "death-vacates-seat",
+      "before": "character-01",
+      "storedBefore": null,
+      "actingBefore": null,
+      "after": null,
+      "storedAfter": null,
+      "actingAfter": null,
+      "dead": true,
+      "factionId": null
+    },
+    {
+      "name": "retirement-keeps-membership-and-seat",
+      "before": "character-01",
+      "after": "character-01",
+      "storedAfter": null,
+      "retired": true,
+      "factionId": "world-government"
+    },
+    {
+      "name": "desertion-vacates-seat",
+      "before": "character-01",
+      "after": null,
+      "storedAfter": null,
+      "factionId": null
+    },
+    {
+      "name": "capture-keeps-seat-sets-acting",
+      "before": "character-01",
+      "after": "character-01",
+      "storedAfter": null,
+      "actingBefore": null,
+      "actingAfter": "character-05",
+      "captive": true,
+      "factionId": "world-government"
+    },
+    {
+      "name": "issue-after-death-vacancy",
+      "vacant": null,
+      "afterIssue": "character-02",
+      "storedAfter": null
+    }
+  ]
+}

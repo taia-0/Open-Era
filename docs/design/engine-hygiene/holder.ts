@@ -29,6 +29,7 @@ for (const seed of seeds) {
   const w = createPrototypeWorld(seed);
   const log: SimEvent[] = [];
   const dig = new EventDigest();
+  (globalThis as any).__rel = undefined;
   const mismatches: Array<{ tick: number; faction: string; got: string | null; legacy: string | null }> = [];
   let mismatchTicks = 0, h72 = "", holderChanges = 0, nullTicks = 0;
   const prev: Record<string, string | null> = {};
@@ -47,5 +48,5 @@ for (const seed of seeds) {
   }
   const rep = createPrototypeWorld(seed);
   replayWithSilentStarts(rep, log);
-  console.log(JSON.stringify({ label, cfg, seed, h72, h1200: stateHash(w).slice(0, 8), events: dig.count, eventDigest: dig.hex(), typeDigest: dig.typesHex(), ...outcomes(w, log), mismatchTicks, mismatches, holderChanges, nullTicksMainFactions: nullTicks, replayExact: stateHash(rep) === stateHash(w) }));
+  console.log(JSON.stringify({ label, cfg, seed, h72, h1200: stateHash(w).slice(0, 8), events: dig.count, eventDigest: dig.hex(), typeDigest: dig.typesHex(), ...outcomes(w, log), mismatchTicks, mismatches, holderChanges, nullTicksMainFactions: nullTicks, replayExact: stateHash(rep) === stateHash(w), rel: (globalThis as any).__rel ?? null }));
 }
