@@ -12,6 +12,8 @@ import { projectEventFeed } from "../../../src/dashboard/view-model.ts";
 /** Rev 2 texts (rulings 3 and 4). No number in either: nothing to leak, nothing to scan. */
 export const TEXT_NO_LONGER_NEEDED = (port: string) => `I no longer need that delivery: ${port} is stocked again. You are not penalised, and anything you bought is yours.`;
 export const TEXT_OFFER_EXPIRED = "My offer lapsed before you answered. You lose nothing.";
+/** Rev 3: the buyer cannot cover the escrow when the human accepts. */
+export const TEXT_OFFER_WITHDRAWN = "I can no longer cover that delivery, so I am withdrawing the offer. You are not penalised.";
 
 /**
  * Rule 3: when the buyer cancels a human carrier's accepted contract because the shelf refilled, the event's actor is the carrier and its target is the buyer
@@ -21,6 +23,7 @@ export const TEXT_OFFER_EXPIRED = "My offer lapsed before you answered. You lose
 function contractCandidates(world: WorldState, ev: SimEvent): Candidate[] {
   const out = candidatesFor(world, ev, "human").map((c) => {
     if (c.topic === "contract" && ev.type === "contract-cancelled" && ev.data.reason === "offer-expired") return { ...c, template: "contract.offer-expired", text: TEXT_OFFER_EXPIRED };
+    if (c.topic === "contract" && ev.type === "contract-cancelled" && ev.data.reason === "buyer-cannot-fund") return { ...c, template: "contract.offer-withdrawn", text: TEXT_OFFER_WITHDRAWN };
     return c;
   });
   if (ev.type === "contract-cancelled" && ev.data.reason === "no-longer-needed") {
@@ -46,7 +49,7 @@ export function unreadCount(world: WorldState, threadId: string, lastReadTick: n
 
 export interface Caps { perReceiver: number; perPair: number; perSender: number } // openers per 100 ticks
 export const NO_CAPS: Caps = { perReceiver: Infinity, perPair: Infinity, perSender: Infinity };
-export interface Drop { reason: "not-visible" | "sender-unknown" | "pair-open" | "cap-receiver" | "cap-pair" | "cap-sender"; topic: Topic; trigger: string }
+export interface Drop { reason: "not-visible" | "sender-unknown" | "pair-open" | "cap-receiver" | "cap-pair" | "cap-sender"; topic: Topic; trigger: string; template?: string; contractId?: string; senderId?: string; receiverId?: string; tick?: number; blocker?: { trigger: string; createdTick: number; contractId?: string } }
 export interface Opened { c: Candidate; threadId: string; messageId: string; newThread: boolean }
 
 function emit(world: WorldState, events: SimEvent[], draft: EventDraft): void {
@@ -67,7 +70,8 @@ export function openNpcThreads(world: WorldState, tickEvents: SimEvent[], caps: 
   const humanIds = humans(world);
   for (const ev of tickEvents) {
     for (const c of contractCandidates(world, ev)) {
-      const drop = (reason: Drop["reason"]) => drops.push({ reason, topic: c.topic, trigger: c.trigger });
+      const evContract = ev.type.startsWith("contract-") ? (ev.data.contract as { id?: string } | undefined) : undefined;
+      const drop = (reason: Drop["reason"], blocker?: Drop["blocker"]) => drops.push({ reason, topic: c.topic, trigger: c.trigger, template: c.template, contractId: evContract?.id, senderId: c.senderId, receiverId: c.receiverId, tick: c.tick, ...(blocker ? { blocker } : {}) });
       if (c.summary === null) { drop("not-visible"); continue; }
       if (!player.knownCharacterIds.includes(c.senderId)) { drop("sender-unknown"); continue; }
       const participantIds = [c.senderId, c.receiverId].sort();
@@ -78,7 +82,7 @@ export function openNpcThreads(world: WorldState, tickEvents: SimEvent[], caps: 
       // human-contracts: a contract-offered opener is also answered once its contract has left `offered` (the human answers by command, not by message).
       const contractClosed = (m: ConversationMessage) => { const id = originOf(m)?.contractId; const k = id ? world.contracts?.[id] : undefined; return originOf(m)?.trigger === "contract-offered" && !!k && k.status !== "offered"; };
       const answered = lastOpener ? msgs.some((m) => m.senderId === c.receiverId && m.createdTick >= lastOpener.createdTick) || contractClosed(lastOpener) : true;
-      if (lastOpener && !answered && c.tick - lastOpener.createdTick < WINDOW) { drop("pair-open"); continue; }
+      if (lastOpener && !answered && c.tick - lastOpener.createdTick < WINDOW) { drop("pair-open", { trigger: originOf(lastOpener)!.trigger, createdTick: lastOpener.createdTick, contractId: originOf(lastOpener)!.contractId }); continue; }
       // Rate caps read stored openers in the last 100 ticks.
       const recent = world.conversationMessages.filter((m) => isOpener(m) && m.createdTick > c.tick - 100);
       const inThread = (m: ConversationMessage) => world.conversationThreads[m.threadId]?.participantIds ?? [];

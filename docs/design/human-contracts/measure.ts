@@ -1,5 +1,6 @@
 // human-contracts.md harness. Runs on a tree with docs/design/human-contracts/fix.patch applied (src/ is NOT patched on main).
 // Variants (the variants patch reads these): OPEN_ERA_HC_VARIANT=last|peer-walk|peer-argmax, OPEN_ERA_HC_ESCROW=off, OPEN_ERA_HC_ALLOWANCE=off.
+// Rev 3: escrow is locked at acceptance; scenario "late" accepts at the last tick the window allows (LATE_BEFORE ticks before it closes, env, default 1).
 // Scenarios: idle (never answers), attentive (buys first, then accepts and sails), afirst (accepts first, then buys one purchase per tick, then sails), lazy (accepts, does nothing).
 // Usage: SEEDS=… SCENARIOS=idle,attentive,afirst,lazy node --experimental-strip-types docs/design/human-contracts/measure.ts <label> '<TickOptions JSON>'
 // Offline, no AI calls. Per seed: one flag-off run (main behaviour), then per scenario a flag-on run and a flag-on + npc-threads-hook run.
@@ -14,7 +15,7 @@ import { DeterministicDialogueProvider, resolveDueReplies } from "../../../src/s
 import { projectEventFeed } from "../../../src/dashboard/view-model.ts";
 import type { SimEvent, SupplyContract, WorldState } from "../../../src/sim/types.ts";
 import { buildCards, projectFor } from "../ui-cards-v1/cards.ts";
-import { openNpcThreads, requestThreads, unreadCount, TEXT_NO_LONGER_NEEDED, TEXT_OFFER_EXPIRED, type Drop, type Opened } from "./thread-hook.ts";
+import { openNpcThreads, requestThreads, unreadCount, TEXT_NO_LONGER_NEEDED, TEXT_OFFER_EXPIRED, TEXT_OFFER_WITHDRAWN, type Drop, type Opened } from "./thread-hook.ts";
 import { closeNote, uiState } from "./card-states.ts";
 
 const OPTS = { humanContracts: true };
@@ -22,7 +23,8 @@ const label = process.argv[2] ?? "default";
 const baseOpts = JSON.parse(process.argv[3] ?? "{}");
 const ticks = Number(process.env.TICKS ?? 1200);
 const seeds = (process.env.SEEDS ?? "1847,2718,4096,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000").split(",").map(Number);
-const scenarios = (process.env.SCENARIOS ?? "idle,attentive,afirst,lazy").split(",");
+const LATE_BEFORE = Number(process.env.LATE_BEFORE ?? 1);
+const scenarios = (process.env.SCENARIOS ?? "idle,attentive,late,afirst,lazy").split(",");
 const REPLAY_EVERY = Number(process.env.REPLAY_EVERY ?? 100);
 const CAPS = { perReceiver: Infinity, perPair: 3, perSender: 9 }; // npc-threads ruling: no receiver cap
 const provider = new DeterministicDialogueProvider();
@@ -43,6 +45,8 @@ async function run(seed: number, kind: Kind, scenario: string) {
   const life = new Map<string, Life>();
   const per100 = new Array(Math.ceil(ticks / 100)).fill(0);
   const buyLimits: Record<string, number> = {};
+  let withdrawFailEvents = 0, provisionSales = 0; const failEventReasons: Record<string, number> = {}; const trades: Array<{ tick: number; qty: number; gross: number }> = [];
+  const losses: Array<{ id: string; units: number; bought: number; avgBuy: number | null; portId: string; docked: boolean; price: number; loss: number }> = [];
   const peer = { humanOffers: 0, displaced: 0, reranked: 0, scored: 0, contested: 0, humanWins: 0, margins: [] as number[], humanCandidateNoNpc: 0 }; const split: Record<string, number> = {};
   const script = { acceptOk: 0, acceptFail: 0, decline: 0, declineFail: 0, buyOk: 0, buyFail: 0, travelOk: 0, travelFail: 0, lazyAccept: 0 };
   const failReasons: Record<string, number> = {}; const declineWhy: Record<string, number> = {};
@@ -60,6 +64,9 @@ async function run(seed: number, kind: Kind, scenario: string) {
   const scan = (events: SimEvent[]) => {
     for (const e of events) {
       if (e.type in counts) counts[e.type]++;
+      if (e.type === "player-command-failed" && String(e.data.reason ?? "").startsWith("the buyer can no longer fund")) withdrawFailEvents++;
+      if (e.type === "player-command-failed") { const r = String(e.data.reason ?? ""); failEventReasons[r] = (failEventReasons[r] ?? 0) + 1; }
+      if (e.type === "market-trade" && e.actorId === cmd && e.data.resource === "provisions") { if (e.data.direction === "bought") trades.push({ tick: e.tick, qty: Number(e.data.quantity), gross: Number(e.data.gross) }); else if (e.data.direction === "sold") provisionSales++; }
       const c = e.data.contract as SupplyContract | undefined;
       if (c && e.type === "contract-offered" && "displacedCarrierId" in e.data) { if (human(c.carrierId)) { peer.humanOffers++; if (e.data.displacedCarrierId) peer.displaced++; } else if (e.data.reranked) peer.reranked++; if (typeof e.data.humanScore === "number") { peer.scored++; if (typeof e.data.walkScore === "number") { peer.contested++; peer.margins.push(Math.round((e.data.humanScore - e.data.walkScore) * 1000) / 1000); if (e.data.humanScore > e.data.walkScore) peer.humanWins++; } else peer.humanCandidateNoNpc++; } }
       if (c && (e.type === "contract-fulfilled" || e.type === "contract-breached")) { const k = (human(c.carrierId) ? "human" : "npc") + (e.type === "contract-fulfilled" ? "Fulfilled" : "Breached"); split[k] = (split[k] ?? 0) + 1; }
@@ -71,7 +78,7 @@ async function run(seed: number, kind: Kind, scenario: string) {
         if (L.human) { per100[Math.min(per100.length - 1, Math.floor(e.tick / 100))]++; firstHumanOffer ??= e.tick; }
       } else if (L) {
         if (e.type === "contract-accepted") L.acceptedTick = e.tick;
-        else if (e.type !== "contract-amended" && e.type !== "contract-order-issued") { L.outcome = c.status; L.outcomeTick = e.tick; if (e.type === "contract-breached") L.cause = `${e.data.cause}/${e.data.detail ?? ""}`; }
+        else if (e.type !== "contract-amended" && e.type !== "contract-order-issued") { L.outcome = c.closeReason === "buyer-cannot-fund" ? "withdrawn" : c.status; L.outcomeTick = e.tick; if (e.type === "contract-breached") L.cause = `${e.data.cause}/${e.data.detail ?? ""}`; }
       }
     }
   };
@@ -86,7 +93,7 @@ async function run(seed: number, kind: Kind, scenario: string) {
   const policy = () => {
     const ch = w.characters[cmd];
     if (!ch || ch.captivity || ch.travel || !ch.locationId) return;
-    if (scenario === "afirst") {
+    if (scenario === "afirst" || scenario === "late") {
       // Accepted and not yet loaded: one purchase per tick (one direct action may be queued), then sail.
       for (const c of Object.values(w.contracts ?? {}).filter((k) => k.carrierId === cmd && k.status === "accepted" && !k.settled)) {
         if (w.pendingCommands.some((p) => p.type === "character-action" && p.playerId === playerId)) break;
@@ -130,7 +137,8 @@ async function run(seed: number, kind: Kind, scenario: string) {
         if (res.ok) { keep([res.event]); script.decline++; declineWhy[why] = (declineWhy[why] ?? 0) + 1; } else { script.declineFail++; reason(res); }
         continue;
       }
-      if (scenario === "afirst") {
+      if (scenario === "late" && c.offerExpiresTick !== undefined && w.tick < c.offerExpiresTick - LATE_BEFORE) continue; // the player checks in at the end of the window
+      if (scenario === "afirst" || scenario === "late") {
         const allowance = humanBuyAllowance(w, ch, c);
         const res = submitCommand(w, { playerId, type: "accept-contract", contractId: c.id }, OPTS);
         if (!res.ok) { script.acceptFail++; reason(res); continue; }
@@ -160,6 +168,20 @@ async function run(seed: number, kind: Kind, scenario: string) {
     const result = runTick(w, { ...opts });
     keep(result.events);
     scan(result.events);
+    // Realized loss on a refill cancel (ruling 3 of rev 3): units still in the hold (at most what was bought for this contract) valued at the port price
+    // the commander is at, or heading to, against the average price paid for the purchases made from the offer tick to the cancel tick.
+    for (const e of result.events) {
+      const k = e.data.contract as SupplyContract | undefined;
+      if (e.type !== "contract-cancelled" || !k || k.carrierId !== cmd || e.data.reason !== "no-longer-needed" || kind === "base") continue;
+      const ch = w.characters[cmd];
+      const window = trades.filter((t) => t.tick >= k.issuedTick && t.tick <= e.tick);
+      const bought = window.reduce((n, t) => n + t.qty, 0), cost = window.reduce((n, t) => n + t.gross, 0);
+      const portId = ch.travel ? ch.travel.toId : ch.locationId!;
+      const price = marketPrice(w, portId, "provisions");
+      const units = Math.min(ch.cargo.provisions, bought);
+      const avgBuy = bought > 0 ? cost / bought : null;
+      losses.push({ id: k.id, units: Math.round(units * 1000) / 1000, bought: Math.round(bought * 1000) / 1000, avgBuy: avgBuy === null ? null : Math.round(avgBuy * 1000) / 1000, portId, docked: !ch.travel, price: Math.round(price * 1000) / 1000, loss: avgBuy === null ? 0 : Math.round(units * (avgBuy - price) * 100) / 100 });
+    }
     const t = i + 1;
     // Checked right after the tick, before the post-tick hook and replies: those events are stamped with the next tick (world.tick has advanced),
     // so a replay that stops after them has already run that tick's silent start while the live world has not. A harness artifact, see the doc.
@@ -188,7 +210,7 @@ async function run(seed: number, kind: Kind, scenario: string) {
   const treasury: Record<string, number> = {}; let treasuryTotal = 0;
   for (const f of Object.values(w.factions)) { treasury[f.id] = Math.round(f.treasury * 100) / 100; treasuryTotal += f.treasury; }
   const econ = { counts, split, portChanges, shortageTicks, treasuryTotal: Math.round(treasuryTotal * 100) / 100, treasury, cmdMoney: Math.round(w.characters[cmd].money * 100) / 100, moneyTotal: Math.round(Object.values(w.characters).reduce((n, c) => n + c.money, 0) * 100) / 100 };
-  return { buyLimits, peer, w, cmd, playerId, log, life, per100, script, failReasons, declineWhy, opened, drops, tabs, requestAtOffer, econ, replay, pins, firstHumanOffer };
+  return { withdrawFailEvents, failEventReasons, provisionSales, losses, buyLimits, peer, w, cmd, playerId, log, life, per100, script, failReasons, declineWhy, opened, drops, tabs, requestAtOffer, econ, replay, pins, firstHumanOffer };
 }
 
 const lt = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -315,6 +337,32 @@ for (const seed of seeds) {
         r2("cooldown-" + l.outcome, again.length === 0);
       }
     }
+    // Rev 3. Escrow is locked at acceptance: an offer to the human holds nothing; the accept event carries the escrow.
+    const nlnDrops: Record<string, number> = {}; const nlnDropRows: Array<Record<string, unknown>> = [];
+    for (const e of on.log) {
+      const k = e.data.contract as SupplyContract | undefined;
+      if (!k || k.carrierId !== cmd) continue;
+      if (e.type === "contract-offered") r2("escrow-at-offer-zero", k.escrow === 0 && k.escrowFromTreasury === 0 && k.escrowFromPurse === 0 && e.data.treasuryDrawn === undefined && e.data.purseDrawn === undefined);
+      if (e.type === "contract-accepted") r2("escrow-at-accept-is-price", k.escrow === k.price && k.escrowFromTreasury + k.escrowFromPurse === k.price);
+    }
+    for (const [id, l] of [...on.life.entries()].filter(([, x]) => x.human)) {
+      const k = w.contracts![id];
+      if (l.outcome === "withdrawn") {
+        const msg = w.conversationMessages.find((m) => (m as { origin?: { trigger: string; contractId?: string } }).origin?.trigger === "contract-cancelled" && (m as { origin?: { contractId?: string } }).origin?.contractId === id);
+        r2("withdrawn-status-cancelled-nothing-held", k.status === "cancelled" && k.closeReason === "buyer-cannot-fund" && k.escrow === 0 && k.settled);
+        if (msg) { r2("withdrawn-thread-text", msg.body === TEXT_OFFER_WITHDRAWN && msg.senderId === k.buyerId); r2("withdrawn-leaves-request", !reqNow.has(msg.threadId)); } else r2("withdrawn-thread-dropped", true);
+        const tk = hook.log.find((x) => x.type === "contract-cancelled" && (x.data.contract as SupplyContract | undefined)?.id === id)?.tick ?? -1;
+        r2("withdrawn-no-relationship-write", hook.log.filter((x) => x.type === "relationship-changed" && x.tick === tk && String(x.data.trigger ?? "").startsWith("contract") && [k.buyerId, k.carrierId].includes(x.actorId ?? "")).length === 0);
+      }
+      if (k.status === "cancelled" && k.closeReason === "no-longer-needed") {
+        const msg = w.conversationMessages.find((m) => (m as { origin?: { trigger: string; contractId?: string } }).origin?.trigger === "contract-cancelled" && (m as { origin?: { contractId?: string } }).origin?.contractId === id);
+        if (!msg) {
+          const ds = hook.drops.filter((d) => d.contractId === id && d.trigger === "contract-cancelled");
+          if (!ds.length) { nlnDrops["no-drop-recorded"] = (nlnDrops["no-drop-recorded"] ?? 0) + 1; nlnDropRows.push({ seed, id, why: "no drop record" }); }
+          for (const d of ds) { nlnDrops[d.reason] = (nlnDrops[d.reason] ?? 0) + 1; nlnDropRows.push({ seed, id, reason: d.reason, tick: d.tick, senderId: d.senderId, receiverId: d.receiverId, template: d.template, blocker: d.blocker ?? null }); }
+        }
+      }
+    }
     const buysHist: Record<string, number> = {}; const allowHist: Record<string, number> = {}; const byBuys: Record<string, Record<string, number>> = {};
     for (const [, l] of mine) if (l.buys !== undefined) { buysHist[l.buys] = (buysHist[l.buys] ?? 0) + 1; allowHist[l.allowance ?? 0] = (allowHist[l.allowance ?? 0] ?? 0) + 1; const o = l.outcome ?? "open"; (byBuys[l.buys] ??= {})[o] = (byBuys[l.buys][o] ?? 0) + 1; }
     // Hash neutrality of the flag-on tree with the flag off: pins must equal the base run.
@@ -331,6 +379,7 @@ for (const seed of seeds) {
       onEqualsHook: onVsHook,
       replay: { base: base.replay, on: on.replay, hook: hook.replay },
       threads: { openers: cOpen.length, tabs: hook.tabs, requestAtOffer: hook.requestAtOffer, drops: hook.drops.filter((d) => d.topic === "contract").length, dropReasons: hook.drops.filter((d) => d.topic === "contract").reduce((m: Record<string, number>, d) => { m[d.reason] = (m[d.reason] ?? 0) + 1; return m; }, {}), numbersChecked },
+      accept: { accepted: mine.filter(([, l]) => l.acceptedTick !== undefined).length, withdrawn: on.withdrawFailEvents, failEventReasons: on.failEventReasons }, loss: { items: on.losses, provisionSales: on.provisionSales }, nlnDrops, nlnDropRows,
       peer: on.peer, buyLimits: on.buyLimits, afirst: { buysHist, allowHist, byBuys }, rev2, checks, violations: viol,
     }));
   }
